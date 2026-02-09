@@ -144,16 +144,21 @@ PU.editor = {
 
         const textItems = prompt.text || [];
 
+        // Show fallback notice if Quill failed to load
+        const fallbackNotice = (PU.quill && PU.quill._fallback)
+            ? '<div class="pu-fallback-notice" data-testid="pu-fallback-notice">Rich editing unavailable &mdash; using basic editor</div>'
+            : '';
+
         // Handle legacy string format
         if (typeof textItems === 'string') {
-            container.innerHTML = PU.blocks.renderBlock({ content: textItems }, '0');
+            container.innerHTML = fallbackNotice + PU.blocks.renderBlock({ content: textItems }, '0');
             if (PU.quill) PU.quill.initAll();
             return;
         }
 
         // Handle legacy string array format
         if (Array.isArray(textItems) && textItems.length > 0 && typeof textItems[0] === 'string') {
-            container.innerHTML = textItems.map((text, idx) =>
+            container.innerHTML = fallbackNotice + textItems.map((text, idx) =>
                 PU.blocks.renderBlock({ content: text }, String(idx))
             ).join('');
             if (PU.quill) PU.quill.initAll();
@@ -162,7 +167,7 @@ PU.editor = {
 
         // Handle new nested format
         if (Array.isArray(textItems)) {
-            container.innerHTML = textItems.map((item, idx) =>
+            container.innerHTML = fallbackNotice + textItems.map((item, idx) =>
                 PU.blocks.renderBlock(item, String(idx))
             ).join('');
 
@@ -228,10 +233,20 @@ PU.editor = {
         const pathId = path.replace(/\./g, '-');
 
         if (PU.quill && !PU.quill._fallback) {
-            // Quill mode: update wildcard summary
-            const summaryEl = document.querySelector(`[data-testid="pu-content-wc-summary-${pathId}"]`);
-            if (summaryEl) {
+            // Quill mode: update wildcard summary (conditionally render)
+            let summaryEl = document.querySelector(`[data-testid="pu-content-wc-summary-${pathId}"]`);
+            if (wildcards.length > 0) {
+                if (!summaryEl) {
+                    // Create summary div next to the Quill editor
+                    summaryEl = document.createElement('div');
+                    summaryEl.className = 'pu-wc-summary';
+                    summaryEl.dataset.testid = `pu-content-wc-summary-${pathId}`;
+                    const quillEl = document.querySelector(`[data-testid="pu-block-input-${pathId}"]`);
+                    if (quillEl) quillEl.insertAdjacentElement('afterend', summaryEl);
+                }
                 summaryEl.innerHTML = PU.blocks.renderWildcardSummary(wildcards);
+            } else if (summaryEl) {
+                summaryEl.remove();
             }
         } else {
             // Fallback textarea mode: toggle accent class and refresh chips
@@ -278,6 +293,64 @@ PU.editor = {
     },
 
     /**
+     * Save focused Quill editor state before re-render
+     */
+    _saveFocusedQuillState() {
+        if (!PU.quill || PU.quill._fallback) return null;
+
+        for (const [path, instance] of Object.entries(PU.quill.instances)) {
+            if (instance.hasFocus()) {
+                return {
+                    path: path,
+                    selection: instance.getSelection()
+                };
+            }
+        }
+        return null;
+    },
+
+    /**
+     * Restore Quill editor focus/selection after re-render
+     */
+    _restoreQuillState(saved) {
+        if (!saved || !PU.quill || PU.quill._fallback) return;
+
+        const instance = PU.quill.instances[saved.path];
+        if (instance) {
+            instance.focus();
+            if (saved.selection) {
+                instance.setSelection(saved.selection.index, saved.selection.length, Quill.sources.SILENT);
+            }
+        }
+    },
+
+    /**
+     * Compute adjusted path after a sibling deletion.
+     * If the deleted path is a sibling before this path at the same level,
+     * decrement this path's last segment.
+     */
+    _adjustPathAfterDelete(focusedPath, deletedPath) {
+        const fp = focusedPath.split('.').map(Number);
+        const dp = deletedPath.split('.').map(Number);
+
+        // Only adjust if at the same nesting depth and same parent
+        if (fp.length !== dp.length) return focusedPath;
+
+        // Check same parent (all segments except last must match)
+        for (let i = 0; i < fp.length - 1; i++) {
+            if (fp[i] !== dp[i]) return focusedPath;
+        }
+
+        // Same parent — if deleted index is before focused, decrement
+        if (dp[fp.length - 1] < fp[fp.length - 1]) {
+            fp[fp.length - 1]--;
+            return fp.join('.');
+        }
+
+        return focusedPath;
+    },
+
+    /**
      * Add block at root level
      */
     addBlock(type) {
@@ -299,11 +372,19 @@ PU.editor = {
             prompt.text = [];
         }
 
+        // Save focused editor state before re-render
+        const savedState = PU.editor._saveFocusedQuillState();
+
         // Add new block
         const newPath = PU.blocks.addNestedBlockAtPath(prompt.text, null, type);
 
         // Re-render
         PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
+
+        // Restore previous editor focus if it wasn't the new block
+        if (savedState && savedState.path !== newPath) {
+            PU.editor._restoreQuillState(savedState);
+        }
 
         // Animate new block entry
         if (newPath) {
@@ -334,11 +415,19 @@ PU.editor = {
             prompt.text = [];
         }
 
+        // Save focused editor state before re-render
+        const savedState = PU.editor._saveFocusedQuillState();
+
         // Add nested block
         const newPath = PU.blocks.addNestedBlockAtPath(prompt.text, parentPath, 'content');
 
         // Re-render
         PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
+
+        // Restore previous editor focus if it wasn't the new block
+        if (savedState && savedState.path !== newPath) {
+            PU.editor._restoreQuillState(savedState);
+        }
 
         // Animate new block entry and select
         if (newPath) {
@@ -354,8 +443,11 @@ PU.editor = {
         }
     },
 
+    // Track pending delete confirmations
+    _pendingDelete: null,
+
     /**
-     * Delete block
+     * Delete block (inline confirmation)
      */
     deleteBlock(path) {
         const prompt = PU.editor.getModifiedPrompt();
@@ -363,24 +455,55 @@ PU.editor = {
 
         if (!Array.isArray(prompt.text)) return;
 
-        // Confirm deletion
-        if (!confirm('Delete this block?')) return;
-
-        // Animate exit before removing
         const pathId = path.replace(/\./g, '-');
-        const blockEl = document.querySelector(`[data-testid="pu-block-${pathId}"]`);
-        if (blockEl) {
-            blockEl.classList.add('pu-block-exiting');
-            blockEl.addEventListener('animationend', () => {
+        const deleteBtn = document.querySelector(`[data-testid="pu-block-delete-btn-${pathId}"]`);
+
+        // If already in confirm state for this path, perform the deletion
+        if (PU.editor._pendingDelete === path) {
+            PU.editor._pendingDelete = null;
+
+            // Save focused editor state (if editing a different block)
+            const savedState = PU.editor._saveFocusedQuillState();
+            if (savedState && savedState.path !== path) {
+                savedState.path = PU.editor._adjustPathAfterDelete(savedState.path, path);
+            }
+
+            const performDelete = () => {
                 PU.blocks.deleteBlockAtPath(prompt.text, path);
                 PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
                 PU.state.selectedBlockPath = null;
-            }, { once: true });
-        } else {
-            // Fallback: no element found, just delete
-            PU.blocks.deleteBlockAtPath(prompt.text, path);
-            PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
-            PU.state.selectedBlockPath = null;
+
+                // Restore previous editor focus
+                if (savedState && savedState.path !== path) {
+                    PU.editor._restoreQuillState(savedState);
+                }
+            };
+
+            // Animate exit before removing
+            const blockEl = document.querySelector(`[data-testid="pu-block-${pathId}"]`);
+            if (blockEl) {
+                blockEl.classList.add('pu-block-exiting');
+                blockEl.addEventListener('animationend', performDelete, { once: true });
+            } else {
+                performDelete();
+            }
+            return;
+        }
+
+        // First click: enter confirm state
+        PU.editor._pendingDelete = path;
+        if (deleteBtn) {
+            deleteBtn.classList.add('pu-delete-confirm');
+            deleteBtn.textContent = 'Confirm?';
+
+            // Auto-revert after 3 seconds
+            setTimeout(() => {
+                if (PU.editor._pendingDelete === path) {
+                    PU.editor._pendingDelete = null;
+                    deleteBtn.classList.remove('pu-delete-confirm');
+                    deleteBtn.innerHTML = '&#128465;';
+                }
+            }, 3000);
         }
     },
 

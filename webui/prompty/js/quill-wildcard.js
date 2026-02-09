@@ -38,6 +38,7 @@ if (typeof Quill !== 'undefined') {
             // Mark undefined wildcards
             if (value.undefined) {
                 node.classList.add('ql-wc-undefined');
+                node.setAttribute('title', 'Wildcard not defined');
             }
 
             return node;
@@ -73,7 +74,7 @@ if (typeof Quill !== 'undefined') {
                 modules: {
                     toolbar: false
                 },
-                placeholder: 'Enter content... Use __name__ for template wildcards (replaced at build time)'
+                placeholder: 'Enter content... Use __name__ for wildcards'
             });
 
             // Parse initial content into Delta with wildcard embeds

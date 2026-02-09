@@ -80,7 +80,7 @@ PU.blocks = {
                     <div class="pu-wc-summary" data-testid="pu-content-wc-summary-${pathId}">
                         ${PU.blocks.renderWildcardSummary(wildcards)}
                     </div>
-                ` : `<div class="pu-wc-summary" data-testid="pu-content-wc-summary-${pathId}"></div>`}
+                ` : ''}
             `;
         }
 
@@ -90,7 +90,7 @@ PU.blocks = {
             <textarea class="pu-content-input${hasWildcards ? ' pu-content-has-wildcards' : ''}"
                       data-testid="pu-block-input-${pathId}"
                       data-path="${path}"
-                      placeholder="Enter content... Use __name__ for template wildcards (replaced at build time)"
+                      placeholder="Enter content... Use __name__ for wildcards"
                       onfocus="PU.actions.selectBlock('${path}'); PU.actions.showPreviewForBlock('${path}')"
                       oninput="PU.actions.updateBlockContent('${path}', this.value)"
                       onblur="PU.actions.onBlockBlur('${path}')">${PU.blocks.escapeHtml(content)}</textarea>

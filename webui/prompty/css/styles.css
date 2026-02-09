@@ -612,6 +612,14 @@ body {
     border-color: rgba(248, 81, 73, 0.2);
 }
 
+.pu-block-action.pu-delete-confirm {
+    color: #fff;
+    background: var(--pu-error, #f85149);
+    border-color: var(--pu-error, #f85149);
+    font-size: 11px;
+    padding: 4px 10px;
+}
+
 .pu-block-content {
     padding: 14px 16px;
 }
@@ -725,7 +733,7 @@ body {
 
 /* Focus Mode: dim unfocused blocks when editing */
 .pu-blocks-container:has(.pu-block:focus-within) .pu-block:not(:focus-within) {
-    opacity: 0.5;
+    opacity: 0.72;
     transition: opacity 200ms ease;
 }
 .pu-blocks-container:has(.pu-block:focus-within) .pu-block:focus-within {
@@ -1815,6 +1823,19 @@ body {
 }
 
 /* ============================================
+   Fallback Mode Notice
+   ============================================ */
+.pu-fallback-notice {
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    font-size: 12px;
+    color: var(--pu-warning, #d29922);
+    background: rgba(210, 153, 34, 0.1);
+    border: 1px solid rgba(210, 153, 34, 0.25);
+    border-radius: 6px;
+}
+
+/* ============================================
    Quill Editor - Dark Theme Overrides
    ============================================ */
 
@@ -1880,8 +1901,8 @@ body {
 }
 
 .ql-wildcard-chip:hover {
-    box-shadow: 0 0 8px rgba(88, 166, 255, 0.3);
-    background: rgba(88, 166, 255, 0.25);
+    background: rgba(88, 166, 255, 0.3);
+    border-color: rgba(88, 166, 255, 0.5);
 }
 
 .ql-wc-name {
@@ -1897,10 +1918,11 @@ body {
     margin-left: 2px;
 }
 
-/* Undefined wildcard variant (red) */
+/* Undefined wildcard variant (red + dashed border for accessibility) */
 .ql-wildcard-chip.ql-wc-undefined {
     background: rgba(248, 81, 73, 0.1);
     border-color: rgba(248, 81, 73, 0.3);
+    border-style: dashed;
 }
 
 .ql-wildcard-chip.ql-wc-undefined .ql-wc-name {
