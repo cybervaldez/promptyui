@@ -509,9 +509,9 @@ document.addEventListener('click', (e) => {
     }
 
     // Close preview when clicking outside
-    if (PU.state.preview.visible && !e.target.closest('.pu-preview-popup') && !e.target.closest('.pu-content-input')) {
+    if (PU.state.preview.visible && !e.target.closest('.pu-preview-popup') && !e.target.closest('.pu-content-quill') && !e.target.closest('.pu-content-input')) {
         // Don't close if clicking another input (preview will switch)
-        if (!e.target.classList.contains('pu-content-input')) {
+        if (!e.target.classList.contains('pu-content-input') && !e.target.closest('.pu-content-quill')) {
             PU.preview.hide();
         }
     }

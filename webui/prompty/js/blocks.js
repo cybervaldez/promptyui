@@ -70,10 +70,22 @@ PU.blocks = {
     renderContentBlock(item, path, pathId) {
         const content = item.content || '';
         const wildcards = PU.blocks.detectWildcards(content);
-        const wildcardLookup = PU.helpers.getWildcardLookup();
-
         const hasWildcards = wildcards.length > 0;
 
+        // Use Quill editor if available, otherwise fallback to textarea
+        if (PU.quill && !PU.quill._fallback) {
+            return `
+                <div class="pu-content-quill" data-testid="pu-block-input-${pathId}" data-path="${path}" data-initial="${PU.blocks.escapeAttr(content)}"></div>
+                ${hasWildcards ? `
+                    <div class="pu-wc-summary" data-testid="pu-content-wc-summary-${pathId}">
+                        ${PU.blocks.renderWildcardSummary(wildcards)}
+                    </div>
+                ` : `<div class="pu-wc-summary" data-testid="pu-content-wc-summary-${pathId}"></div>`}
+            `;
+        }
+
+        // Fallback: plain textarea
+        const wildcardLookup = PU.helpers.getWildcardLookup();
         return `
             <textarea class="pu-content-input${hasWildcards ? ' pu-content-has-wildcards' : ''}"
                       data-testid="pu-block-input-${pathId}"
@@ -150,12 +162,27 @@ PU.blocks = {
     },
 
     /**
+     * Render wildcard summary (simplified one-line form for Quill mode)
+     */
+    renderWildcardSummary(wildcards) {
+        if (!wildcards || wildcards.length === 0) return '';
+        return `<span class="pu-wc-summary-text">${wildcards.length} wildcard${wildcards.length !== 1 ? 's' : ''}: ${wildcards.join(', ')}</span>`;
+    },
+
+    /**
      * Escape HTML
      */
     escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    },
+
+    /**
+     * Escape text for use in HTML attributes
+     */
+    escapeAttr(text) {
+        return (text || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     },
 
     /**

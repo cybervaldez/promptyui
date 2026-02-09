@@ -133,6 +133,9 @@ PU.editor = {
         const container = document.querySelector('[data-testid="pu-blocks-container"]');
         if (!container) return;
 
+        // Destroy all Quill instances BEFORE innerHTML replacement
+        if (PU.quill) PU.quill.destroyAll();
+
         const prompt = PU.helpers.getActivePrompt();
         if (!prompt) {
             container.innerHTML = '<div class="pu-loading">No prompt data</div>';
@@ -144,6 +147,7 @@ PU.editor = {
         // Handle legacy string format
         if (typeof textItems === 'string') {
             container.innerHTML = PU.blocks.renderBlock({ content: textItems }, '0');
+            if (PU.quill) PU.quill.initAll();
             return;
         }
 
@@ -152,6 +156,7 @@ PU.editor = {
             container.innerHTML = textItems.map((text, idx) =>
                 PU.blocks.renderBlock({ content: text }, String(idx))
             ).join('');
+            if (PU.quill) PU.quill.initAll();
             return;
         }
 
@@ -164,6 +169,9 @@ PU.editor = {
             if (textItems.length === 0) {
                 container.innerHTML = '<div class="pu-inspector-empty">No content blocks. Click "+ Add Root Block" to start.</div>';
             }
+
+            // Initialize all Quill editors AFTER rendering
+            if (PU.quill) PU.quill.initAll();
             return;
         }
 
@@ -196,6 +204,9 @@ PU.editor = {
      * Update block content
      */
     updateBlockContent(path, content) {
+        // Re-entrancy guard: if this update came from Quill's text-change, don't loop back
+        if (PU.quill && PU.quill._updatingFromQuill === path) return;
+
         const prompt = PU.editor.getModifiedPrompt();
         if (!prompt) return;
 
@@ -213,29 +224,38 @@ PU.editor = {
         const wildcards = PU.blocks.detectWildcards(content);
         PU.inspector.updateWildcardsContext(wildcards, prompt.wildcards || []);
 
-        // Live update: toggle textarea accent class and refresh wildcard chips
+        // Live update: refresh wildcard summary or chips depending on mode
         const pathId = path.replace(/\./g, '-');
-        const textarea = document.querySelector(`[data-testid="pu-block-input-${pathId}"]`);
-        if (textarea) {
-            textarea.classList.toggle('pu-content-has-wildcards', wildcards.length > 0);
-        }
 
-        const wcContainer = document.querySelector(`[data-testid="pu-content-wildcards-${pathId}"]`);
-        if (wildcards.length > 0) {
-            const wildcardLookup = PU.helpers.getWildcardLookup();
-            const chipsHtml = PU.blocks.renderWildcardChips(wildcards, wildcardLookup);
-            if (wcContainer) {
-                wcContainer.innerHTML = chipsHtml;
-            } else {
-                // Create container if it doesn't exist yet
-                const newContainer = document.createElement('div');
-                newContainer.className = 'pu-content-wildcards';
-                newContainer.dataset.testid = `pu-content-wildcards-${pathId}`;
-                newContainer.innerHTML = chipsHtml;
-                if (textarea) textarea.insertAdjacentElement('afterend', newContainer);
+        if (PU.quill && !PU.quill._fallback) {
+            // Quill mode: update wildcard summary
+            const summaryEl = document.querySelector(`[data-testid="pu-content-wc-summary-${pathId}"]`);
+            if (summaryEl) {
+                summaryEl.innerHTML = PU.blocks.renderWildcardSummary(wildcards);
             }
-        } else if (wcContainer) {
-            wcContainer.remove();
+        } else {
+            // Fallback textarea mode: toggle accent class and refresh chips
+            const textarea = document.querySelector(`[data-testid="pu-block-input-${pathId}"]`);
+            if (textarea) {
+                textarea.classList.toggle('pu-content-has-wildcards', wildcards.length > 0);
+            }
+
+            const wcContainer = document.querySelector(`[data-testid="pu-content-wildcards-${pathId}"]`);
+            if (wildcards.length > 0) {
+                const wildcardLookup = PU.helpers.getWildcardLookup();
+                const chipsHtml = PU.blocks.renderWildcardChips(wildcards, wildcardLookup);
+                if (wcContainer) {
+                    wcContainer.innerHTML = chipsHtml;
+                } else {
+                    const newContainer = document.createElement('div');
+                    newContainer.className = 'pu-content-wildcards';
+                    newContainer.dataset.testid = `pu-content-wildcards-${pathId}`;
+                    newContainer.innerHTML = chipsHtml;
+                    if (textarea) textarea.insertAdjacentElement('afterend', newContainer);
+                }
+            } else if (wcContainer) {
+                wcContainer.remove();
+            }
         }
 
         // Debounce preview update
@@ -285,8 +305,16 @@ PU.editor = {
         // Re-render
         PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
 
-        // Select new block
+        // Animate new block entry
         if (newPath) {
+            const pathId = newPath.replace(/\./g, '-');
+            const newBlockEl = document.querySelector(`[data-testid="pu-block-${pathId}"]`);
+            if (newBlockEl) {
+                newBlockEl.classList.add('pu-block-entering');
+                newBlockEl.addEventListener('animationend', () => {
+                    newBlockEl.classList.remove('pu-block-entering');
+                }, { once: true });
+            }
             PU.actions.selectBlock(newPath);
         }
 
@@ -312,8 +340,16 @@ PU.editor = {
         // Re-render
         PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
 
-        // Select new block
+        // Animate new block entry and select
         if (newPath) {
+            const pathId = newPath.replace(/\./g, '-');
+            const newBlockEl = document.querySelector(`[data-testid="pu-block-${pathId}"]`);
+            if (newBlockEl) {
+                newBlockEl.classList.add('pu-block-entering');
+                newBlockEl.addEventListener('animationend', () => {
+                    newBlockEl.classList.remove('pu-block-entering');
+                }, { once: true });
+            }
             PU.actions.selectBlock(newPath);
         }
     },
@@ -330,14 +366,22 @@ PU.editor = {
         // Confirm deletion
         if (!confirm('Delete this block?')) return;
 
-        // Delete block
-        PU.blocks.deleteBlockAtPath(prompt.text, path);
-
-        // Re-render
-        PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
-
-        // Clear selection
-        PU.state.selectedBlockPath = null;
+        // Animate exit before removing
+        const pathId = path.replace(/\./g, '-');
+        const blockEl = document.querySelector(`[data-testid="pu-block-${pathId}"]`);
+        if (blockEl) {
+            blockEl.classList.add('pu-block-exiting');
+            blockEl.addEventListener('animationend', () => {
+                PU.blocks.deleteBlockAtPath(prompt.text, path);
+                PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
+                PU.state.selectedBlockPath = null;
+            }, { once: true });
+        } else {
+            // Fallback: no element found, just delete
+            PU.blocks.deleteBlockAtPath(prompt.text, path);
+            PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
+            PU.state.selectedBlockPath = null;
+        }
     },
 
     /**
