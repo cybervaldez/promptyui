@@ -1,0 +1,104 @@
+# Product Content - Prompts for marketing copy
+# Demonstrates wildcards for: format, feature type, audience, tone
+
+defaults:
+  composition: 42
+
+prompts:
+  # FEATURE ANNOUNCEMENT
+  - id: "feature-announcement"
+    text:
+      - content: "Write a __format__ feature announcement for a __feature_type__ targeting __audience__ with a __tone__ tone"
+    wildcards:
+      - name: "format"
+        text: ["blog post", "email", "social thread", "changelog entry"]
+      - name: "feature_type"
+        text:
+          - "new integration"
+          - "performance improvement"
+          - "UI redesign"
+          - "API update"
+          - "security enhancement"
+      - name: "audience"
+        text: ["developers", "product managers", "executives", "end users"]
+      - name: "tone"
+        text: ["technical", "benefit-focused", "exciting", "informative"]
+
+  # LANDING PAGE COPY
+  - id: "landing-copy"
+    text:
+      - content: "Write the __section__ section of a landing page for __audience__ emphasizing __value_prop__"
+    wildcards:
+      - name: "section"
+        text:
+          - "hero headline and subhead"
+          - "feature highlights"
+          - "social proof"
+          - "FAQ"
+          - "CTA"
+      - name: "audience"
+        text: ["startups", "enterprise", "developers", "non-technical users"]
+      - name: "value_prop"
+        text:
+          - "speed and efficiency"
+          - "cost savings"
+          - "ease of use"
+          - "reliability"
+          - "customization"
+
+  # PRODUCT HUNT LAUNCH
+  - id: "ph-launch"
+    text:
+      - content: "Write the __component__ for a Product Hunt launch of a __product_type__"
+    wildcards:
+      - name: "component"
+        text:
+          - "tagline (under 60 chars)"
+          - "description (260 chars)"
+          - "first comment"
+          - "maker story"
+          - "feature list"
+      - name: "product_type"
+        text:
+          - "developer tool"
+          - "productivity app"
+          - "AI assistant"
+          - "design tool"
+          - "analytics platform"
+
+  # ONBOARDING EMAIL
+  - id: "onboarding-email"
+    text:
+      - content: "Write a __email_type__ onboarding email for __user_segment__ who signed up __time_ago__"
+    wildcards:
+      - name: "email_type"
+        text: ["welcome", "feature tip", "milestone celebration", "re-engagement"]
+      - name: "user_segment"
+        text:
+          - "free trial users"
+          - "paid subscribers"
+          - "team admins"
+          - "inactive users"
+      - name: "time_ago"
+        text: ["today", "3 days ago", "1 week ago", "2 weeks ago"]
+
+  # COMPETITOR COMPARISON
+  - id: "competitor-comparison"
+    text:
+      - content: "Write a __format__ comparing our product to __competitor_type__ highlighting our __differentiator__"
+    wildcards:
+      - name: "format"
+        text: ["internal battle card", "public comparison page", "sales one-pager"]
+      - name: "competitor_type"
+        text:
+          - "established market leader"
+          - "direct competitor"
+          - "budget alternative"
+          - "enterprise solution"
+      - name: "differentiator"
+        text:
+          - "superior UX"
+          - "faster performance"
+          - "better pricing"
+          - "more integrations"
+          - "stronger security"

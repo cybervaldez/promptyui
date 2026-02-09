@@ -1,0 +1,38 @@
+count:
+- '3'
+- '5'
+- '10'
+level:
+- junior
+- mid-level
+- senior
+- staff
+role:
+- engineering
+- Data Scientist
+- designer
+- product
+- fullstack
+- frontend
+- PM
+- design
+- Frontend Developer
+- Product Manager
+- backend
+- DevOps Engineer
+- Senior Software Engineer
+- engineer
+skill:
+- technical problem solving
+- system design
+- leadership
+- collaboration
+stage:
+- seed
+- Series A
+- Series B
+- growth
+tone:
+- casual
+- professional
+- enthusiastic

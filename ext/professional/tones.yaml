@@ -1,0 +1,9 @@
+id: "tones"
+text:
+  - "professional and formal"
+  - "friendly and approachable"
+  - "enthusiastic and energetic"
+  - "concise and direct"
+wildcards:
+  - name: "audience"
+    text: ["candidates", "investors", "customers", "team"]

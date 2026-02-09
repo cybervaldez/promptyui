@@ -1,0 +1,57 @@
+# Hiring Templates - Prompt variations for founders
+# Demonstrates wildcards for: roles, seniority, company size, tone
+
+defaults:
+  composition: 42
+
+prompts:
+  # JOB POSTING GENERATOR
+  - id: "job-posting"
+    text:
+      - content: "Write a job posting for a __role__ position"
+    wildcards:
+      - name: "role"
+        text:
+          - "Senior Software Engineer"
+          - "Product Manager"
+          - "DevOps Engineer"
+          - "Frontend Developer"
+          - "Data Scientist"
+
+  # INTERVIEW QUESTIONS
+  - id: "interview-questions"
+    text:
+      - content: "Generate __count__ interview questions for __role__ focusing on __skill__"
+    wildcards:
+      - name: "count"
+        text: ["3", "5", "10"]
+      - name: "role"
+        text: ["engineering", "product", "design"]
+      - name: "skill"
+        text:
+          - "technical problem solving"
+          - "system design"
+          - "leadership"
+          - "collaboration"
+
+  # CANDIDATE OUTREACH
+  - id: "outreach-email"
+    text:
+      - content: "Write a __tone__ recruiting email for __role__ at a __stage__ startup"
+    wildcards:
+      - name: "tone"
+        text: ["casual", "professional", "enthusiastic"]
+      - name: "role"
+        text: ["engineer", "designer", "PM"]
+      - name: "stage"
+        text: ["seed", "Series A", "Series B", "growth"]
+
+  # TECHNICAL ASSESSMENT
+  - id: "assessment-prompt"
+    text:
+      - content: "Create a take-home coding challenge for __level__ __role__"
+    wildcards:
+      - name: "level"
+        text: ["junior", "mid-level", "senior", "staff"]
+      - name: "role"
+        text: ["backend", "frontend", "fullstack"]

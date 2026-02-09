@@ -1,0 +1,12 @@
+id: "personas"
+text:
+  - "Technical Decision Maker (CTO, VP Eng)"
+  - "Economic Buyer (CFO, CEO)"
+  - "End User Champion"
+  - "Procurement/Legal"
+  - "Executive Sponsor"
+wildcards:
+  - name: "deal_stage"
+    text: ["prospecting", "discovery", "evaluation", "negotiation", "closed-won"]
+  - name: "company_type"
+    text: ["startup", "SMB", "mid-market", "enterprise", "Fortune 500"]

@@ -1,0 +1,75 @@
+# Investor Outreach - Prompts for fundraising communications
+# Demonstrates wildcards for: tone, investor type, stage, industry
+
+defaults:
+  composition: 42
+
+prompts:
+  # COLD EMAIL TO INVESTORS
+  - id: "investor-cold-email"
+    text:
+      - content: "Write a __tone__ cold email to a __investor_type__ investor about our __industry__ startup at __stage__ stage"
+    wildcards:
+      - name: "tone"
+        text: ["concise", "compelling", "data-driven", "storytelling"]
+      - name: "investor_type"
+        text: ["angel", "seed VC", "Series A VC", "corporate VC"]
+      - name: "industry"
+        text: ["fintech", "healthtech", "SaaS", "AI/ML", "marketplace"]
+      - name: "stage"
+        text: ["pre-seed", "seed", "Series A"]
+
+  # POST-MEETING FOLLOWUP
+  - id: "investor-followup"
+    text:
+      - content: "Write a followup email after a __meeting_type__ with a __investor_type__ addressing their __objection__ concern"
+    wildcards:
+      - name: "meeting_type"
+        text: ["intro call", "deep dive", "partner meeting", "due diligence"]
+      - name: "investor_type"
+        text: ["angel investor", "VC partner", "fund associate"]
+      - name: "objection"
+        text:
+          - "market size"
+          - "competition"
+          - "team experience"
+          - "unit economics"
+          - "go-to-market"
+
+  # INVESTOR UPDATE
+  - id: "investor-update"
+    text:
+      - content: "Write a __frequency__ investor update email focusing on __focus_area__ with a __tone__ tone"
+    wildcards:
+      - name: "frequency"
+        text: ["monthly", "quarterly"]
+      - name: "focus_area"
+        text:
+          - "revenue growth"
+          - "product milestones"
+          - "team expansion"
+          - "fundraising progress"
+          - "key metrics"
+      - name: "tone"
+        text: ["transparent", "optimistic", "balanced"]
+
+  # PITCH NARRATIVE
+  - id: "pitch-narrative"
+    text:
+      - content: "Write the __section__ section of a pitch deck for a __stage__ __industry__ startup targeting __audience__"
+    wildcards:
+      - name: "section"
+        text:
+          - "problem statement"
+          - "solution overview"
+          - "market opportunity"
+          - "business model"
+          - "traction slide"
+          - "team slide"
+          - "ask and use of funds"
+      - name: "stage"
+        text: ["pre-seed", "seed", "Series A"]
+      - name: "industry"
+        text: ["B2B SaaS", "consumer", "fintech", "healthtech"]
+      - name: "audience"
+        text: ["angels", "seed VCs", "growth investors"]

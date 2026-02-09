@@ -1,0 +1,1774 @@
+/* PromptyUI Styles
+ * All classes prefixed with pu- to avoid conflicts with WebUI v4
+ * Updated to match WebUI v4's visual design
+ */
+
+/* ============================================
+   CSS Variables (matching WebUI v4)
+   ============================================ */
+:root {
+    /* Background hierarchy (from v4/css/base/variables.css) */
+    --pu-bg-primary: #0d1117;
+    --pu-bg-secondary: #161b22;
+    --pu-bg-tertiary: #21262d;
+    --pu-bg-input: #0d1117;
+    --pu-bg-hover: rgba(255, 255, 255, 0.05);
+    --pu-bg-selected: rgba(255, 255, 255, 0.08);
+
+    /* Text colors */
+    --pu-text-primary: #f0f6fc;
+    --pu-text-secondary: #8b949e;
+    --pu-text-muted: #6e7681;
+    --pu-text-highlight: #ffffff;
+
+    /* Accent colors */
+    --pu-accent: #58a6ff;
+    --pu-accent-hover: #79b8ff;
+    --pu-success: #3fb950;
+    --pu-warning: #d29922;
+    --pu-error: #f85149;
+
+    /* Borders */
+    --pu-border: #30363d;
+    --pu-border-light: #484f58;
+
+    /* Layout */
+    --pu-sidebar-width: 280px;
+    --pu-inspector-width: 320px;
+    --pu-header-height: 50px;
+
+    /* Border radius */
+    --pu-radius: 6px;
+    --pu-radius-lg: 8px;
+
+    /* Shadows */
+    --pu-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    --pu-shadow-lg: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* ============================================
+   Base Styles
+   ============================================ */
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    background: var(--pu-bg-primary);
+    color: var(--pu-text-primary);
+    overflow: hidden;
+}
+
+/* ============================================
+   App Container
+   ============================================ */
+.pu-app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+}
+
+/* ============================================
+   Header
+   ============================================ */
+.pu-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: var(--pu-header-height);
+    padding: 0 16px;
+    background: var(--pu-bg-secondary);
+    border-bottom: 1px solid var(--pu-border);
+    flex-shrink: 0;
+}
+
+.pu-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pu-header-icon {
+    font-size: 20px;
+}
+
+.pu-header-title {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.pu-header-center {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pu-header-active-label {
+    color: var(--pu-text-secondary);
+}
+
+.pu-header-active-job {
+    color: var(--pu-accent);
+    font-weight: 500;
+}
+
+.pu-header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ============================================
+   Buttons (matching v4 patterns)
+   ============================================ */
+.pu-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--pu-border);
+    border-radius: 6px;
+    color: var(--pu-text-primary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.pu-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--pu-border-light);
+}
+
+.pu-btn-primary {
+    background: rgba(88, 166, 255, 0.15);
+    border-color: rgba(88, 166, 255, 0.4);
+    color: var(--pu-accent);
+}
+
+.pu-btn-primary:hover {
+    background: rgba(88, 166, 255, 0.25);
+    border-color: rgba(88, 166, 255, 0.6);
+}
+
+.pu-btn-small {
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+.pu-btn-full {
+    width: 100%;
+    justify-content: center;
+}
+
+.pu-btn-icon {
+    font-size: 14px;
+}
+
+/* ============================================
+   Main Layout (3-Panel)
+   ============================================ */
+.pu-main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* ============================================
+   Left Sidebar
+   ============================================ */
+.pu-sidebar {
+    width: var(--pu-sidebar-width);
+    background: var(--pu-bg-secondary);
+    border-right: 1px solid var(--pu-border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.pu-sidebar-section {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.pu-ext-section {
+    flex: 1;
+    border-bottom: 1px solid var(--pu-border);
+}
+
+.pu-jobs-section {
+    flex: 1;
+}
+
+.pu-sidebar-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+}
+
+.pu-sidebar-header:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.pu-sidebar-icon {
+    font-size: 16px;
+}
+
+.pu-sidebar-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: var(--pu-text-secondary);
+    flex: 1;
+}
+
+.pu-sidebar-toggle {
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    transition: transform 0.2s;
+}
+
+.pu-sidebar-toggle.collapsed {
+    transform: rotate(-90deg);
+}
+
+.pu-jobs-count {
+    font-size: 11px;
+    color: var(--pu-text-muted);
+    background: var(--pu-bg-primary);
+    padding: 2px 6px;
+    border-radius: 10px;
+}
+
+.pu-sidebar-search {
+    padding: 8px;
+}
+
+.pu-sidebar-search input {
+    width: 100%;
+    padding: 6px 10px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--pu-border);
+    border-radius: 6px;
+    color: var(--pu-text-primary);
+    font-size: 12px;
+    transition: border-color 0.15s;
+}
+
+.pu-sidebar-search input:focus {
+    outline: none;
+    border-color: var(--pu-accent);
+    box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.15);
+}
+
+.pu-sidebar-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 0;
+}
+
+.pu-sidebar-footer {
+    padding: 8px;
+    border-top: 1px solid var(--pu-border);
+}
+
+/* Tree Items (matching v4 patterns) */
+.pu-tree-item {
+    display: flex;
+    align-items: center;
+    padding: 6px 8px;
+    margin: 0 4px;
+    border-radius: 4px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+}
+
+.pu-tree-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.pu-tree-item.active {
+    background: var(--pu-bg-tertiary);
+    border-left: 3px solid var(--pu-accent);
+    margin-left: 4px;
+    padding-left: 5px;
+}
+
+.pu-tree-item.error {
+    color: var(--pu-error);
+}
+
+.pu-tree-toggle {
+    width: 16px;
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    transition: transform 0.2s;
+}
+
+.pu-tree-toggle.expanded {
+    transform: rotate(90deg);
+}
+
+.pu-tree-icon {
+    margin-right: 6px;
+    font-size: 12px;
+}
+
+.pu-tree-label {
+    flex: 1;
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pu-tree-badge {
+    font-size: 11px;
+    color: var(--pu-text-muted);
+    background: var(--pu-bg-primary);
+    padding: 1px 5px;
+    border-radius: 8px;
+    margin-left: 6px;
+}
+
+.pu-tree-children {
+    padding-left: 16px;
+}
+
+/* Nested levels */
+.pu-tree-children .pu-tree-item {
+    padding-left: 8px;
+}
+
+.pu-tree-children .pu-tree-children .pu-tree-item {
+    padding-left: 8px;
+}
+
+/* ============================================
+   Center Editor
+   ============================================ */
+.pu-editor {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--pu-bg-primary);
+}
+
+.pu-editor-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    text-align: center;
+    color: var(--pu-text-secondary);
+}
+
+.pu-editor-empty-icon {
+    font-size: 64px;
+    opacity: 0.5;
+    margin-bottom: 16px;
+}
+
+.pu-editor-empty h2 {
+    margin: 0 0 8px;
+    color: var(--pu-text-primary);
+}
+
+.pu-editor-empty p {
+    margin: 0 0 24px;
+}
+
+.pu-editor-empty-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.pu-editor-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* Defaults Toolbar */
+.pu-defaults-toolbar {
+    background: var(--pu-bg-secondary);
+    border-bottom: 1px solid var(--pu-border);
+    flex-shrink: 0;
+}
+
+.pu-defaults-header {
+    display: flex;
+    align-items: center;
+    padding: 8px 16px;
+    cursor: pointer;
+}
+
+.pu-defaults-header span:first-child {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: var(--pu-text-secondary);
+}
+
+.pu-defaults-hint {
+    font-size: 11px;
+    color: var(--pu-text-muted);
+    margin-left: 8px;
+}
+
+.pu-defaults-expand {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: var(--pu-text-muted);
+    cursor: pointer;
+    font-size: 10px;
+}
+
+.pu-defaults-form {
+    padding: 8px 16px 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.pu-defaults-form.collapsed {
+    display: none;
+}
+
+.pu-defaults-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pu-defaults-row label {
+    font-size: 12px;
+    color: var(--pu-text-secondary);
+    min-width: 100px;
+}
+
+.pu-defaults-row input,
+.pu-defaults-row select {
+    padding: 4px 8px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--pu-border);
+    border-radius: 6px;
+    color: var(--pu-text-primary);
+    font-size: 12px;
+    transition: border-color 0.15s;
+}
+
+.pu-defaults-row input:focus,
+.pu-defaults-row select:focus {
+    outline: none;
+    border-color: var(--pu-accent);
+    box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.15);
+}
+
+.pu-defaults-row input[type="number"] {
+    width: 60px;
+}
+
+/* Prompt Header */
+.pu-prompt-header {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--pu-bg-secondary);
+    border-bottom: 1px solid var(--pu-border);
+}
+
+.pu-prompt-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: var(--pu-text-secondary);
+    margin-right: 8px;
+}
+
+.pu-prompt-title {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--pu-text-primary);
+    flex: 1;
+}
+
+.pu-prompt-actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* Blocks Container */
+.pu-blocks-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+}
+
+/* Block Styles (matching v4 card patterns) */
+.pu-block {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius-lg);
+    margin-bottom: 8px;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+
+.pu-block:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.pu-block.selected {
+    border-left: 3px solid var(--pu-accent);
+    background: var(--pu-bg-secondary);
+    box-shadow: 0 0 0 1px rgba(88, 166, 255, 0.15);
+}
+
+.pu-block-header {
+    display: flex;
+    align-items: center;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: var(--pu-radius-lg) var(--pu-radius-lg) 0 0;
+    gap: 8px;
+}
+
+.pu-block-toggle {
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.pu-block-toggle.expanded {
+    transform: rotate(90deg);
+}
+
+.pu-block-path {
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 11px;
+    color: var(--pu-text-secondary);
+    background: var(--pu-bg-secondary);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.pu-block-type {
+    font-size: 11px;
+    color: var(--pu-accent);
+    font-weight: 500;
+}
+
+.pu-block-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 4px;
+}
+
+.pu-block-action {
+    padding: 4px 8px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--pu-text-muted);
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 12px;
+    transition: all 0.15s;
+}
+
+.pu-block-action:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: var(--pu-text-primary);
+}
+
+.pu-block-action.delete:hover {
+    color: var(--pu-error);
+    background: rgba(248, 81, 73, 0.1);
+    border-color: rgba(248, 81, 73, 0.2);
+}
+
+.pu-block-content {
+    padding: 10px 12px;
+}
+
+/* Content Input */
+.pu-content-input {
+    width: 100%;
+    min-height: 60px;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--pu-border);
+    border-radius: 6px;
+    color: var(--pu-text-primary);
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.5;
+    resize: vertical;
+    transition: border-color 0.15s;
+}
+
+.pu-content-input:focus {
+    outline: none;
+    border-color: var(--pu-accent);
+    box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.15);
+}
+
+.pu-content-input::placeholder {
+    color: var(--pu-text-muted);
+}
+
+/* Textarea accent when wildcards are present */
+.pu-content-input.pu-content-has-wildcards {
+    border-left: 3px solid rgba(88, 166, 255, 0.4);
+    padding-left: 12px;
+}
+
+.pu-content-input.pu-content-has-wildcards:focus {
+    border-left-color: var(--pu-accent);
+}
+
+/* ext_text Block */
+.pu-exttext-ref {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--pu-border);
+    border-radius: 6px;
+    transition: background 0.15s;
+}
+
+.pu-exttext-ref:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.pu-exttext-icon {
+    font-size: 16px;
+}
+
+.pu-exttext-name {
+    font-weight: 500;
+}
+
+.pu-exttext-count {
+    font-size: 12px;
+    color: var(--pu-text-muted);
+}
+
+.pu-exttext-preview {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--pu-text-secondary);
+    font-style: italic;
+}
+
+/* Nested Blocks (matching v4 indentation patterns) */
+.pu-block-children {
+    margin-left: 24px;
+    padding-left: 12px;
+    padding-bottom: 12px;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.pu-block-children .pu-block {
+    margin-bottom: 8px;
+}
+
+/* Nested block descriptions - smaller font */
+.pu-block-children .pu-block .pu-block-description {
+    font-size: 0.75rem;
+    color: #888;
+}
+
+/* Add Block Area */
+.pu-add-block-area {
+    padding: 16px;
+    border-top: 1px solid var(--pu-border);
+}
+
+.pu-add-root-dropdown {
+    position: relative;
+}
+
+.pu-add-menu {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    background: var(--pu-bg-secondary);
+    border: 1px solid var(--pu-border);
+    border-radius: 6px;
+    box-shadow: var(--pu-shadow);
+    margin-bottom: 4px;
+    z-index: 100;
+    overflow: hidden;
+}
+
+.pu-add-menu button {
+    display: block;
+    width: 100%;
+    padding: 10px 16px;
+    background: transparent;
+    border: none;
+    color: var(--pu-text-primary);
+    text-align: left;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.15s;
+}
+
+.pu-add-menu button:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* ============================================
+   Right Inspector
+   ============================================ */
+.pu-inspector {
+    width: var(--pu-inspector-width);
+    background: var(--pu-bg-secondary);
+    border-left: 1px solid var(--pu-border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.pu-inspector-section {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.pu-inspector-global-ext {
+    flex: 0.6;
+    border-bottom: 1px solid var(--pu-border);
+}
+
+.pu-inspector-local {
+    flex: 0.4;
+}
+
+.pu-inspector-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.pu-inspector-icon {
+    font-size: 14px;
+}
+
+.pu-inspector-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: var(--pu-text-secondary);
+}
+
+.pu-inspector-search {
+    padding: 8px;
+}
+
+.pu-inspector-search input {
+    width: 100%;
+    padding: 6px 10px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--pu-border);
+    border-radius: 6px;
+    color: var(--pu-text-primary);
+    font-size: 12px;
+    transition: border-color 0.15s;
+}
+
+.pu-inspector-search input:focus {
+    outline: none;
+    border-color: var(--pu-accent);
+    box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.15);
+}
+
+.pu-inspector-ext-tree,
+.pu-inspector-context {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+}
+
+.pu-inspector-empty {
+    text-align: center;
+    color: var(--pu-text-muted);
+    padding: 24px;
+    font-size: 12px;
+}
+
+/* Wildcard Display */
+.pu-wildcard-section {
+    margin-bottom: 16px;
+}
+
+.pu-wildcard-header {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--pu-text-secondary);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+}
+
+.pu-wildcard-item {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid transparent;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    overflow: hidden;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.pu-wildcard-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.pu-wildcard-name {
+    display: flex;
+    align-items: center;
+    padding: 8px 10px;
+    cursor: pointer;
+    gap: 6px;
+    transition: background 0.15s;
+}
+
+.pu-wildcard-name:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.pu-wildcard-label {
+    font-family: monospace;
+    color: var(--pu-accent);
+}
+
+.pu-wildcard-count {
+    font-size: 11px;
+    color: var(--pu-text-muted);
+}
+
+.pu-wildcard-values {
+    padding: 4px 10px 8px;
+    display: none;
+}
+
+.pu-wildcard-values.expanded {
+    display: block;
+}
+
+.pu-wildcard-value {
+    font-size: 12px;
+    padding: 2px 0;
+    color: var(--pu-text-secondary);
+}
+
+.pu-wildcard-value::before {
+    content: "• ";
+    color: var(--pu-text-muted);
+}
+
+.pu-wildcard-source {
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    margin-left: 4px;
+}
+
+/* ============================================
+   Preview Popup
+   ============================================ */
+.pu-preview-popup {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 600px;
+    max-height: 400px;
+    background: var(--pu-bg-secondary);
+    border: 1px solid var(--pu-border);
+    border-radius: 10px;
+    box-shadow: var(--pu-shadow-lg);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+}
+
+.pu-preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 10px 10px 0 0;
+}
+
+.pu-preview-header span {
+    font-weight: 500;
+}
+
+.pu-preview-close {
+    background: none;
+    border: none;
+    color: var(--pu-text-muted);
+    font-size: 20px;
+    cursor: pointer;
+}
+
+.pu-preview-close:hover {
+    color: var(--pu-text-primary);
+}
+
+.pu-preview-variations {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px;
+}
+
+.pu-preview-item {
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid transparent;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    transition: background 0.15s;
+}
+
+.pu-preview-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.pu-preview-item-index {
+    color: var(--pu-text-muted);
+    margin-right: 8px;
+}
+
+.pu-preview-breakdown {
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 12px;
+    color: var(--pu-text-secondary);
+}
+
+.pu-preview-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--pu-border);
+}
+
+/* ============================================
+   Modal
+   ============================================ */
+.pu-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.pu-modal {
+    width: 700px;
+    max-height: 80vh;
+    background: var(--pu-bg-secondary);
+    border: 1px solid var(--pu-border);
+    border-radius: 10px;
+    box-shadow: var(--pu-shadow-lg);
+    display: flex;
+    flex-direction: column;
+}
+
+.pu-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 10px 10px 0 0;
+}
+
+.pu-modal-header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 500;
+}
+
+.pu-modal-close {
+    background: none;
+    border: none;
+    color: var(--pu-text-muted);
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.pu-modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.pu-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 16px 20px;
+    border-top: 1px solid var(--pu-border);
+}
+
+/* Export Preview */
+.pu-export-preview {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--pu-border);
+    border-radius: 8px;
+    padding: 16px;
+    max-height: 300px;
+    overflow-y: auto;
+    margin-bottom: 16px;
+}
+
+.pu-export-preview pre {
+    margin: 0;
+    font-family: 'Fira Code', 'Consolas', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+}
+
+.pu-export-preview code {
+    color: var(--pu-text-primary);
+}
+
+.pu-export-validation {
+    margin-bottom: 16px;
+}
+
+.pu-export-validation-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    margin-bottom: 4px;
+    font-size: 12px;
+}
+
+.pu-export-validation-item.warning {
+    background: rgba(251, 191, 36, 0.1);
+    color: var(--pu-warning);
+}
+
+.pu-export-validation-item.error {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--pu-error);
+}
+
+.pu-export-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.pu-radio {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.pu-radio input {
+    accent-color: var(--pu-accent);
+}
+
+/* ============================================
+   Toast
+   ============================================ */
+.pu-toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 3000;
+}
+
+.pu-toast {
+    padding: 12px 20px;
+    background: var(--pu-bg-secondary);
+    border: 1px solid var(--pu-border);
+    border-radius: 6px;
+    box-shadow: var(--pu-shadow);
+    margin-top: 8px;
+    animation: pu-toast-in 0.3s ease;
+}
+
+.pu-toast.success {
+    border-color: var(--pu-success);
+}
+
+.pu-toast.error {
+    border-color: var(--pu-error);
+}
+
+@keyframes pu-toast-in {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* ============================================
+   Loading State
+   ============================================ */
+.pu-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    color: var(--pu-text-muted);
+    font-size: 12px;
+}
+
+.pu-loading::before {
+    content: "";
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--pu-border);
+    border-top-color: var(--pu-accent);
+    border-radius: 50%;
+    animation: pu-spin 0.8s linear infinite;
+    margin-right: 8px;
+}
+
+@keyframes pu-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ============================================
+   Scrollbar (matching v4 patterns - 6px width)
+   ============================================ */
+.pu-app ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.pu-app ::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+}
+
+.pu-app ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+}
+
+.pu-app ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* ============================================
+   Edit Mode Wildcard Chips (visual affordance)
+   ============================================ */
+.pu-content-wildcards {
+    margin-top: 8px;
+    padding: 10px 12px;
+    background: rgba(88, 166, 255, 0.05);
+    border: 1px solid rgba(88, 166, 255, 0.15);
+    border-radius: 6px;
+}
+
+/* Legend row */
+.pu-edit-wc-legend {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.pu-edit-wc-legend-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--pu-accent);
+    letter-spacing: 0.3px;
+}
+
+.pu-edit-wc-legend-hint {
+    font-size: 11px;
+    color: var(--pu-text-muted);
+}
+
+/* Chips container */
+.pu-edit-wc-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+/* Individual chip (matches Preview Mode's pu-wc-dropdown) */
+.pu-edit-wc-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    background: rgba(88, 166, 255, 0.15);
+    border: 1px solid rgba(88, 166, 255, 0.3);
+    border-radius: 4px;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.pu-edit-wc-chip-name {
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-weight: 500;
+    color: var(--pu-accent);
+}
+
+.pu-edit-wc-chip-arrow {
+    font-size: 8px;
+    color: var(--pu-text-muted);
+}
+
+.pu-edit-wc-chip-values {
+    font-size: 11px;
+    color: var(--pu-text-secondary);
+}
+
+/* Undefined wildcard variant */
+.pu-edit-wc-chip.pu-edit-wc-undefined {
+    background: rgba(248, 81, 73, 0.1);
+    border-color: rgba(248, 81, 73, 0.3);
+}
+
+.pu-edit-wc-chip.pu-edit-wc-undefined .pu-edit-wc-chip-name {
+    color: var(--pu-error);
+}
+
+.pu-edit-wc-chip.pu-edit-wc-undefined .pu-edit-wc-chip-values {
+    color: var(--pu-error);
+}
+
+/* ============================================
+   Extension Picker Popup
+   ============================================ */
+.pu-ext-picker-popup {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 500px;
+    max-height: 400px;
+    background: var(--pu-bg-secondary);
+    border: 1px solid var(--pu-border);
+    border-radius: 10px;
+    box-shadow: var(--pu-shadow-lg);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+}
+
+.pu-ext-picker-search {
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.pu-ext-picker-search input {
+    width: 100%;
+    padding: 6px 10px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--pu-border);
+    border-radius: 6px;
+    color: var(--pu-text-primary);
+    font-size: 12px;
+}
+
+.pu-ext-picker-search input:focus {
+    outline: none;
+    border-color: var(--pu-accent);
+    box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.15);
+}
+
+.pu-ext-picker-tree {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+    max-height: 280px;
+}
+
+.pu-ext-picker-tree .pu-tree-item {
+    padding: 8px 10px;
+}
+
+.pu-ext-picker-tree .pu-tree-item.pu-picker-file:hover {
+    background: rgba(255, 255, 255, 0.08);
+    cursor: pointer;
+}
+
+.pu-ext-picker-tree .pu-picker-folder {
+    color: var(--pu-text-muted);
+    cursor: default;
+}
+
+.pu-ext-picker-tree .pu-picker-file {
+    color: var(--pu-text-primary);
+}
+
+/* ============================================
+   Preview Mode (Checkpoint List View)
+   ============================================ */
+.pu-preview-mode {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    background: var(--pu-bg-primary);
+}
+
+.pu-preview-mode-toolbar {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--pu-bg-secondary);
+    border-bottom: 1px solid var(--pu-border);
+    flex-shrink: 0;
+}
+
+.pu-preview-mode-prompt {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pu-preview-mode-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.02);
+    border-bottom: 1px solid var(--pu-border);
+    flex-shrink: 0;
+}
+
+.pu-preview-mode-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pu-preview-mode-title span:first-child {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: var(--pu-text-secondary);
+}
+
+.pu-checkpoints-count {
+    font-size: 11px;
+    color: var(--pu-text-muted);
+    background: var(--pu-bg-primary);
+    padding: 2px 6px;
+    border-radius: 10px;
+}
+
+/* Odometer inputs (ext_text_max, ext_wildcards_max, composition) */
+.pu-odometer-inputs {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.pu-odometer-field {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.pu-odometer-field label {
+    font-size: 11px;
+    color: var(--pu-text-muted);
+    white-space: nowrap;
+}
+
+.pu-odometer-field input {
+    width: 50px;
+    padding: 4px 6px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--pu-border);
+    border-radius: 4px;
+    color: var(--pu-text-primary);
+    font-size: 11px;
+    text-align: center;
+}
+
+.pu-odometer-field input:focus {
+    outline: none;
+    border-color: var(--pu-accent);
+    box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.15);
+}
+
+.pu-odometer-total {
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    background: rgba(88, 166, 255, 0.1);
+    padding: 2px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+/* Composition input (legacy class for backwards compat) */
+.pu-composition-input {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pu-composition-input label {
+    font-size: 12px;
+    color: var(--pu-text-secondary);
+}
+
+.pu-composition-input input {
+    width: 80px;
+    padding: 4px 8px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--pu-border);
+    border-radius: 6px;
+    color: var(--pu-text-primary);
+    font-size: 12px;
+}
+
+.pu-composition-input input:focus {
+    outline: none;
+    border-color: var(--pu-accent);
+    box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.15);
+}
+
+/* Icon-only button (dice) */
+.pu-btn-icon-only {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--pu-border);
+    border-radius: 6px;
+    color: var(--pu-text-secondary);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.pu-btn-icon-only:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--pu-border-light);
+    color: var(--pu-text-primary);
+}
+
+/* Composition hint icon */
+.pu-composition-hint {
+    color: var(--pu-text-muted);
+    font-size: 14px;
+    cursor: help;
+    margin-left: 4px;
+}
+
+.pu-composition-hint:hover {
+    color: var(--pu-accent);
+}
+
+/* Checkpoints list */
+.pu-checkpoints-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Checkpoint row */
+.pu-checkpoint-row {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius-lg);
+    padding: 12px 16px;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.pu-checkpoint-row:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--pu-border-light);
+}
+
+.pu-checkpoint-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.pu-checkpoint-path-label {
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--pu-accent);
+    background: rgba(88, 166, 255, 0.1);
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.pu-checkpoint-stats {
+    font-size: 11px;
+    color: var(--pu-text-muted);
+}
+
+.pu-checkpoint-text {
+    font-size: 13px;
+    line-height: 1.6;
+    margin-bottom: 8px;
+    word-break: break-word;
+}
+
+/* Text highlighting (v4 pattern) */
+.pu-text-base {
+    color: var(--pu-text-muted);  /* #6e7681 - gray */
+}
+
+.pu-text-new {
+    color: var(--pu-text-primary);  /* #f0f6fc - bright */
+}
+
+.pu-checkpoint-output-path {
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 11px;
+    color: var(--pu-text-secondary);
+    background: rgba(0, 0, 0, 0.2);
+    padding: 6px 10px;
+    border-radius: 4px;
+    word-break: break-all;
+}
+
+/* Build-scope highlighting for variations within wc_max limit */
+.pu-variation-item.pu-in-build-scope {
+    background: rgba(88, 166, 255, 0.15);  /* Uses --pu-accent with low opacity */
+    border-left: 2px solid var(--pu-accent);
+    padding-left: 6px;
+    margin-left: -8px;
+}
+
+/* Wildcard value pills */
+.pu-wc-pill {
+    display: inline-block;
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--pu-text-primary);
+    background: rgba(88, 166, 255, 0.15);  /* Subtle blue tint */
+    border: 1px solid rgba(88, 166, 255, 0.3);
+    padding: 2px 6px;
+    border-radius: 10px;  /* Pill shape */
+    margin: 0 2px;
+    cursor: help;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.pu-wc-pill:hover {
+    background: rgba(88, 166, 255, 0.25);
+    border-color: rgba(88, 166, 255, 0.5);
+}
+
+/* Checkpoint index number */
+.pu-checkpoint-index {
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--pu-text-muted);
+    background: var(--pu-bg-tertiary);
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-right: 8px;
+}
+
+/* Parent checkpoint type indicator */
+.pu-checkpoint-type {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--pu-warning);
+    background: rgba(210, 153, 34, 0.15);
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Parent checkpoint styling (non-terminal nodes) */
+.pu-checkpoint-row.pu-checkpoint-parent {
+    border-left: 3px solid var(--pu-warning);
+    background: rgba(210, 153, 34, 0.05);
+}
+
+.pu-checkpoint-row.pu-checkpoint-parent:hover {
+    background: rgba(210, 153, 34, 0.08);
+}
+
+.pu-checkpoint-row.pu-checkpoint-parent .pu-checkpoint-path-label {
+    background: rgba(210, 153, 34, 0.15);
+    color: var(--pu-warning);
+}
+
+/* ============================================
+   First Line with Dropdowns
+   ============================================ */
+.pu-checkpoint-first-line {
+    font-size: 13px;
+    line-height: 1.6;
+    margin-bottom: 8px;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 4px;
+    word-break: break-word;
+}
+
+/* Wildcard dropdown trigger */
+.pu-wc-dropdown {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    background: rgba(88, 166, 255, 0.15);
+    border: 1px solid rgba(88, 166, 255, 0.3);
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 12px;
+    position: relative;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.pu-wc-dropdown:hover {
+    background: rgba(88, 166, 255, 0.25);
+    border-color: rgba(88, 166, 255, 0.5);
+}
+
+.pu-dropdown-arrow {
+    font-size: 8px;
+    color: var(--pu-text-muted);
+}
+
+.pu-wc-count {
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    margin-left: 2px;
+}
+
+/* Dropdown menu */
+.pu-wc-dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 1000;
+    background: var(--pu-bg-secondary);
+    border: 1px solid var(--pu-border);
+    border-radius: 6px;
+    box-shadow: var(--pu-shadow);
+    max-height: 200px;
+    overflow-y: auto;
+    min-width: 150px;
+    margin-top: 4px;
+}
+
+.pu-dropdown-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.15s;
+}
+
+.pu-dropdown-item:hover {
+    background: var(--pu-bg-hover);
+}
+
+.pu-dropdown-item.selected {
+    background: rgba(88, 166, 255, 0.15);
+    color: var(--pu-accent);
+}
+
+
+/* ============================================
+   Variations List
+   ============================================ */
+.pu-checkpoint-variations {
+    margin: 8px 0;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border-left: 2px solid var(--pu-border);
+    font-size: 12px;
+}
+
+.pu-variations-header {
+    color: var(--pu-text-muted);
+    font-size: 11px;
+    margin-bottom: 4px;
+    font-weight: 500;
+}
+
+.pu-variation-item {
+    color: var(--pu-text-secondary);
+    padding: 2px 0;
+    line-height: 1.5;
+}
+
+/* ============================================
+   Checkpoint Text Styling (v4 homegrid pattern)
+   ============================================ */
+/* Base text from parent: muted gray */
+.pu-checkpoint-text-base {
+    color: #6e7681;  /* Gray - muted */
+}
+
+/* New text from current checkpoint: bold white */
+.pu-checkpoint-text-new {
+    color: #f0f6fc;  /* Bold white - primary */
+    font-weight: 600;
+}

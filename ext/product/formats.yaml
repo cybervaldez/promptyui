@@ -1,0 +1,13 @@
+id: "formats"
+text:
+  - "blog post"
+  - "email announcement"
+  - "social media thread"
+  - "changelog entry"
+  - "press release"
+  - "video script"
+wildcards:
+  - name: "channel"
+    text: ["website", "email", "Twitter/X", "LinkedIn", "Product Hunt", "Hacker News"]
+  - name: "content_goal"
+    text: ["awareness", "education", "conversion", "retention", "advocacy"]

@@ -1,0 +1,94 @@
+# Sales Content - Prompts for customer acquisition
+# Demonstrates wildcards for: length, title, company size, pain points
+
+defaults:
+  composition: 42
+
+prompts:
+  # COLD OUTBOUND EMAIL
+  - id: "cold-outbound"
+    text:
+      - content: "Write a __length__ cold email to a __title__ at a __company_size__ company about their __pain_point__"
+    wildcards:
+      - name: "length"
+        text: ["short (3 sentences)", "medium (5-7 sentences)", "detailed"]
+      - name: "title"
+        text: ["CTO", "VP Engineering", "Head of Product", "CEO", "Director of Ops"]
+      - name: "company_size"
+        text: ["startup (10-50)", "mid-market (50-500)", "enterprise (500+)"]
+      - name: "pain_point"
+        text:
+          - "slow deployment cycles"
+          - "manual processes"
+          - "scaling challenges"
+          - "data silos"
+          - "team productivity"
+
+  # LINKEDIN CONNECTION REQUEST
+  - id: "linkedin-connect"
+    text:
+      - content: "Write a __style__ LinkedIn connection request to a __title__ using a __hook__ hook"
+    wildcards:
+      - name: "style"
+        text: ["casual", "professional", "mutual-connection", "value-first"]
+      - name: "title"
+        text: ["founder", "VP", "director", "head of"]
+      - name: "hook"
+        text:
+          - "shared interest"
+          - "recent content they posted"
+          - "company news"
+          - "industry trend"
+
+  # POST-DEMO FOLLOWUP
+  - id: "demo-followup"
+    text:
+      - content: "Write a followup email after a demo where the __demo_outcome__ and address their __concern__ with next step: __next_step__"
+    wildcards:
+      - name: "demo_outcome"
+        text:
+          - "prospect was highly engaged"
+          - "prospect had questions about pricing"
+          - "prospect needs to involve others"
+          - "prospect was skeptical"
+      - name: "concern"
+        text:
+          - "implementation time"
+          - "ROI justification"
+          - "security compliance"
+          - "integration complexity"
+      - name: "next_step"
+        text: ["trial", "technical review", "stakeholder meeting", "proposal"]
+
+  # CASE STUDY OUTLINE
+  - id: "case-study"
+    text:
+      - content: "Write a case study outline for a __industry__ company that achieved __outcome__ using our __product_type__"
+    wildcards:
+      - name: "industry"
+        text: ["e-commerce", "healthcare", "financial services", "technology", "manufacturing"]
+      - name: "outcome"
+        text:
+          - "50% cost reduction"
+          - "3x productivity increase"
+          - "faster time-to-market"
+          - "improved customer satisfaction"
+      - name: "product_type"
+        text: ["platform", "API", "analytics tool", "automation solution"]
+
+  # OBJECTION RESPONSE
+  - id: "objection-response"
+    text:
+      - content: "Write a __tone__ response to a __buyer_type__ who raised the __objection__ objection"
+    wildcards:
+      - name: "tone"
+        text: ["empathetic", "data-driven", "consultative"]
+      - name: "buyer_type"
+        text: ["technical buyer", "economic buyer", "end user", "champion"]
+      - name: "objection"
+        text:
+          - "we're happy with our current solution"
+          - "budget is locked for this year"
+          - "need to see more references"
+          - "timeline doesn't work"
+          - "this isn't a priority right now"

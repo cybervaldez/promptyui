@@ -1,0 +1,16 @@
+prompts:
+- job-posting
+- interview-questions
+- outreach-email
+- assessment-prompt
+ext_registry: {}
+wildcards: {}
+configs:
+- base_None_None_cfg[1.0]_s[9]
+ext_text_delimiter: ', '
+resolution:
+  width: 1024
+  height: 1024
+composition_files:
+- c00000.yaml
+composition_count: 89

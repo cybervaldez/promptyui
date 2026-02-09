@@ -1,0 +1,6 @@
+# Global configuration for Prompt Generator
+system:
+  # Extensions loaded from ext/*.yaml
+  extensions_dir: ext
+
+# Job/prompt system settings (no image generation)

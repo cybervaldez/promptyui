@@ -1,0 +1,917 @@
+items:
+- ext: []
+  wc:
+    role:
+      index: 0
+      value: Senior Software Engineer
+- ext: []
+  wc:
+    role:
+      index: 1
+      value: Product Manager
+- ext: []
+  wc:
+    role:
+      index: 2
+      value: DevOps Engineer
+- ext: []
+  wc:
+    role:
+      index: 3
+      value: Frontend Developer
+- ext: []
+  wc:
+    role:
+      index: 4
+      value: Data Scientist
+- ext: []
+  wc:
+    count:
+      index: 0
+      value: '3'
+    role:
+      index: 0
+      value: engineering
+    skill:
+      index: 0
+      value: technical problem solving
+- ext: []
+  wc:
+    count:
+      index: 0
+      value: '3'
+    role:
+      index: 0
+      value: engineering
+    skill:
+      index: 1
+      value: system design
+- ext: []
+  wc:
+    count:
+      index: 0
+      value: '3'
+    role:
+      index: 0
+      value: engineering
+    skill:
+      index: 2
+      value: leadership
+- ext: []
+  wc:
+    count:
+      index: 0
+      value: '3'
+    role:
+      index: 0
+      value: engineering
+    skill:
+      index: 3
+      value: collaboration
+- ext: []
+  wc:
+    count:
+      index: 0
+      value: '3'
+    role:
+      index: 1
+      value: product
+    skill:
+      index: 0
+      value: technical problem solving
+- ext: []
+  wc:
+    count:
+      index: 0
+      value: '3'
+    role:
+      index: 1
+      value: product
+    skill:
+      index: 1
+      value: system design
+- ext: []
+  wc:
+    count:
+      index: 0
+      value: '3'
+    role:
+      index: 1
+      value: product
+    skill:
+      index: 2
+      value: leadership
+- ext: []
+  wc:
+    count:
+      index: 0
+      value: '3'
+    role:
+      index: 1
+      value: product
+    skill:
+      index: 3
+      value: collaboration
+- ext: []
+  wc:
+    count:
+      index: 0
+      value: '3'
+    role:
+      index: 2
+      value: design
+    skill:
+      index: 0
+      value: technical problem solving
+- ext: []
+  wc:
+    count:
+      index: 0
+      value: '3'
+    role:
+      index: 2
+      value: design
+    skill:
+      index: 1
+      value: system design
+- ext: []
+  wc:
+    count:
+      index: 0
+      value: '3'
+    role:
+      index: 2
+      value: design
+    skill:
+      index: 2
+      value: leadership
+- ext: []
+  wc:
+    count:
+      index: 0
+      value: '3'
+    role:
+      index: 2
+      value: design
+    skill:
+      index: 3
+      value: collaboration
+- ext: []
+  wc:
+    count:
+      index: 1
+      value: '5'
+    role:
+      index: 0
+      value: engineering
+    skill:
+      index: 0
+      value: technical problem solving
+- ext: []
+  wc:
+    count:
+      index: 1
+      value: '5'
+    role:
+      index: 0
+      value: engineering
+    skill:
+      index: 1
+      value: system design
+- ext: []
+  wc:
+    count:
+      index: 1
+      value: '5'
+    role:
+      index: 0
+      value: engineering
+    skill:
+      index: 2
+      value: leadership
+- ext: []
+  wc:
+    count:
+      index: 1
+      value: '5'
+    role:
+      index: 0
+      value: engineering
+    skill:
+      index: 3
+      value: collaboration
+- ext: []
+  wc:
+    count:
+      index: 1
+      value: '5'
+    role:
+      index: 1
+      value: product
+    skill:
+      index: 0
+      value: technical problem solving
+- ext: []
+  wc:
+    count:
+      index: 1
+      value: '5'
+    role:
+      index: 1
+      value: product
+    skill:
+      index: 1
+      value: system design
+- ext: []
+  wc:
+    count:
+      index: 1
+      value: '5'
+    role:
+      index: 1
+      value: product
+    skill:
+      index: 2
+      value: leadership
+- ext: []
+  wc:
+    count:
+      index: 1
+      value: '5'
+    role:
+      index: 1
+      value: product
+    skill:
+      index: 3
+      value: collaboration
+- ext: []
+  wc:
+    count:
+      index: 1
+      value: '5'
+    role:
+      index: 2
+      value: design
+    skill:
+      index: 0
+      value: technical problem solving
+- ext: []
+  wc:
+    count:
+      index: 1
+      value: '5'
+    role:
+      index: 2
+      value: design
+    skill:
+      index: 1
+      value: system design
+- ext: []
+  wc:
+    count:
+      index: 1
+      value: '5'
+    role:
+      index: 2
+      value: design
+    skill:
+      index: 2
+      value: leadership
+- ext: []
+  wc:
+    count:
+      index: 1
+      value: '5'
+    role:
+      index: 2
+      value: design
+    skill:
+      index: 3
+      value: collaboration
+- ext: []
+  wc:
+    count:
+      index: 2
+      value: '10'
+    role:
+      index: 0
+      value: engineering
+    skill:
+      index: 0
+      value: technical problem solving
+- ext: []
+  wc:
+    count:
+      index: 2
+      value: '10'
+    role:
+      index: 0
+      value: engineering
+    skill:
+      index: 1
+      value: system design
+- ext: []
+  wc:
+    count:
+      index: 2
+      value: '10'
+    role:
+      index: 0
+      value: engineering
+    skill:
+      index: 2
+      value: leadership
+- ext: []
+  wc:
+    count:
+      index: 2
+      value: '10'
+    role:
+      index: 0
+      value: engineering
+    skill:
+      index: 3
+      value: collaboration
+- ext: []
+  wc:
+    count:
+      index: 2
+      value: '10'
+    role:
+      index: 1
+      value: product
+    skill:
+      index: 0
+      value: technical problem solving
+- ext: []
+  wc:
+    count:
+      index: 2
+      value: '10'
+    role:
+      index: 1
+      value: product
+    skill:
+      index: 1
+      value: system design
+- ext: []
+  wc:
+    count:
+      index: 2
+      value: '10'
+    role:
+      index: 1
+      value: product
+    skill:
+      index: 2
+      value: leadership
+- ext: []
+  wc:
+    count:
+      index: 2
+      value: '10'
+    role:
+      index: 1
+      value: product
+    skill:
+      index: 3
+      value: collaboration
+- ext: []
+  wc:
+    count:
+      index: 2
+      value: '10'
+    role:
+      index: 2
+      value: design
+    skill:
+      index: 0
+      value: technical problem solving
+- ext: []
+  wc:
+    count:
+      index: 2
+      value: '10'
+    role:
+      index: 2
+      value: design
+    skill:
+      index: 1
+      value: system design
+- ext: []
+  wc:
+    count:
+      index: 2
+      value: '10'
+    role:
+      index: 2
+      value: design
+    skill:
+      index: 2
+      value: leadership
+- ext: []
+  wc:
+    count:
+      index: 2
+      value: '10'
+    role:
+      index: 2
+      value: design
+    skill:
+      index: 3
+      value: collaboration
+- ext: []
+  wc:
+    role:
+      index: 0
+      value: engineer
+    stage:
+      index: 0
+      value: seed
+    tone:
+      index: 0
+      value: casual
+- ext: []
+  wc:
+    role:
+      index: 0
+      value: engineer
+    stage:
+      index: 0
+      value: seed
+    tone:
+      index: 1
+      value: professional
+- ext: []
+  wc:
+    role:
+      index: 0
+      value: engineer
+    stage:
+      index: 0
+      value: seed
+    tone:
+      index: 2
+      value: enthusiastic
+- ext: []
+  wc:
+    role:
+      index: 0
+      value: engineer
+    stage:
+      index: 1
+      value: Series A
+    tone:
+      index: 0
+      value: casual
+- ext: []
+  wc:
+    role:
+      index: 0
+      value: engineer
+    stage:
+      index: 1
+      value: Series A
+    tone:
+      index: 1
+      value: professional
+- ext: []
+  wc:
+    role:
+      index: 0
+      value: engineer
+    stage:
+      index: 1
+      value: Series A
+    tone:
+      index: 2
+      value: enthusiastic
+- ext: []
+  wc:
+    role:
+      index: 0
+      value: engineer
+    stage:
+      index: 2
+      value: Series B
+    tone:
+      index: 0
+      value: casual
+- ext: []
+  wc:
+    role:
+      index: 0
+      value: engineer
+    stage:
+      index: 2
+      value: Series B
+    tone:
+      index: 1
+      value: professional
+- ext: []
+  wc:
+    role:
+      index: 0
+      value: engineer
+    stage:
+      index: 2
+      value: Series B
+    tone:
+      index: 2
+      value: enthusiastic
+- ext: []
+  wc:
+    role:
+      index: 0
+      value: engineer
+    stage:
+      index: 3
+      value: growth
+    tone:
+      index: 0
+      value: casual
+- ext: []
+  wc:
+    role:
+      index: 0
+      value: engineer
+    stage:
+      index: 3
+      value: growth
+    tone:
+      index: 1
+      value: professional
+- ext: []
+  wc:
+    role:
+      index: 0
+      value: engineer
+    stage:
+      index: 3
+      value: growth
+    tone:
+      index: 2
+      value: enthusiastic
+- ext: []
+  wc:
+    role:
+      index: 1
+      value: designer
+    stage:
+      index: 0
+      value: seed
+    tone:
+      index: 0
+      value: casual
+- ext: []
+  wc:
+    role:
+      index: 1
+      value: designer
+    stage:
+      index: 0
+      value: seed
+    tone:
+      index: 1
+      value: professional
+- ext: []
+  wc:
+    role:
+      index: 1
+      value: designer
+    stage:
+      index: 0
+      value: seed
+    tone:
+      index: 2
+      value: enthusiastic
+- ext: []
+  wc:
+    role:
+      index: 1
+      value: designer
+    stage:
+      index: 1
+      value: Series A
+    tone:
+      index: 0
+      value: casual
+- ext: []
+  wc:
+    role:
+      index: 1
+      value: designer
+    stage:
+      index: 1
+      value: Series A
+    tone:
+      index: 1
+      value: professional
+- ext: []
+  wc:
+    role:
+      index: 1
+      value: designer
+    stage:
+      index: 1
+      value: Series A
+    tone:
+      index: 2
+      value: enthusiastic
+- ext: []
+  wc:
+    role:
+      index: 1
+      value: designer
+    stage:
+      index: 2
+      value: Series B
+    tone:
+      index: 0
+      value: casual
+- ext: []
+  wc:
+    role:
+      index: 1
+      value: designer
+    stage:
+      index: 2
+      value: Series B
+    tone:
+      index: 1
+      value: professional
+- ext: []
+  wc:
+    role:
+      index: 1
+      value: designer
+    stage:
+      index: 2
+      value: Series B
+    tone:
+      index: 2
+      value: enthusiastic
+- ext: []
+  wc:
+    role:
+      index: 1
+      value: designer
+    stage:
+      index: 3
+      value: growth
+    tone:
+      index: 0
+      value: casual
+- ext: []
+  wc:
+    role:
+      index: 1
+      value: designer
+    stage:
+      index: 3
+      value: growth
+    tone:
+      index: 1
+      value: professional
+- ext: []
+  wc:
+    role:
+      index: 1
+      value: designer
+    stage:
+      index: 3
+      value: growth
+    tone:
+      index: 2
+      value: enthusiastic
+- ext: []
+  wc:
+    role:
+      index: 2
+      value: PM
+    stage:
+      index: 0
+      value: seed
+    tone:
+      index: 0
+      value: casual
+- ext: []
+  wc:
+    role:
+      index: 2
+      value: PM
+    stage:
+      index: 0
+      value: seed
+    tone:
+      index: 1
+      value: professional
+- ext: []
+  wc:
+    role:
+      index: 2
+      value: PM
+    stage:
+      index: 0
+      value: seed
+    tone:
+      index: 2
+      value: enthusiastic
+- ext: []
+  wc:
+    role:
+      index: 2
+      value: PM
+    stage:
+      index: 1
+      value: Series A
+    tone:
+      index: 0
+      value: casual
+- ext: []
+  wc:
+    role:
+      index: 2
+      value: PM
+    stage:
+      index: 1
+      value: Series A
+    tone:
+      index: 1
+      value: professional
+- ext: []
+  wc:
+    role:
+      index: 2
+      value: PM
+    stage:
+      index: 1
+      value: Series A
+    tone:
+      index: 2
+      value: enthusiastic
+- ext: []
+  wc:
+    role:
+      index: 2
+      value: PM
+    stage:
+      index: 2
+      value: Series B
+    tone:
+      index: 0
+      value: casual
+- ext: []
+  wc:
+    role:
+      index: 2
+      value: PM
+    stage:
+      index: 2
+      value: Series B
+    tone:
+      index: 1
+      value: professional
+- ext: []
+  wc:
+    role:
+      index: 2
+      value: PM
+    stage:
+      index: 2
+      value: Series B
+    tone:
+      index: 2
+      value: enthusiastic
+- ext: []
+  wc:
+    role:
+      index: 2
+      value: PM
+    stage:
+      index: 3
+      value: growth
+    tone:
+      index: 0
+      value: casual
+- ext: []
+  wc:
+    role:
+      index: 2
+      value: PM
+    stage:
+      index: 3
+      value: growth
+    tone:
+      index: 1
+      value: professional
+- ext: []
+  wc:
+    role:
+      index: 2
+      value: PM
+    stage:
+      index: 3
+      value: growth
+    tone:
+      index: 2
+      value: enthusiastic
+- ext: []
+  wc:
+    level:
+      index: 0
+      value: junior
+    role:
+      index: 0
+      value: backend
+- ext: []
+  wc:
+    level:
+      index: 0
+      value: junior
+    role:
+      index: 1
+      value: frontend
+- ext: []
+  wc:
+    level:
+      index: 0
+      value: junior
+    role:
+      index: 2
+      value: fullstack
+- ext: []
+  wc:
+    level:
+      index: 1
+      value: mid-level
+    role:
+      index: 0
+      value: backend
+- ext: []
+  wc:
+    level:
+      index: 1
+      value: mid-level
+    role:
+      index: 1
+      value: frontend
+- ext: []
+  wc:
+    level:
+      index: 1
+      value: mid-level
+    role:
+      index: 2
+      value: fullstack
+- ext: []
+  wc:
+    level:
+      index: 2
+      value: senior
+    role:
+      index: 0
+      value: backend
+- ext: []
+  wc:
+    level:
+      index: 2
+      value: senior
+    role:
+      index: 1
+      value: frontend
+- ext: []
+  wc:
+    level:
+      index: 2
+      value: senior
+    role:
+      index: 2
+      value: fullstack
+- ext: []
+  wc:
+    level:
+      index: 3
+      value: staff
+    role:
+      index: 0
+      value: backend
+- ext: []
+  wc:
+    level:
+      index: 3
+      value: staff
+    role:
+      index: 1
+      value: frontend
+- ext: []
+  wc:
+    level:
+      index: 3
+      value: staff
+    role:
+      index: 2
+      value: fullstack
+range:
+- 0
+- 88

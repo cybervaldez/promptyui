@@ -1,0 +1,27 @@
+job_name: hiring-templates
+job_config_hash: 6a7b4c94c19578c73107cce67cb1d209
+total_images: 89
+stacked_count: 89
+created_at: '2026-02-02T02:57:04.282701'
+updated_at: '2026-02-02T02:57:04.283366'
+filename_pattern: '{index:04d}_{prompt_id}_{lora_suffix}.png'
+generation_context:
+  model_name: unknown
+  lora_root: /home/cybervaldez/ai/cybervaldez/cybervaldez-prompt-generator/loras/unknown
+  trigger_delimiter: ', '
+loras: {}
+lora_paths: {}
+config:
+  cfg:
+  - 1.0
+  steps:
+  - 9
+  width:
+  - 1024
+  height:
+  - 1024
+prompts: []
+variants:
+- id: default
+  affected_wildcards: []
+compositions: []

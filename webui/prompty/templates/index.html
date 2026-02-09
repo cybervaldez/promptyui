@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PromptyUI</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="pu-app" data-testid="pu-app">
+        <!-- Header -->
+        <header class="pu-header" data-testid="pu-header">
+            <div class="pu-header-left">
+                <span class="pu-header-icon">&#128230;</span>
+                <span class="pu-header-title">PromptyUI</span>
+            </div>
+            <div class="pu-header-center">
+                <span class="pu-header-active-label">Active:</span>
+                <span class="pu-header-active-job" data-testid="pu-header-active-job">No job selected</span>
+            </div>
+            <div class="pu-header-right">
+                <button class="pu-btn" data-testid="pu-mode-toggle-btn" onclick="PU.actions.togglePreviewMode()" style="display: none;">
+                    &#128065; Preview
+                </button>
+                <button class="pu-btn pu-btn-primary" data-testid="pu-header-export-btn" onclick="PU.actions.openExportModal()">
+                    <span class="pu-btn-icon">&#128190;</span> Export
+                </button>
+                <button class="pu-btn" data-testid="pu-header-help-btn" onclick="PU.actions.showHelp()">
+                    <span class="pu-btn-icon">&#10067;</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main 3-Panel Layout -->
+        <div class="pu-main">
+            <!-- Left Sidebar (Jobs only - Extensions in right inspector) -->
+            <aside class="pu-sidebar" data-testid="pu-sidebar">
+                <!-- Jobs Section -->
+                <section class="pu-sidebar-section pu-jobs-section" data-testid="pu-jobs-section">
+                    <div class="pu-sidebar-header" onclick="PU.actions.toggleSection('jobs')">
+                        <span class="pu-sidebar-icon">&#128230;</span>
+                        <span class="pu-sidebar-title">JOBS</span>
+                        <span class="pu-jobs-count" data-testid="pu-jobs-count"></span>
+                        <span class="pu-sidebar-toggle" data-testid="pu-jobs-toggle">&#9660;</span>
+                    </div>
+                    <div class="pu-sidebar-content pu-jobs-tree" data-testid="pu-jobs-tree">
+                        <!-- Jobs tree rendered by JS -->
+                        <div class="pu-loading">Loading jobs...</div>
+                    </div>
+                    <div class="pu-sidebar-footer">
+                        <button class="pu-btn pu-btn-full" data-testid="pu-new-job-btn" onclick="PU.actions.createNewJob()">
+                            + New Job
+                        </button>
+                    </div>
+                </section>
+            </aside>
+
+            <!-- Center Editor -->
+            <main class="pu-editor" data-testid="pu-editor">
+                <!-- Empty State -->
+                <div class="pu-editor-empty" data-testid="pu-editor-empty">
+                    <div class="pu-editor-empty-icon">&#128230;</div>
+                    <h2>Welcome to PromptyUI</h2>
+                    <p>Select a job from the sidebar to start editing, or create a new job.</p>
+                    <div class="pu-editor-empty-actions">
+                        <button class="pu-btn pu-btn-primary" onclick="PU.actions.createNewJob()">
+                            + Create New Job
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Prompt Editor (hidden until job selected) -->
+                <div class="pu-editor-content" data-testid="pu-editor-content" style="display: none;">
+                    <!-- Defaults Toolbar -->
+                    <div class="pu-defaults-toolbar" data-testid="pu-defaults-toolbar">
+                        <div class="pu-defaults-header">
+                            <span>DEFAULTS</span>
+                            <span class="pu-defaults-hint">(applies to all prompts)</span>
+                            <button class="pu-defaults-expand" onclick="PU.actions.toggleDefaults()">&#9660;</button>
+                        </div>
+                        <div class="pu-defaults-form" data-testid="pu-defaults-form">
+                            <div class="pu-defaults-row">
+                                <label>ext:</label>
+                                <select data-testid="pu-defaults-ext" onchange="PU.actions.updateDefaults('ext', this.value)">
+                                    <option value="">Loading...</option>
+                                </select>
+                            </div>
+                            <div class="pu-defaults-row">
+                                <label>ext_text_max:</label>
+                                <input type="number" min="0" value="0"
+                                       data-testid="pu-defaults-ext-text-max"
+                                       onchange="PU.actions.updateDefaults('ext_text_max', this.value)">
+                                <span class="pu-defaults-hint">0 = all</span>
+                            </div>
+                            <div class="pu-defaults-row">
+                                <label>ext_wildcards_max:</label>
+                                <input type="number" min="0" value="0"
+                                       data-testid="pu-defaults-ext-wildcards-max"
+                                       onchange="PU.actions.updateDefaults('ext_wildcards_max', this.value)">
+                                <span class="pu-defaults-hint">0 = all</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Prompt Title -->
+                    <div class="pu-prompt-header">
+                        <span class="pu-prompt-label">PROMPT:</span>
+                        <span class="pu-prompt-title" data-testid="pu-editor-title">No prompt selected</span>
+                    </div>
+
+                    <!-- Blocks Container -->
+                    <div class="pu-blocks-container" data-testid="pu-blocks-container">
+                        <!-- Blocks rendered by JS -->
+                    </div>
+
+                    <!-- Add Block Buttons -->
+                    <div class="pu-add-block-area">
+                        <div class="pu-add-root-dropdown" data-testid="pu-add-root-dropdown">
+                            <button class="pu-btn" onclick="PU.actions.toggleAddMenu()">+ Add Root Block &#9660;</button>
+                            <div class="pu-add-menu" style="display: none;">
+                                <button data-testid="pu-add-content-btn" onclick="PU.actions.addBlock('content')">
+                                    Add Content Input
+                                </button>
+                                <button data-testid="pu-add-exttext-btn" onclick="PU.actions.addBlock('ext_text')">
+                                    Add ext_text Reference
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Preview Mode (Checkpoint List View) -->
+                <div class="pu-preview-mode" data-testid="pu-preview-mode" style="display: none;">
+                    <div class="pu-preview-mode-toolbar">
+                        <div class="pu-preview-mode-prompt">
+                            <span class="pu-prompt-label">PROMPT:</span>
+                            <span class="pu-prompt-title" data-testid="pu-preview-prompt-title"></span>
+                        </div>
+                    </div>
+                    <div class="pu-preview-mode-header">
+                        <div class="pu-preview-mode-title">
+                            <span>CHECKPOINTS</span>
+                            <span class="pu-checkpoints-count" data-testid="pu-checkpoints-count"></span>
+                        </div>
+                        <div class="pu-odometer-inputs">
+                            <div class="pu-odometer-field">
+                                <label title="Number of ext_text values (odometer outermost dimension)">ext_text:</label>
+                                <input type="number" min="1" value="1"
+                                       data-testid="pu-ext-text-max-input"
+                                       oninput="PU.preview.updateExtTextMax(this.value)">
+                            </div>
+                            <div class="pu-odometer-field">
+                                <label title="Override wildcard counts (0 = use actual counts)">wc_max:</label>
+                                <input type="number" min="0" value="0"
+                                       data-testid="pu-ext-wildcards-max-input"
+                                       oninput="PU.preview.updateExtWildcardsMax(this.value)">
+                            </div>
+                            <div class="pu-odometer-field">
+                                <label>Composition:</label>
+                                <input type="number" min="0" value="99"
+                                       data-testid="pu-composition-input"
+                                       oninput="PU.preview.updateCompositionId(this.value)">
+                                <button class="pu-btn-icon-only"
+                                        data-testid="pu-composition-dice-btn"
+                                        onclick="PU.preview.randomizeCompositionId()"
+                                        title="Random composition ID">&#127922;</button>
+                            </div>
+                            <span class="pu-odometer-total" data-testid="pu-odometer-total" title="Total combinations = ext_text × wildcards product"></span>
+                        </div>
+                    </div>
+                    <div class="pu-checkpoints-list" data-testid="pu-checkpoints-list">
+                        <!-- Checkpoint rows rendered by JS -->
+                    </div>
+                </div>
+            </main>
+
+            <!-- Right Inspector -->
+            <aside class="pu-inspector" data-testid="pu-inspector">
+                <!-- Global Extensions Section (Top) -->
+                <section class="pu-inspector-section pu-inspector-global-ext" data-testid="pu-inspector-global-ext">
+                    <div class="pu-inspector-header">
+                        <span class="pu-inspector-icon">&#128194;</span>
+                        <span class="pu-inspector-title">GLOBAL EXTENSIONS</span>
+                    </div>
+                    <div class="pu-inspector-search">
+                        <input type="text" placeholder="Search extensions..."
+                               oninput="PU.actions.filterInspectorExtensions(this.value)">
+                    </div>
+                    <div class="pu-inspector-ext-tree" data-testid="pu-inspector-ext-tree">
+                        <!-- Mini extension tree rendered by JS -->
+                    </div>
+                </section>
+
+                <!-- Local Context Section (Bottom) -->
+                <section class="pu-inspector-section pu-inspector-local" data-testid="pu-inspector-local">
+                    <div class="pu-inspector-header">
+                        <span class="pu-inspector-icon">&#127922;</span>
+                        <span class="pu-inspector-title">LOCAL CONTEXT</span>
+                    </div>
+                    <div class="pu-inspector-context" data-testid="pu-inspector-context">
+                        <!-- Context content changes based on selection -->
+                        <div class="pu-inspector-empty">
+                            <p>Select a block to see wildcards and context</p>
+                        </div>
+                    </div>
+                </section>
+            </aside>
+        </div>
+
+        <!-- Preview Popup (hidden by default) -->
+        <div class="pu-preview-popup" data-testid="pu-preview-popup" style="display: none;">
+            <div class="pu-preview-header">
+                <span>Live Preview</span>
+                <button class="pu-preview-close" onclick="PU.actions.closePreview()">&times;</button>
+            </div>
+            <div class="pu-preview-variations" data-testid="pu-preview-variations">
+                <!-- Variations rendered by JS -->
+            </div>
+            <div class="pu-preview-breakdown" data-testid="pu-preview-breakdown">
+                <!-- Breakdown info -->
+            </div>
+            <div class="pu-preview-actions">
+                <button class="pu-btn" data-testid="pu-preview-copy-btn" onclick="PU.actions.copyAllVariations()">
+                    &#128203; Copy All
+                </button>
+                <button class="pu-btn" data-testid="pu-preview-show-all-btn" onclick="PU.actions.showAllVariations()">
+                    Show All
+                </button>
+            </div>
+        </div>
+
+        <!-- Extension Picker Popup (hidden by default) -->
+        <div class="pu-ext-picker-popup" data-testid="pu-ext-picker-popup" style="display: none;">
+            <div class="pu-preview-header">
+                <span>Select Extension</span>
+                <button class="pu-preview-close" data-testid="pu-ext-picker-close-btn"
+                        onclick="PU.inspector.closeExtPicker()">&times;</button>
+            </div>
+            <div class="pu-ext-picker-search">
+                <input type="text" data-testid="pu-ext-picker-search"
+                       placeholder="Search extensions..."
+                       oninput="PU.inspector.filterExtPicker(this.value)">
+            </div>
+            <div class="pu-ext-picker-tree" data-testid="pu-ext-picker-tree">
+                <!-- Tree rendered by JS with data-testid="pu-ext-picker-item-{id}" per item -->
+            </div>
+            <div class="pu-preview-actions">
+                <button class="pu-btn" data-testid="pu-ext-picker-cancel-btn"
+                        onclick="PU.inspector.closeExtPicker()">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Export Modal (hidden by default) -->
+        <div class="pu-modal-overlay" data-testid="pu-export-modal" style="display: none;">
+            <div class="pu-modal">
+                <div class="pu-modal-header">
+                    <h2>Export jobs.yaml</h2>
+                    <button class="pu-modal-close" onclick="PU.actions.closeExportModal()">&times;</button>
+                </div>
+                <div class="pu-modal-body">
+                    <div class="pu-export-preview" data-testid="pu-export-preview">
+                        <pre><code>Loading...</code></pre>
+                    </div>
+                    <div class="pu-export-validation" data-testid="pu-export-validation">
+                        <!-- Validation messages -->
+                    </div>
+                    <div class="pu-export-options">
+                        <label class="pu-radio">
+                            <input type="radio" name="export-mode" value="save" checked data-testid="pu-export-save-folder">
+                            Save to jobs/ folder
+                        </label>
+                        <label class="pu-radio">
+                            <input type="radio" name="export-mode" value="download" data-testid="pu-export-download">
+                            Download as file
+                        </label>
+                    </div>
+                </div>
+                <div class="pu-modal-footer">
+                    <button class="pu-btn" data-testid="pu-export-cancel-btn" onclick="PU.actions.closeExportModal()">
+                        Cancel
+                    </button>
+                    <button class="pu-btn pu-btn-primary" data-testid="pu-export-confirm-btn" onclick="PU.actions.confirmExport()">
+                        Export
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Container -->
+        <div class="pu-toast-container" data-testid="pu-toast-container"></div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/state.js"></script>
+    <script src="js/sidebar.js"></script>
+    <script src="js/blocks.js"></script>
+    <script src="js/editor.js"></script>
+    <script src="js/inspector.js"></script>
+    <script src="js/preview.js"></script>
+    <script src="js/export.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+id: "stages"
+text:
+  - "bootstrapped"
+  - "pre-seed ($100K-$500K)"
+  - "seed ($500K-$2M)"
+  - "Series A ($2M-$15M)"
+  - "Series B ($15M-$50M)"
+  - "growth stage ($50M+)"
+wildcards:
+  - name: "investor_type"
+    text: ["angels", "micro VCs", "seed funds", "multi-stage VCs", "growth equity"]
+  - name: "fundraising_status"
+    text: ["exploring options", "actively raising", "term sheet stage", "closing"]
