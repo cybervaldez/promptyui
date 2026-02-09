@@ -209,9 +209,6 @@ PU.editor = {
      * Update block content
      */
     updateBlockContent(path, content) {
-        // Re-entrancy guard: if this update came from Quill's text-change, don't loop back
-        if (PU.quill && PU.quill._updatingFromQuill === path) return;
-
         const prompt = PU.editor.getModifiedPrompt();
         if (!prompt) return;
 
@@ -220,60 +217,67 @@ PU.editor = {
             prompt.text = [];
         }
 
+        // Always update block state (needed for preview API to read current content)
         const block = PU.blocks.findBlockByPath(prompt.text, path);
         if (block && 'content' in block) {
             block.content = content;
         }
 
-        // Update inspector with wildcards
-        const wildcards = PU.blocks.detectWildcards(content);
-        PU.inspector.updateWildcardsContext(wildcards, prompt.wildcards || []);
+        // Skip DOM updates if this update came from Quill's text-change
+        // (Quill already manages its own editor DOM; only state + preview need updating)
+        const fromQuill = PU.quill && PU.quill._updatingFromQuill === path;
 
-        // Live update: refresh wildcard summary or chips depending on mode
-        const pathId = path.replace(/\./g, '-');
+        if (!fromQuill) {
+            // Update inspector with wildcards
+            const wildcards = PU.blocks.detectWildcards(content);
+            PU.inspector.updateWildcardsContext(wildcards, prompt.wildcards || []);
 
-        if (PU.quill && !PU.quill._fallback) {
-            // Quill mode: update wildcard summary (conditionally render)
-            let summaryEl = document.querySelector(`[data-testid="pu-content-wc-summary-${pathId}"]`);
-            if (wildcards.length > 0) {
-                if (!summaryEl) {
-                    // Create summary div next to the Quill editor
-                    summaryEl = document.createElement('div');
-                    summaryEl.className = 'pu-wc-summary';
-                    summaryEl.dataset.testid = `pu-content-wc-summary-${pathId}`;
-                    const quillEl = document.querySelector(`[data-testid="pu-block-input-${pathId}"]`);
-                    if (quillEl) quillEl.insertAdjacentElement('afterend', summaryEl);
+            // Live update: refresh wildcard summary or chips depending on mode
+            const pathId = path.replace(/\./g, '-');
+
+            if (PU.quill && !PU.quill._fallback) {
+                // Quill mode: update wildcard summary (conditionally render)
+                let summaryEl = document.querySelector(`[data-testid="pu-content-wc-summary-${pathId}"]`);
+                if (wildcards.length > 0) {
+                    if (!summaryEl) {
+                        // Create summary div next to the Quill editor
+                        summaryEl = document.createElement('div');
+                        summaryEl.className = 'pu-wc-summary';
+                        summaryEl.dataset.testid = `pu-content-wc-summary-${pathId}`;
+                        const quillEl = document.querySelector(`[data-testid="pu-block-input-${pathId}"]`);
+                        if (quillEl) quillEl.insertAdjacentElement('afterend', summaryEl);
+                    }
+                    summaryEl.innerHTML = PU.blocks.renderWildcardSummary(wildcards);
+                } else if (summaryEl) {
+                    summaryEl.remove();
                 }
-                summaryEl.innerHTML = PU.blocks.renderWildcardSummary(wildcards);
-            } else if (summaryEl) {
-                summaryEl.remove();
-            }
-        } else {
-            // Fallback textarea mode: toggle accent class and refresh chips
-            const textarea = document.querySelector(`[data-testid="pu-block-input-${pathId}"]`);
-            if (textarea) {
-                textarea.classList.toggle('pu-content-has-wildcards', wildcards.length > 0);
-            }
-
-            const wcContainer = document.querySelector(`[data-testid="pu-content-wildcards-${pathId}"]`);
-            if (wildcards.length > 0) {
-                const wildcardLookup = PU.helpers.getWildcardLookup();
-                const chipsHtml = PU.blocks.renderWildcardChips(wildcards, wildcardLookup);
-                if (wcContainer) {
-                    wcContainer.innerHTML = chipsHtml;
-                } else {
-                    const newContainer = document.createElement('div');
-                    newContainer.className = 'pu-content-wildcards';
-                    newContainer.dataset.testid = `pu-content-wildcards-${pathId}`;
-                    newContainer.innerHTML = chipsHtml;
-                    if (textarea) textarea.insertAdjacentElement('afterend', newContainer);
+            } else {
+                // Fallback textarea mode: toggle accent class and refresh chips
+                const textarea = document.querySelector(`[data-testid="pu-block-input-${pathId}"]`);
+                if (textarea) {
+                    textarea.classList.toggle('pu-content-has-wildcards', wildcards.length > 0);
                 }
-            } else if (wcContainer) {
-                wcContainer.remove();
+
+                const wcContainer = document.querySelector(`[data-testid="pu-content-wildcards-${pathId}"]`);
+                if (wildcards.length > 0) {
+                    const wildcardLookup = PU.helpers.getWildcardLookup();
+                    const chipsHtml = PU.blocks.renderWildcardChips(wildcards, wildcardLookup);
+                    if (wcContainer) {
+                        wcContainer.innerHTML = chipsHtml;
+                    } else {
+                        const newContainer = document.createElement('div');
+                        newContainer.className = 'pu-content-wildcards';
+                        newContainer.dataset.testid = `pu-content-wildcards-${pathId}`;
+                        newContainer.innerHTML = chipsHtml;
+                        if (textarea) textarea.insertAdjacentElement('afterend', newContainer);
+                    }
+                } else if (wcContainer) {
+                    wcContainer.remove();
+                }
             }
         }
 
-        // Debounce preview update
+        // Always debounce preview update (even from Quill changes)
         PU.editor.debouncePreviewUpdate(path);
     },
 

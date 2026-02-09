@@ -727,6 +727,69 @@ PU.preview = {
     },
 
     /**
+     * Mark wildcard values in resolved text with {{name:value}} markers.
+     * Takes plain resolved text + wildcard_values dict from API.
+     * Sorts entries by value length descending to prevent partial matches.
+     * Two-pass: replace with null-byte placeholders, then with {{name:value}} markers.
+     */
+    markWildcardValues(text, wildcardValues) {
+        if (!text || !wildcardValues || Object.keys(wildcardValues).length === 0) return text;
+
+        // Sort entries by value length descending (prevents partial matches)
+        const entries = Object.entries(wildcardValues)
+            .filter(([, value]) => value && value.length > 0)
+            .sort((a, b) => b[1].length - a[1].length);
+
+        if (entries.length === 0) return text;
+
+        // Pass 1: replace values with null-byte placeholders
+        let result = text;
+        const placeholders = [];
+        entries.forEach(([name, value], idx) => {
+            const placeholder = `\x00${idx}\x00`;
+            placeholders.push({ placeholder, name, value });
+            // Replace all occurrences of the value
+            const escapedValue = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            result = result.replace(new RegExp(escapedValue, 'g'), placeholder);
+        });
+
+        // Pass 2: replace placeholders with {{name:value}} markers
+        placeholders.forEach(({ placeholder, name, value }) => {
+            while (result.includes(placeholder)) {
+                result = result.replace(placeholder, `{{${name}:${value}}}`);
+            }
+        });
+
+        return result;
+    },
+
+    /**
+     * Escape HTML while preserving {{name:value}} markers.
+     * Extracts markers as placeholders before escaping, then restores them.
+     */
+    escapeHtmlPreservingMarkers(text) {
+        if (!text) return '';
+
+        // Extract {{name:value}} markers as placeholders
+        const markers = [];
+        let result = text.replace(/\{\{([^:]+):([^}]+)\}\}/g, (match) => {
+            const idx = markers.length;
+            markers.push(match);
+            return `\x01${idx}\x01`;
+        });
+
+        // Escape HTML on the rest
+        result = PU.blocks.escapeHtml(result);
+
+        // Restore markers
+        markers.forEach((marker, idx) => {
+            result = result.replace(`\x01${idx}\x01`, marker);
+        });
+
+        return result;
+    },
+
+    /**
      * Get composition-based color for visual distinction
      * Uses golden angle distribution for varied colors
      */
@@ -1262,13 +1325,20 @@ PU.preview = {
             if (data.variations.length === 0) {
                 variationsEl.innerHTML = '<div class="pu-preview-item">No variations generated</div>';
             } else {
-                variationsEl.innerHTML = data.variations.map((v, idx) => `
+                variationsEl.innerHTML = data.variations.map((v, idx) => {
+                    const marked = PU.preview.markWildcardValues(v.text, v.wildcard_values);
+                    const escaped = PU.preview.escapeHtmlPreservingMarkers(marked);
+                    const pillHtml = PU.preview.renderWildcardPills(escaped);
+                    return `
                     <div class="pu-preview-item" data-testid="pu-preview-item-${idx}">
                         <span class="pu-preview-item-index">${idx + 1}.</span>
-                        ${PU.blocks.escapeHtml(v.text)}
-                    </div>
-                `).join('');
+                        ${pillHtml}
+                    </div>`;
+                }).join('');
             }
+
+            // Apply current wildcard focus state
+            PU.preview.updateWildcardFocus();
         }
 
         if (breakdownEl && data.breakdown) {
@@ -1280,6 +1350,38 @@ PU.preview = {
                 ${data.total_count > data.variations.length ? ` (showing ${data.variations.length} of ${data.total_count})` : ''}
             `;
         }
+    },
+
+    /**
+     * Update wildcard focus highlighting in the preview popup.
+     * Reads PU.state.preview.activeWildcard and toggles CSS classes.
+     */
+    updateWildcardFocus() {
+        const variationsEl = document.querySelector('[data-testid="pu-preview-variations"]');
+        const headerEl = document.querySelector('[data-testid="pu-preview-header-title"]');
+        const activeWc = PU.state.preview.activeWildcard;
+
+        if (variationsEl) {
+            if (activeWc) {
+                variationsEl.classList.add('pu-preview-wc-focus');
+
+                // Toggle active class on matching pills
+                variationsEl.querySelectorAll('.pu-wc-pill').forEach(pill => {
+                    if (pill.getAttribute('data-wc-name') === activeWc) {
+                        pill.classList.add('pu-wc-pill-active');
+                    } else {
+                        pill.classList.remove('pu-wc-pill-active');
+                    }
+                });
+            } else {
+                variationsEl.classList.remove('pu-preview-wc-focus');
+                variationsEl.querySelectorAll('.pu-wc-pill').forEach(pill => {
+                    pill.classList.remove('pu-wc-pill-active');
+                });
+            }
+        }
+
+        // Header always shows "Live Preview" — no badge needed
     },
 
     /**
@@ -1298,6 +1400,7 @@ PU.preview = {
     hide() {
         PU.state.preview.visible = false;
         PU.state.preview.targetPath = null;
+        PU.state.preview.activeWildcard = null;
 
         const popup = document.querySelector('[data-testid="pu-preview-popup"]');
         if (popup) {

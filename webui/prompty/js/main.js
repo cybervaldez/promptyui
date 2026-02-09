@@ -242,6 +242,10 @@ PU.actions = {
         PU.state.activePromptId = promptId;
         PU.state.selectedBlockPath = null;
 
+        // Invalidate autocomplete cache on prompt switch
+        PU.state.autocompleteCache.loaded = false;
+        PU.state.autocompleteCache.extWildcardNames = [];
+
         // Update UI
         PU.sidebar.updateActiveStates();
         await PU.editor.showPrompt(jobId, promptId);
@@ -503,6 +507,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Close dropdowns when clicking outside
 document.addEventListener('click', (e) => {
+    // Close autocomplete when clicking outside
+    if (PU.quill._autocompleteOpen && !e.target.closest('.pu-autocomplete-menu') && !e.target.closest('.ql-editor')) {
+        PU.quill.closeAutocomplete();
+    }
+
     // Close add menu
     if (!e.target.closest('.pu-add-root-dropdown')) {
         PU.actions.toggleAddMenu(false);
@@ -525,7 +534,9 @@ document.addEventListener('click', (e) => {
 // Handle escape key
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-        if (PU.state.extPickerCallback) {
+        if (PU.quill._autocompleteOpen) {
+            PU.quill.closeAutocomplete();
+        } else if (PU.state.extPickerCallback) {
             PU.inspector.closeExtPicker();
         } else if (PU.state.exportModal.visible) {
             PU.export.close();

@@ -47,7 +47,8 @@ PU.state = {
         targetPath: null,
         variations: [],
         totalCount: 0,
-        loading: false
+        loading: false,
+        activeWildcard: null   // wildcard name at cursor, or null
     },
 
     // Export modal state
@@ -59,6 +60,14 @@ PU.state = {
             warnings: [],
             errors: []
         }
+    },
+
+    // Autocomplete cache (for wildcard dropdown)
+    autocompleteCache: {
+        extWildcardNames: [],  // [{name, source}] from scoped extensions
+        loaded: false,
+        loading: false,
+        extScope: null         // ext scope string (invalidate on change)
     },
 
     // Preview mode state (checkpoint list view)
@@ -187,6 +196,151 @@ PU.helpers = {
             }
         });
         return lookup;
+    },
+
+    /**
+     * Load wildcard names from scoped extensions (async, cached)
+     * Walks the extension tree under the prompt's ext scope,
+     * loads files with wildcardCount > 0, extracts wildcard names.
+     */
+    async loadExtensionWildcardNames() {
+        const prompt = PU.helpers.getActivePrompt();
+        const job = PU.helpers.getActiveJob();
+        // Empty string ext scope means "walk entire extension tree root" — valid when no scope is configured
+        const extScope = (prompt && prompt.ext) || (job && job.defaults && job.defaults.ext) || '';
+        const cache = PU.state.autocompleteCache;
+
+        // Return cached if scope hasn't changed
+        if (cache.loaded && cache.extScope === extScope) {
+            return cache.extWildcardNames;
+        }
+
+        // Prevent concurrent loads
+        if (cache.loading) return cache.extWildcardNames;
+        cache.loading = true;
+
+        try {
+            const tree = PU.state.globalExtensions.tree;
+            if (!tree || Object.keys(tree).length === 0) {
+                cache.extWildcardNames = [];
+                cache.loaded = true;
+                cache.extScope = extScope;
+                cache.loading = false;
+                return [];
+            }
+
+            // Find the scoped subtree
+            const scopeParts = extScope ? extScope.split('/').filter(Boolean) : [];
+            let subtree = tree;
+            for (const part of scopeParts) {
+                if (subtree && subtree[part]) {
+                    subtree = subtree[part];
+                } else {
+                    subtree = null;
+                    break;
+                }
+            }
+
+            if (!subtree) {
+                cache.extWildcardNames = [];
+                cache.loaded = true;
+                cache.extScope = extScope;
+                cache.loading = false;
+                return [];
+            }
+
+            // Collect files with wildcardCount > 0
+            const filePaths = [];
+            const walkTree = (node, pathPrefix) => {
+                if (node._files) {
+                    for (const file of node._files) {
+                        if (file.wildcardCount > 0) {
+                            const fullPath = pathPrefix ? `${pathPrefix}/${file.name}` : file.name;
+                            filePaths.push(fullPath);
+                        }
+                    }
+                }
+                for (const key of Object.keys(node)) {
+                    if (key === '_files') continue;
+                    walkTree(node[key], pathPrefix ? `${pathPrefix}/${key}` : key);
+                }
+            };
+            walkTree(subtree, extScope);
+
+            // Load each file and extract wildcard names
+            const results = [];
+            const failedPaths = [];
+            for (const path of filePaths) {
+                try {
+                    const ext = await PU.api.loadExtension(path);
+                    if (ext && ext.wildcards) {
+                        for (const wc of ext.wildcards) {
+                            if (wc.name) {
+                                results.push({ name: wc.name, source: path });
+                            }
+                        }
+                    }
+                } catch (e) {
+                    failedPaths.push(path);
+                    console.warn('Failed to load extension for autocomplete:', path, e);
+                }
+            }
+
+            if (failedPaths.length > 0) {
+                PU.actions.showToast(
+                    `Failed to load ${failedPaths.length} extension file(s) for autocomplete`,
+                    'error'
+                );
+            }
+
+            cache.extWildcardNames = results;
+            cache.loaded = true;
+            cache.extScope = extScope;
+            cache.loading = false;
+            return results;
+        } catch (e) {
+            console.error('loadExtensionWildcardNames failed:', e);
+            PU.actions.showToast('Failed to load extension wildcards', 'error');
+            cache.loading = false;
+            return [];
+        }
+    },
+
+    /**
+     * Get unified autocomplete items from local + extension wildcards
+     * Returns [{name, source, defined, preview}]
+     */
+    getAutocompleteItems() {
+        const items = [];
+        const seen = new Set();
+
+        // Local wildcards (from prompt definition)
+        const lookup = PU.helpers.getWildcardLookup();
+        for (const [name, values] of Object.entries(lookup)) {
+            const preview = values.slice(0, 3).join(', ') + (values.length > 3 ? ` +${values.length - 3}` : '');
+            items.push({ name, source: 'local', defined: true, preview });
+            seen.add(name);
+        }
+
+        // Extension wildcards (from cache)
+        const cache = PU.state.autocompleteCache;
+        for (const ext of cache.extWildcardNames) {
+            if (!seen.has(ext.name)) {
+                items.push({ name: ext.name, source: ext.source, defined: false, preview: '' });
+                seen.add(ext.name);
+            }
+        }
+
+        // If cache not loaded, trigger async load
+        if (!cache.loaded && !cache.loading) {
+            PU.helpers.loadExtensionWildcardNames().then(() => {
+                if (PU.quill._autocompleteOpen) {
+                    PU.quill.refreshAutocomplete();
+                }
+            });
+        }
+
+        return items;
     }
 };
 
