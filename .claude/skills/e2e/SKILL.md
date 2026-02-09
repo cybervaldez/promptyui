@@ -10,7 +10,7 @@ argument-hint: [--phase <name> | --port <number> | --no-cleanup]
 
 **When:** Final verification gate after all parallel guards pass.
 
-**Output:** Test report in `tests/e2e-runs/` with screenshots and pass/fail analysis.
+**Output:** Test report in `tests//e2e-runs/` with screenshots and pass/fail analysis.
 
 ---
 
@@ -29,6 +29,18 @@ Before executing, check for technology-specific test orchestration patterns:
 3. **Read relevant reference docs** and apply tech-specific orchestration patterns
 
 **Domains that affect this skill:** Testing Tools, Animation (wait patterns), Build Tools (server startup), Routing
+
+---
+
+## Project Context Detection
+
+After Tech Context Detection, classify the project to prioritize test phases:
+
+1. **Read project signals** — `README.md`, `package.json` description/dependencies, existing routes
+2. **Classify into 1-2 archetypes** from `PROJECT_CONTEXT.md` taxonomy
+3. **Apply archetype context** — use per-skill mapping table in `PROJECT_CONTEXT.md` to adjust phase priorities and verification criteria
+
+Note: Unlike ux-planner/ui-planner, e2e does not need user confirmation of archetype — it uses the classification silently to inform test phase prioritization.
 
 ---
 
@@ -54,18 +66,18 @@ Full end-to-end test suite with visual verification via screenshots.
 
 ```bash
 # Run full e2e suite
-./tests/e2e-orchestrator.sh
+./tests//e2e-orchestrator.sh
 
 # Run single phase (for debugging)
-./tests/e2e-orchestrator.sh --phase startup
-./tests/e2e-orchestrator.sh --phase navigation
-./tests/e2e-orchestrator.sh --phase generation
+./tests//e2e-orchestrator.sh --phase startup
+./tests//e2e-orchestrator.sh --phase navigation
+./tests//e2e-orchestrator.sh --phase generation
 
 # Keep server running after tests (for debugging)
-./tests/e2e-orchestrator.sh --no-cleanup
+./tests//e2e-orchestrator.sh --no-cleanup
 
 # Use different port
-./tests/e2e-orchestrator.sh --port 8085
+./tests//e2e-orchestrator.sh --port 8085
 ```
 
 ## Test Phases
@@ -74,7 +86,9 @@ Full end-to-end test suite with visual verification via screenshots.
 |---|-------|------------|---------------|
 | 1 | Setup | - | Clean outputs, server starts |
 | 2 | Startup | `01-startup-clean.png` | No JS errors, main UI visible |
-| 3 | Navigation | `02-navigation.png` | Content loads correctly |
+| 3A | URL Navigation | `02-navigation.png` | Content loads via URL params |
+| 3B | Region Click-Through | `02a-navigation-regions.png` | Interactive elements respond to clicks |
+| 3C | User Flow Walkthroughs | `02b-navigation-flows.png` | Multi-step journeys complete successfully |
 | 4 | Generation | `03-generation.png` | Generated content visible |
 | 5 | Post-Gen | `04-post-generation.png` | Counts and state updated |
 | 6 | Persistence | `05-persistence.png` | State survives page refresh |
@@ -83,15 +97,18 @@ Full end-to-end test suite with visual verification via screenshots.
 ## Output Structure
 
 ```
-tests/e2e-runs/
+tests//e2e-runs/
   {YYYYMMDD_HHMMSS}/
     screenshots/
       01-startup-clean.png
       02-navigation.png
+      02a-navigation-regions.png
+      02b-navigation-flows.png
       03-generation.png
       04-post-generation.png
       05-persistence.png
       06-server-restart.png
+    interactive-map.txt
     report.md
     server.log
     server_restart.log
@@ -102,7 +119,9 @@ tests/e2e-runs/
 | Phase | What to Check |
 |-------|---------------|
 | Startup | Main UI visible, no console errors, elements load |
-| Navigation | Content loads, parameters work |
+| 3A: URL Navigation | Content loads via URL params, state set correctly |
+| 3B: Region Click-Through | Each region's interactive elements respond to clicks, no dead ends |
+| 3C: User Flow Walkthroughs | Multi-step journey completes, back navigation restores state |
 | Generation | Generated content appears in grid |
 | Post-Gen | Counts update, state changes visible |
 | Persistence | After page refresh, same state preserved |
@@ -144,7 +163,31 @@ errors=$(agent-browser errors)
 agent-browser snapshot -c | grep -q "main-container"
 ```
 
-### Phase 3: Navigation
+### Phase 3: Navigation & Click-Through
+
+> **Region vs. Flow**
+>
+> **Phase 3B (Region click-through)** systematically clicks every interactive element by page area. It's regression-oriented: "Did any nav element break since last run?"
+>
+> **Phase 3C (User flow walkthroughs)** follows multi-step journeys across regions. It's journey-oriented: "Can a user complete a real task?"
+>
+> Both are read-only: only `click` (`[NAV]`/`[VIEW]` elements only — filtered via `SKIP_MUTATE`), `hover`, `scroll`, `back`, `forward`, `snapshot`, `screenshot`, `eval`, `get`, `open`. Never `click` on `[CRUD]`/`[FORM]`/`[SESSION]`/`[ACTION]` elements. Never `fill`, `type`, `check`, `uncheck`, `select`, or POST/PUT/DELETE.
+
+> **Element Safety Filtering (from `element-operations.md`)**
+>
+> Navigation testing must NEVER click elements that trigger data mutations. Before extracting refs,
+> filter out elements whose labels match CRUD/Form/Session/Action keywords:
+> ```bash
+> SKIP_MUTATE='create\|add\|save\|edit\|delete\|remove\|submit\|confirm\|login\|logout\|register\|run\|start\|stop\|generate\|export\|download\|cancel\|publish\|deploy'
+> ```
+> Apply via `grep -vi "$SKIP_MUTATE"` BEFORE extracting `@e` refs. Only `[NAV]` and `[VIEW]` elements are clicked.
+> See `skills/browser/references/element-operations.md` for the full category dictionary.
+> To test CRUD elements explicitly, use `/e2e` Phase 4+ or `/create-task` with specific test instructions.
+
+#### Phase 3A: URL Navigation
+
+Preserved from original Phase 3 — open URL with params, verify content loads and state set.
+
 ```bash
 agent-browser open "http://localhost:8085/?param=value"
 sleep 3
@@ -155,6 +198,88 @@ agent-browser snapshot -c | grep -q "expected-content"
 
 # Verify state set
 agent-browser eval "window.state.param === 'value'"
+```
+
+#### Phase 3B: Region Click-Through
+
+Map interactive elements and click through each region to verify response.
+
+```bash
+BASE_URL="http://localhost:8085"
+SKIP_MUTATE='create\|add\|save\|edit\|delete\|remove\|submit\|confirm\|login\|logout\|register\|run\|start\|stop\|generate\|export\|download\|cancel\|publish\|deploy'
+
+# Map all interactive elements
+agent-browser snapshot -i > "$RUN_DIR/interactive-map.txt"
+
+# --- Header/Nav region (cap at 10, skip mutation elements) ---
+for REF in $(grep -i "nav\|header\|menu" "$RUN_DIR/interactive-map.txt" | grep -vi "$SKIP_MUTATE" | grep -oE '@e[0-9]+' | head -10); do
+    agent-browser click "$REF"
+    sleep 1
+    # Verify response: URL changed or content updated
+    SNAPSHOT=$(agent-browser snapshot -c)
+    CURRENT_URL=$(agent-browser get url 2>/dev/null)
+    echo "Region=header ref=$REF url=$CURRENT_URL"
+    # Reset to base state
+    agent-browser open "$BASE_URL/"
+    sleep 2
+    # Re-snapshot after reset (don't cache stale refs)
+    agent-browser snapshot -i > "$RUN_DIR/interactive-map.txt"
+done
+
+# --- Sidebar region (cap at 10, skip mutation elements) ---
+for REF in $(grep -i "sidebar\|aside\|panel" "$RUN_DIR/interactive-map.txt" | grep -vi "$SKIP_MUTATE" | grep -oE '@e[0-9]+' | head -10); do
+    agent-browser click "$REF"
+    sleep 1
+    # Verify main content updated
+    SNAPSHOT=$(agent-browser snapshot -c)
+    echo "Region=sidebar ref=$REF"
+    # Reset
+    agent-browser open "$BASE_URL/"
+    sleep 2
+    agent-browser snapshot -i > "$RUN_DIR/interactive-map.txt"
+done
+
+agent-browser screenshot "$RUN_DIR/screenshots/02a-navigation-regions.png"
+```
+
+#### Phase 3C: User Flow Walkthroughs
+
+Follow multi-step journeys: Browse → Select → Detail → Back.
+
+```bash
+BASE_URL="http://localhost:8085"
+SKIP_MUTATE='create\|add\|save\|edit\|delete\|remove\|submit\|confirm\|login\|logout\|register\|run\|start\|stop\|generate\|export\|download\|cancel\|publish\|deploy'
+
+# Flow: Click first listing item, verify detail loads, back, verify list restores
+agent-browser open "$BASE_URL/"
+sleep 2
+
+# Step 1: Snapshot and find a clickable listing item
+agent-browser snapshot -i > /tmp/e2e-flow-snap.txt
+ITEM_REF=$(grep -vi "$SKIP_MUTATE" /tmp/e2e-flow-snap.txt | grep -oE '@e[0-9]+' | head -1)
+
+if [ -n "$ITEM_REF" ]; then
+    # Step 2: Click item
+    BEFORE_URL=$(agent-browser get url 2>/dev/null)
+    agent-browser click "$ITEM_REF"
+    sleep 1
+
+    # Step 3: Verify detail loaded (URL or content changed)
+    AFTER_URL=$(agent-browser get url 2>/dev/null)
+    DETAIL_SNAPSHOT=$(agent-browser snapshot -c)
+    echo "Flow: clicked $ITEM_REF, URL $BEFORE_URL -> $AFTER_URL"
+
+    # Step 4: Navigate back
+    agent-browser back
+    sleep 1
+
+    # Step 5: Verify list restored
+    BACK_URL=$(agent-browser get url 2>/dev/null)
+    BACK_SNAPSHOT=$(agent-browser snapshot -c)
+    echo "Flow: back nav URL=$BACK_URL"
+fi
+
+agent-browser screenshot "$RUN_DIR/screenshots/02b-navigation-flows.png"
 ```
 
 ### Phase 4: Generation
@@ -230,6 +355,8 @@ item_count=$(agent-browser eval "parseInt(document.getElementById('items-count')
 ## Screenshots
 - [01-startup-clean.png](screenshots/01-startup-clean.png)
 - [02-navigation.png](screenshots/02-navigation.png)
+- [02a-navigation-regions.png](screenshots/02a-navigation-regions.png)
+- [02b-navigation-flows.png](screenshots/02b-navigation-flows.png)
 - [03-generation.png](screenshots/03-generation.png)
 - [04-post-generation.png](screenshots/04-post-generation.png)
 - [05-persistence.png](screenshots/05-persistence.png)
@@ -258,7 +385,7 @@ Common failures:
 The orchestrator cleans up automatically:
 - Stops server process
 - Closes browser
-- Preserves test artifacts in `tests/e2e-runs/`
+- Preserves test artifacts in `tests//e2e-runs/`
 
 Use `--no-cleanup` to keep server running for debugging.
 
@@ -266,12 +393,12 @@ Use `--no-cleanup` to keep server running for debugging.
 
 ```bash
 # Run and exit with proper code
-./tests/e2e-orchestrator.sh
+./tests//e2e-orchestrator.sh
 exit_code=$?
 
 # Check artifacts
 if [ $exit_code -ne 0 ]; then
-    cat tests/e2e-runs/latest/report.md
+    cat tests//e2e-runs/latest/report.md
 fi
 
 exit $exit_code
@@ -326,4 +453,4 @@ If a test passes sometimes and fails others:
 - `/e2e-guard` - Test coverage for specific changes
 - `/e2e-investigate` - Failure investigation
 - `/agent-browser` - Browser automation commands
-- `tests/lib/test_utils.sh` - Shared test utilities
+- `tests//lib/test_utils.sh` - Shared test utilities

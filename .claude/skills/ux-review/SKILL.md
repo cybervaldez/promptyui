@@ -5,7 +5,7 @@ description: Verify UI changes from user perspective via browser testing. Auto-s
 
 ## TL;DR
 
-**What:** Visual UX verification via screenshots. Checks feedback, consistency, interactions.
+**What:** Visual + behavioral UX verification via screenshots and navigation. Checks feedback, consistency, interactions, and click-through behavior.
 
 **When:** After `/create-task` completes (auto-suggested).
 
@@ -200,6 +200,132 @@ AFTER=$(agent-browser eval "document.querySelector('[data-testid=\"selected-valu
 | Complete content | No truncated or missing text |
 | Correct ordering | Parent content before child content |
 
+### Step 3.5: Behavioral Navigation Audit
+
+**Purpose:** Systematically verify that interactive elements respond to clicks and that multi-step user journeys work end-to-end. This is exploratory and discovery-oriented — it finds navigation dead ends, broken links, and unresponsive elements that targeted checks (Steps 3.1-3.5) may miss.
+
+> **Region vs. Flow**
+>
+> **Region exploration** maps and clicks every interactive element by page area (header, sidebar, main, footer). It answers: "Does each clickable thing actually do something?"
+>
+> **User flow walkthroughs** follow multi-step journeys across regions (e.g., sidebar item → detail view → action → back). They answer: "Can the user complete real tasks?"
+>
+> Run regions first (discover elements), then flows (verify journeys).
+
+**Read-only enforcement:** Only `click` (`[NAV]`/`[VIEW]` elements only — filtered via `SKIP_MUTATE`), `hover`, `scroll`, `back`, `forward`, `reload`, `snapshot`, `screenshot`, `eval`, `get`, `open`. Never `click` on `[CRUD]`/`[FORM]`/`[SESSION]`/`[ACTION]` elements. Never `fill`, `type`, `check`, `uncheck`, `select`, or trigger POST/PUT/DELETE.
+
+> **Element Safety Filtering (from `element-operations.md`)**
+>
+> Navigation testing must NEVER click elements that trigger data mutations. Before extracting refs,
+> filter out elements whose labels match CRUD/Form/Session/Action keywords:
+> ```bash
+> SKIP_MUTATE='create\|add\|save\|edit\|delete\|remove\|submit\|confirm\|login\|logout\|register\|run\|start\|stop\|generate\|export\|download\|cancel\|publish\|deploy'
+> ```
+> Apply via `grep -vi "$SKIP_MUTATE"` BEFORE extracting `@e` refs. Only `[NAV]` and `[VIEW]` elements are clicked.
+> See `skills/browser/references/element-operations.md` for the full category dictionary.
+> To test CRUD elements explicitly, use `/e2e` Phase 4+ or `/create-task` with specific test instructions.
+
+#### 3.5.1 Region Discovery
+
+Map all interactive elements on the page:
+
+```bash
+# Get interactive element map
+agent-browser snapshot -i > /tmp/ux-interactive-map.txt
+
+# Count by type
+BUTTONS=$(grep -ci "button" /tmp/ux-interactive-map.txt || echo 0)
+LINKS=$(grep -ci "link" /tmp/ux-interactive-map.txt || echo 0)
+DROPDOWNS=$(grep -ci "combobox\|listbox\|menu" /tmp/ux-interactive-map.txt || echo 0)
+echo "Interactive elements: $BUTTONS buttons, $LINKS links, $DROPDOWNS dropdowns"
+```
+
+#### 3.5.2 Region-Based Click Exploration
+
+Extract refs per region and click each to verify response:
+
+```bash
+BASE_URL="http://localhost:8085"
+SKIP_MUTATE='create\|add\|save\|edit\|delete\|remove\|submit\|confirm\|login\|logout\|register\|run\|start\|stop\|generate\|export\|download\|cancel\|publish\|deploy'
+
+# For each region: extract refs, click, verify, reset
+# Cap at 10 elements per region for token efficiency (skip mutation elements)
+for REF in $(grep -vi "$SKIP_MUTATE" /tmp/ux-interactive-map.txt | grep -oE '@e[0-9]+' | head -10); do
+    # Click element
+    agent-browser click "$REF"
+    sleep 1
+
+    # Verify something changed (URL or content)
+    CURRENT_URL=$(agent-browser get url 2>/dev/null)
+    SNAPSHOT=$(agent-browser snapshot -c)
+
+    # Log result
+    if [ "$CURRENT_URL" != "$BASE_URL/" ] || echo "$SNAPSHOT" | grep -qi "active\|selected\|open\|expanded"; then
+        echo "PASS: $REF responded to click"
+    else
+        echo "GAP: $REF - no visible response to click (Navigation Dead End)"
+    fi
+
+    # Reset to base state
+    agent-browser open "$BASE_URL/"
+    sleep 2
+
+    # Re-snapshot after reset (don't cache stale refs)
+    agent-browser snapshot -i > /tmp/ux-interactive-map.txt
+done
+```
+
+#### 3.5.3 User Flow Spot-Check
+
+Light flow verification scoped to the changed feature's primary journey:
+
+```bash
+# Template: navigate to entry -> click trigger -> verify state -> click next -> verify -> check final URL
+BASE_URL="http://localhost:8085"
+
+# Step 1: Navigate to entry point
+agent-browser open "$BASE_URL/"
+sleep 2
+
+# Step 2: Click primary trigger (e.g., sidebar item)
+agent-browser snapshot -i > /tmp/ux-flow-snap.txt
+TRIGGER_REF=$(grep -i "sidebar\|nav" /tmp/ux-flow-snap.txt | grep -vi "$SKIP_MUTATE" | grep -oE '@e[0-9]+' | head -1)
+[ -n "$TRIGGER_REF" ] && agent-browser click "$TRIGGER_REF"
+sleep 1
+
+# Step 3: Verify state changed
+SNAPSHOT=$(agent-browser snapshot -c)
+CURRENT_URL=$(agent-browser get url 2>/dev/null)
+echo "After trigger: URL=$CURRENT_URL"
+
+# Step 4: Click next action in flow
+agent-browser snapshot -i > /tmp/ux-flow-snap.txt
+NEXT_REF=$(grep -vi "$SKIP_MUTATE" /tmp/ux-flow-snap.txt | grep -oE '@e[0-9]+' | head -1)
+[ -n "$NEXT_REF" ] && agent-browser click "$NEXT_REF"
+sleep 1
+
+# Step 5: Verify final state
+FINAL_URL=$(agent-browser get url 2>/dev/null)
+echo "Flow complete: started=$BASE_URL/ -> ended=$FINAL_URL"
+
+# Step 6: Verify back button
+agent-browser back
+sleep 1
+BACK_URL=$(agent-browser get url 2>/dev/null)
+echo "After back: URL=$BACK_URL"
+```
+
+#### 3.5.4 Navigation Gap Reporting
+
+New gap category that feeds into Step 5 (Gap Analysis) and Step 7 (Refer to /create-task):
+
+| Gap Type | Description | Detection |
+|----------|-------------|-----------|
+| **Navigation Dead End** | Interactive-looking element with no response | Click produces no URL change, no content change, no visual feedback |
+| **Broken Back Navigation** | Back button doesn't restore previous state | URL after `back` doesn't match previous URL |
+| **Missing Active State** | Clicked nav item shows no selected/active indicator | No `active`, `selected`, or `aria-current` in snapshot after click |
+| **URL State Mismatch** | URL doesn't reflect current navigation state | Content shows page X but URL still shows page Y |
+
 ### Step 4: Visual Assessment via Screenshots
 
 **CRITICAL**: Take screenshots to visually verify the implementation matches expected behavior.
@@ -259,6 +385,7 @@ Examples:
 | **Accessibility gaps** | Missing labels, poor contrast, no keyboard nav |
 | **Error handling** | Errors not shown or unclear |
 | **Edge cases** | Empty states, loading states not handled |
+| **Navigation dead end** | Interactive element produces no response (from Step 3.5) |
 
 #### 5.2 Gap Detection Checklist
 
@@ -390,6 +517,24 @@ Example:
 ---
 ```
 
+#### 7.3 Navigation Gaps → E2E Coverage
+
+Navigation dead ends and broken flows discovered in Step 3.5 should be handed off to `/e2e-guard` for regression test coverage:
+
+```markdown
+**Navigation gaps requiring E2E coverage:**
+
+| Gap | Element | Expected Behavior | E2E Test Needed |
+|-----|---------|-------------------|-----------------|
+| Dead end | Sidebar "Settings" link | Should open settings view | `test_navigation.sh`: verify settings nav |
+| Broken back | Detail view back button | Should return to list | `test_navigation.sh`: verify back navigation |
+
+**To generate tests, run:**
+```
+/e2e-guard
+```
+```
+
 ### Step 8: Report from User Perspective
 
 Output findings using "As a user..." language, including implementation verification, gaps, and suggestions:
@@ -449,11 +594,26 @@ Output findings using "As a user..." language, including implementation verifica
 1. **Add spinner to Queueing state** (Quick Fix, P2)
 2. **Show success toast after queue** (Enhancement, P1)
 
+### Navigation Audit Summary
+
+| Region | Elements Tested | Responsive | Dead Ends |
+|--------|----------------|------------|-----------|
+| Header/Nav | 3 | 3 | 0 |
+| Sidebar | 5 | 4 | 1 |
+| Main Content | 4 | 4 | 0 |
+| Footer | 2 | 2 | 0 |
+
+| Flow | Steps | Completed | Back Nav |
+|------|-------|-----------|----------|
+| Sidebar → Detail → Back | 3 | YES | YES |
+
 ### Summary
 | Category | Count |
 |----------|-------|
 | Implementation verified | 4/4 |
 | UX checks passed | 4/4 |
+| Navigation elements tested | 14 |
+| Navigation dead ends | 1 |
 | Gaps identified | 2 |
 | Improvements suggested | 2 |
 
@@ -530,6 +690,19 @@ UI must reflect current state accurately.
 | Wrong ordering | Parent content should precede child content |
 | Truncation | Long text should be handled gracefully |
 
+### Category 6: Navigation Behavior
+
+**CRITICAL**: Navigation must be responsive and predictable.
+
+| Check | What to Verify |
+|-------|----------------|
+| Nav items responsive | Every nav/sidebar link responds to click with content or URL change |
+| URL reflects state | Current URL matches the displayed content/section |
+| Back button works | Browser back restores previous view and URL |
+| Active state visible | Currently selected nav item has clear visual distinction |
+| No dead clicks | No interactive-looking elements that produce zero response |
+| Region coverage | Header, sidebar, main content, and footer navigation all functional |
+
 ## Quick Verification Commands
 
 ```bash
@@ -593,23 +766,31 @@ agent-browser screenshot --path /tmp/ux-review-error.png
 |  Step 0: Review Implementation Context                       |
 |          +-- What was the task? What's expected?             |
 |                           |                                  |
-|  Step 1-3: Find Files & Map to Views                         |
-|          +-- git diff, identify affected pages               |
+|  Step 1-3: Find Files, Map Views & UX Verification           |
+|          +-- git diff, identify affected pages, run checks   |
+|                           |                                  |
+|  Step 3.5: Behavioral Navigation Audit                       |
+|          +-- Region discovery (snapshot -i)                  |
+|          +-- Region click exploration (click, verify, reset) |
+|          +-- User flow spot-check (multi-step journeys)      |
+|          +-- Navigation gap reporting                        |
 |                           |                                  |
 |  Step 4: Visual Assessment (Screenshots)                     |
 |          +-- agent-browser screenshot for key states         |
 |                           |                                  |
 |  Step 5: UX Gap Analysis                                     |
 |          +-- Compare actual vs expected behavior             |
+|          +-- Include navigation dead ends from Step 3.5      |
 |                           |                                  |
 |  Step 6: Suggest Improvements                                |
 |          +-- Document fixes and enhancements                 |
 |                           |                                  |
 |  Step 7: Refer to /create-task                               |
 |          +-- Provide command to implement fixes              |
+|          +-- 7.3: Hand off nav gaps to /e2e-guard            |
 |                           |                                  |
 |  Step 8: Report                                              |
-|          +-- Full report with verification results           |
+|          +-- Full report with navigation audit summary       |
 |                                                              |
 +-------------------------------------------------------------+
 ```

@@ -12,9 +12,9 @@ Quick reference for all playbook skills. Use this to find the right skill for yo
 | `/create-task` | Implementation with built-in E2E tests | Building features |
 | `/coding-guard` | Anti-pattern scanner (fallbacks, silent failures) | After implementation |
 | `/cli-first` | Observability auditor (testIDs, state exposure) | After implementation |
-| `/ux-review` | Visual UX verification via screenshots | After implementation |
+| `/ux-review` | Visual + behavioral UX verification via screenshots and navigation | After implementation |
 | `/e2e-guard` | Auto-generate missing E2E tests | After implementation |
-| `/e2e` | Full test orchestration with screenshots | Final verification |
+| `/e2e` | Full test orchestration with screenshots and click-through verification | Final verification |
 | `/e2e-investigate` | Root cause analysis for test failures | After `/e2e` fails 3+ times |
 | `/research` | Technology research and classification | Before using new tech |
 | `/team` | Expert personas for strategic advice | Strategic decisions |
@@ -97,6 +97,7 @@ After kickstart, skills are in `.claude/skills/`:
 .claude/skills/
 ├── SKILL_INDEX.md          # This file
 ├── TECH_CONTEXT.md         # Domain classification
+├── PROJECT_CONTEXT.md      # Content archetype taxonomy
 ├── research/SKILL.md       # /research
 ├── ux-planner/SKILL.md     # /ux-planner
 ├── ui-planner/SKILL.md     # /ui-planner

@@ -9,7 +9,7 @@ description: Analyze code changes, auto-generate e2e tests, and run them. Use af
 
 **When:** After `/create-task`, in parallel with other guards.
 
-**Output:** New/updated test files in `tests/`. Runs tests to verify.
+**Output:** New/updated test files in `tests//`. Runs tests to verify.
 
 ---
 
@@ -28,6 +28,18 @@ Before generating tests, check for technology-specific coverage patterns:
 3. **Read relevant reference docs** and apply tech-specific test generation patterns
 
 **Domains that affect this skill:** Data Fetching, Form Handling, Routing, Testing Tools
+
+---
+
+## Project Context Detection
+
+After Tech Context Detection, classify the project to generate archetype-appropriate tests:
+
+1. **Read project signals** — `README.md`, `package.json` description/dependencies, existing routes
+2. **Classify into 1-2 archetypes** from `PROJECT_CONTEXT.md` taxonomy
+3. **Apply archetype context** — use per-skill mapping table in `PROJECT_CONTEXT.md` to select must-test patterns for generated tests
+
+Note: Unlike ux-planner/ui-planner, e2e-guard does not need user confirmation of archetype — it uses the classification silently to inform test generation priorities.
 
 ---
 
@@ -198,15 +210,18 @@ git add .
 
 ### Step 2: Categorize Changes
 
-| File Pattern | Test Type | Tool |
-|--------------|-----------|------|
-| `webui/prompty/server/api/*.py` | API test | curl via `api_call` |
-| `webui/prompty/js/modal/*.js` | Modal UI test | agent-browser |
-| `webui/prompty/js/home/*.js` | Home grid test | agent-browser |
-| `webui/prompty/js/sidebar/*.js` | Sidebar test | agent-browser |
-| `webui/prompty/js/core/*.js` | Core integration | agent-browser |
-| `src/*.py` | API integration | curl via `api_call` |
-| `*.css` | Visual only | Skip (no auto-test) |
+| File Pattern | Test Type | Category | Tool |
+|--------------|-----------|----------|------|
+| `webui/prompty/server/api/*.py` | API test | — | curl via `api_call` |
+| `webui/prompty/js/modal/*.js` | Modal UI test | — | agent-browser |
+| `webui/prompty/js/home/*.js` | Home grid test | — | agent-browser |
+| `webui/prompty/js/sidebar/*.js` | Sidebar test | — | agent-browser |
+| `webui/prompty/js/core/*.js` | Core integration | — | agent-browser |
+| `webui/prompty/js/sidebar/*.js` `webui/prompty/js/nav/*.js` `*router*.js` | Navigation | `[NAV]` | agent-browser |
+| `src/*.py` | API integration | — | curl via `api_call` |
+| `*.css` | Visual only | — | Skip (no auto-test) |
+
+See `skills/browser/references/element-operations.md` for the full element operation category dictionary and test naming conventions.
 
 ### Step 3: Check Existing Coverage
 
@@ -214,13 +229,13 @@ For each changed file:
 
 1. **API files** - Check if endpoint is covered in test files
    ```bash
-   grep -l "endpoint_name" tests/*.sh
+   grep -l "endpoint_name" tests//*.sh
    ```
 
 2. **JS files** - Check for corresponding test
    ```bash
-   # webui/prompty/js/modal/foo.js -> tests/test_foo*.sh
-   ls tests/test_*foo*.sh 2>/dev/null
+   # webui/prompty/js/modal/foo.js -> tests//test_foo*.sh
+   ls tests//test_*foo*.sh 2>/dev/null
    ```
 
 3. **TestIDs** - Verify new UI elements have testids
@@ -348,11 +363,100 @@ agent-browser close 2>/dev/null || true
 print_summary
 ```
 
+#### 4.4 Navigation Tests (agent-browser)
+
+For sidebar, nav, or routing changes:
+
+```bash
+#!/bin/bash
+set +e
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/test_utils.sh"
+
+PORT="${1:-8085}"
+BASE_URL="http://localhost:$PORT"
+
+setup_cleanup
+print_header "Navigation Tests"
+
+SKIP_MUTATE='create\|add\|save\|edit\|delete\|remove\|submit\|confirm\|login\|logout\|register\|run\|start\|stop\|generate\|export\|download\|cancel\|publish\|deploy'
+
+if ! wait_for_server "$BASE_URL"; then
+    log_fail "Server not running"
+    exit 1
+fi
+
+# Test: Sidebar item navigation (NAV elements only — skip mutation elements)
+log_test "Sidebar item navigates to correct view"
+agent-browser open "$BASE_URL/"
+sleep 2
+agent-browser snapshot -i > /tmp/nav-snap-$$.txt
+SIDEBAR_REF=$(grep -i "sidebar\|aside\|nav" /tmp/nav-snap-$$.txt | grep -vi "$SKIP_MUTATE" | grep -oE '@e[0-9]+' | head -1)
+if [ -n "$SIDEBAR_REF" ]; then
+    BEFORE_URL=$(agent-browser get url 2>/dev/null)
+    agent-browser click "$SIDEBAR_REF"
+    sleep 1
+    AFTER_URL=$(agent-browser get url 2>/dev/null)
+    SNAPSHOT=$(agent-browser snapshot -c)
+    if [ "$BEFORE_URL" != "$AFTER_URL" ] || echo "$SNAPSHOT" | grep -qi "active\|selected"; then
+        log_pass "Sidebar item responded: $BEFORE_URL -> $AFTER_URL"
+    else
+        log_fail "Sidebar item click produced no change"
+    fi
+else
+    log_pass "No sidebar elements to test (skip)"
+fi
+
+# Test: URL state sync
+log_test "URL reflects navigation state"
+agent-browser open "$BASE_URL/?param=value"
+sleep 2
+CURRENT_URL=$(agent-browser get url 2>/dev/null)
+if echo "$CURRENT_URL" | grep -q "param=value"; then
+    log_pass "URL preserves state parameters"
+else
+    log_fail "URL lost state parameters: $CURRENT_URL"
+fi
+
+# Test: Back button behavior
+log_test "Back button restores previous view"
+agent-browser open "$BASE_URL/"
+sleep 2
+agent-browser snapshot -i > /tmp/nav-snap-$$.txt
+NAV_REF=$(grep -vi "$SKIP_MUTATE" /tmp/nav-snap-$$.txt | grep -oE '@e[0-9]+' | head -1)
+if [ -n "$NAV_REF" ]; then
+    agent-browser click "$NAV_REF"
+    sleep 1
+    agent-browser back
+    sleep 1
+    BACK_URL=$(agent-browser get url 2>/dev/null)
+    if echo "$BACK_URL" | grep -q "localhost:$PORT"; then
+        log_pass "Back navigation works: $BACK_URL"
+    else
+        log_fail "Back navigation broken: $BACK_URL"
+    fi
+else
+    log_pass "No nav elements to test back button (skip)"
+fi
+
+# Test: No JS errors during navigation
+log_test "No JavaScript errors during navigation"
+JS_ERRORS=$(agent-browser errors 2>/dev/null || echo "")
+if [ -z "$JS_ERRORS" ] || echo "$JS_ERRORS" | grep -q "^\[\]$"; then
+    log_pass "No JS errors"
+else
+    log_fail "JS errors: $JS_ERRORS"
+fi
+
+agent-browser close 2>/dev/null || true
+print_summary
+```
+
 ### Step 5: Run Tests
 
 ```bash
 # Run the generated/updated test
-bash tests/test_component.sh 8085
+bash tests//test_component.sh 8085
 
 # Run full test suite if major changes
 ./venv/bin/python test-ui.py --port 8085
@@ -375,7 +479,7 @@ bash tests/test_component.sh 8085
 | api/operations.py | test_operations.sh | Gap found | Added test |
 
 ### Tests Generated
-- tests/test_operations_new_endpoint.sh (NEW)
+- tests//test_operations_new_endpoint.sh (NEW)
 
 ### Test Results
 | Test | Status |
@@ -395,9 +499,10 @@ bash tests/test_component.sh 8085
 
 | Test Type | Directory | Naming |
 |-----------|-----------|--------|
-| API (shell) | `tests/` | `test_{feature}.sh` |
-| UI modal | `tests/ui/` | `test_{modal}_modal.sh` |
-| UI component | `tests/ui/` | `test_{component}.sh` |
+| API (shell) | `tests//` | `test_{feature}.sh` |
+| UI modal | `tests//ui/` | `test_{modal}_modal.sh` |
+| UI component | `tests//ui/` | `test_{component}.sh` |
+| Navigation | `tests//ui/` | `test_navigation.sh` |
 
 ## Standards Reference
 
@@ -453,7 +558,7 @@ agent-browser close
 ./venv/bin/python list-testids.py --json
 
 # Run specific UI test
-bash tests/ui/test_component.sh 8085
+bash tests//ui/test_component.sh 8085
 
 # Run all UI tests
 ./venv/bin/python test-ui.py --port 8085
@@ -472,4 +577,4 @@ bash tests/ui/test_component.sh 8085
 - `/coding-guard` - Code pattern auditing (run before this)
 - `/e2e` - Full e2e test orchestration
 - `/e2e-investigate` - Failure investigation
-- `tests/lib/test_utils.sh` - Shell test utilities
+- `tests//lib/test_utils.sh` - Shell test utilities

@@ -139,6 +139,18 @@ When no category is specified, auto-select based on content type:
 
 ---
 
+## Project Context Detection
+
+Before Auto-Selection Logic, classify the project to weight persona selection:
+
+1. **Read project signals** — `README.md`, `package.json` description/dependencies, existing routes
+2. **Classify into 1-2 archetypes** from `PROJECT_CONTEXT.md` taxonomy
+3. **Apply archetype context** — use per-skill mapping table in `PROJECT_CONTEXT.md` to prioritize personas relevant to the project archetype
+
+Note: Unlike ux-planner/ui-planner, kaizen does not need user confirmation of archetype — it uses the classification silently to inform persona weighting in auto-selection.
+
+---
+
 ## Auto-Selection Logic
 
 When no category is specified, detect from context:

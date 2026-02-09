@@ -38,12 +38,13 @@ Skills detect techs mentioned in **the current task**, not the entire project.
 
 ### Assumption 3: No Persistent Project Type
 
-The playbook doesn't remember "this is a Next.js app" between sessions.
+The playbook doesn't remember "this is a Next.js app" between sessions. Both tech detection and project archetype classification (see `PROJECT_CONTEXT.md`) are session-scoped — they re-read project files each session rather than persisting results to disk.
 
 | Each session | Relies on |
 |--------------|-----------|
 | `/research` | `techs/{tech}/README.md` if it exists |
 | `/create-task` | Tech detection in task + existing `techs/` |
+| `/ux-planner`, `/ui-planner`, `/create-task`, `/e2e-guard`, `/coding-guard`, `/cli-first`, `/e2e`, `/kaizen` | `PROJECT_CONTEXT.md` archetype detection from README.md, package.json |
 
 **Best practice:** Run `/research {your-framework}` early to establish project context.
 

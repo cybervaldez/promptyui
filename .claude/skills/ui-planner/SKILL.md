@@ -32,6 +32,27 @@ Before providing recommendations, check for technology-specific UI patterns:
 
 ---
 
+## Project Context Detection
+
+After Tech Context Detection, classify the project to rank aesthetic and layout suggestions:
+
+1. **Read project signals** — `README.md`, `package.json` description/dependencies, existing routes
+2. **Classify into 1-2 archetypes** from `PROJECT_CONTEXT.md` taxonomy
+3. **Present to user for confirmation:**
+   ```
+   Based on your project, I'd classify this as: **{archetype}**
+   ({brief rationale})
+   Does this match your intent?
+   ```
+4. **Apply only after confirmation** — annotate Step 1 and Step 2 galleries with archetype fit
+
+**Optional web research** (when user asks or context would help):
+- `WebSearch "{archetype} web design trends {current_year}"`
+- Summarize 2-3 trending patterns to inform gallery annotations
+- Skip if user wants to move fast
+
+---
+
 # UI Planner
 
 A visual design advisor that helps establish visual identity through an interactive, preview-driven workflow. This skill prioritizes visual decisions through explicit selection and iteration, preventing default "AI slop" aesthetics.
@@ -154,6 +175,18 @@ Present these aesthetic directions as ASCII art thumbnails. User selects ONE let
 +-------------------------------------------------------------------------+
 ```
 
+**If project context was detected**, append archetype-based recommendations after the gallery:
+
+```
+Based on your project archetype ({archetype}):
+  Recommended:  [{letter}] {name}, [{letter}] {name}
+  Good fit:     [{letter}] {name}
+  Less typical: [{letter}] [{letter}] [{letter}] [{letter}] [{letter}]
+All 8 remain available — these are suggestions, not restrictions.
+```
+
+See `PROJECT_CONTEXT.md` for archetype-to-aesthetic mapping.
+
 ---
 
 ## Step 2: ASCII Layout Gallery (Structure)
@@ -202,6 +235,18 @@ Present these layout patterns. User can multi-select numbers.
 | Enter numbers (e.g., "1, 3"):                                            |
 +-------------------------------------------------------------------------+
 ```
+
+**If project context was detected**, append archetype-based recommendations after the gallery:
+
+```
+Based on your project archetype ({archetype}):
+  Recommended:  [{number}] {name}, [{number}] {name}
+  Good fit:     [{number}] {name}
+  Less typical: [{number}] [{number}] [{number}] [{number}] [{number}]
+All 8 remain available — these are suggestions, not restrictions.
+```
+
+See `PROJECT_CONTEXT.md` for archetype-to-layout mapping.
 
 ---
 

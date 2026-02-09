@@ -31,6 +31,18 @@ Before executing, check for technology-specific anti-patterns:
 
 ---
 
+## Project Context Detection
+
+After Tech Context Detection, classify the project to focus anti-pattern scanning:
+
+1. **Read project signals** — `README.md`, `package.json` description/dependencies, existing routes
+2. **Classify into 1-2 archetypes** from `PROJECT_CONTEXT.md` taxonomy
+3. **Apply archetype context** — use per-skill mapping table in `PROJECT_CONTEXT.md` to prioritize archetype-specific anti-patterns
+
+Note: Unlike ux-planner/ui-planner, coding-guard does not need user confirmation of archetype — it uses the classification silently to inform anti-pattern priority.
+
+---
+
 # Coding Guard - Post-Implementation Audit
 
 Run this skill after implementing changes to verify they follow project coding conventions.
@@ -130,8 +142,33 @@ grep -n "debugLog\|debug-log\|debug-state" $FILE
 
 ```bash
 # Check for pytest unit test files (should not exist)
-find tests/ -name "test_*.py" 2>/dev/null
+find tests// -name "test_*.py" 2>/dev/null
 ```
+
+#### 2.6 Element Naming Conventions
+
+Check that interactive elements use canonical verbs from the Element Operation Dictionary.
+
+```bash
+# Check button labels for non-canonical verbs
+# Canonical verbs: create, add, save, edit, delete, remove, submit, confirm,
+#   login, logout, register, run, start, stop, generate, export, download, cancel, publish, deploy
+NON_CANONICAL='destroy\|purge\|wipe\|trash\|erase\|drop\|update\|modify\|rename\|apply\|overwrite\|merge\|patch\|insert\|upload\|import\|clone\|duplicate\|send\|proceed\|done\|finish\|accept\|approve\|execute\|trigger\|process\|build\|queue\|dismiss'
+
+# Scan button/link text in HTML
+grep -rn '<button[^>]*>' $FILE | grep -oP '(?<=>)[^<]+' | grep -iE "$NON_CANONICAL"
+
+# Scan testid action part
+grep -oP 'data-testid="[^"]*"' $FILE | grep -iE "$NON_CANONICAL"
+```
+
+**Violations:**
+| Issue | Example | Fix |
+|-------|---------|-----|
+| Non-canonical label | `<button>Destroy Record</button>` | `<button>Delete Record</button>` |
+| Non-canonical testid | `data-testid="record-destroy-btn"` | `data-testid="record-delete-btn"` |
+
+See `skills/browser/references/element-operations.md` → Canonical Verbs for the approved verb list and synonym mapping.
 
 ### Step 3: Report Format
 
@@ -178,6 +215,8 @@ For files with violations, also check they have:
 - [ ] Clear error messages with context
 - [ ] Debug containers (for UI components with complex state)
 - [ ] `data-testid` attributes (for new UI elements)
+- [ ] Element labels use canonical verbs (per element-operations.md)
+- [ ] TestID `{action}` parts use canonical verbs
 
 ## Anti-Pattern Reference
 

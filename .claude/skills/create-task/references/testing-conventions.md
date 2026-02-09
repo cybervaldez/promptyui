@@ -15,7 +15,7 @@ Detailed patterns for e2e testing with agent-browser and curl.
 | `./venv/bin/python` | | Python path |
 | `/api/pu` | | API base path |
 | `webui/prompty` | | WebUI source path |
-| `tests` | | Test files path |
+| `tests/` | | Test files path |
 | `outputs` | | Generated outputs path |
 
 ## Core Testing Principles

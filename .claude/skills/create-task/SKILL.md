@@ -63,6 +63,18 @@ Before executing, check for technology-specific patterns:
 
 ---
 
+## Project Context Detection
+
+After Tech Context Detection, classify the project to guide scaffolding and test fixtures:
+
+1. **Read project signals** — `README.md`, `package.json` description/dependencies, existing routes
+2. **Classify into 1-2 archetypes** from `PROJECT_CONTEXT.md` taxonomy
+3. **Apply archetype context** — use per-skill mapping table in `PROJECT_CONTEXT.md` to select appropriate test data patterns and scaffold hints
+
+Note: Unlike ux-planner/ui-planner, create-task does not need user confirmation of archetype — it uses the classification silently to inform test fixture selection and scaffold patterns.
+
+---
+
 # Task Implementation Skill
 
 You are implementing tasks for the cybervaldez-prompt-generator WebUI. Each task includes planning, implementation, and **automated e2e test validation**.
@@ -106,7 +118,7 @@ ls webui/prompty/js/**/*.js
 ls webui/prompty/server/api/*.py
 
 # Find existing tests for the area
-ls tests/test_*.sh
+ls tests//test_*.sh
 
 # Get available testids
 ./venv/bin/python list-testids.py --json
@@ -163,9 +175,9 @@ function debugLog(key, value) {
 
 ### 5. Create/Update E2E Test
 
-Write a test at `tests/test_<feature>.sh` that validates the implementation.
+Write a test at `tests//test_<feature>.sh` that validates the implementation.
 
-**IMPORTANT:** All tests MUST use the shared library at `tests/lib/test_utils.sh`.
+**IMPORTANT:** All tests MUST use the shared library at `tests//lib/test_utils.sh`.
 
 #### Test Template (Standard Pattern)
 
@@ -176,7 +188,7 @@ Write a test at `tests/test_<feature>.sh` that validates the implementation.
 # ============================================================================
 # <Brief description of what this tests>
 #
-# Usage: ./tests/test_<feature>.sh [--port 8085]
+# Usage: ./tests//test_<feature>.sh [--port 8085]
 # ============================================================================
 
 set +e  # Don't exit on error - let all tests run
@@ -238,8 +250,8 @@ exit $?
 After implementation, you MUST run the test to verify everything works:
 
 ```bash
-chmod +x tests/test_<feature>.sh
-./tests/test_<feature>.sh
+chmod +x tests//test_<feature>.sh
+./tests//test_<feature>.sh
 ```
 
 If tests fail, fix the issues and re-run until all tests pass.
@@ -251,7 +263,7 @@ Provide:
 - Test results (pass/fail with counts)
 - Any issues encountered and how they were resolved
 
-## Shared Test Library (`tests/lib/test_utils.sh`)
+## Shared Test Library (`tests//lib/test_utils.sh`)
 
 All tests source this library for standardized functions:
 
@@ -451,7 +463,7 @@ webui/prompty/
 ├── server/
 │   ├── api/                # API endpoints
 │   └── cli/                # CLI tools
-tests/
+tests//
 ├── lib/
 │   └── test_utils.sh       # Shared test utilities (REQUIRED)
 └── test_*.sh               # E2E test scripts (bash only)
@@ -535,7 +547,7 @@ After completing the task, consider running:
 - `/coding-guard` - Post-implementation audit (run after implementing)
 - `/e2e-guard` - E2E test coverage verification
 - `/ux-review` - User perspective verification
-- `tests/lib/test_utils.sh` - Shared test utilities source code
+- `tests//lib/test_utils.sh` - Shared test utilities source code
 - `references/testing-conventions.md` - Detailed testing patterns
 
 ---

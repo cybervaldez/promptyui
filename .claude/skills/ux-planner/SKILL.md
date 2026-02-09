@@ -32,6 +32,45 @@ Before providing recommendations, check for technology-specific UX patterns:
 
 ---
 
+## Project Context Detection
+
+After Tech Context Detection, classify the project to ask better clarifying questions:
+
+1. **Read project signals** — `README.md`, `package.json` description/dependencies, existing routes
+2. **Classify into 1-2 archetypes** from `PROJECT_CONTEXT.md` taxonomy
+3. **Present to user for confirmation:**
+   ```
+   Based on your project, I'd classify this as: **{archetype}**
+   ({brief rationale})
+   Does this match your intent?
+   ```
+4. **Apply only after confirmation** — prioritize archetype-specific questions, annotate options
+
+**Archetype-biased clarifying questions** (ask these first when archetype is confirmed):
+
+| Archetype | Priority Questions |
+|-----------|-------------------|
+| `text-heavy` | "How long are typical articles?" · "Reading order (linear vs. browsable)?" · "Search or category-first navigation?" |
+| `data-dashboard` | "Primary metric the user monitors?" · "Drill-down needed from overview to detail?" · "Real-time updates or periodic refresh?" |
+| `form-heavy` | "How many steps/fields?" · "Save progress mid-form?" · "Conditional fields based on prior answers?" |
+| `media-gallery` | "Grid browsing or detail-focused?" · "Filtering/sorting needed?" · "Upload or consume-only?" |
+| `task-management` | "Status workflow (how many states)?" · "Single user or team collaboration?" · "Drag-and-drop reordering needed?" |
+| `real-time` | "Message threading or flat?" · "Presence indicators needed?" · "Notification model (push, badge, sound)?" |
+| `e-commerce` | "Cart model (single item or basket)?" · "Checkout steps?" · "Product comparison needed?" |
+| `landing-page` | "Primary CTA (signup, waitlist, demo)?" · "Social proof elements?" · "Above-the-fold priorities?" |
+
+**Annotate options analysis** with archetype fit when presenting alternatives:
+```
+### Option A: [Name] (Recommended for {archetype})
+```
+
+**Optional web research** (when user asks or context would help):
+- `WebSearch "{archetype} UX patterns {current_year}"`
+- Summarize 2-3 trending UX patterns to inform recommendations
+- Skip if user wants to move fast
+
+---
+
 # UX Planner
 
 A conversational UX advisor that helps plan web UI interactions, user flows, and interface patterns. This skill prioritizes understanding user goals through dialogue before recommending solutions.

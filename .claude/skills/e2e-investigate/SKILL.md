@@ -54,10 +54,10 @@ Analyze failing `/e2e` test results, investigate root causes, and produce action
 /e2e-investigate
 
 # After specific run
-/e2e-investigate tests/e2e-runs/20240115_143022/
+/e2e-investigate tests//e2e-runs/20240115_143022/
 ```
 
-The skill automatically reads `tests/e2e-runs/latest/` if no path is specified.
+The skill automatically reads `tests//e2e-runs/latest/` if no path is specified.
 
 ## Quick Start
 
@@ -69,7 +69,7 @@ No arguments needed. Automatically reads the latest e2e run artifacts.
 
 ## What It Does
 
-1. **Parse Failure**: Read `tests/e2e-runs/latest/report.md` to identify failed phases
+1. **Parse Failure**: Read `tests//e2e-runs/latest/report.md` to identify failed phases
 2. **Gather Evidence**: Collect screenshots, server logs, error messages
 3. **Investigate Root Cause**: Analyze code, check patterns, identify the bug
 4. **Diagnose Issue Type**: Categorize (API, UI, state, timing, persistence)
@@ -83,10 +83,10 @@ No arguments needed. Automatically reads the latest e2e run artifacts.
 
 ```bash
 # Read the latest report
-cat tests/e2e-runs/latest/report.md
+cat tests//e2e-runs/latest/report.md
 
 # Extract failed phases
-grep -A5 "FAIL" tests/e2e-runs/latest/report.md
+grep -A5 "FAIL" tests//e2e-runs/latest/report.md
 ```
 
 Look for:
@@ -103,19 +103,19 @@ Look for:
 **Server Logs:**
 ```bash
 # Check for exceptions and stack traces
-cat tests/e2e-runs/latest/server.log | grep -E "(Error|Exception|Traceback|404|500)" -A5
+cat tests//e2e-runs/latest/server.log | grep -E "(Error|Exception|Traceback|404|500)" -A5
 
 # For server restart issues
-cat tests/e2e-runs/latest/server_restart.log
+cat tests//e2e-runs/latest/server_restart.log
 ```
 
 **Screenshots:**
 ```bash
 # List available screenshots
-ls tests/e2e-runs/latest/screenshots/
+ls tests//e2e-runs/latest/screenshots/
 
 # View specific screenshot (use Read tool)
-# tests/e2e-runs/latest/screenshots/06-server-restart.png
+# tests//e2e-runs/latest/screenshots/06-server-restart.png
 ```
 
 **What to look for in screenshots:**
@@ -239,7 +239,7 @@ Output this format for `/create-task`:
 After `/e2e` runs, these artifacts exist:
 
 ```
-tests/e2e-runs/latest/          <- Symlink to most recent run
+tests//e2e-runs/latest/          <- Symlink to most recent run
 ├── report.md                   <- Structured failure report
 ├── server.log                  <- Server output with exceptions
 ├── server_restart.log          <- Phase 7 restart log (if applicable)
@@ -312,10 +312,10 @@ Phase 7: Server Restart - FAIL
 
 ```bash
 # Screenshot shows "ITEMS (0)" in sidebar
-# Read: tests/e2e-runs/latest/screenshots/06-server-restart.png
+# Read: tests//e2e-runs/latest/screenshots/06-server-restart.png
 
 # Server restart log shows clean startup
-cat tests/e2e-runs/latest/server_restart.log
+cat tests//e2e-runs/latest/server_restart.log
 # No exceptions, server started on port 8085
 
 # Check if outputs exist
@@ -430,7 +430,7 @@ The output from `/e2e-investigate` is designed to feed directly into `/create-ta
 
 - **Read-only** - Investigates failures but doesn't fix them; outputs to `/create-task`
 - **Pipeline position** - Triggered by `/e2e` failures; feeds into `/create-task` for fixes
-- **Prerequisites** - Requires `/e2e` to have run and failed; needs failure artifacts in `tests/e2e-runs/`
+- **Prerequisites** - Requires `/e2e` to have run and failed; needs failure artifacts in `tests//e2e-runs/`
 - **Not suitable for** - Successful test runs; test authoring (use `/e2e-guard` for that)
 - **Artifact dependency** - Screenshots and logs must exist; if artifacts are missing, re-run `/e2e` first
 

@@ -53,6 +53,18 @@ Before executing, check for technology-specific observability patterns:
 
 ---
 
+## Project Context Detection
+
+After Tech Context Detection, classify the project to tailor testID and state exposure recommendations:
+
+1. **Read project signals** — `README.md`, `package.json` description/dependencies, existing routes
+2. **Classify into 1-2 archetypes** from `PROJECT_CONTEXT.md` taxonomy
+3. **Apply archetype context** — use per-skill mapping table in `PROJECT_CONTEXT.md` to recommend archetype-appropriate testID conventions and state exposure
+
+Note: Unlike ux-planner/ui-planner, cli-first does not need user confirmation of archetype — it uses the classification silently to inform testID and state exposure recommendations.
+
+---
+
 # CLI-First - Observability for AI Verification
 
 > **The Core Philosophy**
@@ -147,7 +159,7 @@ For each file, audit these four categories:
 **Check for generic file names:**
 ```bash
 # Bad: Non-descriptive names
-ls tests/ | grep -E "^test_[0-9]+\.sh$"   # test_1.sh, test_2.sh
+ls tests// | grep -E "^test_[0-9]+\.sh$"   # test_1.sh, test_2.sh
 ls webui/prompty/js/ | grep -E "^(utils|helpers|common)\.js$"
 ```
 
@@ -198,12 +210,25 @@ grep -rn "const state = " webui/prompty/js/ | grep -v "window\."
 grep -rn "fetch(" webui/prompty/js/ | grep -v "debugLog\|console\."
 ```
 
+**Check for non-canonical verbs in testids:**
+```bash
+# Canonical action verbs: create, add, save, edit, delete, remove, submit, confirm,
+#   login, logout, register, run, start, stop, generate, export, download, cancel, publish, deploy
+# Plus VIEW: expand, collapse, toggle, show, hide, sort, filter, search, refresh
+NON_CANONICAL='destroy\|purge\|wipe\|trash\|erase\|drop\|update\|modify\|rename\|apply\|overwrite\|merge\|patch\|insert\|upload\|import\|clone\|duplicate\|send\|proceed\|done\|finish\|accept\|approve\|execute\|trigger\|process\|build\|queue\|dismiss'
+
+grep -rn 'data-testid=' webui/prompty/*.html | grep -oP 'data-testid="[^"]*"' | grep -iE "$NON_CANONICAL"
+```
+
 **Violations:**
 | Issue | Example | Fix |
 |-------|---------|-----|
 | Missing testid | `<button>Generate</button>` | `<button data-testid="bake-generate-btn">` |
 | Closure state | `let state = {}` | `window.ModalState = state` or debug container |
 | Silent API | `fetch('/api/x')` | Add debug logging or expose response |
+| Non-canonical testid action | `data-testid="user-destroy-btn"` | `data-testid="user-delete-btn"` |
+
+See `skills/browser/references/element-operations.md` → Canonical Verbs.
 
 ---
 
@@ -212,13 +237,13 @@ grep -rn "fetch(" webui/prompty/js/ | grep -v "debugLog\|console\."
 **Check for screenshot-heavy test patterns:**
 ```bash
 # Bad: Using screenshot when snapshot suffices
-grep -rn "screenshot" tests/ | grep -v "screenshot_on_fail\|failure"
+grep -rn "screenshot" tests// | grep -v "screenshot_on_fail\|failure"
 ```
 
 **Check for full snapshot when eval suffices:**
 ```bash
 # Bad: Full DOM snapshot to check single value
-grep -rn "snapshot -c" tests/ | xargs -I {} sh -c '
+grep -rn "snapshot -c" tests// | xargs -I {} sh -c '
     if ! grep -A5 "snapshot -c" {} | grep -q "eval"; then
         echo "Possible optimization: {}"
     fi
@@ -247,21 +272,21 @@ grep -rn "snapshot -c" tests/ | xargs -I {} sh -c '
 **Check for manual verification comments:**
 ```bash
 # Bad: Comments telling humans to verify
-grep -rn "# TODO: manually\|# VERIFY:\|# CHECK:" tests/
-grep -rn "# visual inspection\|# look at" tests/
+grep -rn "# TODO: manually\|# VERIFY:\|# CHECK:" tests//
+grep -rn "# visual inspection\|# look at" tests//
 ```
 
 **Check for CSS class selectors in tests:**
 ```bash
 # Bad: Fragile CSS selectors
-grep -rn "querySelector.*\\.class" tests/
-grep -rn "getElementsByClassName" tests/
+grep -rn "querySelector.*\\.class" tests//
+grep -rn "getElementsByClassName" tests//
 ```
 
 **Check for hardcoded waits:**
 ```bash
 # Bad: Fixed sleep instead of wait-for-condition
-grep -rn "sleep [5-9]\|sleep 1[0-9]" tests/
+grep -rn "sleep [5-9]\|sleep 1[0-9]" tests//
 ```
 
 **Violations:**
@@ -426,7 +451,7 @@ Use both together:
 grep -rn '<button\|<input\|<select' webui/prompty/*.html | grep -v 'data-testid'
 
 # Find screenshot usage in tests (should be minimal)
-grep -rn "screenshot" tests/ | grep -v "failure\|_on_fail"
+grep -rn "screenshot" tests// | grep -v "failure\|_on_fail"
 
 # Find closure state patterns
 grep -rn "let state = \|const state = " webui/prompty/js/ | grep -v "window\."
