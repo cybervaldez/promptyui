@@ -55,7 +55,6 @@ PU.state = {
     focusMode: {
         active: false,
         blockPath: null,         // e.g. "0", "0.1"
-        activeTab: 'variations', // 'variations' | 'fulltext'
         quillInstance: null,     // Transient Quill (not in PU.quill.instances)
         enterTimestamp: 0        // Debounce guard
     },

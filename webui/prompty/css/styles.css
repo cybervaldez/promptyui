@@ -2242,7 +2242,7 @@ body.pu-focus-active {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
+    background: #000;
     z-index: 1050;
     display: flex;
     align-items: center;
@@ -2311,7 +2311,7 @@ body.pu-focus-active {
     transition: border-color var(--pu-transition-fast), box-shadow var(--pu-transition-fast);
     min-height: 100%;
     font-family: var(--pu-font-body);
-    font-size: var(--pu-font-size-md);
+    font-size: var(--pu-font-size-lg);
 }
 
 .pu-focus-quill.ql-snow:focus-within {
@@ -2324,11 +2324,20 @@ body.pu-focus-active {
 }
 
 .pu-focus-quill .ql-editor {
-    padding: 10px;
+    padding: 16px;
     color: var(--pu-text-primary);
     font-family: var(--pu-font-body);
-    line-height: 1.5;
+    line-height: 1.7;
     min-height: 100px;
+}
+
+.pu-focus-quill .ql-wildcard-chip {
+    font-size: var(--pu-font-size-md);
+    padding: 1px var(--pu-space-xs);
+}
+
+.pu-focus-quill .ql-wc-name {
+    font-size: var(--pu-font-size-md);
 }
 
 .pu-focus-quill .ql-editor.ql-blank::before {
@@ -2336,90 +2345,6 @@ body.pu-focus-active {
     font-style: normal;
 }
 
-/* Tab bar */
-.pu-focus-tabs {
-    display: flex;
-    border-top: 1px solid var(--pu-border);
-    border-bottom: 1px solid var(--pu-border);
-    background: var(--pu-bg-hover);
-    flex-shrink: 0;
-}
-
-.pu-focus-tab {
-    flex: 1;
-    padding: var(--pu-space-sm) var(--pu-space-lg);
-    background: transparent;
-    border: none;
-    border-bottom: 2px solid transparent;
-    color: var(--pu-text-secondary);
-    font-family: var(--pu-font-body);
-    font-size: var(--pu-font-size-sm);
-    font-weight: 500;
-    cursor: pointer;
-    transition: all var(--pu-transition-fast);
-}
-
-.pu-focus-tab:hover {
-    color: var(--pu-text-primary);
-    background: var(--pu-bg-selected);
-}
-
-.pu-focus-tab.active {
-    color: var(--pu-accent);
-    border-bottom-color: var(--pu-accent);
-}
-
-/* Preview area (~40% height) */
-.pu-focus-preview {
-    flex: 40;
-    overflow-y: auto;
-    padding: var(--pu-space-md) var(--pu-space-lg);
-    min-height: 0;
-}
-
-/* Reuse existing preview item styles */
-.pu-focus-preview .pu-preview-item {
-    padding: 10px var(--pu-space-md);
-    background: var(--pu-bg-hover);
-    border: 1px solid transparent;
-    border-radius: var(--pu-radius);
-    margin-bottom: var(--pu-space-sm);
-    font-size: var(--pu-font-size-md);
-    transition: background var(--pu-transition-fast);
-}
-
-.pu-focus-preview .pu-preview-item:hover {
-    background: var(--pu-bg-selected);
-}
-
-/* Full text display in focus mode */
-.pu-focus-fulltext {
-    white-space: pre-wrap;
-    word-break: break-word;
-    font-size: var(--pu-font-size-md);
-    line-height: 1.6;
-    padding: var(--pu-space-md);
-    background: var(--pu-bg-hover);
-    border-radius: var(--pu-radius);
-}
-
-.pu-focus-fulltext .pu-text-base {
-    color: var(--pu-text-muted);
-}
-
-.pu-focus-fulltext .pu-text-new {
-    color: var(--pu-text-primary);
-    font-weight: 600;
-}
-
-/* Wildcard focus highlighting in focus preview */
-.pu-focus-preview .pu-preview-wc-focus .pu-preview-item {
-    opacity: 0.35;
-    transition: opacity var(--pu-transition-normal);
-}
-.pu-focus-preview .pu-preview-wc-focus .pu-preview-item:has(.pu-wc-pill-active) {
-    opacity: 1;
-}
 
 /* ============================================
    Inline Wildcard Expansion Popover
@@ -2514,3 +2439,73 @@ body.pu-focus-active {
 .pu-wc-inline-input::placeholder {
     color: var(--pu-text-muted);
 }
+
+.pu-wc-inline-hint {
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-muted);
+    font-style: italic;
+    white-space: nowrap;
+    padding: 2px 4px;
+    user-select: none;
+}
+
+/* Variations preview inside popover */
+.pu-wc-inline-variations {
+    flex-basis: 100%;
+    margin-top: var(--pu-space-xs);
+    padding-top: var(--pu-space-xs);
+    border-top: 1px solid var(--pu-border);
+    max-height: 200px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.pu-wc-inline-variation-item {
+    display: flex;
+    gap: var(--pu-space-xs);
+    font-size: var(--pu-font-size-sm);
+    line-height: 1.4;
+    padding: 3px 6px;
+    background: var(--pu-bg-hover);
+    border-radius: var(--pu-radius);
+}
+
+.pu-wc-inline-variation-index {
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-muted);
+    flex-shrink: 0;
+    min-width: 18px;
+}
+
+.pu-wc-inline-variation-text {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Pills in variations: inherit size, strip chrome */
+.pu-wc-inline-variations .pu-wc-pill {
+    font-size: inherit;
+    font-weight: normal;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0 1px;
+    margin: 0;
+}
+
+/* Active wildcard pill: bordered like focus mode variations */
+.pu-wc-inline-variations .pu-wc-pill[data-wc-active] {
+    color: var(--pu-text-primary);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.85);
+    border-radius: var(--pu-radius);
+}
+
+/* Inactive wildcard pills: regular text appearance */
+.pu-wc-inline-variations .pu-wc-pill:not([data-wc-active]) {
+    color: inherit;
+}
+

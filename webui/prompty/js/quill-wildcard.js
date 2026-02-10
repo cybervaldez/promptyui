@@ -44,46 +44,36 @@ if (typeof Quill !== 'undefined') {
             // Mark undefined wildcards
             if (value.undefined) {
                 node.classList.add('ql-wc-undefined');
-                node.setAttribute('title', 'Click to replace with a defined wildcard');
-                node.style.cursor = 'pointer';
-                node.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    // Find the parent Quill instance via DOM traversal
-                    const editorEl = node.closest('.ql-editor');
-                    if (!editorEl) return;
-                    const containerEl = editorEl.closest('.pu-content-quill');
-                    if (!containerEl) return;
-                    const path = containerEl.dataset.path;
-                    const quill = PU.quill.instances[path];
-                    if (!quill) return;
-                    // Find blot index
-                    const blot = Quill.find(node);
-                    if (!blot) return;
-                    const index = quill.getIndex(blot);
-                    PU.quill.openAutocomplete(quill, path, index, value.name, node);
-                });
+                node.setAttribute('data-testid', 'pu-wc-chip-undefined');
             } else {
-                // Defined chip — open inline expansion popover
-                node.style.cursor = 'pointer';
-                node.setAttribute('title', 'Click to edit values');
                 node.setAttribute('data-testid', 'pu-wc-chip-defined');
-                node.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const editorEl = node.closest('.ql-editor');
-                    if (!editorEl) return;
-                    const containerEl = editorEl.closest('.pu-content-quill, .pu-focus-quill');
-                    if (!containerEl) return;
-                    const path = containerEl.dataset.path;
-                    const quill = PU.quill.instances[path] || PU.state.focusMode.quillInstance;
-                    if (!quill) return;
-                    const isFocusMode = PU.state.focusMode.active;
-                    if (PU.wildcardPopover) {
-                        PU.wildcardPopover.open(node, value.name, quill, path, isFocusMode);
-                    }
-                });
             }
+
+            // Click: position cursor at chip → triggers selection-change → passive popover
+            node.style.cursor = 'pointer';
+            node.setAttribute('title', value.undefined ? 'Click to add values' : 'Click to edit values');
+            node.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const editorEl = node.closest('.ql-editor');
+                if (!editorEl) return;
+                const containerEl = editorEl.closest('.pu-content-quill, .pu-focus-quill');
+                if (!containerEl) return;
+                const path = containerEl.dataset.path;
+
+                if (PU.state.focusMode.active && PU.state.focusMode.quillInstance) {
+                    // Already in focus mode — position cursor in focus quill
+                    PU.quill.positionCursorAtWildcard(PU.state.focusMode.quillInstance, value.name);
+                } else {
+                    // Enter focus mode, then position cursor at chip
+                    PU.focus.enter(path);
+                    requestAnimationFrame(() => {
+                        if (PU.state.focusMode.quillInstance) {
+                            PU.quill.positionCursorAtWildcard(PU.state.focusMode.quillInstance, value.name);
+                        }
+                    });
+                }
+            });
 
             return node;
         }
@@ -126,10 +116,9 @@ if (typeof Quill !== 'undefined') {
 
             const quill = new Quill(containerEl, {
                 theme: 'snow',
-                modules: {
-                    toolbar: false
-                },
-                placeholder: 'Enter content... Use __name__ for wildcards'
+                modules: { toolbar: false },
+                readOnly: true,
+                placeholder: ''
             });
 
             // Parse initial content into Delta with wildcard embeds
@@ -137,48 +126,16 @@ if (typeof Quill !== 'undefined') {
             const ops = PU.quill.parseContentToOps(initialContent || '', wildcardLookup);
             quill.setContents({ ops: ops }, Quill.sources.SILENT);
 
-            // Attach text-change listener
-            quill.on('text-change', (delta, oldDelta, source) => {
-                if (source === Quill.sources.SILENT) return;
-                PU.quill.handleTextChange(path, quill);
-            });
-
-            // Attach selection-change listener for wildcard focus tracking
-            quill.on('selection-change', (range, oldRange, source) => {
-                if (!range) {
-                    // Lost focus — clear active wildcard
-                    if (PU.state.preview.activeWildcard !== null) {
-                        PU.state.preview.activeWildcard = null;
-                        PU.preview.updateWildcardFocus();
-                    }
+            // Click opens focus mode (replaces focus listener)
+            containerEl.addEventListener('click', (e) => {
+                // Don't enter focus mode if clicking a wildcard chip
+                if (PU.quill._chipClickInProgress) {
+                    PU.quill._chipClickInProgress = false;
                     return;
                 }
-                const wcName = PU.quill.getAdjacentWildcardName(quill);
-                if (wcName !== PU.state.preview.activeWildcard) {
-                    PU.state.preview.activeWildcard = wcName;
-                    PU.preview.updateWildcardFocus();
-                }
-            });
-
-            // Attach focus handlers
-            quill.root.addEventListener('focus', () => {
                 PU.actions.selectBlock(path);
-                if (!PU.state.focusMode.active && !PU.quill._chipClickInProgress) {
+                if (!PU.state.focusMode.active) {
                     PU.focus.enter(path);
-                }
-                PU.quill._chipClickInProgress = false;
-            });
-
-            quill.root.addEventListener('blur', () => {
-                PU.actions.onBlockBlur(path);
-            });
-
-            // Attach keyboard handler for autocomplete
-            quill.root.addEventListener('keydown', (e) => {
-                if (PU.quill._autocompleteOpen) {
-                    if (PU.quill.handleAutocompleteKey(e)) {
-                        // Key was consumed by autocomplete
-                    }
                 }
             });
 
@@ -306,6 +263,15 @@ if (typeof Quill !== 'undefined') {
             const sel = quillInstance.getSelection();
             if (sel) {
                 const textBefore = quillInstance.getText(0, sel.index);
+
+                // Colon shortcut: __name: → create chip + open popover
+                if (PU.quill.handleColonShortcut(quillInstance, path, sel, textBefore)) {
+                    PU.quill._updatingFromQuill = path;
+                    PU.actions.updateBlockContent(path, PU.quill.serialize(quillInstance));
+                    PU.quill._updatingFromQuill = null;
+                    return;
+                }
+
                 const triggerMatch = textBefore.match(/__([a-zA-Z0-9_-]*)$/);
 
                 if (triggerMatch) {
@@ -640,6 +606,21 @@ if (typeof Quill !== 'undefined') {
 
             // Re-focus editor
             quill.focus();
+
+            // Auto-open popover for new (undefined) wildcards so user can add values
+            if (values.length === 0) {
+                requestAnimationFrame(() => {
+                    const chipEl = quill.root.querySelector(
+                        `.ql-wildcard-chip[data-wildcard-name="${name}"]`
+                    );
+                    if (chipEl && PU.wildcardPopover) {
+                        PU.wildcardPopover.open(
+                            chipEl, name, quill,
+                            path, PU.state.focusMode.active
+                        );
+                    }
+                });
+            }
         },
 
         /**
@@ -753,6 +734,85 @@ if (typeof Quill !== 'undefined') {
             } catch (e) { /* ignore */ }
 
             return null;
+        },
+
+        /**
+         * Get the wildcard chip DOM element adjacent to the cursor.
+         * Checks offsets 0, -1, +1 from the selection index.
+         */
+        getAdjacentWildcardChipEl(quill) {
+            const sel = quill.getSelection();
+            if (!sel) return null;
+            for (const offset of [0, -1, 1]) {
+                const idx = sel.index + offset;
+                if (idx < 0) continue;
+                try {
+                    const [leaf] = quill.getLeaf(idx);
+                    if (leaf?.domNode?.classList?.contains('ql-wildcard-chip')) {
+                        return leaf.domNode;
+                    }
+                } catch (e) { /* ignore */ }
+            }
+            return null;
+        },
+
+        /**
+         * Position cursor adjacent to the first chip matching wcName.
+         * Triggers selection-change which opens the passive popover.
+         */
+        positionCursorAtWildcard(quill, wcName) {
+            const chip = quill.root.querySelector(
+                `.ql-wildcard-chip[data-wildcard-name="${wcName}"]`
+            );
+            if (!chip) return;
+            try {
+                const blot = Quill.find(chip);
+                if (blot) {
+                    const index = quill.getIndex(blot);
+                    quill.setSelection(index + 1, 0, Quill.sources.USER);
+                }
+            } catch (e) { /* ignore */ }
+        },
+
+        /**
+         * Handle colon shortcut: __name: → create chip and open popover.
+         * Returns true if handled.
+         */
+        handleColonShortcut(quillInstance, path, sel, textBefore) {
+            const colonMatch = textBefore.match(/__([a-zA-Z0-9_-]+):$/);
+            if (!colonMatch) return false;
+
+            const wcName = colonMatch[1];
+            const triggerIdx = sel.index - colonMatch[0].length;
+
+            // Close autocomplete if open
+            if (PU.quill._autocompleteOpen) PU.quill.closeAutocomplete();
+
+            // Delete __name: text and insert chip
+            quillInstance.deleteText(triggerIdx, colonMatch[0].length, Quill.sources.SILENT);
+            const wildcardLookup = PU.helpers.getWildcardLookup();
+            const values = wildcardLookup[wcName] || [];
+            const preview = values.length > 0
+                ? values.slice(0, 3).join(', ') + (values.length > 3 ? ` +${values.length - 3}` : '')
+                : '';
+            quillInstance.insertEmbed(triggerIdx, 'wildcard', {
+                name: wcName, preview, undefined: values.length === 0
+            }, Quill.sources.SILENT);
+            quillInstance.setSelection(triggerIdx + 1, 0, Quill.sources.SILENT);
+
+            // Open popover on the chip
+            requestAnimationFrame(() => {
+                const chipEl = quillInstance.root.querySelector(
+                    `.ql-wildcard-chip[data-wildcard-name="${wcName}"]`
+                );
+                if (chipEl && PU.wildcardPopover) {
+                    PU.wildcardPopover.open(
+                        chipEl, wcName, quillInstance,
+                        path, PU.state.focusMode.active
+                    );
+                }
+            });
+            return true;
         },
 
         /**

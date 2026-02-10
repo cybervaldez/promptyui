@@ -17,11 +17,12 @@ PU.wildcardPopover = {
     _localValues: [],
     _onClickOutside: null,
     _onKeyDown: null,
+    _passive: false,
 
     /**
      * Open inline expansion for a defined wildcard chip
      */
-    open(chipEl, wcName, quill, path, isFocusMode) {
+    open(chipEl, wcName, quill, path, isFocusMode, passive = false) {
         // Close any existing expansion or autocomplete
         if (PU.wildcardPopover._open) {
             PU.wildcardPopover.close();
@@ -35,6 +36,7 @@ PU.wildcardPopover = {
         PU.wildcardPopover._quillInstance = quill;
         PU.wildcardPopover._quillPath = path;
         PU.wildcardPopover._open = true;
+        PU.wildcardPopover._passive = passive;
 
         // Read local values from prompt.wildcards
         const prompt = PU.editor.getModifiedPrompt();
@@ -64,11 +66,13 @@ PU.wildcardPopover = {
             }
         });
 
-        // Focus input after render
-        requestAnimationFrame(() => {
-            const input = PU.wildcardPopover._el.querySelector('.pu-wc-inline-input');
-            if (input) input.focus();
-        });
+        // Focus input after render (skip in passive mode)
+        if (!passive) {
+            requestAnimationFrame(() => {
+                const input = PU.wildcardPopover._el?.querySelector('.pu-wc-inline-input');
+                if (input) input.focus();
+            });
+        }
 
         // Click-outside listener (deferred to avoid catching the opening click)
         PU.wildcardPopover._onClickOutside = (e) => {
@@ -81,12 +85,16 @@ PU.wildcardPopover = {
             document.addEventListener('mousedown', PU.wildcardPopover._onClickOutside);
         }, 0);
 
-        // Escape key listener
+        // Escape / Tab key listener
         PU.wildcardPopover._onKeyDown = (e) => {
             if (e.key === 'Escape') {
                 e.preventDefault();
                 e.stopPropagation();
                 PU.wildcardPopover.close();
+            } else if (e.key === 'Tab' && PU.wildcardPopover._passive) {
+                e.preventDefault();
+                e.stopPropagation();
+                PU.wildcardPopover.activate();
             }
         };
         document.addEventListener('keydown', PU.wildcardPopover._onKeyDown, true);
@@ -97,6 +105,7 @@ PU.wildcardPopover = {
      */
     close() {
         PU.wildcardPopover._open = false;
+        PU.wildcardPopover._passive = false;
         if (PU.wildcardPopover._el) {
             PU.wildcardPopover._el.style.display = 'none';
         }
@@ -114,6 +123,19 @@ PU.wildcardPopover = {
         PU.wildcardPopover._wildcardName = null;
         PU.wildcardPopover._extValues = [];
         PU.wildcardPopover._localValues = [];
+    },
+
+    /**
+     * Activate a passive popover into active mode with input.
+     */
+    activate() {
+        if (!PU.wildcardPopover._open || !PU.wildcardPopover._passive) return;
+        PU.wildcardPopover._passive = false;
+        PU.wildcardPopover.render();
+        requestAnimationFrame(() => {
+            const input = PU.wildcardPopover._el?.querySelector('.pu-wc-inline-input');
+            if (input) input.focus();
+        });
     },
 
     /**
@@ -159,8 +181,23 @@ PU.wildcardPopover = {
 
         html += '</span>';
 
-        // Input for new values
-        html += `<input type="text" class="pu-wc-inline-input" data-testid="pu-wc-inline-input" placeholder="add values..." />`;
+        // Input or passive hint
+        if (PU.wildcardPopover._passive) {
+            html += `<span class="pu-wc-inline-hint" data-testid="pu-wc-inline-hint">press tab to add values</span>`;
+        } else {
+            html += `<input type="text" class="pu-wc-inline-input" data-testid="pu-wc-inline-input" placeholder="add values..." />`;
+        }
+
+        // Variations preview (always visible when values exist)
+        const allValues = [...extValues, ...localValues];
+        if (allValues.length > 0) {
+            const variationsHtml = PU.wildcardPopover._generateVariationsHtml();
+            if (variationsHtml) {
+                html += '<div class="pu-wc-inline-variations" data-testid="pu-wc-inline-variations">';
+                html += variationsHtml;
+                html += '</div>';
+            }
+        }
 
         el.innerHTML = html;
 
@@ -400,6 +437,41 @@ PU.wildcardPopover = {
 
         el.style.left = left + 'px';
         el.style.top = top + 'px';
+    },
+
+    /**
+     * Generate variations preview HTML for the inline popover.
+     */
+    _generateVariationsHtml() {
+        const wcName = PU.wildcardPopover._wildcardName;
+        const path = PU.wildcardPopover._quillPath;
+        if (!wcName || !path) return '';
+
+        const prompt = PU.helpers.getActivePrompt();
+        if (!prompt) return '';
+
+        const block = PU.blocks.findBlockByPath(prompt.text || [], path);
+        if (!block || !block.content) return '';
+
+        const variations = PU.focus.generateFocusedVariations(block.content, wcName);
+        if (variations.length === 0) return '';
+
+        const esc = PU.blocks.escapeHtml;
+        let html = '';
+        variations.forEach((v, idx) => {
+            const escaped = PU.preview.escapeHtmlPreservingMarkers(v.markedText);
+            let pillHtml = PU.preview.renderWildcardPills(escaped);
+            // Mark the active wildcard's pills so CSS can differentiate
+            pillHtml = pillHtml.replace(
+                new RegExp(`data-wc-name="${esc(wcName)}"`, 'g'),
+                `data-wc-name="${esc(wcName)}" data-wc-active`
+            );
+            html += `<div class="pu-wc-inline-variation-item">
+                <span class="pu-wc-inline-variation-index">${idx + 1}.</span>
+                <span class="pu-wc-inline-variation-text">${pillHtml}</span>
+            </div>`;
+        });
+        return html;
     },
 
     /**
