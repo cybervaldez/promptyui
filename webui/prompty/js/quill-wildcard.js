@@ -248,59 +248,6 @@ if (typeof Quill !== 'undefined') {
         },
 
         /**
-         * Handle text-change events from Quill
-         * Serializes to plain text and updates state.
-         * Detects partial __ typing to trigger autocomplete.
-         */
-        handleTextChange(path, quillInstance) {
-            // Set re-entrancy guard
-            PU.quill._updatingFromQuill = path;
-
-            const plainText = PU.quill.serialize(quillInstance);
-            PU.actions.updateBlockContent(path, plainText);
-
-            // Check for autocomplete trigger: __ followed by partial name at cursor
-            const sel = quillInstance.getSelection();
-            if (sel) {
-                const textBefore = quillInstance.getText(0, sel.index);
-
-                // Colon shortcut: __name: → create chip + open popover
-                if (PU.quill.handleColonShortcut(quillInstance, path, sel, textBefore)) {
-                    PU.quill._updatingFromQuill = path;
-                    PU.actions.updateBlockContent(path, PU.quill.serialize(quillInstance));
-                    PU.quill._updatingFromQuill = null;
-                    return;
-                }
-
-                const triggerMatch = textBefore.match(/__([a-zA-Z0-9_-]*)$/);
-
-                if (triggerMatch) {
-                    // Check text after cursor for closing __
-                    const textAfter = quillInstance.getText(sel.index, 10);
-                    const isClosed = textAfter.startsWith('__');
-
-                    if (!isClosed) {
-                        const triggerIndex = sel.index - triggerMatch[0].length;
-                        const query = triggerMatch[1];
-                        PU.quill.showAutocomplete(quillInstance, path, triggerIndex, query);
-                        PU.quill._updatingFromQuill = null;
-                        return; // Skip convertWildcardsInline while autocomplete is open
-                    }
-                }
-            }
-
-            // Close autocomplete if no trigger found
-            if (PU.quill._autocompleteOpen) {
-                PU.quill.closeAutocomplete();
-            }
-
-            // Convert any newly typed wildcards to inline chips
-            PU.quill.convertWildcardsInline(quillInstance);
-
-            PU.quill._updatingFromQuill = null;
-        },
-
-        /**
          * Scan Quill content for unblotted __name__ patterns and convert to embeds
          */
         convertWildcardsInline(quillInstance) {
@@ -385,35 +332,6 @@ if (typeof Quill !== 'undefined') {
             PU.quill._autocompleteEl.style.display = 'block';
             PU.quill.renderAutocompleteItems(query);
             PU.quill.positionAutocomplete(quill, triggerIndex);
-        },
-
-        /**
-         * Open autocomplete from an undefined chip click
-         * Deletes the chip, re-inserts as plain text, opens dropdown
-         */
-        openAutocomplete(quill, path, index, chipName, chipNode) {
-            // Delete the embed (1 char for embed)
-            quill.deleteText(index, 1, Quill.sources.SILENT);
-
-            // Insert __name as plain text (without closing __)
-            const plainText = `__${chipName}`;
-            quill.insertText(index, plainText, Quill.sources.SILENT);
-
-            // Set cursor after the text
-            const cursorPos = index + plainText.length;
-            quill.setSelection(cursorPos, 0, Quill.sources.SILENT);
-
-            // Update state
-            PU.quill._updatingFromQuill = path;
-            const serialized = PU.quill.serialize(quill);
-            PU.actions.updateBlockContent(path, serialized);
-            PU.quill._updatingFromQuill = null;
-
-            // Open autocomplete pre-filtered
-            PU.quill.showAutocomplete(quill, path, index, chipName);
-
-            // Re-focus the editor
-            quill.focus();
         },
 
         /**
@@ -837,7 +755,6 @@ if (typeof Quill !== 'undefined') {
         initAll() {},
         serialize() { return ''; },
         parseContentToOps() { return []; },
-        handleTextChange() {},
         convertWildcardsInline() {},
         closeAutocomplete() {},
         handleAutocompleteKey() { return false; },
