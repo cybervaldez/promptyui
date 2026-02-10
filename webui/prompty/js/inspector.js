@@ -64,7 +64,7 @@ PU.inspector = {
 
             html += `
                 <div class="pu-tree-item" onclick="PU.inspector.toggleExtFolder('${folderPath}')">
-                    <span class="pu-tree-icon">&#128194;</span>
+                    <span class="pu-tree-icon">&rsaquo;</span>
                     <span class="pu-tree-label">${key}</span>
                 </div>
             `;
@@ -88,7 +88,6 @@ PU.inspector = {
                 <div class="pu-tree-item" onclick="PU.inspector.selectExtFile('${filePath}')"
                      draggable="true"
                      ondragstart="PU.inspector.dragExtFile(event, '${file.id}')">
-                    <span class="pu-tree-icon">&#128196;</span>
                     <span class="pu-tree-label">${file.id || file.file.replace('.yaml', '')}</span>
                 </div>
             `;
@@ -337,9 +336,9 @@ PU.inspector = {
             <div class="pu-wildcard-section">
                 <div class="pu-wildcard-header">Prompt Overview</div>
                 <div style="font-size: 12px; color: var(--pu-text-secondary); margin-bottom: 16px;">
-                    <div>&#128202; Total blocks: ${blockCount}</div>
-                    <div>&#128202; Max depth: ${maxDepth} levels</div>
-                    <div>&#128202; Wildcards defined: ${wildcards.length}</div>
+                    <div>Total blocks: ${blockCount}</div>
+                    <div>Max depth: ${maxDepth} levels</div>
+                    <div>Wildcards defined: ${wildcards.length}</div>
                 </div>
             </div>
         `;
@@ -552,7 +551,7 @@ PU.inspector = {
 
             html += `
                 <div class="pu-tree-item pu-picker-folder">
-                    <span class="pu-tree-icon">&#128194;</span>
+                    <span class="pu-tree-icon">&rsaquo;</span>
                     <span class="pu-tree-label">${key}</span>
                 </div>
             `;
@@ -587,7 +586,6 @@ PU.inspector = {
                 <div class="pu-tree-item pu-picker-file"
                      data-testid="pu-ext-picker-item-${fileId}"
                      onclick="PU.inspector.selectExtForPicker('${fileId}')">
-                    <span class="pu-tree-icon">&#128196;</span>
                     <span class="pu-tree-label">${fileId}</span>
                     ${badge}
                 </div>

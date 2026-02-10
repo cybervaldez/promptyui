@@ -103,9 +103,9 @@ PU.preview = {
             btn.style.display = prompt ? 'inline-flex' : 'none';
 
             if (PU.state.previewMode.active) {
-                btn.innerHTML = '&#9998; Edit Mode';
+                btn.innerHTML = 'Edit Mode';
             } else {
-                btn.innerHTML = '&#128065; Preview';
+                btn.innerHTML = 'Preview';
             }
         }
     },
@@ -429,51 +429,9 @@ PU.preview = {
             return '';
         }
 
-        /**
-         * Generate a slug-based node ID from content text (for nodes without wildcards)
-         * Matches v4/build-checkpoints.py generate_content_node_id()
-         */
-        function generateContentNodeId(content, siblingIndex) {
-            // Clean and normalize text
-            const clean = (content || '')
-                .toLowerCase()
-                .replace(/[^a-z0-9]+/g, '-')    // Replace non-alphanumeric with dash
-                .replace(/^-+|-+$/g, '')         // Trim leading/trailing dashes
-                .slice(0, 20);                   // Max 20 chars
-
-            const slug = clean || 'content';
-            return `${slug}[${siblingIndex}]`;
-        }
-
-        /**
-         * Generate semantic node ID matching v4's path format.
-         * This ensures PU and v4 produce identical path hashes for composition selection.
-         *
-         * Format:
-         * - Wildcard nodes: "mood~pose" (wildcards sorted alphabetically, joined with ~)
-         * - ext_text nodes: "ext_name"
-         * - Content without wildcards: "slug[idx]" (first 20 chars of slugified content)
-         */
+        // Use the shared generateNodeId method
         function generateNodeId(block, siblingIndex) {
-            if ('ext_text' in block) {
-                // ext_text node: use the ext_text name
-                return block.ext_text;
-            } else if ('content' in block) {
-                const content = block.content || '';
-                // Find wildcards in content
-                const wcMatches = content.match(/__([a-zA-Z0-9_-]+)__/g) || [];
-                const uniqueWcs = [...new Set(wcMatches.map(m => m.replace(/__/g, '')))];
-
-                if (uniqueWcs.length > 0) {
-                    // Has wildcards: join sorted wildcard names with ~
-                    return uniqueWcs.sort().join('~');
-                } else {
-                    // No wildcards: use slug-based ID
-                    return generateContentNodeId(content, siblingIndex);
-                }
-            }
-            // Fallback
-            return `node[${siblingIndex}]`;
+            return PU.preview.generateNodeId(block, siblingIndex);
         }
 
         /**
@@ -689,6 +647,39 @@ PU.preview = {
 
         traverse(prompt.text || [], '', '', '', []);
         return checkpoints;
+    },
+
+    /**
+     * Generate semantic node ID matching v4's path format.
+     * Exposed as shared method for use by focus mode's editPathToSemanticPath.
+     *
+     * Format:
+     * - Wildcard nodes: "mood~pose" (wildcards sorted alphabetically, joined with ~)
+     * - ext_text nodes: "ext_name"
+     * - Content without wildcards: "slug[idx]" (first 20 chars of slugified content)
+     */
+    generateNodeId(block, siblingIndex) {
+        if ('ext_text' in block) {
+            return block.ext_text;
+        } else if ('content' in block) {
+            const content = block.content || '';
+            const wcMatches = content.match(/__([a-zA-Z0-9_-]+)__/g) || [];
+            const uniqueWcs = [...new Set(wcMatches.map(m => m.replace(/__/g, '')))];
+
+            if (uniqueWcs.length > 0) {
+                return uniqueWcs.sort().join('~');
+            } else {
+                // Slug-based ID
+                const clean = (content || '')
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, '-')
+                    .replace(/^-+|-+$/g, '')
+                    .slice(0, 20);
+                const slug = clean || 'content';
+                return `${slug}[${siblingIndex}]`;
+            }
+        }
+        return `node[${siblingIndex}]`;
     },
 
     /**
@@ -1253,6 +1244,9 @@ PU.preview = {
      * Show preview popup for a block
      */
     async show(path) {
+        // Suppress floating popup when focus mode is active
+        if (PU.state.focusMode && PU.state.focusMode.active) return;
+
         PU.state.preview.visible = true;
         PU.state.preview.targetPath = path;
         PU.state.preview.loading = true;
@@ -1343,7 +1337,7 @@ PU.preview = {
 
         if (breakdownEl && data.breakdown) {
             breakdownEl.innerHTML = `
-                <strong>&#128202; Breakdown:</strong>
+                <strong>Breakdown:</strong>
                 This level: ${data.breakdown.this_level} |
                 Nested: ${data.breakdown.nested_paths} |
                 <strong>Total: ${data.breakdown.total}</strong>
@@ -1358,7 +1352,6 @@ PU.preview = {
      */
     updateWildcardFocus() {
         const variationsEl = document.querySelector('[data-testid="pu-preview-variations"]');
-        const headerEl = document.querySelector('[data-testid="pu-preview-header-title"]');
         const activeWc = PU.state.preview.activeWildcard;
 
         if (variationsEl) {
@@ -1373,15 +1366,64 @@ PU.preview = {
                         pill.classList.remove('pu-wc-pill-active');
                     }
                 });
+
+                const navEl = document.querySelector('[data-testid="pu-preview-wc-nav"]');
+                if (navEl) navEl.style.display = 'flex';
             } else {
                 variationsEl.classList.remove('pu-preview-wc-focus');
                 variationsEl.querySelectorAll('.pu-wc-pill').forEach(pill => {
                     pill.classList.remove('pu-wc-pill-active');
                 });
+
+                const navEl = document.querySelector('[data-testid="pu-preview-wc-nav"]');
+                if (navEl) navEl.style.display = 'none';
+                variationsEl.querySelectorAll('.pu-preview-wc-current').forEach(el => el.classList.remove('pu-preview-wc-current'));
             }
         }
 
         // Header always shows "Live Preview" — no badge needed
+    },
+
+    /**
+     * Navigate to next/previous preview item with a different value for the active wildcard.
+     * @param {number} direction - -1 for previous, 1 for next
+     */
+    navigateWildcard(direction) {
+        const activeWc = PU.state.preview.activeWildcard;
+        if (!activeWc) return;
+
+        const variationsEl = document.querySelector('[data-testid="pu-preview-variations"]');
+        if (!variationsEl) return;
+
+        // Build list of items that have a pill for this wildcard
+        const items = Array.from(variationsEl.querySelectorAll('.pu-preview-item'));
+        const wcItems = items.map(item => {
+            const pill = item.querySelector(`.pu-wc-pill[data-wc-name="${CSS.escape(activeWc)}"]`);
+            return { el: item, value: pill ? pill.textContent.trim() : null };
+        }).filter(x => x.value !== null);
+
+        if (wcItems.length === 0) return;
+
+        // Find current position
+        let currentIdx = wcItems.findIndex(x => x.el.classList.contains('pu-preview-wc-current'));
+        if (currentIdx === -1) currentIdx = 0;
+
+        const currentValue = wcItems[currentIdx].value;
+
+        // Find next item with a DIFFERENT value (wrap around)
+        let nextIdx = currentIdx;
+        for (let i = 1; i < wcItems.length; i++) {
+            const candidateIdx = ((currentIdx + (direction * i)) % wcItems.length + wcItems.length) % wcItems.length;
+            if (wcItems[candidateIdx].value !== currentValue) {
+                nextIdx = candidateIdx;
+                break;
+            }
+        }
+
+        // Update current marker and scroll
+        wcItems.forEach(x => x.el.classList.remove('pu-preview-wc-current'));
+        wcItems[nextIdx].el.classList.add('pu-preview-wc-current');
+        wcItems[nextIdx].el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     },
 
     /**

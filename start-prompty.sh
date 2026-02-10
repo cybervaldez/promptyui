@@ -19,4 +19,4 @@ fi
 # Remaining arguments (user can override defaults)
 EXTRA_ARGS="$@"
 
-python webui/prompty/start.py --port $PORT $EXTRA_ARGS
+python3 webui/prompty/start.py --port $PORT $EXTRA_ARGS

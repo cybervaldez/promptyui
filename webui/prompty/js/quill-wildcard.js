@@ -36,6 +36,11 @@ if (typeof Quill !== 'undefined') {
                 node.appendChild(previewSpan);
             }
 
+            // Prevent chip clicks from triggering focus-mode entry
+            node.addEventListener('mousedown', (e) => {
+                PU.quill._chipClickInProgress = true;
+            });
+
             // Mark undefined wildcards
             if (value.undefined) {
                 node.classList.add('ql-wc-undefined');
@@ -57,6 +62,26 @@ if (typeof Quill !== 'undefined') {
                     if (!blot) return;
                     const index = quill.getIndex(blot);
                     PU.quill.openAutocomplete(quill, path, index, value.name, node);
+                });
+            } else {
+                // Defined chip — open inline expansion popover
+                node.style.cursor = 'pointer';
+                node.setAttribute('title', 'Click to edit values');
+                node.setAttribute('data-testid', 'pu-wc-chip-defined');
+                node.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const editorEl = node.closest('.ql-editor');
+                    if (!editorEl) return;
+                    const containerEl = editorEl.closest('.pu-content-quill, .pu-focus-quill');
+                    if (!containerEl) return;
+                    const path = containerEl.dataset.path;
+                    const quill = PU.quill.instances[path] || PU.state.focusMode.quillInstance;
+                    if (!quill) return;
+                    const isFocusMode = PU.state.focusMode.active;
+                    if (PU.wildcardPopover) {
+                        PU.wildcardPopover.open(node, value.name, quill, path, isFocusMode);
+                    }
                 });
             }
 
@@ -80,6 +105,7 @@ if (typeof Quill !== 'undefined') {
     PU.quill = {
         instances: {},
         _updatingFromQuill: null,
+        _chipClickInProgress: false,
 
         // Autocomplete state
         _autocompleteOpen: false,
@@ -137,7 +163,10 @@ if (typeof Quill !== 'undefined') {
             // Attach focus handlers
             quill.root.addEventListener('focus', () => {
                 PU.actions.selectBlock(path);
-                PU.actions.showPreviewForBlock(path);
+                if (!PU.state.focusMode.active && !PU.quill._chipClickInProgress) {
+                    PU.focus.enter(path);
+                }
+                PU.quill._chipClickInProgress = false;
             });
 
             quill.root.addEventListener('blur', () => {
@@ -713,6 +742,15 @@ if (typeof Quill !== 'undefined') {
                     }
                 } catch (e) { /* ignore */ }
             }
+
+            // Check leaf after cursor (cursor is positioned before a chip)
+            try {
+                const [leafAfter] = quill.getLeaf(sel.index + 1);
+                if (leafAfter && leafAfter.domNode && leafAfter.domNode.getAttribute &&
+                    leafAfter.domNode.getAttribute('data-wildcard-name')) {
+                    return leafAfter.domNode.getAttribute('data-wildcard-name');
+                }
+            } catch (e) { /* ignore */ }
 
             return null;
         },

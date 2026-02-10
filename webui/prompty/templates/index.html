@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PromptyUI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link href="vendor/quill/quill.snow.css" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css">
 </head>
@@ -12,22 +15,22 @@
         <!-- Header -->
         <header class="pu-header" data-testid="pu-header">
             <div class="pu-header-left">
-                <span class="pu-header-icon">&#128230;</span>
+                <span class="pu-header-icon"></span>
                 <span class="pu-header-title">PromptyUI</span>
             </div>
             <div class="pu-header-center">
-                <span class="pu-header-active-label">Active:</span>
+                <span class="pu-header-active-label">&#9656;</span>
                 <span class="pu-header-active-job" data-testid="pu-header-active-job">No job selected</span>
             </div>
             <div class="pu-header-right">
                 <button class="pu-btn" data-testid="pu-mode-toggle-btn" onclick="PU.actions.togglePreviewMode()" style="display: none;">
-                    &#128065; Preview
+                    Preview
                 </button>
                 <button class="pu-btn pu-btn-primary" data-testid="pu-header-export-btn" onclick="PU.actions.openExportModal()">
-                    <span class="pu-btn-icon">&#128190;</span> Export
+                    Export
                 </button>
-                <button class="pu-btn" data-testid="pu-header-help-btn" onclick="PU.actions.showHelp()">
-                    <span class="pu-btn-icon">&#10067;</span>
+                <button class="pu-btn pu-btn-help" data-testid="pu-header-help-btn" onclick="PU.actions.showHelp()">
+                    ?
                 </button>
             </div>
         </header>
@@ -39,7 +42,6 @@
                 <!-- Jobs Section -->
                 <section class="pu-sidebar-section pu-jobs-section" data-testid="pu-jobs-section">
                     <div class="pu-sidebar-header" onclick="PU.actions.toggleSection('jobs')">
-                        <span class="pu-sidebar-icon">&#128230;</span>
                         <span class="pu-sidebar-title">JOBS</span>
                         <span class="pu-jobs-count" data-testid="pu-jobs-count"></span>
                         <span class="pu-sidebar-toggle" data-testid="pu-jobs-toggle">&#9660;</span>
@@ -60,7 +62,7 @@
             <main class="pu-editor" data-testid="pu-editor">
                 <!-- Empty State -->
                 <div class="pu-editor-empty" data-testid="pu-editor-empty">
-                    <div class="pu-editor-empty-icon">&#128230;</div>
+                    <div class="pu-editor-empty-icon" style="opacity: 0.3;">&#128230;</div>
                     <h2>Welcome to PromptyUI</h2>
                     <p>Select a job from the sidebar to start editing, or create a new job.</p>
                     <div class="pu-editor-empty-actions">
@@ -80,25 +82,27 @@
                             <button class="pu-defaults-expand" onclick="PU.actions.toggleDefaults()">&#9660;</button>
                         </div>
                         <div class="pu-defaults-form" data-testid="pu-defaults-form">
-                            <div class="pu-defaults-row">
-                                <label>ext:</label>
-                                <select data-testid="pu-defaults-ext" onchange="PU.actions.updateDefaults('ext', this.value)">
-                                    <option value="">Loading...</option>
-                                </select>
-                            </div>
-                            <div class="pu-defaults-row">
-                                <label>ext_text_max:</label>
-                                <input type="number" min="0" value="0"
-                                       data-testid="pu-defaults-ext-text-max"
-                                       onchange="PU.actions.updateDefaults('ext_text_max', this.value)">
-                                <span class="pu-defaults-hint">0 = all</span>
-                            </div>
-                            <div class="pu-defaults-row">
-                                <label>ext_wildcards_max:</label>
-                                <input type="number" min="0" value="0"
-                                       data-testid="pu-defaults-ext-wildcards-max"
-                                       onchange="PU.actions.updateDefaults('ext_wildcards_max', this.value)">
-                                <span class="pu-defaults-hint">0 = all</span>
+                            <div class="pu-defaults-form-inner">
+                                <div class="pu-defaults-row">
+                                    <label>ext:</label>
+                                    <select data-testid="pu-defaults-ext" onchange="PU.actions.updateDefaults('ext', this.value)">
+                                        <option value="">Loading...</option>
+                                    </select>
+                                </div>
+                                <div class="pu-defaults-row">
+                                    <label>ext_text_max:</label>
+                                    <input type="number" min="0" value="0"
+                                           data-testid="pu-defaults-ext-text-max"
+                                           onchange="PU.actions.updateDefaults('ext_text_max', this.value)">
+                                    <span class="pu-defaults-hint">0 = all</span>
+                                </div>
+                                <div class="pu-defaults-row">
+                                    <label>ext_wildcards_max:</label>
+                                    <input type="number" min="0" value="0"
+                                           data-testid="pu-defaults-ext-wildcards-max"
+                                           onchange="PU.actions.updateDefaults('ext_wildcards_max', this.value)">
+                                    <span class="pu-defaults-hint">0 = all</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -164,7 +168,7 @@
                                 <button class="pu-btn-icon-only"
                                         data-testid="pu-composition-dice-btn"
                                         onclick="PU.preview.randomizeCompositionId()"
-                                        title="Random composition ID">&#127922;</button>
+                                        title="Random composition ID">&#8635;</button>
                             </div>
                             <span class="pu-odometer-total" data-testid="pu-odometer-total" title="Total combinations = ext_text × wildcards product"></span>
                         </div>
@@ -180,7 +184,6 @@
                 <!-- Global Extensions Section (Top) -->
                 <section class="pu-inspector-section pu-inspector-global-ext" data-testid="pu-inspector-global-ext">
                     <div class="pu-inspector-header">
-                        <span class="pu-inspector-icon">&#128194;</span>
                         <span class="pu-inspector-title">GLOBAL EXTENSIONS</span>
                     </div>
                     <div class="pu-inspector-search">
@@ -195,7 +198,6 @@
                 <!-- Local Context Section (Bottom) -->
                 <section class="pu-inspector-section pu-inspector-local" data-testid="pu-inspector-local">
                     <div class="pu-inspector-header">
-                        <span class="pu-inspector-icon">&#127922;</span>
                         <span class="pu-inspector-title">LOCAL CONTEXT</span>
                     </div>
                     <div class="pu-inspector-context" data-testid="pu-inspector-context">
@@ -212,6 +214,10 @@
         <div class="pu-preview-popup" data-testid="pu-preview-popup" style="display: none;">
             <div class="pu-preview-header">
                 <span data-testid="pu-preview-header-title">Live Preview</span>
+                <div class="pu-preview-wc-nav" data-testid="pu-preview-wc-nav" style="display: none;">
+                    <button class="pu-preview-wc-nav-btn" data-testid="pu-preview-wc-nav-up" onclick="PU.preview.navigateWildcard(-1)" title="Previous different value">&#9650;</button>
+                    <button class="pu-preview-wc-nav-btn" data-testid="pu-preview-wc-nav-down" onclick="PU.preview.navigateWildcard(1)" title="Next different value">&#9660;</button>
+                </div>
                 <button class="pu-preview-close" onclick="PU.actions.closePreview()">&times;</button>
             </div>
             <div class="pu-preview-variations" data-testid="pu-preview-variations">
@@ -222,11 +228,35 @@
             </div>
             <div class="pu-preview-actions">
                 <button class="pu-btn" data-testid="pu-preview-copy-btn" onclick="PU.actions.copyAllVariations()">
-                    &#128203; Copy All
+                    Copy All
                 </button>
                 <button class="pu-btn" data-testid="pu-preview-show-all-btn" onclick="PU.actions.showAllVariations()">
                     Show All
                 </button>
+            </div>
+        </div>
+
+        <!-- Focus Mode Overlay -->
+        <div class="pu-focus-overlay" data-testid="pu-focus-overlay" style="display: none;"
+             onclick="PU.focus.handleOverlayClick(event)">
+            <div class="pu-focus-panel" data-testid="pu-focus-panel" onclick="event.stopPropagation()">
+                <div class="pu-focus-header" data-testid="pu-focus-header">
+                    <span class="pu-focus-title" data-testid="pu-focus-title"></span>
+                    <button class="pu-preview-close" data-testid="pu-focus-close-btn"
+                            onclick="PU.focus.exit()">&times;</button>
+                </div>
+                <div class="pu-focus-editor" data-testid="pu-focus-editor">
+                    <div class="pu-focus-quill" data-testid="pu-focus-quill"></div>
+                </div>
+                <div class="pu-focus-tabs" data-testid="pu-focus-tabs">
+                    <button class="pu-focus-tab active" data-testid="pu-focus-tab-variations"
+                            onclick="PU.focus.switchTab('variations')">Variations</button>
+                    <button class="pu-focus-tab" data-testid="pu-focus-tab-fulltext"
+                            onclick="PU.focus.switchTab('fulltext')">Full Text</button>
+                </div>
+                <div class="pu-focus-preview" data-testid="pu-focus-preview">
+                    <div class="pu-focus-preview-content" data-testid="pu-focus-preview-content"></div>
+                </div>
             </div>
         </div>
 
@@ -300,6 +330,8 @@
     <script src="js/editor.js"></script>
     <script src="js/inspector.js"></script>
     <script src="js/preview.js"></script>
+    <script src="js/focus.js"></script>
+    <script src="js/wildcard-popover.js"></script>
     <script src="js/export.js"></script>
     <script src="js/main.js"></script>
 </body>

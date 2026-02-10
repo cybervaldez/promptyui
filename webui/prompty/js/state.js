@@ -51,6 +51,15 @@ PU.state = {
         activeWildcard: null   // wildcard name at cursor, or null
     },
 
+    // Focus mode state (zen editing overlay)
+    focusMode: {
+        active: false,
+        blockPath: null,         // e.g. "0", "0.1"
+        activeTab: 'variations', // 'variations' | 'fulltext'
+        quillInstance: null,     // Transient Quill (not in PU.quill.instances)
+        enterTimestamp: 0        // Debounce guard
+    },
+
     // Export modal state
     exportModal: {
         visible: false,
@@ -341,6 +350,21 @@ PU.helpers = {
         }
 
         return items;
+    },
+
+    async getExtensionWildcardValues(wildcardName) {
+        const cache = PU.state.autocompleteCache;
+        if (!cache.loaded) await PU.helpers.loadExtensionWildcardNames();
+        const extItem = cache.extWildcardNames.find(e => e.name === wildcardName);
+        if (!extItem) return [];
+        try {
+            const ext = await PU.api.loadExtension(extItem.source);
+            const wc = (ext.wildcards || []).find(w => w.name === wildcardName);
+            return wc ? (Array.isArray(wc.text) ? wc.text : [wc.text]) : [];
+        } catch (e) {
+            console.warn(`Failed to load extension wildcard values for "${wildcardName}":`, e);
+            return [];
+        }
     }
 };
 

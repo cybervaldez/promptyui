@@ -62,7 +62,6 @@ PU.sidebar = {
                     <span class="pu-tree-toggle ${isExpanded ? 'expanded' : ''}"
                           data-testid="pu-job-toggle-${jobId}"
                           onclick="event.stopPropagation(); PU.actions.toggleJobExpand('${jobId}')">&#9654;</span>
-                    <span class="pu-tree-icon">&#128230;</span>
                     <span class="pu-tree-label" onclick="PU.actions.selectJob('${jobId}')">${jobId}</span>
                     ${!isValid ? `<span class="pu-tree-badge" data-testid="pu-job-error-${jobId}" title="${jobData.error || 'Invalid'}">&#9888;</span>` : ''}
                 </div>
@@ -77,7 +76,6 @@ PU.sidebar = {
                     html += `
                         <div class="pu-tree-item" onclick="PU.actions.toggleJobSection('${jobId}', 'prompts')">
                             <span class="pu-tree-toggle">&#9654;</span>
-                            <span class="pu-tree-icon">&#128221;</span>
                             <span class="pu-tree-label">Prompts</span>
                             <span class="pu-tree-badge">${prompts.length}</span>
                         </div>
@@ -93,7 +91,6 @@ PU.sidebar = {
                                      data-testid="pu-prompt-${jobId}-${promptId}"
                                      onclick="PU.actions.selectPrompt('${jobId}', '${promptId}')">
                                     <span class="pu-tree-toggle" style="visibility: hidden;">&#9654;</span>
-                                    <span class="pu-tree-icon">&#128196;</span>
                                     <span class="pu-tree-label">${promptId}</span>
                                 </div>
                             </div>
@@ -107,7 +104,6 @@ PU.sidebar = {
                     html += `
                         <div class="pu-tree-item">
                             <span class="pu-tree-toggle" style="visibility: hidden;">&#9654;</span>
-                            <span class="pu-tree-icon">&#127912;</span>
                             <span class="pu-tree-label">LoRAs</span>
                             <span class="pu-tree-badge">${loras.length}</span>
                         </div>
@@ -119,7 +115,6 @@ PU.sidebar = {
                     <div class="pu-tree-item" data-testid="pu-defaults-${jobId}"
                          onclick="PU.actions.selectDefaults('${jobId}')">
                         <span class="pu-tree-toggle" style="visibility: hidden;">&#9654;</span>
-                        <span class="pu-tree-icon">&#128230;</span>
                         <span class="pu-tree-label">Defaults</span>
                     </div>
                 `;

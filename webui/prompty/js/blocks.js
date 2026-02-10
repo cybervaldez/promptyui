@@ -91,7 +91,7 @@ PU.blocks = {
                       data-testid="pu-block-input-${pathId}"
                       data-path="${path}"
                       placeholder="Enter content... Use __name__ for wildcards"
-                      onfocus="PU.actions.selectBlock('${path}'); PU.actions.showPreviewForBlock('${path}')"
+                      onfocus="PU.actions.selectBlock('${path}'); if (!PU.state.focusMode.active) PU.focus.enter('${path}')"
                       oninput="PU.actions.updateBlockContent('${path}', this.value)"
                       onblur="PU.actions.onBlockBlur('${path}')">${PU.blocks.escapeHtml(content)}</textarea>
             ${hasWildcards ? `

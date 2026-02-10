@@ -124,7 +124,11 @@ PU.actions = {
     updateHeader() {
         const activeJobEl = document.querySelector('[data-testid="pu-header-active-job"]');
         if (activeJobEl) {
-            activeJobEl.textContent = PU.state.activeJobId || 'No job selected';
+            if (PU.state.activeJobId && PU.state.activePromptId) {
+                activeJobEl.textContent = `${PU.state.activeJobId} / ${PU.state.activePromptId}`;
+            } else {
+                activeJobEl.textContent = PU.state.activeJobId || 'No job selected';
+            }
         }
     },
 
@@ -248,6 +252,7 @@ PU.actions = {
 
         // Update UI
         PU.sidebar.updateActiveStates();
+        PU.actions.updateHeader();
         await PU.editor.showPrompt(jobId, promptId);
         PU.inspector.showOverview();
 
@@ -517,8 +522,8 @@ document.addEventListener('click', (e) => {
         PU.actions.toggleAddMenu(false);
     }
 
-    // Close preview when clicking outside
-    if (PU.state.preview.visible && !e.target.closest('.pu-preview-popup') && !e.target.closest('.pu-content-quill') && !e.target.closest('.pu-content-input')) {
+    // Close preview when clicking outside (skip when focus mode active)
+    if (PU.state.preview.visible && !PU.state.focusMode?.active && !e.target.closest('.pu-preview-popup') && !e.target.closest('.pu-content-quill') && !e.target.closest('.pu-content-input')) {
         // Don't close if clicking another input (preview will switch)
         if (!e.target.classList.contains('pu-content-input') && !e.target.closest('.pu-content-quill')) {
             PU.preview.hide();
@@ -536,6 +541,8 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         if (PU.quill._autocompleteOpen) {
             PU.quill.closeAutocomplete();
+        } else if (PU.state.focusMode && PU.state.focusMode.active) {
+            PU.focus.exit();
         } else if (PU.state.extPickerCallback) {
             PU.inspector.closeExtPicker();
         } else if (PU.state.exportModal.visible) {
@@ -544,6 +551,31 @@ document.addEventListener('keydown', (e) => {
             PU.preview.hide();
         } else if (PU.state.previewMode.active) {
             PU.preview.exitPreviewMode();
+        }
+    }
+});
+
+// Arrow key navigation for preview panel
+document.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    if (!PU.state.preview.visible) return;
+    if (PU.quill._autocompleteOpen) return;
+
+    const direction = e.key === 'ArrowDown' ? 1 : -1;
+
+    if (PU.state.preview.activeWildcard) {
+        e.preventDefault();
+        PU.preview.navigateWildcard(direction);
+    } else {
+        // Only scroll preview if focus is NOT inside the editor (let cursor movement work)
+        const activeEl = document.activeElement;
+        const inEditor = activeEl && (activeEl.closest('.pu-content-quill') || activeEl.closest('.pu-content-input'));
+        if (!inEditor) {
+            const variationsEl = document.querySelector('[data-testid="pu-preview-variations"]');
+            if (variationsEl) {
+                e.preventDefault();
+                variationsEl.scrollBy({ top: direction * 60, behavior: 'smooth' });
+            }
         }
     }
 });
