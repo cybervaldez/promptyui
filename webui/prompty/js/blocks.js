@@ -8,7 +8,7 @@ PU.blocks = {
     /**
      * Render a block (content or ext_text)
      */
-    renderBlock(item, path, depth = 0) {
+    renderBlock(item, path, depth = 0, resolutions) {
         const isSelected = PU.state.selectedBlockPath === path;
         const pathId = path.replace(/\./g, '-');
 
@@ -38,23 +38,22 @@ PU.blocks = {
                                 title="Delete block">&#128465;</button>
                     </div>
                 </div>
-                <div class="pu-block-content">
         `;
 
-        if ('content' in item) {
-            html += PU.blocks.renderContentBlock(item, path, pathId);
-        } else if ('ext_text' in item) {
-            html += PU.blocks.renderExtTextBlock(item, path, pathId);
-        }
+        const resolution = resolutions ? resolutions.get(path) : null;
 
-        html += `</div>`;
+        if ('content' in item) {
+            html += PU.blocks.renderContentBlock(item, path, pathId, resolution);
+        } else if ('ext_text' in item) {
+            html += PU.blocks.renderExtTextBlock(item, path, pathId, resolution);
+        }
 
         // Render nested children (after)
         if (item.after && item.after.length > 0) {
             html += `<div class="pu-block-children">`;
             item.after.forEach((child, idx) => {
                 const childPath = `${path}.${idx}`;
-                html += PU.blocks.renderBlock(child, childPath, depth + 1);
+                html += PU.blocks.renderBlock(child, childPath, depth + 1, resolutions);
             });
             html += `</div>`;
         }
@@ -65,65 +64,95 @@ PU.blocks = {
     },
 
     /**
-     * Render content input block
+     * Render content input block with resolved text and inline dropdowns
      */
-    renderContentBlock(item, path, pathId) {
+    renderContentBlock(item, path, pathId, resolution) {
         const content = item.content || '';
-        const wildcards = PU.blocks.detectWildcards(content);
-        const hasWildcards = wildcards.length > 0;
+        const accumulatedHtml = resolution ? PU.blocks.renderAccumulatedText(resolution) : '';
 
-        // Use Quill editor if available, otherwise fallback to textarea
-        if (PU.quill && !PU.quill._fallback) {
+        if (resolution) {
             return `
-                <div class="pu-content-quill" data-testid="pu-block-input-${pathId}" data-path="${path}" data-initial="${PU.blocks.escapeAttr(content)}"></div>
-                ${hasWildcards ? `
-                    <div class="pu-wc-summary" data-testid="pu-content-wc-summary-${pathId}">
-                        ${PU.blocks.renderWildcardSummary(wildcards)}
-                    </div>
-                ` : ''}
+                <div class="pu-block-content pu-block-clickable" data-testid="pu-block-input-${pathId}" data-path="${path}">
+                    <div class="pu-block-edit-icon">&#9998;</div>
+                    <div class="pu-resolved-text">${resolution.resolvedHtml}</div>
+                    ${accumulatedHtml}
+                </div>
             `;
         }
 
-        // Fallback: plain textarea
-        const wildcardLookup = PU.helpers.getWildcardLookup();
+        // Fallback: show escaped raw text (loading state or no resolution)
         return `
-            <textarea class="pu-content-input${hasWildcards ? ' pu-content-has-wildcards' : ''}"
-                      data-testid="pu-block-input-${pathId}"
-                      data-path="${path}"
-                      placeholder="Enter content... Use __name__ for wildcards"
-                      onfocus="PU.actions.selectBlock('${path}'); if (!PU.state.focusMode.active) PU.focus.enter('${path}')"
-                      oninput="PU.actions.updateBlockContent('${path}', this.value)"
-                      onblur="PU.actions.onBlockBlur('${path}')">${PU.blocks.escapeHtml(content)}</textarea>
-            ${hasWildcards ? `
-                <div class="pu-content-wildcards" data-testid="pu-content-wildcards-${pathId}">
-                    ${PU.blocks.renderWildcardChips(wildcards, wildcardLookup)}
-                </div>
-            ` : ''}
+            <div class="pu-block-content pu-block-clickable" data-testid="pu-block-input-${pathId}" data-path="${path}">
+                <div class="pu-block-edit-icon">&#9998;</div>
+                <div class="pu-resolved-text">${PU.blocks.escapeHtml(content)}</div>
+            </div>
         `;
     },
 
     /**
      * Render ext_text reference block
      */
-    renderExtTextBlock(item, path, pathId) {
+    renderExtTextBlock(item, path, pathId, resolution) {
         const extName = item.ext_text || '';
         const extMax = item.ext_text_max;
 
+        const resolvedContent = resolution
+            ? `<div class="pu-resolved-text">${resolution.resolvedHtml}</div>`
+            : '';
+        const accumulatedHtml = resolution ? PU.blocks.renderAccumulatedText(resolution) : '';
+
         return `
-            <div class="pu-exttext-ref" data-testid="pu-block-exttext-${pathId}"
-                 onclick="PU.actions.selectBlock('${path}')">
-                <span class="pu-exttext-icon">&#128218;</span>
-                <span class="pu-exttext-name">ext_text: ${extName}</span>
-                ${extMax !== undefined ? `<span class="pu-exttext-count">(max: ${extMax})</span>` : ''}
-            </div>
-            <div class="pu-exttext-settings">
-                <label>
-                    ext_text_max:
-                    <input type="number" min="0" value="${extMax || 0}"
-                           onchange="PU.actions.updateExtTextMax('${path}', this.value)">
-                </label>
+            <div class="pu-block-content">
+                <div class="pu-exttext-ref" data-testid="pu-block-exttext-${pathId}"
+                     onclick="PU.actions.selectBlock('${path}')">
+                    <span class="pu-exttext-icon">&#128218;</span>
+                    <span class="pu-exttext-name">ext_text: ${extName}</span>
+                    ${extMax !== undefined ? `<span class="pu-exttext-count">(max: ${extMax})</span>` : ''}
+                </div>
+                ${resolvedContent}
+                ${accumulatedHtml}
+                <div class="pu-exttext-settings">
+                    <label>
+                        ext_text_max:
+                        <input type="number" min="0" value="${extMax || 0}"
+                               onchange="PU.actions.updateExtTextMax('${path}', this.value)">
+                    </label>
+                </div>
             </div>
         `;
+    },
+
+    /**
+     * Render accumulated text showing parent (inherited) and current block text.
+     * @param {Object} resolution - Resolution object with plainText, parentAccumulatedText
+     * @returns {string} HTML string
+     */
+    renderAccumulatedText(resolution) {
+        if (!resolution || !resolution.accumulatedText) return '';
+
+        const inherited = resolution.parentAccumulatedText || '';
+        if (!inherited) return '';
+
+        const current = resolution.plainText || '';
+
+        let html = '<div class="pu-accumulated-text">';
+        if (inherited) {
+            html += `<span class="pu-accumulated-inherited">${PU.blocks.escapeHtml(inherited)}</span>`;
+            // Determine separator between inherited and current
+            if (current) {
+                const seps = [',', ' ', '\n', '\t'];
+                const needsSpace = !seps.some(s => inherited.trimEnd().endsWith(s)) &&
+                                   !seps.some(s => current.trimStart().startsWith(s));
+                if (needsSpace) {
+                    html += '<span class="pu-accumulated-inherited"> </span>';
+                }
+            }
+        }
+        if (current) {
+            html += `<span class="pu-accumulated-current">${PU.blocks.escapeHtml(current)}</span>`;
+        }
+        html += '</div>';
+        return html;
     },
 
     /**
@@ -136,37 +165,21 @@ PU.blocks = {
     },
 
     /**
-     * Render wildcard chips for edit mode (visual affordance matching Preview Mode)
+     * Render resolved text with inline wildcard dropdowns.
+     * Converts {{wc:value}} markers to dropdown spans.
      */
-    renderWildcardChips(wildcards, wildcardLookup) {
-        return `
-            <div class="pu-edit-wc-legend">
-                <span class="pu-edit-wc-legend-label">Template wildcards</span>
-                <span class="pu-edit-wc-legend-hint">__name__ syntax → replaced at build time</span>
-            </div>
-            <div class="pu-edit-wc-chips">
-                ${wildcards.map(w => {
-                    const values = wildcardLookup[w] || [];
-                    const preview = values.slice(0, 3).join(', ');
-                    const more = values.length > 3 ? ` +${values.length - 3}` : '';
-                    const status = values.length === 0 ? 'undefined' : preview + more;
-                    const statusClass = values.length === 0 ? 'pu-edit-wc-undefined' : '';
-                    return `<span class="pu-edit-wc-chip ${statusClass}">
-                        <span class="pu-edit-wc-chip-name">__${w}__</span>
-                        <span class="pu-edit-wc-chip-arrow">&#9656;</span>
-                        <span class="pu-edit-wc-chip-values">(${status})</span>
-                    </span>`;
-                }).join('')}
-            </div>
-        `;
-    },
+    renderResolvedTextWithDropdowns(resolvedText, wildcardDropdowns, path) {
+        if (!resolvedText) return '';
 
-    /**
-     * Render wildcard summary (simplified one-line form for Quill mode)
-     */
-    renderWildcardSummary(wildcards) {
-        if (!wildcards || wildcards.length === 0) return '';
-        return `<span class="pu-wc-summary-text">${wildcards.length} wildcard${wildcards.length !== 1 ? 's' : ''}: ${wildcards.join(', ')}</span>`;
+        // First, HTML-escape while preserving markers
+        let html = PU.preview.escapeHtmlPreservingMarkers(resolvedText);
+
+        // Replace {{wc:value}} markers with plain styled pills (non-interactive)
+        html = html.replace(/\{\{([^:]+):([^}]+)\}\}/g, (match, wcName, value) => {
+            return `<span class="pu-wc-resolved-pill">${PU.blocks.escapeHtml(value)}</span>`;
+        });
+
+        return html;
     },
 
     /**

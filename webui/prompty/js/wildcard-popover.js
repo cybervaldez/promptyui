@@ -358,29 +358,7 @@ PU.wildcardPopover = {
             }
         });
 
-        // Also update chips in main editor instances
-        for (const [, inst] of Object.entries(PU.quill.instances)) {
-            if (inst === quill) continue;
-            const otherChips = inst.root.querySelectorAll(`.ql-wildcard-chip[data-wildcard-name="${wcName}"]`);
-            otherChips.forEach(chip => {
-                let previewEl = chip.querySelector('.ql-wc-preview');
-                if (preview && !previewEl) {
-                    previewEl = document.createElement('span');
-                    previewEl.className = 'ql-wc-preview';
-                    chip.appendChild(previewEl);
-                }
-                if (previewEl) {
-                    previewEl.textContent = preview;
-                }
-                if (values.length === 0) {
-                    chip.classList.add('ql-wc-undefined');
-                } else {
-                    chip.classList.remove('ql-wc-undefined');
-                }
-            });
-        }
-
-        // Also update focus mode quill if active
+        // Update focus mode quill if active
         if (PU.state.focusMode.active && PU.state.focusMode.quillInstance &&
             PU.state.focusMode.quillInstance !== quill) {
             const focusChips = PU.state.focusMode.quillInstance.root.querySelectorAll(

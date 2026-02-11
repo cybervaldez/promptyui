@@ -36,11 +36,6 @@ if (typeof Quill !== 'undefined') {
                 node.appendChild(previewSpan);
             }
 
-            // Prevent chip clicks from triggering focus-mode entry
-            node.addEventListener('mousedown', (e) => {
-                PU.quill._chipClickInProgress = true;
-            });
-
             // Mark undefined wildcards
             if (value.undefined) {
                 node.classList.add('ql-wc-undefined');
@@ -57,7 +52,7 @@ if (typeof Quill !== 'undefined') {
                 e.stopPropagation();
                 const editorEl = node.closest('.ql-editor');
                 if (!editorEl) return;
-                const containerEl = editorEl.closest('.pu-content-quill, .pu-focus-quill');
+                const containerEl = editorEl.closest('.pu-focus-quill');
                 if (!containerEl) return;
                 const path = containerEl.dataset.path;
 
@@ -93,9 +88,7 @@ if (typeof Quill !== 'undefined') {
     // PU.quill Namespace
     // ============================================
     PU.quill = {
-        instances: {},
         _updatingFromQuill: null,
-        _chipClickInProgress: false,
 
         // Autocomplete state
         _autocompleteOpen: false,
@@ -106,76 +99,6 @@ if (typeof Quill !== 'undefined') {
         _autocompleteSelectedIdx: 0,
         _autocompleteQuery: '',
         _autocompleteItems: [],
-
-        /**
-         * Create a Quill instance for a content block
-         */
-        create(containerEl, path, initialContent) {
-            // Destroy existing instance for this path
-            PU.quill.destroy(path);
-
-            const quill = new Quill(containerEl, {
-                theme: 'snow',
-                modules: { toolbar: false },
-                readOnly: true,
-                placeholder: ''
-            });
-
-            // Parse initial content into Delta with wildcard embeds
-            const wildcardLookup = PU.helpers.getWildcardLookup();
-            const ops = PU.quill.parseContentToOps(initialContent || '', wildcardLookup);
-            quill.setContents({ ops: ops }, Quill.sources.SILENT);
-
-            // Click opens focus mode (replaces focus listener)
-            containerEl.addEventListener('click', (e) => {
-                // Don't enter focus mode if clicking a wildcard chip
-                if (PU.quill._chipClickInProgress) {
-                    PU.quill._chipClickInProgress = false;
-                    return;
-                }
-                PU.actions.selectBlock(path);
-                if (!PU.state.focusMode.active) {
-                    PU.focus.enter(path);
-                }
-            });
-
-            PU.quill.instances[path] = quill;
-            return quill;
-        },
-
-        /**
-         * Destroy a Quill instance by path
-         */
-        destroy(path) {
-            const instance = PU.quill.instances[path];
-            if (instance) {
-                instance.disable();
-                delete PU.quill.instances[path];
-            }
-        },
-
-        /**
-         * Destroy all Quill instances
-         */
-        destroyAll() {
-            for (const path of Object.keys(PU.quill.instances)) {
-                PU.quill.destroy(path);
-            }
-        },
-
-        /**
-         * Initialize all Quill editors from rendered containers
-         */
-        initAll() {
-            const containers = document.querySelectorAll('.pu-content-quill');
-            containers.forEach(container => {
-                const path = container.dataset.path;
-                const initialContent = container.dataset.initial || '';
-                if (path) {
-                    PU.quill.create(container, path, initialContent);
-                }
-            });
-        },
 
         /**
          * Serialize a Quill instance back to plain text
@@ -445,7 +368,7 @@ if (typeof Quill !== 'undefined') {
 
             if (!rect || (rect.x === 0 && rect.y === 0)) {
                 // Fallback: use the editor container position
-                const editorEl = quill.root.closest('.pu-content-quill');
+                const editorEl = quill.root.closest('.pu-focus-quill');
                 if (editorEl) {
                     rect = editorEl.getBoundingClientRect();
                 }
@@ -746,13 +669,8 @@ if (typeof Quill !== 'undefined') {
 } else {
     // Quill CDN failed to load - provide stub namespace
     PU.quill = {
-        instances: {},
         _updatingFromQuill: null,
         _autocompleteOpen: false,
-        create() {},
-        destroy() {},
-        destroyAll() {},
-        initAll() {},
         serialize() { return ''; },
         parseContentToOps() { return []; },
         convertWildcardsInline() {},

@@ -27,6 +27,9 @@ PU.actions = {
         // Update header
         PU.actions.updateHeader();
 
+        // Init global dropdown close handler (once)
+        PU.preview.initDropdownCloseHandler();
+
         console.log('PromptyUI initialized');
     },
 
@@ -39,7 +42,6 @@ PU.actions = {
         const jobId = params.get('job');
         const promptId = params.get('prompt');
         const modal = params.get('modal');
-        const mode = params.get('mode');
         const composition = params.get('composition');
         const wcMax = params.get('wc_max');
         const extText = params.get('ext_text');
@@ -77,12 +79,6 @@ PU.actions = {
             }
         }
 
-        // Enter preview mode if specified in URL
-        if (mode === 'preview') {
-            // Will enter after init when prompt is loaded
-            PU.state.previewMode.pendingActivation = true;
-        }
-
         if (modal === 'export') {
             // Will open after init
             setTimeout(() => PU.export.open(), 500);
@@ -101,14 +97,11 @@ PU.actions = {
         if (PU.state.activePromptId) {
             params.set('prompt', PU.state.activePromptId);
         }
-        if (PU.state.previewMode.active) {
-            params.set('mode', 'preview');
+        if (PU.state.activePromptId) {
             params.set('composition', PU.state.previewMode.compositionId);
-            // Include wc_max if non-default (default is 0)
             if (PU.state.previewMode.extWildcardsMax > 0) {
                 params.set('wc_max', PU.state.previewMode.extWildcardsMax);
             }
-            // Include ext_text if non-default (default is 1)
             if (PU.state.previewMode.extTextMax !== 1) {
                 params.set('ext_text', PU.state.previewMode.extTextMax);
             }
@@ -399,19 +392,6 @@ PU.actions = {
         PU.preview.hide();
     },
 
-    /**
-     * Toggle between edit mode and preview mode (checkpoint list)
-     */
-    togglePreviewMode() {
-        const prompt = PU.helpers.getActivePrompt();
-        if (!prompt) {
-            PU.actions.showToast('No prompt selected', 'error');
-            return;
-        }
-
-        PU.preview.togglePreviewMode();
-    },
-
     copyAllVariations() {
         PU.preview.copyAll();
     },
@@ -437,6 +417,37 @@ PU.actions = {
     },
 
     // ============================================
+    // Output Footer Actions
+    // ============================================
+
+    toggleOutputFooter() {
+        const footer = document.querySelector('[data-testid="pu-output-footer"]');
+        if (!footer) return;
+        footer.classList.toggle('collapsed');
+        PU.state.ui.outputFooterCollapsed = footer.classList.contains('collapsed');
+        PU.helpers.saveUIState();
+    },
+
+    async copyOutputFooter() {
+        const items = document.querySelectorAll('.pu-output-item-text');
+        if (items.length === 0) {
+            PU.actions.showToast('No output to copy', 'error');
+            return;
+        }
+
+        const texts = Array.from(items).map(el => el.textContent);
+        const combined = texts.join('\n\n---\n\n');
+
+        try {
+            await navigator.clipboard.writeText(combined);
+            PU.actions.showToast('Copied all outputs to clipboard', 'success');
+        } catch (e) {
+            console.error('Failed to copy output footer:', e);
+            PU.actions.showToast('Failed to copy: ' + e.message, 'error');
+        }
+    },
+
+    // ============================================
     // Misc Actions
     // ============================================
 
@@ -451,7 +462,7 @@ PU.actions = {
         }
     },
 
-    insertExtText(extId) {
+    async insertExtText(extId) {
         const prompt = PU.editor.getModifiedPrompt();
         if (!prompt) {
             PU.actions.showToast('No prompt selected', 'error');
@@ -464,7 +475,7 @@ PU.actions = {
 
         prompt.text.push({ ext_text: extId });
 
-        PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
+        await PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
         PU.actions.showToast(`Added ext_text: ${extId}`, 'success');
     },
 
@@ -523,11 +534,8 @@ document.addEventListener('click', (e) => {
     }
 
     // Close preview when clicking outside (skip when focus mode active)
-    if (PU.state.preview.visible && !PU.state.focusMode?.active && !e.target.closest('.pu-preview-popup') && !e.target.closest('.pu-content-quill') && !e.target.closest('.pu-content-input')) {
-        // Don't close if clicking another input (preview will switch)
-        if (!e.target.classList.contains('pu-content-input') && !e.target.closest('.pu-content-quill')) {
-            PU.preview.hide();
-        }
+    if (PU.state.preview.visible && !PU.state.focusMode?.active && !e.target.closest('.pu-preview-popup') && !e.target.closest('.pu-block-clickable')) {
+        PU.preview.hide();
     }
 
     // Close extension picker when clicking outside
@@ -549,8 +557,6 @@ document.addEventListener('keydown', (e) => {
             PU.export.close();
         } else if (PU.state.preview.visible) {
             PU.preview.hide();
-        } else if (PU.state.previewMode.active) {
-            PU.preview.exitPreviewMode();
         }
     }
 });
@@ -569,7 +575,7 @@ document.addEventListener('keydown', (e) => {
     } else {
         // Only scroll preview if focus is NOT inside the editor (let cursor movement work)
         const activeEl = document.activeElement;
-        const inEditor = activeEl && (activeEl.closest('.pu-content-quill') || activeEl.closest('.pu-content-input'));
+        const inEditor = activeEl && (activeEl.closest('.pu-focus-quill') || activeEl.closest('.pu-block-clickable'));
         if (!inEditor) {
             const variationsEl = document.querySelector('[data-testid="pu-preview-variations"]');
             if (variationsEl) {

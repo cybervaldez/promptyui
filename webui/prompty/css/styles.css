@@ -587,7 +587,52 @@ body {
 
 .pu-prompt-actions {
     display: flex;
-    gap: var(--pu-space-sm);
+    gap: var(--pu-space-xs);
+    margin-left: auto;
+    flex-wrap: wrap;
+    max-width: 60%;
+    justify-content: flex-end;
+}
+
+/* Header wildcard pills */
+.pu-header-wc-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--pu-space-xs);
+    padding: 2px var(--pu-space-sm);
+    background: var(--pu-bg-hover);
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius-full);
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-secondary);
+    cursor: pointer;
+    position: relative;
+    transition: all var(--pu-transition-fast);
+    white-space: nowrap;
+}
+
+.pu-header-wc-pill:hover {
+    background: var(--pu-accent-bg);
+    border-color: var(--pu-accent-border);
+    color: var(--pu-text-primary);
+}
+
+.pu-header-wc-pill.pinned {
+    background: var(--pu-accent-bg);
+    border-color: var(--pu-accent-border);
+    color: var(--pu-accent);
+}
+
+.pu-header-wc-arrow {
+    font-size: 8px;
+    color: var(--pu-text-muted);
+}
+
+/* Inline resolved wildcard pill (non-interactive, in block text) */
+.pu-wc-resolved-pill {
+    border-bottom: 1px dotted var(--pu-accent-muted);
+    color: var(--pu-accent);
+    padding: 0 1px;
 }
 
 /* Blocks Container */
@@ -603,13 +648,12 @@ body {
     border: 1px solid transparent;
     border-radius: var(--pu-radius-lg);
     margin-bottom: var(--pu-space-md);
-    transition: border-color var(--pu-transition-normal), box-shadow var(--pu-transition-normal), transform var(--pu-transition-normal), opacity var(--pu-transition-normal);
+    transition: border-color var(--pu-transition-normal), box-shadow var(--pu-transition-normal), opacity var(--pu-transition-normal);
 }
 
 .pu-block:hover {
     background: var(--pu-bg-selected);
     border-color: var(--pu-border);
-    transform: translateY(-1px);
 }
 
 .pu-block.selected {
@@ -831,6 +875,119 @@ body {
 .pu-main:has(:focus-within) .pu-inspector:focus-within {
     opacity: 1;
     transition: opacity var(--pu-transition-normal);
+}
+
+/* Output Footer */
+.pu-output-footer {
+    border-top: 1px solid var(--pu-border);
+    flex-shrink: 0;
+    max-height: 40vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.pu-output-footer-header {
+    display: flex;
+    align-items: center;
+    gap: var(--pu-space-sm);
+    padding: var(--pu-space-sm) var(--pu-space-lg);
+    background: var(--pu-bg-secondary);
+    cursor: pointer;
+    user-select: none;
+    transition: background var(--pu-transition-fast);
+    flex-shrink: 0;
+}
+
+.pu-output-footer-header:hover {
+    background: var(--pu-bg-hover);
+}
+
+.pu-output-footer-title {
+    font-size: var(--pu-font-size-xs);
+    font-weight: 500;
+    color: var(--pu-text-muted);
+    text-transform: uppercase;
+}
+
+.pu-output-footer-count {
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-muted);
+    background: var(--pu-bg-primary);
+    padding: 1px 6px;
+    border-radius: var(--pu-radius-full);
+}
+
+.pu-output-footer-chevron {
+    margin-left: auto;
+    font-size: var(--pu-font-size-2xs);
+    color: var(--pu-text-muted);
+    transition: transform var(--pu-transition-normal);
+}
+
+.pu-output-footer.collapsed .pu-output-footer-body {
+    display: none;
+}
+
+.pu-output-footer.collapsed .pu-output-footer-chevron {
+    transform: rotate(-90deg);
+}
+
+.pu-output-footer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--pu-space-sm) var(--pu-space-lg);
+}
+
+.pu-output-item {
+    background: var(--pu-bg-hover);
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius);
+    padding: var(--pu-space-sm) var(--pu-space-md);
+    margin-bottom: var(--pu-space-sm);
+}
+
+.pu-output-item-label {
+    font-family: var(--pu-font-mono);
+    font-size: var(--pu-font-size-2xs);
+    color: var(--pu-text-muted);
+    display: block;
+    margin-bottom: var(--pu-space-xs);
+}
+
+.pu-output-item-text {
+    font-size: var(--pu-font-size-sm);
+    color: var(--pu-text-primary);
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.pu-output-empty {
+    text-align: center;
+    color: var(--pu-text-muted);
+    padding: var(--pu-space-md);
+    font-size: var(--pu-font-size-sm);
+}
+
+.pu-btn-sm {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px var(--pu-space-sm);
+    background: var(--pu-bg-hover);
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius);
+    color: var(--pu-text-secondary);
+    font-family: var(--pu-font-body);
+    font-size: var(--pu-font-size-2xs);
+    cursor: pointer;
+    transition: all var(--pu-transition-fast);
+}
+
+.pu-btn-sm:hover {
+    background: var(--pu-bg-selected);
+    border-color: var(--pu-border-light);
+    color: var(--pu-text-primary);
 }
 
 /* Add Block Area */
@@ -1361,96 +1518,69 @@ body {
 }
 
 /* ============================================
-   Edit Mode Wildcard Chips (visual affordance)
+   Resolved Text Block (inline resolved content)
    ============================================ */
-.pu-content-wildcards {
+.pu-resolved-text {
+    font-size: var(--pu-font-size-md);
+    line-height: 1.6;
+    color: var(--pu-text-primary);
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+
+/* Clickable block content area */
+.pu-block-clickable {
+    cursor: pointer;
+    position: relative;
+    padding: 14px var(--pu-space-lg);
+    transition: background var(--pu-transition-fast);
+}
+
+.pu-block-clickable:hover {
+    background: var(--pu-bg-hover);
+}
+
+/* Pencil edit icon */
+.pu-block-edit-icon {
+    position: absolute;
+    top: var(--pu-space-sm);
+    right: var(--pu-space-sm);
+    font-size: var(--pu-font-size-base);
+    color: var(--pu-text-muted);
+    opacity: 0;
+    transition: opacity var(--pu-transition-normal);
+    pointer-events: none;
+}
+
+.pu-block-clickable:hover .pu-block-edit-icon {
+    opacity: 0.6;
+}
+
+/* Accumulated Text (per-block inherited + current text) */
+.pu-accumulated-text {
     margin-top: var(--pu-space-sm);
-    padding: 10px var(--pu-space-md);
-    background: var(--pu-accent-bg);
-    border: 1px solid var(--pu-accent-border);
+    padding: var(--pu-space-sm) var(--pu-space-md);
+    background: var(--pu-bg-secondary);
     border-radius: var(--pu-radius);
+    border-left: 2px solid var(--pu-accent-border);
+    font-size: var(--pu-font-size-xs);
+    line-height: 1.5;
+    word-break: break-word;
+    white-space: pre-wrap;
+    max-height: 120px;
+    overflow-y: auto;
 }
+.pu-accumulated-inherited { color: var(--pu-text-muted); }
+.pu-accumulated-current { color: var(--pu-text-primary); font-weight: 500; }
 
-/* Legend row */
-.pu-edit-wc-legend {
+/* Odometer toolbar (compact row below defaults) */
+.pu-odometer-toolbar {
     display: flex;
     align-items: center;
-    gap: var(--pu-space-sm);
-    margin-bottom: var(--pu-space-sm);
-}
-
-.pu-edit-wc-legend-label {
-    font-size: var(--pu-font-size-xs);
-    font-weight: 500;
-    color: var(--pu-accent);
-    letter-spacing: 0.01em;
-}
-
-.pu-edit-wc-legend-hint {
-    font-size: var(--pu-font-size-xs);
-    color: var(--pu-text-muted);
-}
-
-/* Chips container */
-.pu-edit-wc-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-}
-
-/* Individual chip — quiet resting state */
-.pu-edit-wc-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--pu-space-xs);
-    padding: 3px 10px;
-    background: transparent;
-    border: 1px solid transparent;
-    border-bottom-color: var(--pu-accent-muted);
-    border-bottom-style: dotted;
-    border-radius: var(--pu-radius);
-    font-family: inherit;
-    font-size: var(--pu-font-size-sm);
-    line-height: 1.4;
-    transition: all var(--pu-transition-normal);
-    cursor: default;
-}
-
-/* Hover — reveal full chip */
-.pu-edit-wc-chip:hover {
-    background: var(--pu-accent-light);
-    border: 1px solid var(--pu-accent-border);
-    border-bottom-style: solid;
-}
-
-.pu-edit-wc-chip-name {
-    font-family: var(--pu-font-mono);
-    font-weight: 500;
-    color: var(--pu-accent);
-}
-
-.pu-edit-wc-chip-arrow {
-    font-size: 8px;
-    color: var(--pu-text-muted);
-}
-
-.pu-edit-wc-chip-values {
-    font-size: var(--pu-font-size-xs);
-    color: var(--pu-text-secondary);
-}
-
-/* Undefined wildcard variant */
-.pu-edit-wc-chip.pu-edit-wc-undefined {
-    background: var(--pu-error-bg);
-    border-color: rgba(224, 108, 117, 0.3);
-}
-
-.pu-edit-wc-chip.pu-edit-wc-undefined .pu-edit-wc-chip-name {
-    color: var(--pu-error);
-}
-
-.pu-edit-wc-chip.pu-edit-wc-undefined .pu-edit-wc-chip-values {
-    color: var(--pu-error);
+    padding: var(--pu-space-sm) var(--pu-space-lg);
+    background: var(--pu-bg-hover);
+    border-bottom: 1px solid var(--pu-border);
+    flex-shrink: 0;
 }
 
 /* ============================================
@@ -1520,63 +1650,8 @@ body {
 }
 
 /* ============================================
-   Preview Mode (Checkpoint List View)
+   Odometer Inputs
    ============================================ */
-.pu-preview-mode {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    overflow: hidden;
-    background: var(--pu-bg-primary);
-}
-
-.pu-preview-mode-toolbar {
-    display: flex;
-    align-items: center;
-    padding: var(--pu-space-md) var(--pu-space-lg);
-    background: var(--pu-bg-secondary);
-    border-bottom: 1px solid var(--pu-border);
-    flex-shrink: 0;
-}
-
-.pu-preview-mode-prompt {
-    display: flex;
-    align-items: center;
-    gap: var(--pu-space-sm);
-}
-
-.pu-preview-mode-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: var(--pu-space-md) var(--pu-space-lg);
-    background: var(--pu-bg-hover);
-    border-bottom: 1px solid var(--pu-border);
-    flex-shrink: 0;
-}
-
-.pu-preview-mode-title {
-    display: flex;
-    align-items: center;
-    gap: var(--pu-space-sm);
-}
-
-.pu-preview-mode-title span:first-child {
-    font-size: var(--pu-font-size-xs);
-    font-weight: 400;
-    text-transform: capitalize;
-    color: var(--pu-text-muted);
-}
-
-.pu-checkpoints-count {
-    font-size: var(--pu-font-size-xs);
-    color: var(--pu-text-muted);
-    background: var(--pu-bg-primary);
-    padding: 2px 6px;
-    border-radius: var(--pu-radius-full);
-}
-
-/* Odometer inputs */
 .pu-odometer-inputs {
     display: flex;
     align-items: center;
@@ -1622,35 +1697,6 @@ body {
     white-space: nowrap;
 }
 
-/* Composition input (legacy class) */
-.pu-composition-input {
-    display: flex;
-    align-items: center;
-    gap: var(--pu-space-sm);
-}
-
-.pu-composition-input label {
-    font-size: var(--pu-font-size-sm);
-    color: var(--pu-text-secondary);
-}
-
-.pu-composition-input input {
-    width: 80px;
-    padding: var(--pu-space-xs) var(--pu-space-sm);
-    background: var(--pu-bg-input);
-    border: 1px solid transparent;
-    border-radius: var(--pu-radius);
-    color: var(--pu-text-primary);
-    font-family: var(--pu-font-mono);
-    font-size: var(--pu-font-size-sm);
-}
-
-.pu-composition-input input:focus {
-    outline: none;
-    border-color: var(--pu-accent);
-    box-shadow: 0 0 0 2px var(--pu-accent-bg);
-}
-
 /* Icon-only button (dice) */
 .pu-btn-icon-only {
     display: inline-flex;
@@ -1672,98 +1718,6 @@ body {
     background: var(--pu-bg-selected);
     border-color: var(--pu-border-light);
     color: var(--pu-text-primary);
-}
-
-/* Composition hint icon */
-.pu-composition-hint {
-    color: var(--pu-text-muted);
-    font-size: var(--pu-font-size-base);
-    cursor: help;
-    margin-left: var(--pu-space-xs);
-}
-
-.pu-composition-hint:hover {
-    color: var(--pu-accent);
-}
-
-/* Checkpoints list */
-.pu-checkpoints-list {
-    flex: 1;
-    overflow-y: auto;
-    padding: var(--pu-space-lg);
-    display: flex;
-    flex-direction: column;
-    gap: var(--pu-space-md);
-}
-
-/* Checkpoint row */
-.pu-checkpoint-row {
-    background: var(--pu-bg-hover);
-    border: 1px solid transparent;
-    border-radius: var(--pu-radius-lg);
-    padding: var(--pu-space-md) var(--pu-space-lg);
-    transition: background var(--pu-transition-fast), border-color var(--pu-transition-fast);
-}
-
-.pu-checkpoint-row:hover {
-    background: var(--pu-bg-selected);
-    border-color: var(--pu-border);
-}
-
-.pu-checkpoint-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: var(--pu-space-sm);
-}
-
-.pu-checkpoint-path-label {
-    font-family: var(--pu-font-mono);
-    font-size: var(--pu-font-size-sm);
-    font-weight: 500;
-    color: var(--pu-accent);
-    background: var(--pu-accent-bg);
-    padding: 2px var(--pu-space-sm);
-    border-radius: var(--pu-radius);
-}
-
-.pu-checkpoint-stats {
-    font-size: var(--pu-font-size-xs);
-    color: var(--pu-text-muted);
-}
-
-.pu-checkpoint-text {
-    font-size: var(--pu-font-size-md);
-    line-height: 1.6;
-    margin-bottom: var(--pu-space-sm);
-    word-break: break-word;
-}
-
-/* Text highlighting */
-.pu-text-base {
-    color: var(--pu-text-muted);
-}
-
-.pu-text-new {
-    color: var(--pu-text-primary);
-}
-
-.pu-checkpoint-output-path {
-    font-family: var(--pu-font-mono);
-    font-size: var(--pu-font-size-xs);
-    color: var(--pu-text-secondary);
-    background: var(--pu-bg-primary);
-    padding: 6px 10px;
-    border-radius: var(--pu-radius);
-    word-break: break-all;
-}
-
-/* Build-scope highlighting for variations within wc_max limit */
-.pu-variation-item.pu-in-build-scope {
-    background: var(--pu-accent-light);
-    border-left: 2px solid var(--pu-accent);
-    padding-left: 6px;
-    margin-left: -8px;
 }
 
 /* Wildcard value pills */
@@ -1819,58 +1773,6 @@ body {
     background: var(--pu-bg-selected);
 }
 
-/* Checkpoint index number */
-.pu-checkpoint-index {
-    font-family: var(--pu-font-mono);
-    font-size: var(--pu-font-size-xs);
-    font-weight: 600;
-    color: var(--pu-text-muted);
-    background: var(--pu-bg-tertiary);
-    padding: 2px 6px;
-    border-radius: var(--pu-radius);
-    margin-right: var(--pu-space-sm);
-}
-
-/* Parent checkpoint type indicator */
-.pu-checkpoint-type {
-    font-size: var(--pu-font-size-2xs);
-    font-weight: 500;
-    color: var(--pu-warning);
-    background: var(--pu-warning-light);
-    padding: 2px 6px;
-    border-radius: var(--pu-radius);
-    margin-left: var(--pu-space-sm);
-    text-transform: capitalize;
-    letter-spacing: 0.01em;
-}
-
-/* Parent checkpoint styling (non-terminal nodes) */
-.pu-checkpoint-row.pu-checkpoint-parent {
-    border-left: 3px solid var(--pu-warning);
-    background: rgba(203, 145, 47, 0.05);
-}
-
-.pu-checkpoint-row.pu-checkpoint-parent:hover {
-    background: rgba(203, 145, 47, 0.08);
-}
-
-.pu-checkpoint-row.pu-checkpoint-parent .pu-checkpoint-path-label {
-    background: var(--pu-warning-light);
-    color: var(--pu-warning);
-}
-
-/* ============================================
-   First Line with Dropdowns
-   ============================================ */
-.pu-checkpoint-first-line {
-    font-size: var(--pu-font-size-md);
-    line-height: 1.6;
-    margin-bottom: var(--pu-space-sm);
-    padding: var(--pu-space-sm) var(--pu-space-md);
-    background: var(--pu-bg-primary);
-    border-radius: var(--pu-radius);
-    word-break: break-word;
-}
 
 /* Wildcard dropdown trigger — quiet resting state */
 .pu-wc-dropdown {
@@ -1958,101 +1860,6 @@ body {
 }
 
 
-/* ============================================
-   Variations List
-   ============================================ */
-.pu-checkpoint-variations {
-    margin: var(--pu-space-sm) 0;
-    padding: var(--pu-space-sm) var(--pu-space-md);
-    background: var(--pu-bg-hover);
-    border-left: 2px solid var(--pu-border);
-    font-size: var(--pu-font-size-sm);
-}
-
-.pu-variations-header {
-    color: var(--pu-text-muted);
-    font-size: var(--pu-font-size-xs);
-    margin-bottom: var(--pu-space-xs);
-    font-weight: 500;
-}
-
-.pu-variation-item {
-    color: var(--pu-text-secondary);
-    padding: 2px 0;
-    line-height: 1.5;
-    opacity: 0.6;
-    transition: opacity var(--pu-transition-normal);
-}
-
-.pu-variation-item:hover {
-    opacity: 1;
-}
-
-/* ============================================
-   Checkpoint Text Styling
-   ============================================ */
-/* Base text from parent: muted */
-.pu-checkpoint-text-base {
-    color: var(--pu-text-muted);
-}
-
-/* New text from current checkpoint: primary */
-.pu-checkpoint-text-new {
-    color: var(--pu-text-primary);
-    font-weight: 600;
-}
-
-/* ============================================
-   Fallback Mode Notice
-   ============================================ */
-.pu-fallback-notice {
-    padding: var(--pu-space-sm) var(--pu-space-md);
-    margin-bottom: var(--pu-space-md);
-    font-size: var(--pu-font-size-sm);
-    color: var(--pu-warning);
-    background: var(--pu-warning-bg);
-    border: 1px solid rgba(203, 145, 47, 0.25);
-    border-radius: var(--pu-radius);
-}
-
-/* ============================================
-   Quill Editor - Dark Theme Overrides
-   ============================================ */
-
-/* Quill container wrapper */
-.pu-content-quill.ql-snow {
-    border: 1px solid transparent;
-    border-radius: var(--pu-radius);
-    background: var(--pu-bg-input);
-    transition: border-color var(--pu-transition-fast), box-shadow var(--pu-transition-fast);
-    min-height: 60px;
-    font-family: var(--pu-font-body);
-    font-size: var(--pu-font-size-md);
-}
-
-.pu-content-quill.ql-snow:focus-within {
-    border-color: var(--pu-accent);
-    box-shadow: 0 0 0 2px var(--pu-accent-bg);
-}
-
-/* Hide Quill toolbar (snow theme) */
-.pu-content-quill .ql-toolbar {
-    display: none;
-}
-
-/* Quill editor area */
-.pu-content-quill .ql-editor {
-    padding: 10px;
-    color: var(--pu-text-primary);
-    font-family: var(--pu-font-body);
-    line-height: 1.5;
-    min-height: 40px;
-}
-
-.pu-content-quill .ql-editor.ql-blank::before {
-    color: var(--pu-text-muted);
-    font-style: normal;
-}
 
 /* ============================================
    Inline Wildcard Chips (inside Quill editor)
@@ -2109,23 +1916,6 @@ body {
     color: var(--pu-error);
 }
 
-/* ============================================
-   Wildcard Summary (below Quill editor)
-   ============================================ */
-.pu-wc-summary {
-    min-height: 0;
-    transition: all var(--pu-transition-normal);
-}
-
-.pu-wc-summary-text {
-    display: inline-block;
-    margin-top: 6px;
-    font-size: var(--pu-font-size-xs);
-    color: var(--pu-text-muted);
-    padding: 2px var(--pu-space-sm);
-    background: var(--pu-accent-bg);
-    border-radius: var(--pu-radius);
-}
 
 /* ============================================
    Wildcard Autocomplete Dropdown

@@ -38,7 +38,8 @@ PU.state = {
             defaults: false
         },
         jobsExpanded: {},
-        inspectorExtensionFilter: ''
+        inspectorExtensionFilter: '',
+        outputFooterCollapsed: false
     },
 
     // Preview popup state
@@ -78,16 +79,14 @@ PU.state = {
         extScope: null         // ext scope string (invalidate on change)
     },
 
-    // Preview mode state (checkpoint list view)
+    // Preview/resolution state (odometer + wildcard selections)
     previewMode: {
-        active: false,
-        checkpoints: [],      // All terminal nodes
         compositionId: 99,    // Default composition (matching v4 default)
         extTextMax: 1,        // Bucket size limit for ext_text (user-controlled)
         extTextCount: 1,      // Actual ext_text count (computed from loaded data)
         extWildcardsMax: 0,   // 0 = use actual wildcard counts, >0 = override all wildcard counts
-        pendingActivation: false,  // Set by URL parser, activated after prompt loads
-        selectedWildcards: {}  // User-selected wildcard overrides: { wildcardName: selectedValue }
+        selectedWildcards: {},  // User-selected wildcard overrides: { wildcardName: selectedValue }
+        _extTextCache: {}     // Cached ext_text API data: { "scope/name": data }
     }
 };
 
@@ -159,7 +158,8 @@ PU.helpers = {
             activeJobId: PU.state.activeJobId,
             activePromptId: PU.state.activePromptId,
             jobsExpanded: PU.state.ui.jobsExpanded,
-            sectionsCollapsed: PU.state.ui.sectionsCollapsed
+            sectionsCollapsed: PU.state.ui.sectionsCollapsed,
+            outputFooterCollapsed: PU.state.ui.outputFooterCollapsed
         };
         localStorage.setItem('pu_ui_state', JSON.stringify(uiState));
     },
@@ -176,6 +176,7 @@ PU.helpers = {
                 PU.state.activePromptId = state.activePromptId || null;
                 PU.state.ui.jobsExpanded = state.jobsExpanded || {};
                 PU.state.ui.sectionsCollapsed = state.sectionsCollapsed || {};
+                PU.state.ui.outputFooterCollapsed = state.outputFooterCollapsed || false;
             }
         } catch (e) {
             console.warn('Failed to load UI state:', e);

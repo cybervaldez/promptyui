@@ -253,26 +253,26 @@ phase_ui() {
 
     # ── Behavioral: Wildcard Dropdown & Preview Navigation ──
 
-    # Test 5: Wildcard chip shows "* (Any <Name>)" format
-    log "UI: Wildcard chip displays * (Any <Name>)"
-    # We're already in preview mode from Test 4. Select interview-questions which has wildcards.
+    # Test 5: Wildcard header pills show "Name: Any" format
+    log "UI: Wildcard header pills display Name: Any"
+    # Select interview-questions which has wildcards.
     agent-browser find text "interview-questions" click 2>/dev/null || true
     sleep 2
-    agent-browser screenshot "$SCREENSHOTS_DIR/05-wildcard-chips.png" 2>/dev/null || true
+    agent-browser screenshot "$SCREENSHOTS_DIR/05-wildcard-pills.png" 2>/dev/null || true
 
     SNAPSHOT=$(agent-browser snapshot -c 2>/dev/null || echo "")
-    if echo "$SNAPSHOT" | grep -q '\* (Any Count)' && \
-       echo "$SNAPSHOT" | grep -q '\* (Any Role)' && \
-       echo "$SNAPSHOT" | grep -q '\* (Any Skill)'; then
-        log_pass "Wildcard chips show * (Any <Name>) format"
+    if echo "$SNAPSHOT" | grep -q 'Count: Any' && \
+       echo "$SNAPSHOT" | grep -q 'Role: Any' && \
+       echo "$SNAPSHOT" | grep -q 'Skill: Any'; then
+        log_pass "Header pills show Name: Any format"
     else
-        log_fail "Wildcard chips missing * (Any <Name>) format"
+        log_fail "Header pills missing Name: Any format"
         result=1
     fi
 
-    # Test 6: Open wildcard dropdown — first item reads "* (Any <Name>)" and is selected
-    log "UI: Wildcard dropdown shows * (Any <Name>) selected"
-    agent-browser click '[data-testid="pu-wc-dropdown-count"]' 2>/dev/null || true
+    # Test 6: Open wildcard dropdown from header pill — first item reads "* (Any <Name>)" and is selected
+    log "UI: Header pill dropdown shows * (Any <Name>) selected"
+    agent-browser click '[data-testid="pu-header-wc-pill-count"]' 2>/dev/null || true
     sleep 1
     agent-browser screenshot "$SCREENSHOTS_DIR/06-wildcard-dropdown.png" 2>/dev/null || true
 
@@ -284,46 +284,46 @@ phase_ui() {
         result=1
     fi
 
-    # Test 7: Pin a wildcard value — chip shows just the value (no * prefix)
+    # Test 7: Pin a wildcard value — header pill shows the pinned value
     log "UI: Pin wildcard value"
     # Click outside to close dropdown from Test 6, then re-open and select
     agent-browser click 'body' 2>/dev/null || true
     sleep 1
-    agent-browser click '[data-testid="pu-wc-dropdown-count"]' 2>/dev/null || true
+    agent-browser click '[data-testid="pu-header-wc-pill-count"]' 2>/dev/null || true
     sleep 1
     agent-browser click '[data-testid="pu-wc-option-count-0"]' 2>/dev/null || true
     sleep 2
     agent-browser screenshot "$SCREENSHOTS_DIR/07-wildcard-pinned.png" 2>/dev/null || true
 
     SNAPSHOT=$(agent-browser snapshot -c 2>/dev/null || echo "")
-    # After pinning count, the chip should NOT show "* (Any Count)" anymore
-    if echo "$SNAPSHOT" | grep -q '\* (Any Count)'; then
-        log_fail "Pinned wildcard still shows * (Any Count)"
+    # After pinning count, the header pill should NOT show "Count: Any" anymore
+    if echo "$SNAPSHOT" | grep -q 'Count: Any'; then
+        log_fail "Pinned wildcard still shows Count: Any"
         result=1
     else
-        log_pass "Pinned wildcard shows value without * prefix"
+        log_pass "Pinned wildcard shows value without Any"
     fi
 
-    # Test 8: Un-pin via * (Any) — chip returns to * (Any <Name>)
+    # Test 8: Un-pin via * (Any) — header pill returns to "Count: Any"
     log "UI: Un-pin wildcard via * (Any)"
-    agent-browser click '[data-testid="pu-wc-dropdown-count"]' 2>/dev/null || true
+    agent-browser click '[data-testid="pu-header-wc-pill-count"]' 2>/dev/null || true
     sleep 1
     agent-browser click '[data-testid="pu-wc-option-count-any"]' 2>/dev/null || true
     sleep 2
     agent-browser screenshot "$SCREENSHOTS_DIR/08-wildcard-unpinned.png" 2>/dev/null || true
 
     SNAPSHOT=$(agent-browser snapshot -c 2>/dev/null || echo "")
-    if echo "$SNAPSHOT" | grep -q '\* (Any Count)'; then
-        log_pass "Un-pinned wildcard shows * (Any Count)"
+    if echo "$SNAPSHOT" | grep -q 'Count: Any'; then
+        log_pass "Un-pinned wildcard shows Count: Any"
     else
-        log_fail "Un-pinned wildcard missing * (Any Count)"
+        log_fail "Un-pinned wildcard missing Count: Any"
         result=1
     fi
 
-    # Test 9: Independent wildcard control — pin one, others stay * (Any)
+    # Test 9: Independent wildcard control — pin one, others stay Any
     log "UI: Independent wildcard control"
     # Pin role only
-    agent-browser click '[data-testid="pu-wc-dropdown-role"]' 2>/dev/null || true
+    agent-browser click '[data-testid="pu-header-wc-pill-role"]' 2>/dev/null || true
     sleep 1
     agent-browser click '[data-testid="pu-wc-option-role-0"]' 2>/dev/null || true
     sleep 2
@@ -331,30 +331,30 @@ phase_ui() {
 
     SNAPSHOT=$(agent-browser snapshot -c 2>/dev/null || echo "")
     # count and skill should still be Any, role should not
-    if echo "$SNAPSHOT" | grep -q '\* (Any Count)' && \
-       echo "$SNAPSHOT" | grep -q '\* (Any Skill)'; then
-        log_pass "Other wildcards remain * (Any) when one is pinned"
+    if echo "$SNAPSHOT" | grep -q 'Count: Any' && \
+       echo "$SNAPSHOT" | grep -q 'Skill: Any'; then
+        log_pass "Other wildcards remain Any when one is pinned"
     else
-        log_fail "Other wildcards did not remain * (Any)"
+        log_fail "Other wildcards did not remain Any"
         result=1
     fi
     # Reset: un-pin role
-    agent-browser click '[data-testid="pu-wc-dropdown-role"]' 2>/dev/null || true
+    agent-browser click '[data-testid="pu-header-wc-pill-role"]' 2>/dev/null || true
     sleep 1
     agent-browser click '[data-testid="pu-wc-option-role-any"]' 2>/dev/null || true
     sleep 1
 
-    # Test 10: Sidebar navigation in preview mode updates content
-    log "UI: Sidebar navigation in preview mode"
+    # Test 10: Sidebar navigation updates content and header pills
+    log "UI: Sidebar navigation updates header pills"
     agent-browser find text "outreach-email" click 2>/dev/null || true
     sleep 2
     agent-browser screenshot "$SCREENSHOTS_DIR/10-sidebar-nav-preview.png" 2>/dev/null || true
 
     SNAPSHOT=$(agent-browser snapshot -c 2>/dev/null || echo "")
-    if echo "$SNAPSHOT" | grep -q '\* (Any Tone)'; then
-        log_pass "Sidebar nav updates preview to new prompt"
+    if echo "$SNAPSHOT" | grep -q 'Tone: Any'; then
+        log_pass "Sidebar nav updates header pills to new prompt"
     else
-        log_fail "Sidebar nav did not update preview content"
+        log_fail "Sidebar nav did not update header pills"
         result=1
     fi
 

@@ -23,9 +23,6 @@
                 <span class="pu-header-active-job" data-testid="pu-header-active-job">No job selected</span>
             </div>
             <div class="pu-header-right">
-                <button class="pu-btn" data-testid="pu-mode-toggle-btn" onclick="PU.actions.togglePreviewMode()" style="display: none;">
-                    Preview
-                </button>
                 <button class="pu-btn pu-btn-primary" data-testid="pu-header-export-btn" onclick="PU.actions.openExportModal()">
                     Export
                 </button>
@@ -107,15 +104,56 @@
                         </div>
                     </div>
 
+                    <!-- Odometer Toolbar -->
+                    <div class="pu-odometer-toolbar" data-testid="pu-odometer-toolbar">
+                        <div class="pu-odometer-inputs">
+                            <div class="pu-odometer-field">
+                                <label>Comp:</label>
+                                <input type="number" min="0" value="99"
+                                       data-testid="pu-odometer-composition"
+                                       oninput="PU.editor.handleOdometerChange('composition', this.value)">
+                                <button class="pu-btn-icon-only" data-testid="pu-odometer-dice-btn"
+                                        onclick="PU.editor.randomizeComposition()" title="Random">&#8635;</button>
+                            </div>
+                            <div class="pu-odometer-field">
+                                <label>ext_text:</label>
+                                <input type="number" min="1" value="1"
+                                       data-testid="pu-odometer-ext-text"
+                                       oninput="PU.editor.handleOdometerChange('ext_text', this.value)">
+                            </div>
+                            <div class="pu-odometer-field">
+                                <label>wc_max:</label>
+                                <input type="number" min="0" value="0"
+                                       data-testid="pu-odometer-wc-max"
+                                       oninput="PU.editor.handleOdometerChange('wc_max', this.value)">
+                            </div>
+                            <span class="pu-odometer-total" data-testid="pu-odometer-total"></span>
+                        </div>
+                    </div>
+
                     <!-- Prompt Title -->
                     <div class="pu-prompt-header">
                         <span class="pu-prompt-label">PROMPT:</span>
                         <span class="pu-prompt-title" data-testid="pu-editor-title">No prompt selected</span>
+                        <div class="pu-prompt-actions" data-testid="pu-prompt-actions"></div>
                     </div>
 
                     <!-- Blocks Container -->
                     <div class="pu-blocks-container" data-testid="pu-blocks-container">
                         <!-- Blocks rendered by JS -->
+                    </div>
+
+                    <!-- Output Footer -->
+                    <div class="pu-output-footer" data-testid="pu-output-footer">
+                        <div class="pu-output-footer-header" data-testid="pu-output-footer-toggle"
+                             onclick="PU.actions.toggleOutputFooter()">
+                            <span class="pu-output-footer-title">Resolved Output</span>
+                            <span class="pu-output-footer-count" data-testid="pu-output-footer-count"></span>
+                            <button class="pu-btn-sm" data-testid="pu-output-footer-copy"
+                                    onclick="event.stopPropagation(); PU.actions.copyOutputFooter()">Copy All</button>
+                            <span class="pu-output-footer-chevron" data-testid="pu-output-footer-chevron">&#9660;</span>
+                        </div>
+                        <div class="pu-output-footer-body" data-testid="pu-output-footer-body"></div>
                     </div>
 
                     <!-- Add Block Buttons -->
@@ -134,49 +172,6 @@
                     </div>
                 </div>
 
-                <!-- Preview Mode (Checkpoint List View) -->
-                <div class="pu-preview-mode" data-testid="pu-preview-mode" style="display: none;">
-                    <div class="pu-preview-mode-toolbar">
-                        <div class="pu-preview-mode-prompt">
-                            <span class="pu-prompt-label">PROMPT:</span>
-                            <span class="pu-prompt-title" data-testid="pu-preview-prompt-title"></span>
-                        </div>
-                    </div>
-                    <div class="pu-preview-mode-header">
-                        <div class="pu-preview-mode-title">
-                            <span>CHECKPOINTS</span>
-                            <span class="pu-checkpoints-count" data-testid="pu-checkpoints-count"></span>
-                        </div>
-                        <div class="pu-odometer-inputs">
-                            <div class="pu-odometer-field">
-                                <label title="Number of ext_text values (odometer outermost dimension)">ext_text:</label>
-                                <input type="number" min="1" value="1"
-                                       data-testid="pu-ext-text-max-input"
-                                       oninput="PU.preview.updateExtTextMax(this.value)">
-                            </div>
-                            <div class="pu-odometer-field">
-                                <label title="Override wildcard counts (0 = use actual counts)">wc_max:</label>
-                                <input type="number" min="0" value="0"
-                                       data-testid="pu-ext-wildcards-max-input"
-                                       oninput="PU.preview.updateExtWildcardsMax(this.value)">
-                            </div>
-                            <div class="pu-odometer-field">
-                                <label>Composition:</label>
-                                <input type="number" min="0" value="99"
-                                       data-testid="pu-composition-input"
-                                       oninput="PU.preview.updateCompositionId(this.value)">
-                                <button class="pu-btn-icon-only"
-                                        data-testid="pu-composition-dice-btn"
-                                        onclick="PU.preview.randomizeCompositionId()"
-                                        title="Random composition ID">&#8635;</button>
-                            </div>
-                            <span class="pu-odometer-total" data-testid="pu-odometer-total" title="Total combinations = ext_text × wildcards product"></span>
-                        </div>
-                    </div>
-                    <div class="pu-checkpoints-list" data-testid="pu-checkpoints-list">
-                        <!-- Checkpoint rows rendered by JS -->
-                    </div>
-                </div>
             </main>
 
             <!-- Right Inspector -->

@@ -18,9 +18,6 @@ PU.focus = {
         // Guard: debounce rapid entry (300ms)
         if (Date.now() - state.enterTimestamp < 300) return;
 
-        // Guard: preview mode active
-        if (PU.state.previewMode.active) return;
-
         // Guard: must have a prompt
         const prompt = PU.helpers.getActivePrompt();
         if (!prompt) return;
@@ -82,7 +79,15 @@ PU.focus = {
         // Serialize focus Quill to plain text and sync back
         if (state.quillInstance) {
             const text = PU.quill.serialize(state.quillInstance);
-            PU.editor.updateBlockContent(path, text);
+
+            // Update block state directly
+            const prompt = PU.editor.getModifiedPrompt();
+            if (prompt) {
+                const block = PU.blocks.findBlockByPath(prompt.text || [], path);
+                if (block && 'content' in block) {
+                    block.content = text;
+                }
+            }
 
             // Destroy focus Quill
             state.quillInstance.disable();
