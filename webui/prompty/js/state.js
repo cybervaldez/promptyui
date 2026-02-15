@@ -39,7 +39,12 @@ PU.state = {
         },
         jobsExpanded: {},
         inspectorExtensionFilter: '',
-        outputFooterCollapsed: false
+        outputFooterCollapsed: false,
+        outputLabelMode: 'none',
+        outputGroupBy: null,
+        outputGroupCollapsed: {},
+        outputFilters: {},
+        outputFilterCollapsed: {}
     },
 
     // Preview popup state
@@ -57,7 +62,8 @@ PU.state = {
         active: false,
         blockPath: null,         // e.g. "0", "0.1"
         quillInstance: null,     // Transient Quill (not in PU.quill.instances)
-        enterTimestamp: 0        // Debounce guard
+        enterTimestamp: 0,       // Debounce guard
+        pendingPath: null        // URL-restored path, consumed after render
     },
 
     // Export modal state
@@ -85,6 +91,7 @@ PU.state = {
         extTextMax: 1,        // Bucket size limit for ext_text (user-controlled)
         extTextCount: 1,      // Actual ext_text count (computed from loaded data)
         extWildcardsMax: 0,   // 0 = use actual wildcard counts, >0 = override all wildcard counts
+        visualizer: 'compact',  // Wildcard display style: compact | typewriter | reel | stack | ticker
         selectedWildcards: {},  // User-selected wildcard overrides: { wildcardName: selectedValue }
         _extTextCache: {}     // Cached ext_text API data: { "scope/name": data }
     }
@@ -159,7 +166,8 @@ PU.helpers = {
             activePromptId: PU.state.activePromptId,
             jobsExpanded: PU.state.ui.jobsExpanded,
             sectionsCollapsed: PU.state.ui.sectionsCollapsed,
-            outputFooterCollapsed: PU.state.ui.outputFooterCollapsed
+            outputFooterCollapsed: PU.state.ui.outputFooterCollapsed,
+            outputLabelMode: PU.state.ui.outputLabelMode
         };
         localStorage.setItem('pu_ui_state', JSON.stringify(uiState));
     },
@@ -177,6 +185,7 @@ PU.helpers = {
                 PU.state.ui.jobsExpanded = state.jobsExpanded || {};
                 PU.state.ui.sectionsCollapsed = state.sectionsCollapsed || {};
                 PU.state.ui.outputFooterCollapsed = state.outputFooterCollapsed || false;
+                PU.state.ui.outputLabelMode = state.outputLabelMode || 'none';
             }
         } catch (e) {
             console.warn('Failed to load UI state:', e);
@@ -293,13 +302,6 @@ PU.helpers = {
                     failedPaths.push(path);
                     console.warn('Failed to load extension for autocomplete:', path, e);
                 }
-            }
-
-            if (failedPaths.length > 0) {
-                PU.actions.showToast(
-                    `Failed to load ${failedPaths.length} extension file(s) for autocomplete`,
-                    'error'
-                );
             }
 
             cache.extWildcardNames = results;

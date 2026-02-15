@@ -85,6 +85,28 @@ if (typeof Quill !== 'undefined') {
     Quill.register(WildcardBlot);
 
     // ============================================
+    // ParentContextBlot - Inline parent context embed
+    // ============================================
+    class ParentContextBlot extends Embed {
+        static blotName = 'parentContext';
+        static tagName = 'span';
+        static className = 'ql-parent-context';
+
+        static create(value) {
+            const node = super.create();
+            node.setAttribute('contenteditable', 'false');
+            node.innerHTML = value.html || '';
+            return node;
+        }
+
+        static value(node) {
+            return { html: node.innerHTML };
+        }
+    }
+
+    Quill.register(ParentContextBlot);
+
+    // ============================================
     // PU.quill Namespace
     // ============================================
     PU.quill = {
@@ -171,17 +193,38 @@ if (typeof Quill !== 'undefined') {
         },
 
         /**
-         * Scan Quill content for unblotted __name__ patterns and convert to embeds
+         * Scan Quill content for unblotted __name__ patterns and convert to embeds.
+         * Uses getContents() delta to build a text→document index map so embeds
+         * (parentContext, existing wildcard chips) don't cause index mismatch.
          */
         convertWildcardsInline(quillInstance) {
-            const text = quillInstance.getText();
+            // Build searchable text with correct document index mapping.
+            // getText() skips embeds, so its indices don't match document positions.
+            const delta = quillInstance.getContents();
+            let searchText = '';
+            let docPos = 0;
+            const posMap = []; // posMap[textCharIdx] = documentIdx
+
+            for (const op of delta.ops) {
+                if (typeof op.insert === 'string') {
+                    for (let i = 0; i < op.insert.length; i++) {
+                        posMap.push(docPos + i);
+                    }
+                    searchText += op.insert;
+                    docPos += op.insert.length;
+                } else {
+                    // Embed (wildcard, parentContext, etc.) — 1 doc position, 0 text chars
+                    docPos += 1;
+                }
+            }
+
             const regex = /__([a-zA-Z0-9_-]+)__/g;
             let match;
             const replacements = [];
 
-            while ((match = regex.exec(text)) !== null) {
+            while ((match = regex.exec(searchText)) !== null) {
                 replacements.push({
-                    index: match.index,
+                    index: posMap[match.index], // Map text index → document index
                     length: match[0].length,
                     name: match[1]
                 });
@@ -448,20 +491,24 @@ if (typeof Quill !== 'undefined') {
             // Re-focus editor
             quill.focus();
 
-            // Auto-open popover for new (undefined) wildcards so user can add values
-            if (values.length === 0) {
-                requestAnimationFrame(() => {
-                    const chipEl = quill.root.querySelector(
-                        `.ql-wildcard-chip[data-wildcard-name="${name}"]`
+            // Auto-open popover after autocomplete selection
+            requestAnimationFrame(() => {
+                const chipEl = quill.root.querySelector(
+                    `.ql-wildcard-chip[data-wildcard-name="${name}"]`
+                );
+                if (chipEl && PU.wildcardPopover) {
+                    // Undefined wildcards: active mode (input focused) so user can add values immediately
+                    // Defined wildcards: passive mode (just show values)
+                    const isUndefined = values.length === 0;
+                    PU.wildcardPopover.open(
+                        chipEl, name, quill,
+                        path, PU.state.focusMode.active, !isUndefined
                     );
-                    if (chipEl && PU.wildcardPopover) {
-                        PU.wildcardPopover.open(
-                            chipEl, name, quill,
-                            path, PU.state.focusMode.active
-                        );
+                    if (isUndefined) {
+                        PU.wildcardPopover._forceValues = true;
                     }
-                });
-            }
+                }
+            });
         },
 
         /**
@@ -545,53 +592,52 @@ if (typeof Quill !== 'undefined') {
             const sel = quill.getSelection();
             if (!sel) return null;
 
-            // Check leaf at cursor position
-            try {
-                const [leafAt] = quill.getLeaf(sel.index);
-                if (leafAt && leafAt.domNode && leafAt.domNode.getAttribute &&
-                    leafAt.domNode.getAttribute('data-wildcard-name')) {
-                    return leafAt.domNode.getAttribute('data-wildcard-name');
-                }
-            } catch (e) { /* ignore */ }
-
-            // Check leaf before cursor
-            if (sel.index > 0) {
+            // Use delta-based detection: check if the content at cursor
+            // or one position before is a wildcard embed.
+            // offset 0 = cursor is at the left edge of a chip
+            // offset -1 = cursor is at the right edge of a chip
+            for (const offset of [0, -1]) {
+                const idx = sel.index + offset;
+                if (idx < 0) continue;
                 try {
-                    const [leafBefore] = quill.getLeaf(sel.index - 1);
-                    if (leafBefore && leafBefore.domNode && leafBefore.domNode.getAttribute &&
-                        leafBefore.domNode.getAttribute('data-wildcard-name')) {
-                        return leafBefore.domNode.getAttribute('data-wildcard-name');
+                    const delta = quill.getContents(idx, 1);
+                    const op = delta.ops[0];
+                    if (op && op.insert && op.insert.wildcard) {
+                        return op.insert.wildcard.name;
                     }
                 } catch (e) { /* ignore */ }
             }
-
-            // Check leaf after cursor (cursor is positioned before a chip)
-            try {
-                const [leafAfter] = quill.getLeaf(sel.index + 1);
-                if (leafAfter && leafAfter.domNode && leafAfter.domNode.getAttribute &&
-                    leafAfter.domNode.getAttribute('data-wildcard-name')) {
-                    return leafAfter.domNode.getAttribute('data-wildcard-name');
-                }
-            } catch (e) { /* ignore */ }
 
             return null;
         },
 
         /**
          * Get the wildcard chip DOM element adjacent to the cursor.
-         * Checks offsets 0, -1, +1 from the selection index.
+         * Checks offsets 0, -1 from the selection index (left/right chip edges).
          */
         getAdjacentWildcardChipEl(quill) {
             const sel = quill.getSelection();
             if (!sel) return null;
-            for (const offset of [0, -1, 1]) {
+            for (const offset of [0, -1]) {
                 const idx = sel.index + offset;
                 if (idx < 0) continue;
                 try {
-                    const [leaf] = quill.getLeaf(idx);
-                    if (leaf?.domNode?.classList?.contains('ql-wildcard-chip')) {
-                        return leaf.domNode;
+                    // Confirm via delta that this position holds a wildcard
+                    const delta = quill.getContents(idx, 1);
+                    const wc = delta.ops[0]?.insert?.wildcard;
+                    if (!wc) continue;
+                    // Find chip DOM element by name; match by index for duplicates
+                    const allChips = quill.root.querySelectorAll(
+                        `.ql-wildcard-chip[data-wildcard-name="${wc.name}"]`
+                    );
+                    if (allChips.length === 1) return allChips[0];
+                    for (const chip of allChips) {
+                        try {
+                            const blot = Quill.find(chip);
+                            if (blot && quill.getIndex(blot) === idx) return chip;
+                        } catch (e) { /* ignore */ }
                     }
+                    if (allChips.length > 0) return allChips[0];
                 } catch (e) { /* ignore */ }
             }
             return null;
@@ -651,6 +697,9 @@ if (typeof Quill !== 'undefined') {
                         chipEl, wcName, quillInstance,
                         path, PU.state.focusMode.active
                     );
+                    if (values.length === 0) {
+                        PU.wildcardPopover._forceValues = true;
+                    }
                 }
             });
             return true;

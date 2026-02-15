@@ -35,6 +35,7 @@
     --pu-warning-light: rgba(203, 145, 47, 0.12);
     --pu-error: #e06c75;
     --pu-error-bg: rgba(224, 108, 117, 0.1);
+    --pu-orange: #e8943a;
 
     /* Borders */
     --pu-border: rgba(255, 255, 255, 0.06);
@@ -635,6 +636,246 @@ body {
     padding: 0 1px;
 }
 
+/* Wildcard name pill (text visualizer mode - legacy) */
+.pu-wc-name-pill {
+    color: var(--pu-orange);
+    font-family: var(--pu-font-mono);
+    padding: 0 1px;
+}
+
+/* Clickable wildcard value (text visualizer mode) */
+.pu-wc-text-value {
+    color: var(--pu-accent);
+    cursor: pointer;
+    border-bottom: 1px dotted var(--pu-accent-border);
+    padding: 0 1px;
+    transition: opacity var(--pu-transition-fast);
+}
+.pu-wc-text-value:hover {
+    opacity: 0.7;
+}
+
+/* ========================================================================
+   Visualizer Modes — Rich wildcard value display
+   ======================================================================== */
+
+/* --- Stack (v1b Step Reel): all values visible vertically, center highlighted --- */
+.pu-wc-stack {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    vertical-align: middle;
+    gap: 2px;
+    position: relative;
+}
+.pu-wc-stack-item {
+    white-space: nowrap;
+    font-family: var(--pu-font-mono);
+    font-size: 14px;
+    color: var(--pu-accent);
+    padding: 2px 10px;
+    border-radius: var(--pu-radius-sm);
+    background: rgba(82, 156, 202, 0.06);
+    transition: opacity 0.5s ease, transform 0.5s ease, background 0.5s ease, font-size 0.5s ease;
+    line-height: 1.5;
+    cursor: pointer;
+}
+.pu-wc-stack-item.center {
+    opacity: 1;
+    background: var(--pu-accent-bg);
+    border-bottom: 2px solid var(--pu-accent);
+    font-size: 16px;
+    transform: scale(1.05);
+}
+.pu-wc-stack-item.near {
+    opacity: 0.55;
+    transform: scale(1);
+}
+.pu-wc-stack-item.far {
+    opacity: 0.25;
+    transform: scale(0.95);
+}
+
+/* --- Typewriter (v4b Sequential Fill): type/erase cycle with blinking cursor --- */
+.pu-wc-typewriter {
+    display: inline-block;
+    position: relative;
+    font-family: var(--pu-font-mono);
+    font-size: 17px;
+    color: var(--pu-accent);
+    background: var(--pu-accent-bg);
+    padding: 1px 2px 1px 8px;
+    border-radius: var(--pu-radius-sm);
+    min-width: 50px;
+    text-align: center;
+}
+.pu-wc-typewriter.clickable {
+    cursor: text;
+}
+.pu-wc-typewriter.clickable:hover {
+    border-color: var(--pu-accent-border);
+    background: rgba(82, 156, 202, 0.12);
+}
+.pu-wc-typewriter.settled .pu-wc-tw-text {
+    color: var(--pu-accent);
+}
+.pu-wc-tw-placeholder {
+    color: var(--pu-text-muted);
+    opacity: 0.6;
+}
+.pu-wc-tw-placeholder.hidden {
+    display: none;
+}
+.pu-wc-tw-cursor {
+    display: none;
+    width: 2px;
+    height: 1.1em;
+    background: var(--pu-accent);
+    vertical-align: text-bottom;
+    margin-left: 1px;
+    animation: pu-blink 0.6s steps(1) infinite;
+}
+.pu-wc-typewriter.active .pu-wc-tw-cursor {
+    display: inline-block;
+}
+@keyframes pu-blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+}
+
+/* --- Ticker (v1a1 Scroll Stop): auto-cycling vertical scroll with mask --- */
+.pu-wc-ticker {
+    position: relative;
+    display: inline-block;
+    font-family: var(--pu-font-mono);
+    font-size: 16px;
+    padding: 0 8px;
+    cursor: pointer;
+    border-radius: var(--pu-radius-sm);
+    background: var(--pu-accent-bg);
+    border: 1px solid transparent;
+    overflow: hidden;
+    vertical-align: middle;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+}
+.pu-wc-ticker-track {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.pu-wc-ticker-label {
+    display: none;
+}
+.pu-wc-ticker-item {
+    white-space: nowrap;
+    font-family: var(--pu-font-mono);
+    font-size: 16px;
+    color: var(--pu-accent);
+    line-height: 1.6em;
+    height: 1.6em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.pu-wc-ticker-item.pu-wc-ticker-name {
+    color: var(--pu-text-muted);
+    opacity: 0.6;
+}
+
+/* --- Reel (v1a2 Label Reel): label animates up, values cycle below --- */
+.pu-wc-reel {
+    position: relative;
+    display: inline-block;
+    font-family: var(--pu-font-mono);
+    font-size: 16px;
+    padding: 0 8px;
+    cursor: pointer;
+    border-radius: var(--pu-radius-sm);
+    background: var(--pu-accent-bg);
+    border: 1px solid transparent;
+    vertical-align: middle;
+    overflow: visible;
+}
+.pu-wc-reel-label {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    text-align: center;
+    color: var(--pu-orange);
+    font-family: var(--pu-font-mono);
+    font-size: 16px;
+    white-space: nowrap;
+    z-index: 2;
+    transform-origin: center center;
+    transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.pu-wc-reel-window {
+    display: block;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+}
+.pu-wc-reel-track {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+}
+.pu-wc-reel-track.visible {
+    opacity: 1;
+}
+.pu-wc-reel-item {
+    white-space: nowrap;
+    font-family: var(--pu-font-mono);
+    font-size: 16px;
+    color: var(--pu-accent);
+    line-height: 1.6em;
+    height: 1.6em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* --- Visualizer mode buttons (dice, play/stop) --- */
+.pu-viz-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: var(--pu-radius-sm);
+    color: var(--pu-text-muted);
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+    padding: 0;
+}
+.pu-viz-btn:hover {
+    color: var(--pu-text-primary);
+}
+.pu-viz-btn:disabled {
+    opacity: 0.3;
+    pointer-events: none;
+}
+.pu-viz-btn svg {
+    width: 16px;
+    height: 16px;
+}
+.pu-viz-dice-btn svg {
+    stroke: currentColor;
+    stroke-width: 1.5;
+    fill: none;
+}
+.pu-viz-play-btn svg {
+    fill: currentColor;
+    width: 14px;
+    height: 14px;
+}
+
 /* Blocks Container */
 .pu-blocks-container {
     flex: 1;
@@ -642,18 +883,27 @@ body {
     padding: 20px;
 }
 
+/* Suppress transitions during wildcard re-rolls */
+.pu-no-transition,
+.pu-no-transition * {
+    transition: none !important;
+    animation: none !important;
+}
+
 /* Block Styles */
 .pu-block {
     background: var(--pu-bg-hover);
     border: 1px solid transparent;
     border-radius: var(--pu-radius-lg);
-    margin-bottom: var(--pu-space-md);
-    transition: border-color var(--pu-transition-normal), box-shadow var(--pu-transition-normal), opacity var(--pu-transition-normal);
+    margin-bottom: var(--pu-space-xs);
+    transition: border-color var(--pu-transition-normal), box-shadow var(--pu-transition-normal);
 }
 
-.pu-block:hover {
-    background: var(--pu-bg-selected);
-    border-color: var(--pu-border);
+/* No hover background on blocks — badge highlights instead */
+
+/* Body wrapper: contains header + content + toolbar (not children) */
+.pu-block-body {
+    position: relative;
 }
 
 .pu-block.selected {
@@ -665,6 +915,7 @@ body {
     display: flex;
     align-items: center;
     padding: var(--pu-space-md) var(--pu-space-lg);
+    padding-right: 40px;
     background: var(--pu-bg-hover);
     border-radius: var(--pu-radius-lg) var(--pu-radius-lg) 0 0;
     gap: var(--pu-space-sm);
@@ -725,16 +976,10 @@ body {
     border-color: rgba(224, 108, 117, 0.2);
 }
 
-.pu-block-action.pu-delete-confirm {
-    color: #fff;
-    background: var(--pu-error);
-    border-color: var(--pu-error);
-    font-size: var(--pu-font-size-xs);
-    padding: var(--pu-space-xs) 10px;
-}
 
 .pu-block-content {
-    padding: 14px var(--pu-space-lg);
+    padding: 8px var(--pu-space-lg) 4px;
+    padding-right: 40px;
 }
 
 /* Content Input */
@@ -801,14 +1046,382 @@ body {
 
 /* Nested Blocks */
 .pu-block-children {
-    margin-left: 28px;
-    padding-left: var(--pu-space-md);
-    padding-bottom: var(--pu-space-md);
-    border-left: 1px solid var(--pu-border-light);
+    margin-left: 20px;
+    padding-left: var(--pu-space-sm);
+    padding-bottom: 2px;
 }
 
-.pu-block-children .pu-block {
-    margin-bottom: var(--pu-space-sm);
+.pu-block-children > .pu-block {
+    margin-bottom: 0;
+}
+
+/* Headerless child blocks */
+.pu-block-child {
+    position: relative;
+    background: transparent;
+    border-radius: var(--pu-radius);
+    margin-bottom: 0;
+    border: 1px solid transparent;
+}
+/* No hover background on child blocks */
+.pu-block-child:hover {
+    background: transparent;
+    border-color: transparent;
+}
+/* Sibling fade: when hovering a child, fade its siblings */
+.pu-block-children:hover > .pu-block-child {
+    opacity: 0.35;
+    transition: opacity 0.15s ease;
+}
+.pu-block-children > .pu-block-child:hover {
+    opacity: 1;
+}
+
+/* Path divider — labeled line above each child (diagram edge label) */
+.pu-path-divider {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 18px;
+    margin: 0 4px;
+}
+/* Line extends from label to right edge */
+.pu-path-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--pu-border-light);
+    margin-left: 6px;
+}
+/* Path label badge — left-aligned on the line */
+.pu-path-label {
+    position: relative;
+    z-index: 1;
+    display: inline-block;
+    font-family: var(--pu-font-mono);
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    background: var(--pu-bg-secondary);
+    padding: 1px 6px;
+    border-radius: var(--pu-radius);
+    white-space: nowrap;
+    opacity: 0.5;
+    transition: opacity var(--pu-transition-fast), background var(--pu-transition-fast), color var(--pu-transition-fast);
+}
+.pu-child-arrow {
+    font-size: 11px;
+    margin-right: 2px;
+}
+/* Delete button in path divider — hidden until child hover */
+.pu-path-delete {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    padding: 2px;
+    margin-left: 4px;
+    opacity: 0;
+    color: var(--pu-text-muted);
+    transition: opacity var(--pu-transition-fast), color var(--pu-transition-fast);
+    cursor: pointer;
+}
+.pu-path-delete svg { width: 12px; height: 12px; }
+.pu-block-child:hover .pu-path-delete { opacity: 0.5; }
+.pu-path-delete:hover { opacity: 1 !important; color: var(--pu-error); }
+
+/* Highlight label on child hover — yellow */
+.pu-block-child:hover .pu-path-label {
+    opacity: 1;
+    background: var(--pu-warning-bg);
+    color: var(--pu-warning);
+}
+/* Tint divider line orange on child hover — matches parent connector color */
+.pu-block-child:hover .pu-path-divider::after {
+    background: var(--pu-orange);
+    opacity: 0.5;
+}
+
+/* Inline path badge for compact mode (inside resolved text before content) */
+.pu-child-path-hint {
+    display: inline-block;
+    font-family: var(--pu-font-mono);
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    background: var(--pu-bg-secondary);
+    padding: 1px 6px;
+    border-radius: var(--pu-radius);
+    margin-right: 6px;
+    position: relative;
+    top: -2px;
+    white-space: nowrap;
+    opacity: 0.6;
+    transition: opacity var(--pu-transition-fast), background var(--pu-transition-fast), color var(--pu-transition-fast);
+}
+.pu-block-child:hover .pu-child-path-hint {
+    opacity: 1;
+    background: var(--pu-accent-bg);
+    color: var(--pu-accent);
+}
+/* Yellow highlight on child path hint when hierarchy hover active */
+.pu-has-children:has(.pu-block-children:hover) .pu-block-child:hover .pu-child-path-hint {
+    background: var(--pu-warning-bg);
+    color: var(--pu-warning);
+}
+
+/* Inline parent connector — flows after text (only on blocks with children) */
+/* Hidden by default to reduce visual noise; visible on hierarchy hover */
+.pu-parent-connector {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: 8px;
+    font-size: 12px;
+    color: var(--pu-text-muted);
+    opacity: 0.35;
+    visibility: hidden;
+    vertical-align: middle;
+    transition: opacity 0.15s ease, color 0.15s ease;
+}
+.pu-parent-connector-line {
+    display: inline-block;
+    width: 12px;
+    height: 2px;
+    background: currentColor;
+    border-radius: 1px;
+    vertical-align: middle;
+}
+.pu-parent-connector-arrow {
+    font-size: 11px;
+    line-height: 1;
+}
+
+/* Connector intro animation — used during hierarchy-aware visualizer intro */
+.pu-parent-connector.pu-connector-intro {
+    visibility: visible;
+    opacity: 0;
+    transition: opacity 300ms ease-in;
+}
+.pu-parent-connector.pu-connector-intro.pu-connector-visible {
+    opacity: 0.6;
+}
+
+/* Inline nest connector — clickable ── + NEST for leaf blocks (no children) */
+.pu-nest-connector {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: 8px;
+    font-size: 12px;
+    color: var(--pu-text-muted);
+    opacity: 0;
+    vertical-align: middle;
+    transition: opacity var(--pu-transition-fast), color var(--pu-transition-fast);
+    cursor: pointer;
+    border: none;
+    background: none;
+    padding: 0;
+    font-family: inherit;
+}
+.pu-block-body:hover .pu-nest-connector { opacity: 0.4; }
+.pu-nest-connector:hover { opacity: 1 !important; color: var(--pu-accent) !important; }
+.pu-nest-connector-line {
+    display: inline-block;
+    width: 12px;
+    height: 2px;
+    background: currentColor;
+    border-radius: 1px;
+    vertical-align: middle;
+    transition: background var(--pu-transition-fast);
+}
+.pu-nest-connector-plus {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1;
+}
+.pu-nest-connector-label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    line-height: 1;
+}
+
+/* Hierarchy highlight: when children hovered, parent connector turns yellow */
+.pu-has-children:has(.pu-block-children:hover) > .pu-block-body .pu-parent-connector {
+    color: var(--pu-warning);
+    opacity: 1;
+    visibility: visible;
+}
+/* Parent gets subtle yellow left border */
+.pu-has-children:has(.pu-block-children:hover) {
+    border-left: 2px solid rgba(203, 145, 47, 0.4);
+}
+/* Hide parent's right-edge actions and inline icons when child is hovered (frees space for connector) */
+.pu-has-children:has(.pu-block-child:hover) > .pu-block-body .pu-right-edge-actions {
+    display: none;
+}
+/* Hide parent's inline actions on child hover (display:none to shift connector into place) */
+.pu-has-children:has(.pu-block-child:hover) > .pu-block-body .pu-inline-actions {
+    display: none !important;
+}
+
+/* Right-edge pencil + delete (animated modes only, centered within .pu-block-content) */
+.pu-right-edge-actions {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 36px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    opacity: 0.5;
+    transition: opacity var(--pu-transition-fast);
+}
+.pu-right-edge-actions:hover {
+    opacity: 1;
+}
+
+/* Nest button at bottom of block (visible on block hover) */
+.pu-nest-action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 0 4px;
+    opacity: 0;
+    transition: opacity var(--pu-transition-fast);
+}
+.pu-block:hover > .pu-nest-action {
+    opacity: 1;
+}
+.pu-nest-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: transparent;
+    border: 1px solid var(--pu-border-light);
+    color: var(--pu-text-muted);
+    font-size: 18px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all var(--pu-transition-fast);
+    padding: 0;
+    line-height: 1;
+}
+.pu-nest-btn:hover {
+    border-color: var(--pu-accent);
+    color: var(--pu-accent);
+    background: var(--pu-bg-primary);
+}
+
+/* Inline dice (flows after text, hover-only) */
+.pu-inline-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: 6px;
+    vertical-align: middle;
+    opacity: 0;
+    transition: opacity var(--pu-transition-fast);
+}
+.pu-block-body:hover .pu-inline-actions {
+    opacity: 0.5;
+}
+.pu-block-body:hover .pu-inline-actions:hover {
+    opacity: 1;
+}
+.pu-inline-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    background: none;
+    border: none;
+    color: var(--pu-text-muted);
+    cursor: pointer;
+    border-radius: var(--pu-radius);
+    padding: 0;
+    transition: all var(--pu-transition-fast);
+    vertical-align: middle;
+}
+.pu-inline-action:hover {
+    color: var(--pu-text-primary);
+    background: var(--pu-bg-hover);
+}
+.pu-inline-delete:hover {
+    color: var(--pu-error);
+    background: var(--pu-error-bg);
+}
+.pu-inline-action svg {
+    width: 12px;
+    height: 12px;
+}
+/* Delete confirm state — red pill with yellow uppercase text + checkmark */
+.pu-inline-action.pu-delete-confirm,
+.pu-path-delete.pu-delete-confirm {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    transition: none !important;
+    opacity: 1 !important;
+    display: inline-flex !important;
+    align-items: center;
+    gap: 3px;
+    width: auto !important;
+    height: auto !important;
+    padding: 2px 8px !important;
+    background: var(--pu-error) !important;
+    border: 1px solid var(--pu-error) !important;
+    border-radius: var(--pu-radius);
+    color: #ffd54f !important;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    z-index: 5;
+    cursor: pointer;
+}
+.pu-delete-confirm svg {
+    width: 11px !important;
+    height: 11px !important;
+    stroke: #ffd54f;
+    flex-shrink: 0;
+}
+/* Path-divider delete confirm — position relative to divider */
+.pu-path-delete.pu-delete-confirm {
+    position: relative;
+    top: auto;
+    transform: none;
+}
+/* Compact mode delete confirm — stay inline, not absolute */
+.pu-compact-actions .pu-delete-confirm {
+    position: relative;
+    top: auto;
+    right: auto;
+    transform: none;
+}
+
+/* Child block content — equal top padding to root */
+.pu-block-child .pu-block-content {
+    padding: 8px var(--pu-space-md) 4px;
+    padding-right: 28px;
+}
+.pu-block-child .pu-resolved-text.pu-block-visualizer {
+    padding: 6px 16px 14px;
+}
+
+/* Compact mode: no right-edge column, no padding-right reservation */
+[data-viz="compact"] .pu-block-content {
+    padding-right: var(--pu-space-lg);
+}
+[data-viz="compact"] .pu-block-child .pu-block-content {
+    padding-right: var(--pu-space-md);
 }
 
 /* Nested block descriptions - smaller font */
@@ -834,47 +1447,6 @@ body {
     animation: pu-block-exit 350ms ease-in forwards;
     pointer-events: none;
     overflow: hidden;
-}
-
-/* Focus Mode: dim unfocused blocks when editing */
-.pu-blocks-container:has(.pu-block:focus-within) .pu-block:not(:focus-within) {
-    opacity: 0.72;
-    transition: opacity var(--pu-transition-normal);
-}
-.pu-blocks-container:has(.pu-block:focus-within) .pu-block:focus-within {
-    opacity: 1;
-    transition: opacity var(--pu-transition-normal);
-}
-
-/* Panel Depth-of-Field — dim unfocused panels */
-.pu-main:has(:focus-within) .pu-sidebar:not(:focus-within):not(:hover) {
-    opacity: 0.45;
-    transition: opacity var(--pu-transition-normal);
-}
-.pu-main:has(:focus-within) .pu-inspector:not(:focus-within):not(:hover) {
-    opacity: 0.65;
-    transition: opacity var(--pu-transition-normal);
-}
-
-.pu-main:has(:focus-within) .pu-editor:not(:focus-within):not(:hover) {
-    opacity: 0.65;
-    transition: opacity var(--pu-transition-normal);
-}
-
-/* Hover peek — raises dimmed panel closer to full */
-.pu-main:has(:focus-within) .pu-sidebar:hover,
-.pu-main:has(:focus-within) .pu-inspector:hover,
-.pu-main:has(:focus-within) .pu-editor:hover {
-    opacity: 0.85;
-    transition: opacity var(--pu-transition-normal);
-}
-
-/* Focused panel stays full opacity */
-.pu-main:has(:focus-within) .pu-sidebar:focus-within,
-.pu-main:has(:focus-within) .pu-editor:focus-within,
-.pu-main:has(:focus-within) .pu-inspector:focus-within {
-    opacity: 1;
-    transition: opacity var(--pu-transition-normal);
 }
 
 /* Output Footer */
@@ -935,8 +1507,186 @@ body {
 
 .pu-output-footer-body {
     flex: 1;
+    overflow: hidden;
+    display: flex;
+    min-height: 0;
+}
+
+/* Filter Tree Panel */
+.pu-filter-tree {
+    width: 178px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--pu-border);
+    background: var(--pu-bg-secondary);
+    display: flex;
+    flex-direction: column;
+}
+.pu-filter-tree-scroll {
+    flex: 1;
     overflow-y: auto;
-    padding: var(--pu-space-sm) var(--pu-space-lg);
+    padding: var(--pu-space-sm) 0;
+}
+.pu-filter-tree-footer {
+    flex-shrink: 0;
+    padding: var(--pu-space-sm);
+    border-top: 1px solid var(--pu-border);
+}
+
+.pu-filter-tree-footer.pu-hidden {
+    display: none;
+}
+.pu-filter-reset-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    width: 100%;
+    padding: 4px 0;
+    background: var(--pu-bg-hover);
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius);
+    color: var(--pu-text-muted);
+    font-family: var(--pu-font-body);
+    font-size: var(--pu-font-size-2xs);
+    cursor: pointer;
+    transition: all var(--pu-transition-fast);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.pu-filter-reset-btn:hover {
+    background: var(--pu-bg-selected);
+    border-color: var(--pu-border-light);
+    color: var(--pu-text-primary);
+}
+.pu-filter-reset-btn svg {
+    width: 10px;
+    height: 10px;
+}
+.pu-filter-dim {
+    margin-bottom: var(--pu-space-md);
+}
+.pu-filter-dim-header {
+    display: flex;
+    align-items: center;
+    gap: var(--pu-space-xs);
+    padding: var(--pu-space-xs) var(--pu-space-md);
+    font-size: var(--pu-font-size-2xs);
+    font-weight: 600;
+    color: var(--pu-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    user-select: none;
+}
+.pu-filter-dim-header:hover {
+    color: var(--pu-text-secondary);
+}
+.pu-filter-dim-chevron {
+    font-size: 8px;
+    transition: transform var(--pu-transition-normal);
+    display: inline-block;
+}
+.pu-filter-dim-chevron.collapsed {
+    transform: rotate(-90deg);
+}
+.pu-filter-dim-values {
+    overflow: hidden;
+    padding: 0 var(--pu-space-sm);
+}
+.pu-filter-dim-values.collapsed {
+    max-height: 0 !important;
+}
+.pu-filter-value {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px var(--pu-space-sm);
+    margin-bottom: 2px;
+    border-radius: var(--pu-radius-sm);
+    cursor: pointer;
+    user-select: none;
+    transition: all var(--pu-transition-fast);
+}
+.pu-filter-value:hover {
+    background: var(--pu-bg-hover);
+}
+.pu-filter-dot {
+    width: 6px;
+    height: 6px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    border: 1.5px solid var(--pu-border-light);
+    transition: all var(--pu-transition-fast);
+}
+.pu-filter-value.active .pu-filter-dot {
+    border-color: var(--pu-accent);
+    background: var(--pu-accent);
+    box-shadow: 0 0 4px rgba(82, 156, 202, 0.4);
+}
+.pu-filter-value-name {
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-secondary);
+    flex-shrink: 0;
+    min-width: 62px;
+    transition: color var(--pu-transition-fast);
+}
+.pu-filter-value.active .pu-filter-value-name {
+    color: var(--pu-accent);
+    font-weight: 500;
+}
+.pu-filter-value-bar-track {
+    flex: 1;
+    height: 2px;
+    min-width: 20px;
+    position: relative;
+}
+.pu-filter-value-bar-dash {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 100%;
+    border-bottom: 1px dashed rgba(255,255,255,0.06);
+}
+.pu-filter-value-bar-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: rgba(255,255,255,0.1);
+    border-radius: 1px;
+    transition: width var(--pu-transition-normal), background var(--pu-transition-normal);
+}
+.pu-filter-value.active .pu-filter-value-bar-fill {
+    background: var(--pu-accent-muted);
+}
+.pu-filter-value-bar-fill.zero {
+    background: transparent;
+}
+.pu-filter-value-count {
+    font-size: var(--pu-font-size-2xs);
+    font-family: var(--pu-font-mono);
+    color: var(--pu-text-muted);
+    min-width: 14px;
+    text-align: right;
+}
+.pu-filter-value.active .pu-filter-value-count {
+    color: var(--pu-accent);
+}
+.pu-output-filter-badge {
+    font-size: var(--pu-font-size-2xs);
+    color: var(--pu-accent);
+    background: rgba(82, 156, 202, 0.08);
+    padding: 1px 5px;
+    border-radius: var(--pu-radius-full);
+}
+
+/* Output List (right side of split) */
+.pu-output-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--pu-space-sm) var(--pu-space-md);
+    min-width: 0;
 }
 
 .pu-output-item {
@@ -963,12 +1713,85 @@ body {
     word-break: break-word;
 }
 
+/* Mode: none — hide label row entirely */
+.pu-output-footer.label-none .pu-output-item-label {
+    display: none;
+}
+
+/* Mode: hybrid — compact by default, expanded on hover */
+.pu-output-footer.label-hybrid .pu-label-compact {
+    display: inline;
+}
+.pu-output-footer.label-hybrid .pu-label-expanded {
+    display: none;
+}
+.pu-output-footer.label-hybrid .pu-output-item:hover .pu-label-compact {
+    display: none;
+}
+.pu-output-footer.label-hybrid .pu-output-item:hover .pu-label-expanded {
+    display: inline;
+}
+
+/* Mode: inline — show value-only labels with ? tooltip */
+.pu-output-footer.label-inline .pu-label-compact {
+    display: none;
+}
+.pu-output-footer.label-inline .pu-label-expanded {
+    display: none;
+}
+.pu-output-footer.label-inline .pu-label-inline {
+    display: inline;
+}
+
+/* Inline value labels */
+.pu-label-inline {
+    display: none;
+}
+.pu-label-value {
+    color: var(--pu-text-secondary);
+}
+.pu-label-sep {
+    color: var(--pu-text-muted);
+    opacity: 0.4;
+    margin: 0 1px;
+}
+.pu-output-item-help {
+    font-size: var(--pu-font-size-2xs);
+    color: var(--pu-text-muted);
+    cursor: help;
+    margin-left: var(--pu-space-xs);
+}
+
+.pu-label-wc-name {
+    color: var(--pu-text-muted);
+}
+.pu-label-wc-eq {
+    color: var(--pu-text-muted);
+    opacity: 0.5;
+}
+.pu-label-wc-val {
+    color: var(--pu-accent);
+}
+.pu-label-wc-sep {
+    color: var(--pu-text-muted);
+    opacity: 0.3;
+    margin: 0 3px;
+}
+
+.pu-output-load-more {
+    display: block;
+    width: 100%;
+    text-align: center;
+    margin-top: var(--pu-space-sm);
+}
+
 .pu-output-empty {
     text-align: center;
     color: var(--pu-text-muted);
     padding: var(--pu-space-md);
     font-size: var(--pu-font-size-sm);
 }
+
 
 .pu-btn-sm {
     display: inline-flex;
@@ -1521,39 +2344,42 @@ body {
    Resolved Text Block (inline resolved content)
    ============================================ */
 .pu-resolved-text {
-    font-size: var(--pu-font-size-md);
+    font-size: var(--pu-font-size-base);
     line-height: 1.6;
     color: var(--pu-text-primary);
     word-break: break-word;
     white-space: pre-wrap;
 }
 
-/* Clickable block content area */
-.pu-block-clickable {
-    cursor: pointer;
+/* Centered visualizer mode (non-text animated modes) */
+.pu-resolved-text.pu-block-visualizer {
+    text-align: center;
+    font-size: 19px;
+    line-height: 1.7;
+    padding: 12px 24px 24px;
+}
+
+/* Depth-aware visualizer scaling */
+.pu-block[data-depth="1"] .pu-resolved-text.pu-block-visualizer {
+    font-size: 16px;
+    opacity: 0.88;
+    padding: 8px 20px 20px;
+}
+.pu-block[data-depth="1"] .pu-wc-typewriter { font-size: 15px; }
+
+.pu-block[data-depth="2"] .pu-resolved-text.pu-block-visualizer,
+.pu-block[data-depth="3"] .pu-resolved-text.pu-block-visualizer {
+    font-size: 14px;
+    opacity: 0.78;
+    padding: 6px 16px 16px;
+}
+.pu-block[data-depth="2"] .pu-wc-typewriter,
+.pu-block[data-depth="3"] .pu-wc-typewriter { font-size: 13px; }
+
+
+/* Block content container */
+.pu-block-content {
     position: relative;
-    padding: 14px var(--pu-space-lg);
-    transition: background var(--pu-transition-fast);
-}
-
-.pu-block-clickable:hover {
-    background: var(--pu-bg-hover);
-}
-
-/* Pencil edit icon */
-.pu-block-edit-icon {
-    position: absolute;
-    top: var(--pu-space-sm);
-    right: var(--pu-space-sm);
-    font-size: var(--pu-font-size-base);
-    color: var(--pu-text-muted);
-    opacity: 0;
-    transition: opacity var(--pu-transition-normal);
-    pointer-events: none;
-}
-
-.pu-block-clickable:hover .pu-block-edit-icon {
-    opacity: 0.6;
 }
 
 /* Accumulated Text (per-block inherited + current text) */
@@ -1688,13 +2514,21 @@ body {
     box-shadow: 0 0 0 2px var(--pu-accent-bg);
 }
 
-.pu-odometer-total {
-    font-size: var(--pu-font-size-2xs);
-    color: var(--pu-text-muted);
-    background: var(--pu-accent-bg);
-    padding: 2px var(--pu-space-sm);
+.pu-odometer-field select {
+    padding: var(--pu-space-xs) 6px;
+    background: var(--pu-bg-input);
+    border: 1px solid transparent;
     border-radius: var(--pu-radius);
-    white-space: nowrap;
+    color: var(--pu-text-primary);
+    font-family: var(--pu-font-mono);
+    font-size: var(--pu-font-size-xs);
+    cursor: pointer;
+}
+
+.pu-odometer-field select:focus {
+    outline: none;
+    border-color: var(--pu-accent);
+    box-shadow: 0 0 0 2px var(--pu-accent-bg);
 }
 
 /* Icon-only button (dice) */
@@ -1836,6 +2670,12 @@ body {
     min-width: 150px;
     margin-top: var(--pu-space-xs);
     animation: pu-dropdown-in 100ms ease-out;
+}
+
+/* Group-by dropdown — fixed positioned via JS (footer has overflow:hidden) */
+.pu-groupby-menu {
+    margin-bottom: 0;
+    margin-top: 0;
 }
 
 @keyframes pu-dropdown-in {
@@ -2085,6 +2925,31 @@ body.pu-focus-active {
     border-radius: var(--pu-radius);
 }
 
+/* Parent context blot — inline embed inside Quill */
+.ql-parent-context {
+    color: var(--pu-text-secondary);
+    opacity: 0.7;
+    cursor: default;
+    user-select: none;
+}
+.ql-parent-context::after {
+    content: ' \25B8\00a0';
+    opacity: 0.5;
+}
+
+/* Each ancestor block renders inline, flowing like a sentence */
+.pu-ctx-block {
+    /* inline so text wraps naturally */
+}
+
+/* Collapsed "... N more ..." indicator */
+.pu-ctx-collapsed {
+    color: var(--pu-text-muted);
+    font-size: 11px;
+    opacity: 0.5;
+}
+
+
 /* Editor area (~55% height) */
 .pu-focus-editor {
     flex: 55;
@@ -2105,8 +2970,8 @@ body.pu-focus-active {
 }
 
 .pu-focus-quill.ql-snow:focus-within {
-    border-color: var(--pu-accent);
-    box-shadow: 0 0 0 2px var(--pu-accent-bg);
+    border-color: color-mix(in srgb, var(--pu-accent) 30%, transparent);
+    box-shadow: none;
 }
 
 .pu-focus-quill .ql-toolbar {
@@ -2131,8 +2996,145 @@ body.pu-focus-active {
 }
 
 .pu-focus-quill .ql-editor.ql-blank::before {
+    /* Hide Quill's built-in placeholder — hint text is below the editor instead */
+    display: none;
+}
+
+/* Focus mode resolved output — reuses .pu-output-footer classes, caps height */
+.pu-focus-output.pu-output-footer {
+    max-height: 40%;
+    border-top: 1px solid var(--pu-border);
+}
+
+/* Label mode selectors scoped to focus output */
+.pu-focus-output.label-none .pu-output-item-label { display: none; }
+.pu-focus-output.label-hybrid .pu-label-compact { display: inline; }
+.pu-focus-output.label-hybrid .pu-label-expanded { display: none; }
+.pu-focus-output.label-hybrid .pu-output-item:hover .pu-label-compact { display: none; }
+.pu-focus-output.label-hybrid .pu-output-item:hover .pu-label-expanded { display: inline; }
+.pu-focus-output.label-inline .pu-label-compact { display: none; }
+.pu-focus-output.label-inline .pu-label-expanded { display: none; }
+.pu-focus-output.label-inline .pu-label-inline { display: inline; }
+
+/* Counter state (deferred output) */
+.pu-focus-output-counter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--pu-space-md);
+    padding: var(--pu-space-md) var(--pu-space-lg);
     color: var(--pu-text-muted);
-    font-style: normal;
+    font-size: var(--pu-font-size-sm);
+}
+
+.pu-focus-counter-text { opacity: 0.7; }
+
+.pu-focus-counter-link {
+    color: var(--pu-accent);
+    text-decoration: none;
+    font-size: var(--pu-font-size-sm);
+    cursor: pointer;
+    opacity: 0.85;
+    transition: opacity var(--pu-transition-fast);
+}
+
+.pu-focus-counter-link:hover {
+    opacity: 1;
+    text-decoration: underline;
+}
+
+/* Hide header in counter state — only the counter line shows */
+.pu-focus-output.pu-focus-output-state-counter .pu-output-footer-header {
+    display: none;
+}
+
+
+/* Parent text prefix in focus output items — subtle gray */
+.pu-focus-parent-text {
+    color: var(--pu-text-muted);
+    opacity: 0.7;
+}
+
+.pu-focus-output-empty-msg {
+    padding: var(--pu-space-md) var(--pu-space-lg);
+    color: var(--pu-text-muted);
+    font-size: var(--pu-font-size-sm);
+    text-align: center;
+    opacity: 0.7;
+}
+
+/* Focus output right column (list + include footer stacked vertically) */
+.pu-focus-output-right {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.pu-focus-output-right .pu-output-list {
+    flex: 1;
+}
+
+/* Focus Include footer (Parent / Children checkboxes) */
+.pu-focus-include-footer {
+    display: flex;
+    align-items: center;
+    gap: var(--pu-space-sm);
+    padding: var(--pu-space-sm);
+    border-top: 1px solid var(--pu-border);
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-muted);
+    flex-shrink: 0;
+}
+
+/* Hide Include footer in counter state (not expanded yet) */
+.pu-focus-output.pu-focus-output-state-counter .pu-focus-include-footer {
+    display: none;
+}
+
+.pu-focus-include-label {
+    opacity: 0.7;
+}
+
+.pu-focus-include-opt {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+}
+
+.pu-focus-include-opt input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
+}
+
+.pu-focus-include-opt input[type="checkbox"]:disabled {
+    cursor: default;
+    opacity: 0.4;
+}
+
+.pu-focus-include-opt:has(input:disabled) {
+    opacity: 0.4;
+    cursor: default;
+}
+
+/* .pu-focus-quill IS the .ql-container — needs relative for hint positioning */
+.pu-focus-quill {
+    position: relative;
+}
+
+.pu-focus-hint {
+    position: absolute;
+    bottom: var(--pu-space-sm);
+    right: var(--pu-space-sm);
+    background: var(--pu-bg-secondary);
+    color: #fff;
+    font-size: var(--pu-font-size-xs);
+    padding: 2px var(--pu-space-sm);
+    border-radius: var(--pu-radius);
+    pointer-events: none;
+    z-index: 1;
 }
 
 

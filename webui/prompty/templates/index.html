@@ -127,7 +127,17 @@
                                        data-testid="pu-odometer-wc-max"
                                        oninput="PU.editor.handleOdometerChange('wc_max', this.value)">
                             </div>
-                            <span class="pu-odometer-total" data-testid="pu-odometer-total"></span>
+                            <div class="pu-odometer-field">
+                                <label>Viz:</label>
+                                <select data-testid="pu-odometer-visualizer"
+                                        onchange="PU.editor.handleVisualizerChange(this.value)">
+                                    <option value="compact">Compact</option>
+                                    <option value="typewriter">Typewriter</option>
+                                    <option value="reel">Reel</option>
+                                    <option value="stack">Stack</option>
+                                    <option value="ticker">Ticker</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
@@ -149,11 +159,29 @@
                              onclick="PU.actions.toggleOutputFooter()">
                             <span class="pu-output-footer-title">Resolved Output</span>
                             <span class="pu-output-footer-count" data-testid="pu-output-footer-count"></span>
+                            <span class="pu-output-filter-badge" data-testid="pu-output-filter-badge" style="display:none"></span>
+                            <button class="pu-btn-sm pu-output-label-toggle"
+                                    data-testid="pu-output-label-toggle"
+                                    onclick="event.stopPropagation(); PU.actions.cycleOutputLabelMode()"
+                                    title="Label mode: none">&#8210;</button>
                             <button class="pu-btn-sm" data-testid="pu-output-footer-copy"
                                     onclick="event.stopPropagation(); PU.actions.copyOutputFooter()">Copy All</button>
                             <span class="pu-output-footer-chevron" data-testid="pu-output-footer-chevron">&#9660;</span>
                         </div>
-                        <div class="pu-output-footer-body" data-testid="pu-output-footer-body"></div>
+                        <div class="pu-output-footer-body" data-testid="pu-output-footer-body">
+                            <div class="pu-filter-tree" data-testid="pu-filter-tree" style="display:none">
+                                <div class="pu-filter-tree-scroll" data-testid="pu-filter-tree-scroll"></div>
+                                <div class="pu-filter-tree-footer">
+                                    <button class="pu-filter-reset-btn" data-testid="pu-filter-reset-btn"
+                                            style="display:none"
+                                            onclick="event.stopPropagation(); PU.actions.resetOutputFilters()">
+                                        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 1l10 10M11 1L1 11"/></svg>
+                                        RESET
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="pu-output-list" data-testid="pu-output-list"></div>
+                        </div>
                     </div>
 
                     <!-- Add Block Buttons -->
@@ -242,6 +270,46 @@
                 </div>
                 <div class="pu-focus-editor" data-testid="pu-focus-editor">
                     <div class="pu-focus-quill" data-testid="pu-focus-quill"></div>
+                </div>
+                <div class="pu-focus-output pu-output-footer" data-testid="pu-focus-output">
+                    <div class="pu-output-footer-header" data-testid="pu-focus-output-toggle"
+                         onclick="PU.focus.toggleOutput()">
+                        <span class="pu-output-footer-title">Resolved Output</span>
+                        <span class="pu-output-footer-count" data-testid="pu-focus-output-count"></span>
+                        <span class="pu-output-filter-badge" data-testid="pu-focus-filter-badge" style="display:none"></span>
+                        <button class="pu-btn-sm pu-output-label-toggle"
+                                data-testid="pu-focus-label-toggle"
+                                onclick="event.stopPropagation(); PU.focus.cycleLabelMode()"
+                                title="Label mode: none">&#8210;</button>
+                        <button class="pu-btn-sm" data-testid="pu-focus-output-copy"
+                                onclick="event.stopPropagation(); PU.focus.copyOutput()">Copy All</button>
+                        <span class="pu-output-footer-chevron" data-testid="pu-focus-output-chevron">&#9660;</span>
+                    </div>
+                    <div class="pu-output-footer-body" data-testid="pu-focus-output-body">
+                        <div class="pu-filter-tree" data-testid="pu-focus-filter-tree" style="display:none">
+                            <div class="pu-filter-tree-scroll" data-testid="pu-focus-filter-scroll"></div>
+                            <div class="pu-filter-tree-footer">
+                                <button class="pu-filter-reset-btn" data-testid="pu-focus-filter-reset"
+                                        style="display:none"
+                                        onclick="event.stopPropagation(); PU.focus.resetFilters()">
+                                    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 1l10 10M11 1L1 11"/></svg>
+                                    RESET
+                                </button>
+                            </div>
+                        </div>
+                        <div class="pu-focus-output-right" data-testid="pu-focus-output-right">
+                            <div class="pu-output-list" data-testid="pu-focus-output-list"></div>
+                            <div class="pu-focus-include-footer" data-testid="pu-focus-include-footer">
+                                <span class="pu-focus-include-label">Include:</span>
+                                <label class="pu-focus-include-opt" data-testid="pu-focus-include-children-label">
+                                    <input type="checkbox" checked
+                                           data-testid="pu-focus-include-children"
+                                           onchange="PU.focus.toggleIncludeChildren(this.checked)">
+                                    Children
+                                </label>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

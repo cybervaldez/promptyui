@@ -107,6 +107,9 @@ PU.editor = {
 
         const wcMaxInput = document.querySelector('[data-testid="pu-odometer-wc-max"]');
         if (wcMaxInput) wcMaxInput.value = PU.state.previewMode.extWildcardsMax;
+
+        const vizSelect = document.querySelector('[data-testid="pu-odometer-visualizer"]');
+        if (vizSelect) vizSelect.value = PU.state.previewMode.visualizer;
     },
 
     /**
@@ -132,6 +135,18 @@ PU.editor = {
     },
 
     /**
+     * Handle visualizer dropdown change
+     */
+    async handleVisualizerChange(value) {
+        const valid = ['compact', 'typewriter', 'reel', 'stack', 'ticker'];
+        if (!valid.includes(value)) return;
+        PU.state.previewMode.visualizer = value;
+        PU.editor.updateOdometerToolbar();
+        await PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
+        PU.actions.updateUrl();
+    },
+
+    /**
      * Randomize composition ID
      */
     async randomizeComposition() {
@@ -152,6 +167,11 @@ PU.editor = {
         const container = document.querySelector('[data-testid="pu-blocks-container"]');
         if (!container) return;
 
+        // Set viz mode on container so CSS can scope compact vs animated styles
+        container.dataset.viz = PU.state.previewMode.visualizer;
+
+        PU.blocks.cleanupVisualizerAnimations();
+
         const prompt = PU.helpers.getActivePrompt();
         if (!prompt) {
             container.innerHTML = '<div class="pu-loading">No prompt data</div>';
@@ -164,10 +184,12 @@ PU.editor = {
         if (typeof textItems === 'string') {
             const items = [{ content: textItems }];
             const resolutions = await PU.preview.buildBlockResolutions(items);
+            PU.editor._lastResolutions = resolutions;
             container.innerHTML = PU.blocks.renderBlock({ content: textItems }, '0', 0, resolutions);
             PU.preview.renderHeaderWildcardDropdowns(resolutions);
             await PU.editor.populateOutputFooter(items, resolutions);
             PU.editor.attachBlockInteractions();
+            PU.blocks.initVisualizerAnimations();
             return;
         }
 
@@ -175,12 +197,14 @@ PU.editor = {
         if (Array.isArray(textItems) && textItems.length > 0 && typeof textItems[0] === 'string') {
             const items = textItems.map(t => ({ content: t }));
             const resolutions = await PU.preview.buildBlockResolutions(items);
+            PU.editor._lastResolutions = resolutions;
             container.innerHTML = items.map((item, idx) =>
                 PU.blocks.renderBlock(item, String(idx), 0, resolutions)
             ).join('');
             PU.preview.renderHeaderWildcardDropdowns(resolutions);
             await PU.editor.populateOutputFooter(items, resolutions);
             PU.editor.attachBlockInteractions();
+            PU.blocks.initVisualizerAnimations();
             return;
         }
 
@@ -193,20 +217,29 @@ PU.editor = {
             }
 
             const resolutions = await PU.preview.buildBlockResolutions(textItems);
+            PU.editor._lastResolutions = resolutions;
             container.innerHTML = textItems.map((item, idx) =>
                 PU.blocks.renderBlock(item, String(idx), 0, resolutions)
             ).join('');
             PU.preview.renderHeaderWildcardDropdowns(resolutions);
             await PU.editor.populateOutputFooter(textItems, resolutions);
             PU.editor.attachBlockInteractions();
+            PU.blocks.initVisualizerAnimations();
             return;
         }
 
         container.innerHTML = '<div class="pu-loading">Unknown text format</div>';
     },
 
+    // Last computed resolutions (for focus mode context strip)
+    _lastResolutions: null,
+
     // Generation counter for stale async guard
     _footerGeneration: 0,
+    _footerTextItems: null,
+    _footerResolutions: null,
+    _footerCurrentOutputs: null,
+    _footerCurrentTotal: 0,
 
     /**
      * Populate the output footer with terminal outputs from multiple compositions
@@ -215,31 +248,253 @@ PU.editor = {
         const footer = document.querySelector('[data-testid="pu-output-footer"]');
         if (!footer) return;
 
+        PU.editor._footerTextItems = textItems;
+        PU.editor._footerResolutions = resolutions;
+
         const gen = ++PU.editor._footerGeneration;
         const { outputs, total } = await PU.preview.buildMultiCompositionOutputs(textItems, resolutions, 20);
         if (gen !== PU.editor._footerGeneration) return; // stale guard
 
-        const body = footer.querySelector('[data-testid="pu-output-footer-body"]');
-        const countEl = footer.querySelector('[data-testid="pu-output-footer-count"]');
+        PU.editor._renderFooterBody(outputs, total);
+        PU.editor.applyOutputLabelMode();
+    },
 
+    /**
+     * Apply the current output label display mode to the footer
+     */
+    applyOutputLabelMode() {
+        const footer = document.querySelector('[data-testid="pu-output-footer"]');
+        if (!footer) return;
+        const mode = PU.state.ui.outputLabelMode || 'none';
+        footer.classList.remove('label-none', 'label-hybrid', 'label-inline');
+        footer.classList.add('label-' + mode);
+        const btn = footer.querySelector('[data-testid="pu-output-label-toggle"]');
+        if (btn) {
+            const icons = { none: '\u2012', hybrid: '#', inline: 'Aa' };
+            btn.textContent = icons[mode];
+            btn.title = 'Label mode: ' + mode;
+        }
+    },
+
+    /**
+     * Render a single output item HTML (shared by flat and grouped paths)
+     */
+    _renderOutputItem(out, idx) {
+        let labelHtml;
+        if (out.wcDetails && out.wcDetails.length > 0) {
+            const expandedParts = out.wcDetails.map(d =>
+                `<span class="pu-label-wc-name">${PU.blocks.escapeHtml(d.name)}</span><span class="pu-label-wc-eq">=</span><span class="pu-label-wc-val">${PU.blocks.escapeHtml(d.value)}</span>`
+            ).join('<span class="pu-label-wc-sep">\u00B7</span>');
+            const inlineValues = out.wcDetails.map(d =>
+                `<span class="pu-label-value">${PU.blocks.escapeHtml(d.value)}</span>`
+            ).join('<span class="pu-label-sep">\u00B7</span>');
+            const tooltipText = out.wcDetails.map(d => `${d.name}=${d.value}`).join(', ');
+            labelHtml = `<span class="pu-label-compact">${PU.blocks.escapeHtml(out.label)}</span><span class="pu-label-expanded">${expandedParts}</span><span class="pu-label-inline">${inlineValues}<span class="pu-output-item-help" title="${PU.blocks.escapeHtml(tooltipText)}">?</span></span>`;
+        } else {
+            labelHtml = PU.blocks.escapeHtml(out.label);
+        }
+        return `<div class="pu-output-item" data-testid="pu-output-item-${idx}">
+            <span class="pu-output-item-label">${labelHtml}</span>
+            <div class="pu-output-item-text">${PU.blocks.escapeHtml(out.text)}</div>
+        </div>`;
+    },
+
+    /**
+     * Get free (non-pinned) wildcard names from outputs
+     */
+    _getFreeWcNames(outputs) {
+        if (!outputs || outputs.length === 0) return [];
+        const first = outputs[0];
+        if (!first.wcDetails || first.wcDetails.length === 0) return [];
+        const selectedOverrides = PU.state.previewMode.selectedWildcards || {};
+        return first.wcDetails
+            .filter(d => selectedOverrides[d.name] === undefined)
+            .map(d => d.name);
+    },
+
+    /**
+     * Count outputs matching a specific filter value, considering other active filters
+     */
+    _countFilterMatches(outputs, dim, val) {
+        const af = PU.state.ui.outputFilters;
+        return outputs.filter(o => {
+            if (!o.wcDetails) return false;
+            for (const d of Object.keys(af)) {
+                const set = af[d];
+                if (!set || set.size === 0) continue;
+                const detail = o.wcDetails.find(wd => wd.name === d);
+                const ov = detail ? detail.value : null;
+                if (d === dim) {
+                    if (ov !== val) return false;
+                } else {
+                    if (!set.has(ov)) return false;
+                }
+            }
+            // Check the target dim/val specifically
+            const detail = o.wcDetails.find(wd => wd.name === dim);
+            return detail && detail.value === val;
+        }).length;
+    },
+
+    /**
+     * Check if an output is visible given active filters
+     */
+    _isOutputVisible(out) {
+        const af = PU.state.ui.outputFilters;
+        if (!out.wcDetails) return true;
+        for (const d of Object.keys(af)) {
+            const set = af[d];
+            if (!set || set.size === 0) continue;
+            const detail = out.wcDetails.find(wd => wd.name === d);
+            const val = detail ? detail.value : null;
+            if (!set.has(val)) return false;
+        }
+        return true;
+    },
+
+    /**
+     * Build unique values per dimension from outputs
+     */
+    _buildDimValues(outputs) {
+        const dims = {};
+        if (!outputs || outputs.length === 0) return dims;
+        for (const out of outputs) {
+            if (!out.wcDetails) continue;
+            for (const d of out.wcDetails) {
+                if (!dims[d.name]) dims[d.name] = [];
+                if (!dims[d.name].includes(d.value)) dims[d.name].push(d.value);
+            }
+        }
+        return dims;
+    },
+
+    /**
+     * Render the filter tree panel HTML
+     */
+    _renderFilterTree(outputs) {
+        const treeScroll = document.querySelector('[data-testid="pu-filter-tree-scroll"]');
+        const treePanel = document.querySelector('[data-testid="pu-filter-tree"]');
+        const resetBtn = document.querySelector('[data-testid="pu-filter-reset-btn"]');
+        if (!treeScroll || !treePanel) return;
+
+        const freeNames = PU.editor._getFreeWcNames(outputs);
+        if (outputs.length <= 1 || freeNames.length === 0) {
+            treePanel.style.display = 'none';
+            return;
+        }
+
+        treePanel.style.display = 'flex';
+        const af = PU.state.ui.outputFilters;
+        const collapsed = PU.state.ui.outputFilterCollapsed;
+        const dimValues = PU.editor._buildDimValues(outputs);
+
+        let html = '';
+        for (const dim of freeNames) {
+            const values = dimValues[dim] || [];
+            if (values.length === 0) continue;
+            const ic = collapsed[dim] || false;
+            const normalizedDim = PU.preview.normalizeWildcardName(dim);
+            const dimAttr = PU.blocks.escapeAttr(dim);
+
+            html += `<div class="pu-filter-dim"><div class="pu-filter-dim-header" onclick="PU.actions.toggleFilterDim('${dimAttr}')"><span class="pu-filter-dim-chevron ${ic ? 'collapsed' : ''}">&#9654;</span>${PU.blocks.escapeHtml(normalizedDim)}</div><div class="pu-filter-dim-values ${ic ? 'collapsed' : ''}" style="max-height:300px">`;
+
+            const counts = values.map(v => PU.editor._countFilterMatches(outputs, dim, v));
+            const mx = Math.max(...counts, 1);
+
+            values.forEach((val, i) => {
+                const dimSet = af[dim];
+                const act = dimSet && dimSet.has(val);
+                const c = counts[i];
+                const pct = Math.round((c / mx) * 100);
+                const valAttr = PU.blocks.escapeAttr(val);
+
+                html += `<div class="pu-filter-value ${act ? 'active' : ''}" data-testid="pu-filter-value-${dimAttr}-${valAttr}" onclick="PU.actions.toggleOutputFilter('${dimAttr}','${valAttr}')"><span class="pu-filter-dot"></span><span class="pu-filter-value-name">${PU.blocks.escapeHtml(val)}</span><span class="pu-filter-value-bar-track"><span class="pu-filter-value-bar-dash"></span><span class="pu-filter-value-bar-fill ${c === 0 ? 'zero' : ''}" style="width:${pct}%"></span></span><span class="pu-filter-value-count">${c}</span></div>`;
+            });
+            html += '</div></div>';
+        }
+        treeScroll.innerHTML = html;
+
+        // Show/hide reset button
+        const hasFilters = Object.values(af).some(s => s && s.size > 0);
+        if (resetBtn) {
+            resetBtn.style.display = hasFilters ? 'flex' : 'none';
+            resetBtn.closest('.pu-filter-tree-footer')?.classList.toggle('pu-hidden', !hasFilters);
+        }
+    },
+
+    /**
+     * Render output footer body content (filter tree + filtered output list)
+     */
+    _renderFooterBody(outputs, total) {
+        const footer = document.querySelector('[data-testid="pu-output-footer"]');
+        if (!footer) return;
+
+        // Cache for re-renders
+        PU.editor._footerCurrentOutputs = outputs;
+        PU.editor._footerCurrentTotal = total;
+
+        const countEl = footer.querySelector('[data-testid="pu-output-footer-count"]');
+        const outputList = footer.querySelector('[data-testid="pu-output-list"]');
+
+        // Auto-reset: if filtered dimensions are no longer free, clear them
+        const freeNames = PU.editor._getFreeWcNames(outputs);
+        const af = PU.state.ui.outputFilters;
+        for (const d of Object.keys(af)) {
+            if (!freeNames.includes(d)) {
+                delete af[d];
+            }
+        }
+
+        // Render filter tree
+        PU.editor._renderFilterTree(outputs);
+
+        // Filter outputs
+        const hasFilters = Object.values(af).some(s => s && s.size > 0);
+        let visibleOutputs = outputs;
+        if (hasFilters) {
+            visibleOutputs = outputs.filter(o => PU.editor._isOutputVisible(o));
+        }
+
+        // Update count badge
         if (countEl) {
             if (outputs.length > 0) {
-                countEl.textContent = `(${outputs.length} of ${total} total)`;
+                if (hasFilters) {
+                    countEl.textContent = `(${visibleOutputs.length} / ${outputs.length} of ${total})`;
+                } else {
+                    countEl.textContent = `(${outputs.length} of ${total} total)`;
+                }
             } else {
                 countEl.textContent = '';
             }
         }
 
-        if (body) {
-            if (outputs.length === 0) {
-                body.innerHTML = '<div class="pu-output-empty">No terminal outputs</div>';
+        // Update filter badge in header
+        const filterBadge = footer.querySelector('[data-testid="pu-output-filter-badge"]');
+        if (filterBadge) {
+            if (hasFilters) {
+                const n = Object.values(af).reduce((s, set) => s + (set ? set.size : 0), 0);
+                filterBadge.textContent = `${n} filter${n > 1 ? 's' : ''}`;
+                filterBadge.style.display = '';
             } else {
-                body.innerHTML = outputs.map((out, idx) =>
-                    `<div class="pu-output-item" data-testid="pu-output-item-${idx}">
-                        <span class="pu-output-item-label">${PU.blocks.escapeHtml(out.label)}</span>
-                        <div class="pu-output-item-text">${PU.blocks.escapeHtml(out.text)}</div>
-                    </div>`
+                filterBadge.style.display = 'none';
+            }
+        }
+
+        // Render output list
+        if (outputList) {
+            if (outputs.length === 0) {
+                outputList.innerHTML = '<div class="pu-output-empty">No terminal outputs</div>';
+            } else {
+                let html = visibleOutputs.map((out, idx) =>
+                    PU.editor._renderOutputItem(out, idx)
                 ).join('');
+
+                if (outputs.length < total) {
+                    html += `<button class="pu-btn-sm pu-output-load-more"
+                        data-testid="pu-output-load-more"
+                        onclick="PU.actions.loadMoreOutputs()">Load all (up to 50)</button>`;
+                }
+                outputList.innerHTML = html;
             }
         }
 
@@ -249,6 +504,8 @@ PU.editor = {
         } else {
             footer.classList.remove('collapsed');
         }
+
+        PU.editor.applyOutputLabelMode();
     },
 
     /**
@@ -332,27 +589,14 @@ PU.editor = {
             prompt.text = [];
         }
 
-        // Add new block
-        const newPath = PU.blocks.addNestedBlockAtPath(prompt.text, null, type);
-
-        // Re-render
-        await PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
-
-        // Animate new block entry
-        if (newPath) {
-            const pathId = newPath.replace(/\./g, '-');
-            const newBlockEl = document.querySelector(`[data-testid="pu-block-${pathId}"]`);
-            if (newBlockEl) {
-                newBlockEl.classList.add('pu-block-entering');
-                newBlockEl.addEventListener('animationend', () => {
-                    newBlockEl.classList.remove('pu-block-entering');
-                }, { once: true });
-            }
-            PU.actions.selectBlock(newPath);
-        }
+        // Compute draft path without creating the block yet
+        const draftPath = String(prompt.text.length);
 
         // Hide add menu
         PU.actions.toggleAddMenu(false);
+
+        // Open focus in draft mode — block is created on first keystroke
+        PU.focus.enter(draftPath, { draft: true, parentPath: null });
     },
 
     /**
@@ -367,28 +611,33 @@ PU.editor = {
             prompt.text = [];
         }
 
-        // Add nested block
-        const newPath = PU.blocks.addNestedBlockAtPath(prompt.text, parentPath, 'content');
+        // Compute draft path without creating the block yet
+        const parent = PU.blocks.findBlockByPath(prompt.text, parentPath);
+        if (!parent) return;
+        const afterLen = (parent.after && parent.after.length) || 0;
+        const draftPath = `${parentPath}.${afterLen}`;
 
-        // Re-render
-        await PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
-
-        // Animate new block entry and select
-        if (newPath) {
-            const pathId = newPath.replace(/\./g, '-');
-            const newBlockEl = document.querySelector(`[data-testid="pu-block-${pathId}"]`);
-            if (newBlockEl) {
-                newBlockEl.classList.add('pu-block-entering');
-                newBlockEl.addEventListener('animationend', () => {
-                    newBlockEl.classList.remove('pu-block-entering');
-                }, { once: true });
-            }
-            PU.actions.selectBlock(newPath);
-        }
+        // Open focus in draft mode — block is created on first keystroke
+        PU.focus.enter(draftPath, { draft: true, parentPath: parentPath });
     },
 
     // Track pending delete confirmations
     _pendingDelete: null,
+    _deleteRevertTimer: null,
+
+    /**
+     * Revert delete confirmation state for a button
+     */
+    _revertDeleteConfirm(deleteBtn, path) {
+        if (PU.editor._pendingDelete === path) {
+            PU.editor._pendingDelete = null;
+            PU.editor._deleteRevertTimer = null;
+            deleteBtn.classList.remove('pu-delete-confirm');
+            deleteBtn.innerHTML = deleteBtn._originalHTML || '&#128465;';
+            deleteBtn.removeEventListener('mouseenter', deleteBtn._onConfirmEnter);
+            deleteBtn.removeEventListener('mouseleave', deleteBtn._onConfirmLeave);
+        }
+    },
 
     /**
      * Delete block (inline confirmation)
@@ -405,6 +654,10 @@ PU.editor = {
         // If already in confirm state for this path, perform the deletion
         if (PU.editor._pendingDelete === path) {
             PU.editor._pendingDelete = null;
+            if (PU.editor._deleteRevertTimer) {
+                clearTimeout(PU.editor._deleteRevertTimer);
+                PU.editor._deleteRevertTimer = null;
+            }
 
             const performDelete = () => {
                 PU.blocks.deleteBlockAtPath(prompt.text, path);
@@ -426,17 +679,24 @@ PU.editor = {
         // First click: enter confirm state
         PU.editor._pendingDelete = path;
         if (deleteBtn) {
+            deleteBtn._originalHTML = deleteBtn.innerHTML;
             deleteBtn.classList.add('pu-delete-confirm');
-            deleteBtn.textContent = 'Confirm?';
+            deleteBtn.innerHTML = '<span class="pu-confirm-label">CONFIRM?</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
 
-            // Auto-revert after 3 seconds
-            setTimeout(() => {
-                if (PU.editor._pendingDelete === path) {
-                    PU.editor._pendingDelete = null;
-                    deleteBtn.classList.remove('pu-delete-confirm');
-                    deleteBtn.innerHTML = '&#128465;';
+            // Hover-aware auto-revert: close on mouseleave, cancel on mouseenter
+            deleteBtn._onConfirmEnter = () => {
+                if (PU.editor._deleteRevertTimer) {
+                    clearTimeout(PU.editor._deleteRevertTimer);
+                    PU.editor._deleteRevertTimer = null;
                 }
-            }, 3000);
+            };
+            deleteBtn._onConfirmLeave = () => {
+                PU.editor._deleteRevertTimer = setTimeout(() => {
+                    PU.editor._revertDeleteConfirm(deleteBtn, path);
+                }, 1000);
+            };
+            deleteBtn.addEventListener('mouseenter', deleteBtn._onConfirmEnter);
+            deleteBtn.addEventListener('mouseleave', deleteBtn._onConfirmLeave);
         }
     },
 

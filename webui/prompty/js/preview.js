@@ -289,12 +289,9 @@ PU.preview = {
             [extIdx, odometerIndices] = PU.preview.compositionToIndices(compositionId, actualExtTextCount, wildcardCounts);
         }
 
-        // Update odometer total display (skip during multi-composition sampling)
-        if (!(options && options.skipOdometerUpdate)) {
-            PU.preview.updateOdometerTotal(actualExtTextCount, wildcardCounts, extIdx, odometerIndices, bucketResult);
-        }
-
-        const selectedOverrides = PU.state.previewMode.selectedWildcards || {};
+        const selectedOverrides = (options && options.ignoreOverrides)
+            ? {}
+            : (PU.state.previewMode.selectedWildcards || {});
 
         // Helper: get block text
         function getBlockText(block) {
@@ -372,6 +369,7 @@ PU.preview = {
 
                 resolutions.set(path, {
                     resolvedHtml,
+                    resolvedMarkerText: resolved,
                     wildcardDropdowns: dropdowns,
                     wildcards,
                     plainText,
@@ -616,49 +614,6 @@ PU.preview = {
     },
 
     /**
-     * Update the odometer total display showing composition breakdown
-     * When bucketResult is provided (wc_max > 0), shows bucket-based info
-     */
-    updateOdometerTotal(extTextCount, wildcardCounts, extIdx, odometerIndices, bucketResult = null) {
-        const totalEl = document.querySelector('[data-testid="pu-odometer-total"]');
-        if (!totalEl) return;
-
-        const sortedWc = Object.keys(wildcardCounts).sort();
-
-        if (bucketResult) {
-            // Bucket mode: show bucket breakdown
-            const parts = [`ext_bucket=${bucketResult.extBucketIdx}`];
-            for (const wc of sortedWc) {
-                parts.push(`${wc}_bucket=${bucketResult.wcBucketIndices[wc]}`);
-            }
-
-            totalEl.textContent = `Total: ${bucketResult.totalBuckets} buckets | ${parts.join(', ')}`;
-
-            // Build detailed tooltip showing both bucket and value info
-            const wcMax = PU.state.previewMode.extWildcardsMax;
-            const bucketDetails = sortedWc.map(w => {
-                const bucketCount = Math.ceil(wildcardCounts[w] / wcMax);
-                return `${w}: ${bucketCount} buckets (${wildcardCounts[w]} values / ${wcMax} max)`;
-            }).join(', ');
-            totalEl.title = `Bucket dimensions: ext=${Math.ceil(extTextCount / extTextCount)}, ${bucketDetails}`;
-        } else {
-            // Value mode: show value breakdown (original behavior)
-            let total = extTextCount;
-            for (const wc of sortedWc) {
-                total *= wildcardCounts[wc];
-            }
-
-            const parts = [`ext=${extIdx}`];
-            for (const wc of sortedWc) {
-                parts.push(`${wc}=${odometerIndices[wc]}`);
-            }
-
-            totalEl.textContent = `Total: ${total} | ${parts.join(', ')}`;
-            totalEl.title = `Dimensions: ext_text=${extTextCount}, ${sortedWc.map(w => `${w}=${wildcardCounts[w]}`).join(', ')}`;
-        }
-    },
-
-    /**
      * Update composition ID and re-render
      */
     async updateCompositionId(newId) {
@@ -746,19 +701,30 @@ PU.preview = {
 
         const total = PU.preview.computeTotalCompositions(extTextCount, wildcardCounts);
 
-        // Count free (non-pinned) dimensions
-        const selectedOverrides = PU.state.previewMode.selectedWildcards || {};
-        const freeWcNames = Object.keys(wildcardCounts).filter(n => selectedOverrides[n] === undefined);
-        const hasFreeVariation = freeWcNames.length > 0 || extTextCount > 1;
+        // Footer ignores pins — all wildcards are free dimensions
+        const hasFreeVariation = Object.keys(wildcardCounts).length > 0 || extTextCount > 1;
 
         if (!hasFreeVariation || total <= 1) {
-            // All pinned or single composition — fall back to single
-            const outputs = PU.preview.computeTerminalOutputs(textItems, primaryResolutions);
+            const cleanRes = await PU.preview.buildBlockResolutions(textItems, { skipOdometerUpdate: true, ignoreOverrides: true });
+            const outputs = PU.preview.computeTerminalOutputs(textItems, cleanRes);
             return { outputs, total: 1 };
         }
 
         const currentId = PU.state.previewMode.compositionId;
         const sampleIds = PU.preview.sampleCompositionIds(total, maxSamples, currentId);
+
+        // Derive prompt-appearance order for wildcard names (matches header dropdown order)
+        const orderedWcNames = [];
+        const seenWc = new Set();
+        for (const [, res] of primaryResolutions) {
+            if (!res.wildcards) continue;
+            for (const wc of res.wildcards) {
+                if (wildcardCounts[wc.name] && !seenWc.has(wc.name)) {
+                    seenWc.add(wc.name);
+                    orderedWcNames.push(wc.name);
+                }
+            }
+        }
 
         const allOutputTexts = new Set();
         const allOutputs = [];
@@ -767,23 +733,40 @@ PU.preview = {
         for (const compId of sampleIds) {
             if (allOutputs.length >= MAX_UNIQUE) break;
 
+            // Compute wildcard-index label for this composition
+            const [compExtIdx, compWcIndices] = PU.preview.compositionToIndices(compId, extTextCount, wildcardCounts);
+            const idxParts = orderedWcNames.map(n => compWcIndices[n]);
+            if (extTextCount > 1) idxParts.unshift(compExtIdx);
+            const versionLabel = idxParts.join('.');
+            // Build expanded label with name=value pairs for hybrid hover
+            const wcDetails = orderedWcNames.map(n => ({
+                name: n,
+                value: (wildcardLookup[n] && wildcardLookup[n][compWcIndices[n]]) || String(compWcIndices[n])
+            }));
+            if (extTextCount > 1) wcDetails.unshift({ name: 'ext', value: String(compExtIdx) });
+
             let resolutions;
-            if (compId === currentId) {
-                resolutions = primaryResolutions;
-            } else {
-                // Temporarily swap compositionId, build resolutions, restore
-                const savedId = PU.state.previewMode.compositionId;
-                PU.state.previewMode.compositionId = compId;
-                resolutions = await PU.preview.buildBlockResolutions(textItems, { skipOdometerUpdate: true });
-                PU.state.previewMode.compositionId = savedId;
-            }
+            // Always rebuild with ignoreOverrides — footer is pin-independent
+            const savedId = PU.state.previewMode.compositionId;
+            PU.state.previewMode.compositionId = compId;
+            resolutions = await PU.preview.buildBlockResolutions(textItems, {
+                skipOdometerUpdate: true,
+                ignoreOverrides: true
+            });
+            PU.state.previewMode.compositionId = savedId;
 
             const outputs = PU.preview.computeTerminalOutputs(textItems, resolutions);
             for (const out of outputs) {
                 if (allOutputs.length >= MAX_UNIQUE) break;
                 if (!allOutputTexts.has(out.text)) {
                     allOutputTexts.add(out.text);
-                    allOutputs.push(out);
+                    // Use version label if wildcards exist, otherwise keep block-path label
+                    const useVersionLabel = orderedWcNames.length > 0 || extTextCount > 1;
+                    allOutputs.push({
+                        label: useVersionLabel ? versionLabel : out.label,
+                        wcDetails: useVersionLabel ? wcDetails : null,
+                        text: out.text
+                    });
                 }
             }
         }
@@ -941,8 +924,14 @@ PU.preview = {
         const menu = document.querySelector('.pu-wc-dropdown-menu');
         if (menu) menu.remove();
 
-        // Re-render blocks with new selection
+        // Re-render blocks with new selection (suppress transitions to avoid flash)
+        const container = document.querySelector('[data-testid="pu-blocks-container"]');
+        if (container) container.classList.add('pu-no-transition');
         await PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
+        if (container) {
+            container.offsetHeight;
+            container.classList.remove('pu-no-transition');
+        }
     },
 
     /**
@@ -951,8 +940,14 @@ PU.preview = {
     async clearWildcardSelections() {
         PU.state.previewMode.selectedWildcards = {};
 
-        // Re-render blocks
+        // Re-render blocks (suppress transitions to avoid flash)
+        const container = document.querySelector('[data-testid="pu-blocks-container"]');
+        if (container) container.classList.add('pu-no-transition');
         await PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
+        if (container) {
+            container.offsetHeight;
+            container.classList.remove('pu-no-transition');
+        }
     },
 
     // ============================================

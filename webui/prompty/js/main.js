@@ -24,6 +24,33 @@ PU.actions = {
         // Then load jobs (which may select a job and populate dropdowns)
         await PU.sidebar.init();
 
+        // Restore focus mode from URL (blocks are rendered after sidebar.init)
+        if (PU.state.focusMode.pendingPath) {
+            const focusPath = PU.state.focusMode.pendingPath;
+            PU.state.focusMode.pendingPath = null;
+            const prompt = PU.helpers.getActivePrompt();
+            if (prompt && Array.isArray(prompt.text) && prompt.text.length > 0) {
+                const block = PU.blocks.findBlockByPath(prompt.text, focusPath);
+                if (block && 'content' in block) {
+                    // Exact path exists — regular enter
+                    PU.focus.enter(focusPath);
+                } else {
+                    // Block doesn't exist — check if parent does (draft restore)
+                    const parts = focusPath.split('.');
+                    if (parts.length > 1) {
+                        const parentPath = parts.slice(0, -1).join('.');
+                        const parent = PU.blocks.findBlockByPath(prompt.text, parentPath);
+                        if (parent && 'content' in parent) {
+                            PU.focus.enter(focusPath, { draft: true, parentPath: parentPath });
+                        }
+                    }
+                }
+            }
+        }
+
+        // Sync URL after init — clears stale params (e.g. focus path that failed to restore)
+        PU.actions.updateUrl();
+
         // Update header
         PU.actions.updateHeader();
 
@@ -45,6 +72,7 @@ PU.actions = {
         const composition = params.get('composition');
         const wcMax = params.get('wc_max');
         const extText = params.get('ext_text');
+        const viz = params.get('viz');
 
         if (jobId) {
             PU.state.activeJobId = jobId;
@@ -79,9 +107,26 @@ PU.actions = {
             }
         }
 
+        // Set visualizer from URL if provided
+        if (viz && ['compact', 'typewriter', 'reel', 'stack', 'ticker'].includes(viz)) {
+            PU.state.previewMode.visualizer = viz;
+            const vizSelect = document.querySelector('[data-testid="pu-odometer-visualizer"]');
+            if (vizSelect) vizSelect.value = viz;
+        }
+
+        const focusPath = params.get('focus');
+        if (focusPath && /^[0-9]+(\.[0-9]+)*$/.test(focusPath)) {
+            PU.state.focusMode.pendingPath = focusPath;
+        }
+
         if (modal === 'export') {
             // Will open after init
             setTimeout(() => PU.export.open(), 500);
+        } else if (modal === 'focus') {
+            // modal=focus opens focus mode; uses focus param for path, defaults to "0"
+            if (!PU.state.focusMode.pendingPath) {
+                PU.state.focusMode.pendingPath = '0';
+            }
         }
     },
 
@@ -104,6 +149,13 @@ PU.actions = {
             }
             if (PU.state.previewMode.extTextMax !== 1) {
                 params.set('ext_text', PU.state.previewMode.extTextMax);
+            }
+            if (PU.state.previewMode.visualizer !== 'compact') {
+                params.set('viz', PU.state.previewMode.visualizer);
+            }
+            if (PU.state.focusMode.active && PU.state.focusMode.blockPath) {
+                params.set('modal', 'focus');
+                params.set('focus', PU.state.focusMode.blockPath);
             }
         }
 
@@ -231,6 +283,8 @@ PU.actions = {
     },
 
     async selectPrompt(jobId, promptId) {
+        if (PU.state.focusMode.active) PU.focus.exit();
+
         // Ensure job is selected
         if (PU.state.activeJobId !== jobId) {
             await PU.actions.selectJob(jobId, false);
@@ -420,6 +474,15 @@ PU.actions = {
     // Output Footer Actions
     // ============================================
 
+    cycleOutputLabelMode() {
+        const modes = ['none', 'hybrid', 'inline'];
+        const current = PU.state.ui.outputLabelMode || 'none';
+        const next = modes[(modes.indexOf(current) + 1) % modes.length];
+        PU.state.ui.outputLabelMode = next;
+        PU.helpers.saveUIState();
+        PU.editor.applyOutputLabelMode();
+    },
+
     toggleOutputFooter() {
         const footer = document.querySelector('[data-testid="pu-output-footer"]');
         if (!footer) return;
@@ -428,8 +491,55 @@ PU.actions = {
         PU.helpers.saveUIState();
     },
 
+    async loadMoreOutputs() {
+        const textItems = PU.editor._footerTextItems;
+        const resolutions = PU.editor._footerResolutions;
+        if (!textItems || !resolutions) return;
+
+        const gen = ++PU.editor._footerGeneration;
+        const { outputs, total } = await PU.preview.buildMultiCompositionOutputs(textItems, resolutions, 50);
+        if (gen !== PU.editor._footerGeneration) return;
+
+        PU.editor._renderFooterBody(outputs, total);
+    },
+
+    toggleOutputFilter(dim, val) {
+        const af = PU.state.ui.outputFilters;
+        if (!af[dim]) af[dim] = new Set();
+        if (af[dim].has(val)) {
+            af[dim].delete(val);
+            if (af[dim].size === 0) delete af[dim];
+        } else {
+            af[dim].add(val);
+        }
+        // Re-render with cached outputs
+        const cachedOutputs = PU.editor._footerCurrentOutputs;
+        const cachedTotal = PU.editor._footerCurrentTotal;
+        if (cachedOutputs) {
+            PU.editor._renderFooterBody(cachedOutputs, cachedTotal);
+        }
+    },
+
+    resetOutputFilters() {
+        PU.state.ui.outputFilters = {};
+        const cachedOutputs = PU.editor._footerCurrentOutputs;
+        const cachedTotal = PU.editor._footerCurrentTotal;
+        if (cachedOutputs) {
+            PU.editor._renderFooterBody(cachedOutputs, cachedTotal);
+        }
+    },
+
+    toggleFilterDim(dim) {
+        PU.state.ui.outputFilterCollapsed[dim] = !PU.state.ui.outputFilterCollapsed[dim];
+        // Re-render filter tree only
+        const cachedOutputs = PU.editor._footerCurrentOutputs;
+        if (cachedOutputs) {
+            PU.editor._renderFilterTree(cachedOutputs);
+        }
+    },
+
     async copyOutputFooter() {
-        const items = document.querySelectorAll('.pu-output-item-text');
+        const items = document.querySelectorAll('[data-testid="pu-output-list"] .pu-output-item-text');
         if (items.length === 0) {
             PU.actions.showToast('No output to copy', 'error');
             return;

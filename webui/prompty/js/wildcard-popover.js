@@ -18,6 +18,9 @@ PU.wildcardPopover = {
     _onClickOutside: null,
     _onKeyDown: null,
     _passive: false,
+    _forceValues: false, // When true, closing without values removes the chip
+    _savedSelection: null, // Cursor position to restore on close
+    _suppressReopen: false, // Prevents selection-change from re-opening after close
 
     /**
      * Open inline expansion for a defined wildcard chip
@@ -37,6 +40,7 @@ PU.wildcardPopover = {
         PU.wildcardPopover._quillPath = path;
         PU.wildcardPopover._open = true;
         PU.wildcardPopover._passive = passive;
+        PU.wildcardPopover._savedSelection = quill ? quill.getSelection() : null;
 
         // Read local values from prompt.wildcards
         const prompt = PU.editor.getModifiedPrompt();
@@ -104,8 +108,43 @@ PU.wildcardPopover = {
      * Close inline expansion
      */
     close() {
+        // If forceValues is set and wildcard still has no values, remove the chip
+        if (PU.wildcardPopover._forceValues &&
+            PU.wildcardPopover._wildcardName &&
+            PU.wildcardPopover._chipEl &&
+            PU.wildcardPopover._quillInstance) {
+            const wcName = PU.wildcardPopover._wildcardName;
+            const lookup = PU.helpers.getWildcardLookup();
+            const values = lookup[wcName] || [];
+            if (values.length === 0) {
+                const quill = PU.wildcardPopover._quillInstance;
+                const path = PU.wildcardPopover._quillPath;
+                try {
+                    const blot = Quill.find(PU.wildcardPopover._chipEl);
+                    if (blot) {
+                        const index = quill.getIndex(blot);
+                        quill.deleteText(index, 1, Quill.sources.SILENT);
+                        // Sync block content after chip removal
+                        if (path) {
+                            const text = PU.quill.serialize(quill);
+                            const prompt = PU.editor.getModifiedPrompt();
+                            if (prompt) {
+                                const block = PU.blocks.findBlockByPath(prompt.text || [], path);
+                                if (block && 'content' in block) block.content = text;
+                            }
+                        }
+                    }
+                } catch (e) { /* chip may already be gone */ }
+            }
+        }
+
+        // Restore cursor to the Quill editor before clearing state
+        const restoreQuill = PU.wildcardPopover._quillInstance;
+        const restoreSel = PU.wildcardPopover._savedSelection;
+
         PU.wildcardPopover._open = false;
         PU.wildcardPopover._passive = false;
+        PU.wildcardPopover._forceValues = false;
         if (PU.wildcardPopover._el) {
             PU.wildcardPopover._el.style.display = 'none';
         }
@@ -123,6 +162,20 @@ PU.wildcardPopover = {
         PU.wildcardPopover._wildcardName = null;
         PU.wildcardPopover._extValues = [];
         PU.wildcardPopover._localValues = [];
+        PU.wildcardPopover._savedSelection = null;
+
+        // Refocus editor at saved cursor position
+        if (restoreQuill && PU.state.focusMode.active) {
+            PU.wildcardPopover._suppressReopen = true;
+            requestAnimationFrame(() => {
+                restoreQuill.focus();
+                if (restoreSel) {
+                    restoreQuill.setSelection(restoreSel.index, 0);
+                }
+                // Clear suppress flag after selection-change fires
+                setTimeout(() => { PU.wildcardPopover._suppressReopen = false; }, 50);
+            });
+        }
     },
 
     /**

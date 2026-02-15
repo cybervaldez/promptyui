@@ -55,3 +55,91 @@ prompts:
         text: ["junior", "mid-level", "senior", "staff"]
       - name: "role"
         text: ["backend", "frontend", "fullstack"]
+
+  # NESTED JOB BRIEF — Simple nesting (2 levels)
+  - id: "nested-job-brief"
+    text:
+      - content: "You are a __tone__ HR consultant for a __company_size__ company"
+      - content: "Draft a job brief for a __role__ position"
+        after:
+          - content: "Include requirements for __years_exp__ years of experience in __skill__"
+    wildcards:
+      - name: "tone"
+        text: ["formal", "conversational", "enthusiastic"]
+      - name: "company_size"
+        text: ["startup", "mid-size", "enterprise"]
+      - name: "role"
+        text: ["Backend Engineer", "ML Engineer", "SRE"]
+      - name: "years_exp"
+        text: ["2+", "5+", "8+"]
+      - name: "skill"
+        text: ["distributed systems", "cloud infrastructure", "data pipelines"]
+
+  # DEEP CULTURE DOC — Deep nesting (3 levels) + many wildcards
+  - id: "deep-culture-doc"
+    text:
+      - content: "Write a __format__ culture document for a __stage__ __industry__ company"
+        after:
+          - content: "Emphasize __value__ as a core value"
+            after:
+              - content: "Give a __tone__ example of how a __role__ would embody this daily"
+    wildcards:
+      - name: "format"
+        text: ["one-pager", "handbook chapter", "slide deck", "blog post"]
+      - name: "stage"
+        text: ["early-stage", "growth", "public"]
+      - name: "industry"
+        text: ["fintech", "healthtech", "edtech", "climate"]
+      - name: "value"
+        text: ["ownership", "transparency", "speed", "empathy", "craftsmanship"]
+      - name: "tone"
+        text: ["inspiring", "practical", "humorous"]
+      - name: "role"
+        text: ["engineer", "designer", "PM", "sales rep", "support agent"]
+
+  # EXT SOURCING STRATEGY — ext_text + nesting mixed
+  - id: "ext-sourcing-strategy"
+    ext: "hiring"
+    text:
+      - content: "Create a sourcing strategy for __channel__ recruitment"
+      - ext_text: "hiring/roles"
+        ext_text_max: 3
+        after:
+          - content: "For each role above, suggest __count__ __approach__ outreach tactics"
+    wildcards:
+      - name: "channel"
+        text: ["inbound", "outbound", "referral", "campus"]
+      - name: "count"
+        text: ["2", "3", "5"]
+      - name: "approach"
+        text: ["personalized", "automated", "hybrid"]
+
+  # STRESS TEST — Max wildcards + wide nesting
+  - id: "stress-test-prompt"
+    text:
+      - content: "As a __persona__, write a __format__ about __topic__"
+        after:
+          - content: "Use a __tone__ tone targeting __audience__"
+          - content: "Include __count__ examples from __industry__"
+      - content: "Add a __section__ section"
+        after:
+          - content: "Focus on __metric__ as the key metric"
+    wildcards:
+      - name: "persona"
+        text: ["CEO", "CTO", "VP People", "recruiter", "hiring manager"]
+      - name: "format"
+        text: ["memo", "email", "presentation", "report", "one-pager"]
+      - name: "topic"
+        text: ["hiring velocity", "employer brand", "diversity pipeline", "retention"]
+      - name: "tone"
+        text: ["data-driven", "narrative", "urgent", "strategic"]
+      - name: "audience"
+        text: ["board", "team leads", "all-hands", "investors"]
+      - name: "count"
+        text: ["2", "3", "5"]
+      - name: "industry"
+        text: ["tech", "finance", "healthcare", "retail"]
+      - name: "section"
+        text: ["executive summary", "action items", "timeline", "budget"]
+      - name: "metric"
+        text: ["time-to-hire", "offer acceptance rate", "pipeline conversion", "cost-per-hire"]
