@@ -138,7 +138,8 @@ PU.wildcardPopover = {
             }
         }
 
-        // Restore cursor to the Quill editor before clearing state
+        // Capture state before clearing — passive popovers don't need cursor restore
+        const wasPassive = PU.wildcardPopover._passive;
         const restoreQuill = PU.wildcardPopover._quillInstance;
         const restoreSel = PU.wildcardPopover._savedSelection;
 
@@ -164,8 +165,10 @@ PU.wildcardPopover = {
         PU.wildcardPopover._localValues = [];
         PU.wildcardPopover._savedSelection = null;
 
-        // Refocus editor at saved cursor position
-        if (restoreQuill && PU.state.focusMode.active) {
+        // Refocus editor at saved cursor position — only for active (non-passive) popovers.
+        // Passive popovers close because the cursor moved away naturally; restoring
+        // the saved position would jump the cursor backward.
+        if (restoreQuill && PU.state.focusMode.active && !wasPassive) {
             PU.wildcardPopover._suppressReopen = true;
             requestAnimationFrame(() => {
                 restoreQuill.focus();
@@ -175,6 +178,10 @@ PU.wildcardPopover = {
                 // Clear suppress flag after selection-change fires
                 setTimeout(() => { PU.wildcardPopover._suppressReopen = false; }, 50);
             });
+        } else if (restoreQuill && PU.state.focusMode.active && wasPassive) {
+            // Suppress reopen briefly to prevent selection-change from re-opening the popover
+            PU.wildcardPopover._suppressReopen = true;
+            setTimeout(() => { PU.wildcardPopover._suppressReopen = false; }, 50);
         }
     },
 

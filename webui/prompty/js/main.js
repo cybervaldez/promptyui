@@ -424,37 +424,6 @@ PU.actions = {
     },
 
     // ============================================
-    // Preview Actions
-    // ============================================
-
-    showPreviewForBlock(path) {
-        PU.preview.show(path);
-    },
-
-    previewAllVariations() {
-        const prompt = PU.helpers.getActivePrompt();
-        if (!prompt || !prompt.text || prompt.text.length === 0) {
-            PU.actions.showToast('No content to preview', 'error');
-            return;
-        }
-
-        // Preview first block
-        PU.preview.show('0');
-    },
-
-    closePreview() {
-        PU.preview.hide();
-    },
-
-    copyAllVariations() {
-        PU.preview.copyAll();
-    },
-
-    showAllVariations() {
-        PU.preview.showAll();
-    },
-
-    // ============================================
     // Export Actions
     // ============================================
 
@@ -538,7 +507,26 @@ PU.actions = {
         }
     },
 
+    /**
+     * Show inline "Copied to Clipboard" feedback on a copy button, then revert.
+     */
+    _showCopiedFeedback(btn) {
+        if (!btn) return;
+        if (btn._copiedTimer) clearTimeout(btn._copiedTimer);
+        const original = btn._originalCopyHTML || btn.innerHTML;
+        btn._originalCopyHTML = original;
+        btn.classList.add('pu-copied');
+        btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><polyline points="20 6 9 17 4 12"/></svg> Copied to Clipboard';
+        btn._copiedTimer = setTimeout(() => {
+            btn.classList.remove('pu-copied');
+            btn.innerHTML = original;
+            btn._copiedTimer = null;
+            btn._originalCopyHTML = null;
+        }, 2000);
+    },
+
     async copyOutputFooter() {
+        const btn = document.querySelector('[data-testid="pu-output-footer-copy"]');
         const items = document.querySelectorAll('[data-testid="pu-output-list"] .pu-output-item-text');
         if (items.length === 0) {
             PU.actions.showToast('No output to copy', 'error');
@@ -550,11 +538,10 @@ PU.actions = {
 
         try {
             await navigator.clipboard.writeText(combined);
-            PU.actions.showToast('Copied all outputs to clipboard', 'success');
         } catch (e) {
             console.error('Failed to copy output footer:', e);
-            PU.actions.showToast('Failed to copy: ' + e.message, 'error');
         }
+        PU.actions._showCopiedFeedback(btn);
     },
 
     // ============================================
@@ -643,11 +630,6 @@ document.addEventListener('click', (e) => {
         PU.actions.toggleAddMenu(false);
     }
 
-    // Close preview when clicking outside (skip when focus mode active)
-    if (PU.state.preview.visible && !PU.state.focusMode?.active && !e.target.closest('.pu-preview-popup') && !e.target.closest('.pu-block-clickable')) {
-        PU.preview.hide();
-    }
-
     // Close extension picker when clicking outside
     if (PU.state.extPickerCallback && !e.target.closest('.pu-ext-picker-popup') && !e.target.closest('.pu-add-menu')) {
         PU.inspector.closeExtPicker();
@@ -665,33 +647,7 @@ document.addEventListener('keydown', (e) => {
             PU.inspector.closeExtPicker();
         } else if (PU.state.exportModal.visible) {
             PU.export.close();
-        } else if (PU.state.preview.visible) {
-            PU.preview.hide();
         }
     }
 });
 
-// Arrow key navigation for preview panel
-document.addEventListener('keydown', (e) => {
-    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-    if (!PU.state.preview.visible) return;
-    if (PU.quill._autocompleteOpen) return;
-
-    const direction = e.key === 'ArrowDown' ? 1 : -1;
-
-    if (PU.state.preview.activeWildcard) {
-        e.preventDefault();
-        PU.preview.navigateWildcard(direction);
-    } else {
-        // Only scroll preview if focus is NOT inside the editor (let cursor movement work)
-        const activeEl = document.activeElement;
-        const inEditor = activeEl && (activeEl.closest('.pu-focus-quill') || activeEl.closest('.pu-block-clickable'));
-        if (!inEditor) {
-            const variationsEl = document.querySelector('[data-testid="pu-preview-variations"]');
-            if (variationsEl) {
-                e.preventDefault();
-                variationsEl.scrollBy({ top: direction * 60, behavior: 'smooth' });
-            }
-        }
-    }
-});

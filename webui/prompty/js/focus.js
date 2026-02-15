@@ -43,9 +43,6 @@ PU.focus = {
 
         PU.actions.updateUrl();
 
-        // Hide floating preview
-        PU.preview.hide();
-
         // Get overlay elements
         const overlay = document.querySelector('[data-testid="pu-focus-overlay"]');
         const titleEl = document.querySelector('[data-testid="pu-focus-title"]');
@@ -327,10 +324,10 @@ PU.focus = {
                 }
             }
 
-            // Autocomplete takes priority
+            // Autocomplete takes priority (only consume if actually handled)
             if (PU.quill._autocompleteOpen) {
-                PU.quill.handleAutocompleteKey(e);
-                return;
+                const handled = PU.quill.handleAutocompleteKey(e);
+                if (handled) return;
             }
             // Tab activates passive popover
             if (e.key === 'Tab' && PU.wildcardPopover?._open && PU.wildcardPopover._passive) {
@@ -915,6 +912,8 @@ PU.focus = {
 
         // Ancestor-only raw text (focused block contributes nothing)
         const parentRaw = PU.focus._buildAccumulatedRaw('', path);
+        // Ancestors + focused block (no children) — for 3-zone segment rendering
+        const selfRaw = PU.focus._buildAccumulatedRaw(currentContent, path);
 
         const wildcardLookup = PU.helpers.getWildcardLookup();
 
@@ -946,7 +945,8 @@ PU.focus = {
                     label: String(i),
                     wcDetails: null,
                     text: lt.raw,
-                    parentText: parentRaw || ''
+                    parentText: parentRaw || '',
+                    selfText: selfRaw || ''
                 })),
                 total: leafTexts.length
             };
@@ -990,6 +990,7 @@ PU.focus = {
                 });
                 const resolved = resolveWc(lt.raw);
                 const resolvedParent = parentRaw ? resolveWc(parentRaw) : '';
+                const resolvedSelf = selfRaw ? resolveWc(selfRaw) : '';
 
                 if (!allOutputTexts.has(resolved)) {
                     allOutputTexts.add(resolved);
@@ -997,7 +998,8 @@ PU.focus = {
                         label: versionLabel,
                         wcDetails: wcDetails,
                         text: resolved,
-                        parentText: resolvedParent
+                        parentText: resolvedParent,
+                        selfText: resolvedSelf
                     });
                 }
             }
@@ -1212,7 +1214,8 @@ PU.focus = {
     },
 
     /**
-     * Render a focus output item with parent text prefix in subtle gray.
+     * Render a focus output item with 3-zone segment tints:
+     * parent (gray), self/this-block (warm tint), children (cool tint).
      */
     _renderFocusOutputItem(out, idx) {
         // Build label HTML (same as editor._renderOutputItem)
@@ -1230,25 +1233,48 @@ PU.focus = {
             labelHtml = PU.blocks.escapeHtml(out.label);
         }
 
-        // Split text into parent prefix (gray) and own content (normal)
+        // Split text into 3 segments: parent (ancestors), self (focused block), child (descendants)
         let textHtml;
         const parentText = out.parentText || '';
-        if (parentText && out.text.startsWith(parentText)) {
-            const ownText = out.text.slice(parentText.length);
-            textHtml = `<span class="pu-focus-parent-text">${PU.blocks.escapeHtml(parentText)}</span>${PU.blocks.escapeHtml(ownText)}`;
-        } else if (parentText) {
-            // smartJoin may have inserted a separator — try trimmed match
-            const trimmedParent = parentText.trimEnd();
-            const idx2 = out.text.indexOf(trimmedParent);
-            if (idx2 === 0) {
-                const ownText = out.text.slice(trimmedParent.length);
-                textHtml = `<span class="pu-focus-parent-text">${PU.blocks.escapeHtml(trimmedParent)}</span>${PU.blocks.escapeHtml(ownText)}`;
+        const selfText = out.selfText || '';
+        const fullText = out.text || '';
+
+        // Find parent boundary in fullText
+        let parentEnd = 0;
+        if (parentText) {
+            if (fullText.startsWith(parentText)) {
+                parentEnd = parentText.length;
             } else {
-                textHtml = PU.blocks.escapeHtml(out.text);
+                // smartJoin may have trimmed — try trimmed match
+                const trimmed = parentText.trimEnd();
+                if (trimmed && fullText.startsWith(trimmed)) {
+                    parentEnd = trimmed.length;
+                }
             }
-        } else {
-            textHtml = PU.blocks.escapeHtml(out.text);
         }
+
+        // Find self boundary in fullText
+        let selfEnd = parentEnd;
+        if (selfText) {
+            if (fullText.startsWith(selfText)) {
+                selfEnd = selfText.length;
+            } else {
+                const trimmed = selfText.trimEnd();
+                if (trimmed && fullText.startsWith(trimmed)) {
+                    selfEnd = trimmed.length;
+                }
+            }
+        }
+
+        const parentSegment = fullText.slice(0, parentEnd);
+        const selfSegment = fullText.slice(parentEnd, selfEnd);
+        const childSegment = fullText.slice(selfEnd);
+
+        let parts = '';
+        if (parentSegment) parts += `<span class="pu-seg-parent">${PU.blocks.escapeHtml(parentSegment)}</span>`;
+        if (selfSegment) parts += `<span class="pu-seg-self">${PU.blocks.escapeHtml(selfSegment)}</span>`;
+        if (childSegment) parts += `<span class="pu-seg-child">${PU.blocks.escapeHtml(childSegment)}</span>`;
+        textHtml = parts || PU.blocks.escapeHtml(fullText);
 
         return `<div class="pu-output-item" data-testid="pu-output-item-${idx}">
             <span class="pu-output-item-label">${labelHtml}</span>
@@ -1279,14 +1305,14 @@ PU.focus = {
     },
 
     copyOutput() {
+        const btn = document.querySelector('[data-testid="pu-focus-output-copy"]');
         const footer = document.querySelector('[data-testid="pu-focus-output"]');
         if (!footer) return;
         const items = footer.querySelectorAll('.pu-output-item-text');
         const texts = [...items].map(el => el.textContent.trim()).filter(Boolean);
         if (texts.length === 0) return;
-        navigator.clipboard.writeText(texts.join('\n\n---\n\n')).then(() => {
-            if (PU.actions.showToast) PU.actions.showToast('Copied all outputs');
-        });
+        try { navigator.clipboard.writeText(texts.join('\n\n---\n\n')); } catch (e) { /* */ }
+        PU.actions._showCopiedFeedback(btn);
     },
 
     toggleFilter(dim, val) {

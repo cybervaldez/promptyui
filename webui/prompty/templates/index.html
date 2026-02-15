@@ -145,7 +145,6 @@
                     <div class="pu-prompt-header">
                         <span class="pu-prompt-label">PROMPT:</span>
                         <span class="pu-prompt-title" data-testid="pu-editor-title">No prompt selected</span>
-                        <div class="pu-prompt-actions" data-testid="pu-prompt-actions"></div>
                     </div>
 
                     <!-- Blocks Container -->
@@ -233,39 +232,13 @@
             </aside>
         </div>
 
-        <!-- Preview Popup (hidden by default) -->
-        <div class="pu-preview-popup" data-testid="pu-preview-popup" style="display: none;">
-            <div class="pu-preview-header">
-                <span data-testid="pu-preview-header-title">Live Preview</span>
-                <div class="pu-preview-wc-nav" data-testid="pu-preview-wc-nav" style="display: none;">
-                    <button class="pu-preview-wc-nav-btn" data-testid="pu-preview-wc-nav-up" onclick="PU.preview.navigateWildcard(-1)" title="Previous different value">&#9650;</button>
-                    <button class="pu-preview-wc-nav-btn" data-testid="pu-preview-wc-nav-down" onclick="PU.preview.navigateWildcard(1)" title="Next different value">&#9660;</button>
-                </div>
-                <button class="pu-preview-close" onclick="PU.actions.closePreview()">&times;</button>
-            </div>
-            <div class="pu-preview-variations" data-testid="pu-preview-variations">
-                <!-- Variations rendered by JS -->
-            </div>
-            <div class="pu-preview-breakdown" data-testid="pu-preview-breakdown">
-                <!-- Breakdown info -->
-            </div>
-            <div class="pu-preview-actions">
-                <button class="pu-btn" data-testid="pu-preview-copy-btn" onclick="PU.actions.copyAllVariations()">
-                    Copy All
-                </button>
-                <button class="pu-btn" data-testid="pu-preview-show-all-btn" onclick="PU.actions.showAllVariations()">
-                    Show All
-                </button>
-            </div>
-        </div>
-
         <!-- Focus Mode Overlay -->
         <div class="pu-focus-overlay" data-testid="pu-focus-overlay" style="display: none;"
              onclick="PU.focus.handleOverlayClick(event)">
             <div class="pu-focus-panel" data-testid="pu-focus-panel" onclick="event.stopPropagation()">
                 <div class="pu-focus-header" data-testid="pu-focus-header">
                     <span class="pu-focus-title" data-testid="pu-focus-title"></span>
-                    <button class="pu-preview-close" data-testid="pu-focus-close-btn"
+                    <button class="pu-focus-close" data-testid="pu-focus-close-btn"
                             onclick="PU.focus.exit()">&times;</button>
                 </div>
                 <div class="pu-focus-editor" data-testid="pu-focus-editor">
@@ -299,13 +272,21 @@
                         </div>
                         <div class="pu-focus-output-right" data-testid="pu-focus-output-right">
                             <div class="pu-output-list" data-testid="pu-focus-output-list"></div>
-                            <div class="pu-focus-include-footer" data-testid="pu-focus-include-footer">
-                                <span class="pu-focus-include-label">Include:</span>
-                                <label class="pu-focus-include-opt" data-testid="pu-focus-include-children-label">
+                            <div class="pu-focus-legend-strip" data-testid="pu-focus-include-footer">
+                                <span class="pu-focus-legend-item pu-legend-parent" data-testid="pu-focus-legend-parent">
+                                    <span class="pu-legend-dot"></span>
+                                    <span class="pu-legend-label">Parent</span>
+                                </span>
+                                <span class="pu-focus-legend-item pu-legend-self" data-testid="pu-focus-legend-self">
+                                    <span class="pu-legend-dot"></span>
+                                    <span class="pu-legend-label">This Block</span>
+                                </span>
+                                <label class="pu-focus-legend-item pu-legend-child" data-testid="pu-focus-include-children-label">
+                                    <span class="pu-legend-dot"></span>
+                                    <span class="pu-legend-label">Children</span>
                                     <input type="checkbox" checked
                                            data-testid="pu-focus-include-children"
                                            onchange="PU.focus.toggleIncludeChildren(this.checked)">
-                                    Children
                                 </label>
                             </div>
                         </div>
@@ -316,9 +297,9 @@
 
         <!-- Extension Picker Popup (hidden by default) -->
         <div class="pu-ext-picker-popup" data-testid="pu-ext-picker-popup" style="display: none;">
-            <div class="pu-preview-header">
+            <div class="pu-ext-picker-header">
                 <span>Select Extension</span>
-                <button class="pu-preview-close" data-testid="pu-ext-picker-close-btn"
+                <button class="pu-ext-picker-close" data-testid="pu-ext-picker-close-btn"
                         onclick="PU.inspector.closeExtPicker()">&times;</button>
             </div>
             <div class="pu-ext-picker-search">
@@ -329,7 +310,7 @@
             <div class="pu-ext-picker-tree" data-testid="pu-ext-picker-tree">
                 <!-- Tree rendered by JS with data-testid="pu-ext-picker-item-{id}" per item -->
             </div>
-            <div class="pu-preview-actions">
+            <div class="pu-ext-picker-actions">
                 <button class="pu-btn" data-testid="pu-ext-picker-cancel-btn"
                         onclick="PU.inspector.closeExtPicker()">Cancel</button>
             </div>

@@ -442,11 +442,14 @@ PU.blocks = {
     _initClickableWildcards() {
         const viz = PU.state.previewMode.visualizer;
 
-        // Non-stack modes: click picks random new value and pins it
+        // Non-stack modes: click picks random new value and pins it (per-block)
         document.querySelectorAll('.pu-wc-typewriter, .pu-wc-reel, .pu-wc-ticker, .pu-wc-text-value').forEach(el => {
             el.addEventListener('click', (e) => {
                 e.stopPropagation();
                 if (PU.blocks._vizIntroBusy) return;
+                const blockEl = el.closest('.pu-block[data-path]');
+                const blockPath = blockEl ? blockEl.dataset.path : null;
+                if (!blockPath) return;
                 const wcName = el.dataset.wc;
                 const values = JSON.parse(el.dataset.values || '[]');
                 const currentValue = el.dataset.value;
@@ -460,7 +463,9 @@ PU.blocks = {
                 if (viz === 'typewriter' && el.classList.contains('pu-wc-typewriter')) {
                     if (PU.blocks._vizAnimating) return;
                     PU.blocks._vizAnimating = true;
-                    PU.state.previewMode.selectedWildcards[wcName] = newValue;
+                    if (!PU.state.previewMode.selectedWildcards[blockPath])
+                        PU.state.previewMode.selectedWildcards[blockPath] = {};
+                    PU.state.previewMode.selectedWildcards[blockPath][wcName] = newValue;
                     // Remove active from all other typewriter elements
                     document.querySelectorAll('.pu-wc-typewriter.active').forEach(other => {
                         if (other !== el) other.classList.remove('active');
@@ -472,12 +477,14 @@ PU.blocks = {
                     return;
                 }
 
-                PU.preview.selectWildcardValue(wcName, newValue);
+                PU.preview.selectWildcardValue(wcName, newValue, blockPath);
             });
         });
 
-        // Stack: click pins the specific clicked item's value
+        // Stack: click pins the specific clicked item's value (per-block)
         document.querySelectorAll('.pu-wc-stack').forEach(container => {
+            const blockEl = container.closest('.pu-block[data-path]');
+            const blockPath = blockEl ? blockEl.dataset.path : null;
             const wcName = container.dataset.wc;
             const values = JSON.parse(container.dataset.values || '[]');
             const centerIdx = parseInt(container.dataset.center) || 0;
@@ -485,9 +492,10 @@ PU.blocks = {
                 item.addEventListener('click', (e) => {
                     e.stopPropagation();
                     if (PU.blocks._vizIntroBusy) return;
+                    if (!blockPath) return;
                     const offset = parseInt(item.dataset.offset) || 0;
                     const valueIdx = ((centerIdx + offset) % values.length + values.length) % values.length;
-                    PU.preview.selectWildcardValue(wcName, values[valueIdx]);
+                    PU.preview.selectWildcardValue(wcName, values[valueIdx], blockPath);
                 });
             });
         });
@@ -519,6 +527,11 @@ PU.blocks = {
 
     async _rerollBlockWildcards(scopeEl) {
         if (!scopeEl) return;
+        const blockEl = scopeEl.closest('.pu-block[data-path]');
+        const blockPath = blockEl ? blockEl.dataset.path : null;
+        if (!blockPath) return;
+        if (!PU.state.previewMode.selectedWildcards[blockPath])
+            PU.state.previewMode.selectedWildcards[blockPath] = {};
         const seen = new Set();
         // Only query wildcards within the scoped content element
         scopeEl.querySelectorAll('[data-wc][data-values]').forEach(el => {
@@ -528,7 +541,7 @@ PU.blocks = {
             const values = JSON.parse(el.dataset.values || '[]');
             if (values.length === 0) return;
             const newValue = values[Math.floor(Math.random() * values.length)];
-            PU.state.previewMode.selectedWildcards[wcName] = newValue;
+            PU.state.previewMode.selectedWildcards[blockPath][wcName] = newValue;
         });
         // Suppress transitions during re-render to avoid block flash
         const container = document.querySelector('[data-testid="pu-blocks-container"]');
@@ -543,11 +556,16 @@ PU.blocks = {
     /** Typewriter-specific dice reroll: animate all wildcards in block sequentially */
     _rerollBlockTypewriter(scopeEl) {
         if (!scopeEl || PU.blocks._vizAnimating) return;
+        const blockEl = scopeEl.closest('.pu-block[data-path]');
+        const blockPath = blockEl ? blockEl.dataset.path : null;
+        if (!blockPath) return;
         PU.blocks._vizAnimating = true;
         const PAUSE_BETWEEN = 200;
         const els = Array.from(scopeEl.querySelectorAll('.pu-wc-typewriter'));
         if (els.length === 0) { PU.blocks._vizAnimating = false; return; }
 
+        if (!PU.state.previewMode.selectedWildcards[blockPath])
+            PU.state.previewMode.selectedWildcards[blockPath] = {};
         // Pick new random values for each wildcard
         const rerolls = [];
         els.forEach(el => {
@@ -555,7 +573,7 @@ PU.blocks = {
             const values = JSON.parse(el.dataset.values || '[]');
             if (!wcName || values.length === 0) return;
             const newValue = values[Math.floor(Math.random() * values.length)];
-            PU.state.previewMode.selectedWildcards[wcName] = newValue;
+            PU.state.previewMode.selectedWildcards[blockPath][wcName] = newValue;
             rerolls.push({ el, newValue });
         });
         if (rerolls.length === 0) { PU.blocks._vizAnimating = false; return; }

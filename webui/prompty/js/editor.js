@@ -186,7 +186,6 @@ PU.editor = {
             const resolutions = await PU.preview.buildBlockResolutions(items);
             PU.editor._lastResolutions = resolutions;
             container.innerHTML = PU.blocks.renderBlock({ content: textItems }, '0', 0, resolutions);
-            PU.preview.renderHeaderWildcardDropdowns(resolutions);
             await PU.editor.populateOutputFooter(items, resolutions);
             PU.editor.attachBlockInteractions();
             PU.blocks.initVisualizerAnimations();
@@ -201,7 +200,6 @@ PU.editor = {
             container.innerHTML = items.map((item, idx) =>
                 PU.blocks.renderBlock(item, String(idx), 0, resolutions)
             ).join('');
-            PU.preview.renderHeaderWildcardDropdowns(resolutions);
             await PU.editor.populateOutputFooter(items, resolutions);
             PU.editor.attachBlockInteractions();
             PU.blocks.initVisualizerAnimations();
@@ -212,7 +210,6 @@ PU.editor = {
         if (Array.isArray(textItems)) {
             if (textItems.length === 0) {
                 container.innerHTML = '<div class="pu-inspector-empty">No content blocks. Click "+ Add Root Block" to start.</div>';
-                PU.preview.renderHeaderWildcardDropdowns(null);
                 return;
             }
 
@@ -221,7 +218,6 @@ PU.editor = {
             container.innerHTML = textItems.map((item, idx) =>
                 PU.blocks.renderBlock(item, String(idx), 0, resolutions)
             ).join('');
-            PU.preview.renderHeaderWildcardDropdowns(resolutions);
             await PU.editor.populateOutputFooter(textItems, resolutions);
             PU.editor.attachBlockInteractions();
             PU.blocks.initVisualizerAnimations();
@@ -306,10 +302,7 @@ PU.editor = {
         if (!outputs || outputs.length === 0) return [];
         const first = outputs[0];
         if (!first.wcDetails || first.wcDetails.length === 0) return [];
-        const selectedOverrides = PU.state.previewMode.selectedWildcards || {};
-        return first.wcDetails
-            .filter(d => selectedOverrides[d.name] === undefined)
-            .map(d => d.name);
+        return first.wcDetails.map(d => d.name);
     },
 
     /**

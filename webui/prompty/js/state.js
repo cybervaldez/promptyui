@@ -47,13 +47,8 @@ PU.state = {
         outputFilterCollapsed: {}
     },
 
-    // Preview popup state
+    // Preview state
     preview: {
-        visible: false,
-        targetPath: null,
-        variations: [],
-        totalCount: 0,
-        loading: false,
         activeWildcard: null   // wildcard name at cursor, or null
     },
 
@@ -92,7 +87,7 @@ PU.state = {
         extTextCount: 1,      // Actual ext_text count (computed from loaded data)
         extWildcardsMax: 0,   // 0 = use actual wildcard counts, >0 = override all wildcard counts
         visualizer: 'compact',  // Wildcard display style: compact | typewriter | reel | stack | ticker
-        selectedWildcards: {},  // User-selected wildcard overrides: { wildcardName: selectedValue }
+        selectedWildcards: {},  // Per-block wildcard overrides: { blockPath: { wcName: value } }
         _extTextCache: {}     // Cached ext_text API data: { "scope/name": data }
     }
 };

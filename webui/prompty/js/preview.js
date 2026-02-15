@@ -289,7 +289,7 @@ PU.preview = {
             [extIdx, odometerIndices] = PU.preview.compositionToIndices(compositionId, actualExtTextCount, wildcardCounts);
         }
 
-        const selectedOverrides = (options && options.ignoreOverrides)
+        const allSelectedOverrides = (options && options.ignoreOverrides)
             ? {}
             : (PU.state.previewMode.selectedWildcards || {});
 
@@ -309,24 +309,25 @@ PU.preview = {
             return '';
         }
 
-        // Helper: resolve wildcards in text
-        function resolveText(text) {
+        // Helper: resolve wildcards in text (per-block overrides)
+        function resolveText(text, blockPath) {
             if (!text) return { resolved: '', wildcards: [] };
 
+            const blockOverrides = allSelectedOverrides[blockPath] || {};
             const resolvedWildcards = [];
             const resolved = text.replace(/__([a-zA-Z0-9_-]+)__/g, (match, wcName) => {
                 const values = wildcardLookup[wcName];
                 if (values && values.length > 0) {
                     let value, idx;
-                    if (selectedOverrides[wcName] !== undefined) {
-                        value = selectedOverrides[wcName];
+                    if (blockOverrides[wcName] !== undefined) {
+                        value = blockOverrides[wcName];
                         idx = values.indexOf(value);
                         if (idx === -1) idx = 0;
                     } else {
                         idx = odometerIndices[wcName] !== undefined ? odometerIndices[wcName] : 0;
                         value = values[idx % values.length];
                     }
-                    resolvedWildcards.push({ name: wcName, value, index: idx, isOverride: selectedOverrides[wcName] !== undefined });
+                    resolvedWildcards.push({ name: wcName, value, index: idx, isOverride: blockOverrides[wcName] !== undefined });
                     return `{{${wcName}:${value}}}`;
                 }
                 return match;
@@ -355,7 +356,7 @@ PU.preview = {
             blocks.forEach((block, idx) => {
                 const path = pathPrefix ? `${pathPrefix}.${idx}` : String(idx);
                 const blockText = getBlockText(block);
-                const { resolved, wildcards } = resolveText(blockText);
+                const { resolved, wildcards } = resolveText(blockText, path);
 
                 // Compute accumulated text
                 const plainText = stripMarkers(resolved);
@@ -775,73 +776,12 @@ PU.preview = {
     },
 
     /**
-     * Render wildcard dropdown pills in the PROMPT header row.
-     * Aggregates unique wildcards across all blocks from resolutions map.
-     * @param {Map} resolutions - Map from buildBlockResolutions
-     */
-    renderHeaderWildcardDropdowns(resolutions) {
-        const container = document.querySelector('[data-testid="pu-prompt-actions"]');
-        if (!container) return;
-
-        if (!resolutions || resolutions.size === 0) {
-            container.innerHTML = '';
-            return;
-        }
-
-        // Aggregate unique wildcards across all blocks, preserving prompt text order.
-        // res.wildcards preserves appearance order from resolveText() regex,
-        // while res.wildcardDropdowns (sorted alphabetically) provides values/count.
-        const wcMap = new Map(); // name -> { values, count }
-        for (const [, res] of resolutions) {
-            if (!res.wildcards || !res.wildcardDropdowns) continue;
-            for (const wc of res.wildcards) {
-                if (!wcMap.has(wc.name)) {
-                    const dd = res.wildcardDropdowns.find(d => d.name === wc.name);
-                    if (dd) {
-                        wcMap.set(wc.name, { values: dd.values, count: dd.count });
-                    }
-                }
-            }
-        }
-
-        if (wcMap.size === 0) {
-            container.innerHTML = '';
-            return;
-        }
-
-        const selectedOverrides = PU.state.previewMode.selectedWildcards || {};
-
-        let html = '';
-        for (const [wcName, wc] of wcMap) {
-            const isPinned = selectedOverrides[wcName] !== undefined;
-            const displayValue = isPinned
-                ? selectedOverrides[wcName]
-                : 'Any';
-            const pinnedClass = isPinned ? ' pinned' : '';
-            const valuesJson = PU.blocks.escapeAttr(JSON.stringify(wc.values));
-
-            html += `<span class="pu-header-wc-pill${pinnedClass}" data-testid="pu-header-wc-pill-${PU.blocks.escapeHtml(wcName)}" data-wc="${PU.blocks.escapeHtml(wcName)}" data-values="${valuesJson}" data-count="${wc.count}">${PU.blocks.escapeHtml(PU.preview.normalizeWildcardName(wcName))}: ${PU.blocks.escapeHtml(displayValue)} <span class="pu-header-wc-arrow">\u25BE</span></span>`;
-        }
-
-        container.innerHTML = html;
-
-        // Attach click handlers to header pills
-        container.querySelectorAll('.pu-header-wc-pill').forEach(pill => {
-            pill.addEventListener('click', (e) => {
-                e.stopPropagation();
-                PU.preview.toggleWildcardDropdown(pill);
-            });
-        });
-    },
-
-    /**
      * Install global close-on-outside-click handler for dropdown menus.
      * Called once on init.
      */
     initDropdownCloseHandler() {
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.pu-wc-dropdown-menu') &&
-                !e.target.closest('.pu-header-wc-pill') &&
                 !e.target.closest('.pu-wc-dropdown')) {
                 const existing = document.querySelector('.pu-wc-dropdown-menu');
                 if (existing) existing.remove();
@@ -855,7 +795,8 @@ PU.preview = {
      */
     toggleWildcardDropdown(element) {
         const wcName = element.dataset.wc;
-        const blockPath = element.dataset.path;
+        const blockEl = element.closest('.pu-block[data-path]');
+        const blockPath = blockEl ? blockEl.dataset.path : element.dataset.path;
 
         // Read values from data attribute
         let values = [];
@@ -877,9 +818,9 @@ PU.preview = {
             }
         }
 
-        // Get current selected value
-        const selectedOverrides = PU.state.previewMode.selectedWildcards || {};
-        const currentValue = selectedOverrides[wcName];
+        // Get current selected value (per-block)
+        const blockOverrides = (PU.state.previewMode.selectedWildcards || {})[blockPath] || {};
+        const currentValue = blockOverrides[wcName];
 
         // Create dropdown menu
         const menu = document.createElement('div');
@@ -904,7 +845,7 @@ PU.preview = {
             const item = e.target.closest('.pu-dropdown-item');
             if (item) {
                 e.stopPropagation();
-                PU.preview.selectWildcardValue(item.dataset.wc, item.dataset.value);
+                PU.preview.selectWildcardValue(item.dataset.wc, item.dataset.value, blockPath);
             }
         });
     },
@@ -912,12 +853,21 @@ PU.preview = {
     /**
      * Handle wildcard value selection - re-renders all blocks
      */
-    async selectWildcardValue(wcName, value) {
-        // Update state — '*' means "Any" (un-pin this wildcard)
+    async selectWildcardValue(wcName, value, blockPath) {
+        if (!blockPath) return;
+        // Update state — '*' means "Any" (un-pin this wildcard for this block)
         if (value === '*') {
-            delete PU.state.previewMode.selectedWildcards[wcName];
+            if (PU.state.previewMode.selectedWildcards[blockPath]) {
+                delete PU.state.previewMode.selectedWildcards[blockPath][wcName];
+                if (Object.keys(PU.state.previewMode.selectedWildcards[blockPath]).length === 0) {
+                    delete PU.state.previewMode.selectedWildcards[blockPath];
+                }
+            }
         } else {
-            PU.state.previewMode.selectedWildcards[wcName] = value;
+            if (!PU.state.previewMode.selectedWildcards[blockPath]) {
+                PU.state.previewMode.selectedWildcards[blockPath] = {};
+            }
+            PU.state.previewMode.selectedWildcards[blockPath][wcName] = value;
         }
 
         // Close dropdown
@@ -950,277 +900,4 @@ PU.preview = {
         }
     },
 
-    // ============================================
-    // Original Preview Popup Functions
-    // ============================================
-
-    /**
-     * Show preview popup for a block
-     */
-    async show(path) {
-        // Suppress floating popup when focus mode is active
-        if (PU.state.focusMode && PU.state.focusMode.active) return;
-
-        PU.state.preview.visible = true;
-        PU.state.preview.targetPath = path;
-        PU.state.preview.loading = true;
-
-        const popup = document.querySelector('[data-testid="pu-preview-popup"]');
-        if (popup) {
-            popup.style.display = 'flex';
-        }
-
-        await PU.preview.loadPreview(path);
-    },
-
-    /**
-     * Load preview data from API
-     */
-    async loadPreview(path) {
-        const prompt = PU.helpers.getActivePrompt();
-        if (!prompt) {
-            PU.preview.renderError('No prompt selected');
-            return;
-        }
-
-        const block = PU.blocks.findBlockByPath(prompt.text || [], path);
-        if (!block) {
-            PU.preview.renderError('Block not found');
-            return;
-        }
-
-        // Build request
-        const params = {
-            job_id: PU.state.activeJobId,
-            prompt_id: PU.state.activePromptId,
-            wildcards: prompt.wildcards || [],
-            include_nested: true,
-            limit: 10
-        };
-
-        // For content blocks, pass the text
-        if ('content' in block) {
-            params.text = [block];
-        } else if ('ext_text' in block) {
-            params.text = [block];
-        }
-
-        try {
-            const data = await PU.api.previewVariations(params);
-
-            if (!data.variations) {
-                console.warn('Preview API response missing variations field:', data);
-            }
-            PU.state.preview.variations = data.variations || [];
-            PU.state.preview.totalCount = data.total_count || 0;
-            PU.state.preview.loading = false;
-
-            PU.preview.render(data);
-        } catch (e) {
-            console.error('Failed to load preview:', e);
-            PU.preview.renderError('Failed to load preview: ' + e.message);
-        }
-    },
-
-    /**
-     * Render preview popup
-     */
-    render(data) {
-        const variationsEl = document.querySelector('[data-testid="pu-preview-variations"]');
-        const breakdownEl = document.querySelector('[data-testid="pu-preview-breakdown"]');
-
-        if (variationsEl) {
-            if (data.variations.length === 0) {
-                variationsEl.innerHTML = '<div class="pu-preview-item">No variations generated</div>';
-            } else {
-                variationsEl.innerHTML = data.variations.map((v, idx) => {
-                    const marked = PU.preview.markWildcardValues(v.text, v.wildcard_values);
-                    const escaped = PU.preview.escapeHtmlPreservingMarkers(marked);
-                    const pillHtml = PU.preview.renderWildcardPills(escaped);
-                    return `
-                    <div class="pu-preview-item" data-testid="pu-preview-item-${idx}">
-                        <span class="pu-preview-item-index">${idx + 1}.</span>
-                        ${pillHtml}
-                    </div>`;
-                }).join('');
-            }
-
-            // Apply current wildcard focus state
-            PU.preview.updateWildcardFocus();
-        }
-
-        if (breakdownEl && data.breakdown) {
-            breakdownEl.innerHTML = `
-                <strong>Breakdown:</strong>
-                This level: ${data.breakdown.this_level} |
-                Nested: ${data.breakdown.nested_paths} |
-                <strong>Total: ${data.breakdown.total}</strong>
-                ${data.total_count > data.variations.length ? ` (showing ${data.variations.length} of ${data.total_count})` : ''}
-            `;
-        }
-    },
-
-    /**
-     * Update wildcard focus highlighting in the preview popup.
-     * Reads PU.state.preview.activeWildcard and toggles CSS classes.
-     */
-    updateWildcardFocus() {
-        const variationsEl = document.querySelector('[data-testid="pu-preview-variations"]');
-        const activeWc = PU.state.preview.activeWildcard;
-
-        if (variationsEl) {
-            if (activeWc) {
-                variationsEl.classList.add('pu-preview-wc-focus');
-
-                // Toggle active class on matching pills
-                variationsEl.querySelectorAll('.pu-wc-pill').forEach(pill => {
-                    if (pill.getAttribute('data-wc-name') === activeWc) {
-                        pill.classList.add('pu-wc-pill-active');
-                    } else {
-                        pill.classList.remove('pu-wc-pill-active');
-                    }
-                });
-
-                const navEl = document.querySelector('[data-testid="pu-preview-wc-nav"]');
-                if (navEl) navEl.style.display = 'flex';
-            } else {
-                variationsEl.classList.remove('pu-preview-wc-focus');
-                variationsEl.querySelectorAll('.pu-wc-pill').forEach(pill => {
-                    pill.classList.remove('pu-wc-pill-active');
-                });
-
-                const navEl = document.querySelector('[data-testid="pu-preview-wc-nav"]');
-                if (navEl) navEl.style.display = 'none';
-                variationsEl.querySelectorAll('.pu-preview-wc-current').forEach(el => el.classList.remove('pu-preview-wc-current'));
-            }
-        }
-
-        // Header always shows "Live Preview" — no badge needed
-    },
-
-    /**
-     * Navigate to next/previous preview item with a different value for the active wildcard.
-     * @param {number} direction - -1 for previous, 1 for next
-     */
-    navigateWildcard(direction) {
-        const activeWc = PU.state.preview.activeWildcard;
-        if (!activeWc) return;
-
-        const variationsEl = document.querySelector('[data-testid="pu-preview-variations"]');
-        if (!variationsEl) return;
-
-        // Build list of items that have a pill for this wildcard
-        const items = Array.from(variationsEl.querySelectorAll('.pu-preview-item'));
-        const wcItems = items.map(item => {
-            const pill = item.querySelector(`.pu-wc-pill[data-wc-name="${CSS.escape(activeWc)}"]`);
-            return { el: item, value: pill ? pill.textContent.trim() : null };
-        }).filter(x => x.value !== null);
-
-        if (wcItems.length === 0) return;
-
-        // Find current position
-        let currentIdx = wcItems.findIndex(x => x.el.classList.contains('pu-preview-wc-current'));
-        if (currentIdx === -1) currentIdx = 0;
-
-        const currentValue = wcItems[currentIdx].value;
-
-        // Find next item with a DIFFERENT value (wrap around)
-        let nextIdx = currentIdx;
-        for (let i = 1; i < wcItems.length; i++) {
-            const candidateIdx = ((currentIdx + (direction * i)) % wcItems.length + wcItems.length) % wcItems.length;
-            if (wcItems[candidateIdx].value !== currentValue) {
-                nextIdx = candidateIdx;
-                break;
-            }
-        }
-
-        // Update current marker and scroll
-        wcItems.forEach(x => x.el.classList.remove('pu-preview-wc-current'));
-        wcItems[nextIdx].el.classList.add('pu-preview-wc-current');
-        wcItems[nextIdx].el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    },
-
-    /**
-     * Render error state
-     */
-    renderError(message) {
-        const variationsEl = document.querySelector('[data-testid="pu-preview-variations"]');
-        if (variationsEl) {
-            variationsEl.innerHTML = `<div class="pu-preview-item" style="color: var(--pu-error);">${message}</div>`;
-        }
-    },
-
-    /**
-     * Hide preview popup
-     */
-    hide() {
-        PU.state.preview.visible = false;
-        PU.state.preview.targetPath = null;
-        PU.state.preview.activeWildcard = null;
-
-        const popup = document.querySelector('[data-testid="pu-preview-popup"]');
-        if (popup) {
-            popup.style.display = 'none';
-        }
-    },
-
-    /**
-     * Copy all variations to clipboard
-     */
-    async copyAll() {
-        const variations = PU.state.preview.variations;
-        if (variations.length === 0) {
-            PU.actions.showToast('No variations to copy', 'error');
-            return;
-        }
-
-        const text = variations.map(v => v.text).join('\n\n');
-
-        try {
-            await navigator.clipboard.writeText(text);
-            PU.actions.showToast('Copied to clipboard', 'success');
-        } catch (e) {
-            console.error('Failed to copy to clipboard:', e);
-            PU.actions.showToast('Failed to copy: ' + e.message, 'error');
-        }
-    },
-
-    /**
-     * Show all variations (load more)
-     */
-    async showAll() {
-        const prompt = PU.helpers.getActivePrompt();
-        if (!prompt) return;
-
-        const path = PU.state.preview.targetPath;
-        const block = PU.blocks.findBlockByPath(prompt.text || [], path);
-        if (!block) return;
-
-        const params = {
-            job_id: PU.state.activeJobId,
-            prompt_id: PU.state.activePromptId,
-            wildcards: prompt.wildcards || [],
-            include_nested: true,
-            limit: 100  // Load more
-        };
-
-        if ('content' in block) {
-            params.text = [block];
-        } else if ('ext_text' in block) {
-            params.text = [block];
-        }
-
-        try {
-            const data = await PU.api.previewVariations(params);
-            if (!data.variations) {
-                console.warn('Preview API response missing variations field:', data);
-            }
-            PU.state.preview.variations = data.variations || [];
-            PU.state.preview.totalCount = data.total_count || 0;
-            PU.preview.render(data);
-        } catch (e) {
-            console.error('Failed to load more variations:', e);
-            PU.actions.showToast('Failed to load more: ' + e.message, 'error');
-        }
-    }
 };
