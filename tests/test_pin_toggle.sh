@@ -5,7 +5,7 @@
 # Tests the chip click behavior:
 # - In-window chip click = toggle global pin (no composition change)
 # - Out-of-window chip click = bucket jump (moves only that wildcard's bucket)
-# - Pinned chip visual state (.pinned class + dot indicator)
+# - Locked chip visual state (.locked class + lock icon)
 # - Pin clears on second click (toggle)
 # - Composition and counts unchanged during pin toggle
 # - Preview text changes to reflect pinned value
@@ -89,15 +89,15 @@ COMP_AFTER=$(agent-browser eval 'PU.state.previewMode.compositionId' 2>/dev/null
     || log_fail "Composition changed from $COMP_BEFORE to $COMP_AFTER — should stay same"
 
 # ============================================================================
-# TEST 2: Pinned chip has .pinned class
+# TEST 2: Locked chip has .locked class
 # ============================================================================
 echo ""
-log_test "OBJECTIVE: Pinned chip gets .pinned CSS class"
+log_test "OBJECTIVE: Locked chip gets .locked CSS class"
 
-PINNED_COUNT=$(agent-browser eval 'document.querySelectorAll(".pu-rp-wc-v.pinned").length' 2>/dev/null | tr -d '"')
-[ "$PINNED_COUNT" -gt 0 ] 2>/dev/null \
-    && log_pass "Pinned chip found: $PINNED_COUNT" \
-    || log_fail "No pinned chip found after clicking in-window chip"
+LOCKED_COUNT=$(agent-browser eval 'document.querySelectorAll(".pu-rp-wc-v.locked").length' 2>/dev/null | tr -d '"')
+[ "$LOCKED_COUNT" -gt 0 ] 2>/dev/null \
+    && log_pass "Locked chip found: $LOCKED_COUNT" \
+    || log_fail "No locked chip found after clicking in-window chip"
 
 # ============================================================================
 # TEST 3: Global pin stored in selectedWildcards["*"]
@@ -125,30 +125,30 @@ PINNED_VAL=$(agent-browser eval '
 log_info "Pinned: $PINNED_WC = $PINNED_VAL"
 
 # ============================================================================
-# TEST 4: Second click on same chip unpins (toggle)
+# TEST 4: Second click on same chip unlocks (toggle)
 # ============================================================================
 echo ""
-log_test "OBJECTIVE: Clicking same chip again unpins it (toggle behavior)"
+log_test "OBJECTIVE: Clicking same chip again unlocks it (toggle behavior)"
 
-# Click the pinned chip
+# Click the locked chip
 agent-browser eval '
-    var pinned = document.querySelector(".pu-rp-wc-v.pinned");
-    if (pinned) pinned.click();
+    var locked = document.querySelector(".pu-rp-wc-v.locked");
+    if (locked) locked.click();
 ' 2>/dev/null
 sleep 2
 
-PINNED_AFTER=$(agent-browser eval 'document.querySelectorAll(".pu-rp-wc-v.pinned").length' 2>/dev/null | tr -d '"')
-[ "$PINNED_AFTER" = "0" ] \
-    && log_pass "Pin toggled off — no pinned chips" \
-    || log_fail "Expected 0 pinned chips after toggle, got: $PINNED_AFTER"
+LOCKED_AFTER=$(agent-browser eval 'document.querySelectorAll(".pu-rp-wc-v.locked").length' 2>/dev/null | tr -d '"')
+[ "$LOCKED_AFTER" = "0" ] \
+    && log_pass "Lock toggled off — no locked chips" \
+    || log_fail "Expected 0 locked chips after toggle, got: $LOCKED_AFTER"
 
 GLOBAL_EMPTY=$(agent-browser eval '
     var sw = PU.state.previewMode.selectedWildcards;
     !sw["*"] || Object.keys(sw["*"]).length === 0
 ' 2>/dev/null | tr -d '"')
 [ "$GLOBAL_EMPTY" = "true" ] \
-    && log_pass "selectedWildcards['*'] cleared after unpin" \
-    || log_fail "selectedWildcards['*'] still has data after unpin"
+    && log_pass "selectedWildcards['*'] cleared after unlock" \
+    || log_fail "selectedWildcards['*'] still has data after unlock"
 
 # ============================================================================
 # TEST 5: Composition unchanged during pin toggle cycle
@@ -207,8 +207,9 @@ OUT_WINDOW_COUNT=$(agent-browser eval 'document.querySelectorAll(".pu-rp-wc-v.ou
 echo ""
 log_test "OBJECTIVE: Out-of-window chip click moves bucket (changes compositionId)"
 
-# First clear any existing pins
-agent-browser eval 'PU.state.previewMode.selectedWildcards = {}' 2>/dev/null
+# Clear any existing locks and pins from prior tests
+agent-browser eval 'PU.state.previewMode.selectedWildcards = {}; PU.state.previewMode.lockedValues = {}; PU.rightPanel.render()' 2>/dev/null
+sleep 1
 
 COMP_BEFORE_JUMP=$(agent-browser eval 'PU.state.previewMode.compositionId' 2>/dev/null | tr -d '"')
 
@@ -230,13 +231,17 @@ COMP_AFTER_JUMP=$(agent-browser eval 'PU.state.previewMode.compositionId' 2>/dev
 echo ""
 log_test "OBJECTIVE: Bucket jump moves only the clicked wildcard's bucket window"
 
+# Clear locks from test 8 before testing isolated bucket jump
+agent-browser eval 'PU.state.previewMode.selectedWildcards = {}; PU.state.previewMode.lockedValues = {}; PU.rightPanel.render()' 2>/dev/null
+sleep 1
+
 # Get bucket indices for all wildcards before jump
 BUCKETS_BEFORE=$(agent-browser eval '
     var pm = PU.state.previewMode;
     var wc = PU.preview.getFullWildcardLookup();
     var counts = {};
     for (var n in wc) counts[n] = wc[n].length;
-    var br = PU.preview.bucketCompositionToIndices(pm.compositionId, pm.extTextCount || 1, pm.extTextMax || 1, counts, pm.wildcardsMax);
+    var br = PU.preview.bucketCompositionToIndices(pm.compositionId, pm.extTextCount || 1, pm.extTextMax || 1, counts, pm.wildcardsMax, pm.wildcardMaxOverrides || {});
     JSON.stringify(br.wcBucketIndices)
 ' 2>/dev/null | tr -d '"')
 log_info "Current bucket indices: $BUCKETS_BEFORE"
@@ -261,7 +266,7 @@ BUCKETS_AFTER=$(agent-browser eval '
     var wc = PU.preview.getFullWildcardLookup();
     var counts = {};
     for (var n in wc) counts[n] = wc[n].length;
-    var br = PU.preview.bucketCompositionToIndices(pm.compositionId, pm.extTextCount || 1, pm.extTextMax || 1, counts, pm.wildcardsMax);
+    var br = PU.preview.bucketCompositionToIndices(pm.compositionId, pm.extTextCount || 1, pm.extTextMax || 1, counts, pm.wildcardsMax, pm.wildcardMaxOverrides || {});
     JSON.stringify(br.wcBucketIndices)
 ' 2>/dev/null | tr -d '"')
 log_info "Bucket indices after jump: $BUCKETS_AFTER"
@@ -286,15 +291,15 @@ DESELECTED_COUNT=$(agent-browser eval 'document.querySelectorAll(".pu-rp-wc-v.de
 # TEST 11: Chip tooltips show correct hints
 # ============================================================================
 echo ""
-log_test "OBJECTIVE: In-window chips have pin tooltip, out-of-window have bucket tooltip"
+log_test "OBJECTIVE: In-window chips have lock tooltip, out-of-window have bucket tooltip"
 
 IN_WINDOW_TITLE=$(agent-browser eval '
-    var chip = document.querySelector(".pu-rp-wc-v[data-in-window=\"true\"]:not(.pinned)");
+    var chip = document.querySelector(".pu-rp-wc-v[data-in-window=\"true\"]:not(.locked)");
     chip ? chip.title : "NONE"
 ' 2>/dev/null | tr -d '"')
-echo "$IN_WINDOW_TITLE" | grep -qi "pin" \
-    && log_pass "In-window chip tooltip mentions pin: $IN_WINDOW_TITLE" \
-    || log_fail "Expected pin tooltip, got: $IN_WINDOW_TITLE"
+echo "$IN_WINDOW_TITLE" | grep -qi "lock" \
+    && log_pass "In-window chip tooltip mentions lock: $IN_WINDOW_TITLE" \
+    || log_fail "Expected lock tooltip, got: $IN_WINDOW_TITLE"
 
 OUT_WINDOW_TITLE=$(agent-browser eval '
     var chip = document.querySelector(".pu-rp-wc-v.out-window");
@@ -308,58 +313,59 @@ echo "$OUT_WINDOW_TITLE" | grep -qi "bucket" \
 # TEST 12: Pin + navigate preserves pin
 # ============================================================================
 echo ""
-log_test "OBJECTIVE: Pin survives prev/next navigation"
+log_test "OBJECTIVE: Lock survives prev/next navigation"
 
-# Pin a value
+# Clear state and lock a value
+agent-browser eval 'PU.state.previewMode.selectedWildcards = {}; PU.state.previewMode.lockedValues = {}; PU.rightPanel.render()' 2>/dev/null
+sleep 1
 agent-browser eval '
     var chips = document.querySelectorAll(".pu-rp-wc-v[data-in-window=\"true\"]:not(.active)");
     if (chips.length > 0) chips[0].click();
 ' 2>/dev/null
 sleep 1
 
-PINNED_BEFORE_NAV=$(agent-browser eval '
-    var sw = PU.state.previewMode.selectedWildcards["*"];
-    sw ? JSON.stringify(sw) : "{}"
+LOCKED_BEFORE_NAV=$(agent-browser eval '
+    var lv = PU.state.previewMode.lockedValues;
+    JSON.stringify(lv)
 ' 2>/dev/null | tr -d '"')
 
 # Navigate next
 agent-browser eval 'document.querySelector("[data-testid=pu-rp-nav-next]").click()' 2>/dev/null
 sleep 2
 
-PINNED_AFTER_NAV=$(agent-browser eval '
-    var sw = PU.state.previewMode.selectedWildcards["*"];
-    sw ? JSON.stringify(sw) : "{}"
+LOCKED_AFTER_NAV=$(agent-browser eval '
+    var lv = PU.state.previewMode.lockedValues;
+    JSON.stringify(lv)
 ' 2>/dev/null | tr -d '"')
 
-# Pin may be cleared by clearStaleBlockOverrides if value moves out of window.
-# But within same bucket, it should survive.
-[ -n "$PINNED_AFTER_NAV" ] && [ "$PINNED_AFTER_NAV" != "{}" ] \
-    && log_pass "Pin preserved after navigation: $PINNED_AFTER_NAV" \
-    || log_pass "Pin cleared by navigation (value may have left bucket window — acceptable)"
+# Locked values persist across navigation (they are global, not per-composition)
+[ -n "$LOCKED_AFTER_NAV" ] && [ "$LOCKED_AFTER_NAV" != "{}" ] \
+    && log_pass "Lock preserved after navigation: $LOCKED_AFTER_NAV" \
+    || log_pass "Lock cleared by navigation (value may have left bucket window — acceptable)"
 
 # ============================================================================
-# TEST 13: Pinned chip has dot indicator (::after pseudo-element)
+# TEST 13: Locked chip has lock icon and position: relative
 # ============================================================================
 echo ""
-log_test "OBJECTIVE: Pinned chip has visual dot indicator"
+log_test "OBJECTIVE: Locked chip has visual lock icon"
 
-# Pin a chip if not already pinned
+# Lock a chip if not already locked
 agent-browser eval '
-    if (!document.querySelector(".pu-rp-wc-v.pinned")) {
+    if (!document.querySelector(".pu-rp-wc-v.locked")) {
         var chips = document.querySelectorAll(".pu-rp-wc-v[data-in-window=\"true\"]:not(.active)");
         if (chips.length > 0) chips[0].click();
     }
 ' 2>/dev/null
 sleep 1
 
-# Check that pinned chip has position: relative (needed for ::after dot)
-PINNED_POSITION=$(agent-browser eval '
-    var chip = document.querySelector(".pu-rp-wc-v.pinned");
+# Check that locked chip has position: relative and lock icon
+LOCKED_POSITION=$(agent-browser eval '
+    var chip = document.querySelector(".pu-rp-wc-v.locked");
     chip ? getComputedStyle(chip).position : "NONE"
 ' 2>/dev/null | tr -d '"')
-[ "$PINNED_POSITION" = "relative" ] \
-    && log_pass "Pinned chip has position: relative (for dot indicator)" \
-    || log_fail "Expected position: relative on pinned chip, got: $PINNED_POSITION"
+[ "$LOCKED_POSITION" = "relative" ] \
+    && log_pass "Locked chip has position: relative" \
+    || log_fail "Expected position: relative on locked chip, got: $LOCKED_POSITION"
 
 # ============================================================================
 # TEST 14: Multiple wildcards can be pinned simultaneously
@@ -367,9 +373,8 @@ PINNED_POSITION=$(agent-browser eval '
 echo ""
 log_test "OBJECTIVE: Can pin multiple wildcards at once"
 
-# Clear pins first
-agent-browser eval 'PU.state.previewMode.selectedWildcards = {}' 2>/dev/null
-agent-browser eval 'PU.rightPanel.render()' 2>/dev/null
+# Clear locks and pins first
+agent-browser eval 'PU.state.previewMode.selectedWildcards = {}; PU.state.previewMode.lockedValues = {}; PU.rightPanel.render()' 2>/dev/null
 sleep 1
 
 # Pin two different wildcards by clicking chips from different entries
@@ -386,13 +391,13 @@ agent-browser eval '
 ' 2>/dev/null
 sleep 2
 
-MULTI_PIN_COUNT=$(agent-browser eval '
-    var sw = PU.state.previewMode.selectedWildcards["*"];
-    sw ? Object.keys(sw).length : 0
+MULTI_LOCK_COUNT=$(agent-browser eval '
+    var lv = PU.state.previewMode.lockedValues;
+    Object.keys(lv).length
 ' 2>/dev/null | tr -d '"')
-[ "$MULTI_PIN_COUNT" -ge 2 ] 2>/dev/null \
-    && log_pass "Multiple wildcards pinned: $MULTI_PIN_COUNT" \
-    || log_pass "Pinned $MULTI_PIN_COUNT wildcards (may have fewer non-active in-window chips)"
+[ "$MULTI_LOCK_COUNT" -ge 2 ] 2>/dev/null \
+    && log_pass "Multiple wildcards locked: $MULTI_LOCK_COUNT" \
+    || log_pass "Locked $MULTI_LOCK_COUNT wildcards (may have fewer non-active in-window chips)"
 
 # ============================================================================
 # CLEANUP
@@ -400,8 +405,8 @@ MULTI_PIN_COUNT=$(agent-browser eval '
 echo ""
 log_info "CLEANUP"
 
-# Clear pins
-agent-browser eval 'PU.state.previewMode.selectedWildcards = {}' 2>/dev/null
+# Clear locks and pins
+agent-browser eval 'PU.state.previewMode.selectedWildcards = {}; PU.state.previewMode.lockedValues = {}' 2>/dev/null
 
 agent-browser close 2>/dev/null || true
 log_pass "Browser closed"
