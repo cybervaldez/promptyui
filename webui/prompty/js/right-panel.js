@@ -648,6 +648,13 @@ PU.rightPanel = {
             pathHtml = `<span class="pu-rp-wc-path">${esc(wc.path)}</span>`;
         }
 
+        // Overlap warning: wildcard exists in both local and theme/ext sources
+        let overlapWarning = '';
+        if (wc.source === 'override') {
+            const themePath = PU.rightPanel._buildThemeSourceMap()[name] || PU.rightPanel._getExtWildcardPath(name);
+            overlapWarning = `<span class="pu-rp-wc-overlap-warn" title="Also defined in ${esc(themePath)} — local values used in preview, build may merge both">&#9888;</span>`;
+        }
+
         const wrappedIdx = values.length > 0 ? activeIdx % values.length : 0;
 
         // Helper: render a single chip with operation replacement applied
@@ -718,6 +725,7 @@ PU.rightPanel = {
             <div class="pu-rp-wc-entry-header">
                 <span class="pu-rp-wc-name">${safeName}${overrideMark}</span>
                 ${pathHtml}
+                ${overlapWarning}
                 ${focusIcon}
             </div>
             <div class="pu-rp-wc-values">${chipsHtml}</div>

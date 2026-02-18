@@ -185,13 +185,16 @@ PU.editor = {
     /**
      * Build a map of wildcard name → Set of block paths that contain it.
      * Queries [data-wc] spans in the rendered blocks and maps each to its
-     * closest .pu-block parent. Called after renderBlocks() completes.
+     * closest .pu-block parent. Then augments with theme wildcards from
+     * ext_text cache (maps theme wildcard → ext_text block path).
+     * Called after renderBlocks() completes.
      */
     _buildWildcardBlockMap() {
         const map = {};
         const container = document.querySelector('[data-testid="pu-blocks-container"]');
         if (!container) { PU.editor._wildcardToBlocks = map; return; }
 
+        // Phase 1: Scan data-wc spans in rendered blocks (covers wildcards in content)
         container.querySelectorAll('[data-wc]').forEach(span => {
             const block = span.closest('.pu-block');
             if (block && block.dataset.path !== undefined) {
@@ -200,6 +203,39 @@ PU.editor = {
                 map[wcName].add(block.dataset.path);
             }
         });
+
+        // Phase 2: Map theme wildcards to their ext_text block paths.
+        // Theme wildcards may not appear as __name__ in any content block,
+        // but they're still associated with the ext_text block that sources them.
+        const prompt = PU.helpers.getActivePrompt();
+        if (prompt && Array.isArray(prompt.text)) {
+            const cache = PU.state.previewMode._extTextCache || {};
+            const walkBlocks = (items, pathPrefix) => {
+                items.forEach((item, idx) => {
+                    const path = pathPrefix ? `${pathPrefix}.${idx}` : String(idx);
+                    if (item && 'ext_text' in item && item.ext_text) {
+                        // Find cached data for this ext_text
+                        const extName = item.ext_text;
+                        const job = PU.helpers.getActiveJob();
+                        const extPrefix = (prompt.ext) || (job && job.defaults && job.defaults.ext) || '';
+                        const needsPrefix = extPrefix && !extName.startsWith(extPrefix + '/');
+                        const cacheKey = needsPrefix ? `${extPrefix}/${extName}` : extName;
+                        const data = cache[cacheKey];
+                        if (data && data.wildcards) {
+                            for (const wc of data.wildcards) {
+                                if (wc.name) {
+                                    if (!map[wc.name]) map[wc.name] = new Set();
+                                    map[wc.name].add(path);
+                                }
+                            }
+                        }
+                    }
+                    if (item && item.after) walkBlocks(item.after, path);
+                });
+            };
+            walkBlocks(prompt.text, '');
+        }
+
         PU.editor._wildcardToBlocks = map;
     },
 

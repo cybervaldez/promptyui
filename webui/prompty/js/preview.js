@@ -254,11 +254,16 @@ PU.preview = {
             }
         }
 
-        // Step 2: Compute ext_text count
+        // Step 2: Compute ext_text count (warn on empty ext_text, once per name)
+        if (!PU.preview._emptyExtTextWarned) PU.preview._emptyExtTextWarned = new Set();
         let actualExtTextCount = 0;
         for (const extName of Object.keys(extTextData)) {
             const data = extTextData[extName];
             if (data.text && Array.isArray(data.text)) {
+                if (data.text.length === 0 && !PU.preview._emptyExtTextWarned.has(extName)) {
+                    PU.preview._emptyExtTextWarned.add(extName);
+                    PU.actions.showToast(`ext_text "${extName}" has no text values — check the path`, 'warning');
+                }
                 actualExtTextCount += data.text.length;
             }
         }

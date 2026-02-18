@@ -1707,6 +1707,14 @@ body {
     color: var(--pu-warning);
 }
 
+/* Overlap warning badge (wildcard exists in both local and theme) */
+.pu-rp-wc-overlap-warn {
+    font-size: 10px;
+    color: var(--pu-warning);
+    cursor: help;
+    opacity: 0.7;
+}
+
 /* Focused entry container accent */
 .pu-rp-wc-entry.pu-wc-entry-focused {
     background: rgba(203, 145, 47, 0.06);
@@ -2932,6 +2940,10 @@ body {
 
 .pu-toast.error {
     border-color: var(--pu-error);
+}
+
+.pu-toast.warning {
+    border-color: var(--pu-warning);
 }
 
 @keyframes pu-toast-in {
