@@ -26,15 +26,18 @@ PU.rightPanel = {
             }
         });
 
-        // Escape key: clear all locked values (power-user shortcut)
+        // Escape key: clear focus first, then locks (power-user shortcut)
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && !(e.target && e.target.closest && e.target.closest('input, textarea, [contenteditable]'))) {
+                // Priority 1: clear wildcard focus
+                if (PU.state.previewMode.focusedWildcards.length > 0) {
+                    PU.rightPanel.clearFocus();
+                    return;
+                }
+                // Priority 2: clear all locks
                 const locked = PU.state.previewMode.lockedValues;
                 if (Object.keys(locked).length > 0) {
-                    // Clear all locks and revert all per-wildcard max overrides
                     PU.state.previewMode.lockedValues = {};
-                    PU.state.previewMode.wildcardMaxOverrides = {};
-                    // Clear global pin overrides
                     const sw = PU.state.previewMode.selectedWildcards;
                     if (sw['*']) delete sw['*'];
                     PU.rightPanel.render();
@@ -228,19 +231,21 @@ PU.rightPanel = {
             wildcardCounts[name] = fullLookup[name].length;
         }
         const extTextCount = PU.state.previewMode.extTextCount || 1;
-        const extTextMax = PU.state.previewMode.extTextMax || 1;
         const compositionId = PU.state.previewMode.compositionId;
-        const wcMax = PU.state.previewMode.wildcardsMax;
-        const wcMaxMap = PU.state.previewMode.wildcardMaxOverrides || null;
-        const hasOverrides = wcMaxMap && Object.keys(wcMaxMap).length > 0;
 
-        let odometerIndices, bucketInfo = null;
-        if (wcMax > 0 || hasOverrides) {
-            const br = PU.preview.bucketCompositionToIndices(compositionId, extTextCount, extTextMax, wildcardCounts, wcMax, wcMaxMap);
-            odometerIndices = br.wcValueIndices;
-            bucketInfo = { wcMax, wcMaxMap, bucketResult: br, wildcardCounts };
-        } else {
-            [, odometerIndices] = PU.preview.compositionToIndices(compositionId, extTextCount, wildcardCounts);
+        let odometerIndices;
+        [, odometerIndices] = PU.preview.compositionToIndices(compositionId, extTextCount, wildcardCounts);
+
+        // Resolve active indices: prefer selectedWildcards['*'] overrides over odometer
+        const globalOverrides = (PU.state.previewMode.selectedWildcards || {})['*'] || {};
+        const resolvedIndices = {};
+        for (const name of allNames) {
+            let idx = odometerIndices[name] || 0;
+            if (globalOverrides[name] !== undefined) {
+                const overrideIdx = fullLookup[name].indexOf(globalOverrides[name]);
+                if (overrideIdx >= 0) idx = overrideIdx;
+            }
+            resolvedIndices[name] = idx;
         }
 
         // Collect locked values and block-level pins
@@ -262,7 +267,7 @@ PU.rightPanel = {
             html += PU.rightPanel._renderDivider('shared');
             html += '<div class="pu-rp-wc-section">';
             for (const wc of sharedWildcards) {
-                html += PU.rightPanel._renderWcEntry(wc, fullLookup[wc.name], odometerIndices[wc.name] || 0, bucketInfo, blockPins, lockedValues);
+                html += PU.rightPanel._renderWcEntry(wc, fullLookup[wc.name], resolvedIndices[wc.name] || 0, blockPins, lockedValues);
             }
             html += '</div>';
         }
@@ -272,7 +277,7 @@ PU.rightPanel = {
             html += PU.rightPanel._renderDivider('local');
             html += '<div class="pu-rp-wc-section">';
             for (const wc of localWildcards) {
-                html += PU.rightPanel._renderWcEntry(wc, fullLookup[wc.name], odometerIndices[wc.name] || 0, bucketInfo, blockPins, lockedValues);
+                html += PU.rightPanel._renderWcEntry(wc, fullLookup[wc.name], resolvedIndices[wc.name] || 0, blockPins, lockedValues);
             }
             html += '</div>';
         }
@@ -283,19 +288,18 @@ PU.rightPanel = {
         PU.rightPanel._updateTopBar(prompt, allNames.length);
 
         // Attach chip click handlers
-        // In-window: toggle lock (constrains navigation + sets preview)
-        // Out-of-window: lock check → bucket jump or expand popover
+        // Click = preview (update selectedWildcards['*'] + re-render)
+        // Ctrl+Click = toggle lock (add/remove from lockedValues)
         container.querySelectorAll('.pu-rp-wc-v').forEach(chip => {
-            chip.addEventListener('click', () => {
+            chip.addEventListener('click', (e) => {
                 const wcName = chip.dataset.wcName;
                 const val = chip.dataset.value;
-                const inWindow = chip.dataset.inWindow === 'true';
                 const idx = parseInt(chip.dataset.idx, 10);
                 if (wcName && val !== undefined) {
-                    if (inWindow) {
+                    if (e.ctrlKey || e.metaKey) {
                         PU.rightPanel.toggleLock(wcName, val);
                     } else {
-                        PU.rightPanel.handleOutOfWindowClick(wcName, val, idx);
+                        PU.rightPanel.previewValue(wcName, val, idx);
                     }
                 }
             });
@@ -307,6 +311,34 @@ PU.rightPanel = {
                 PU.rightPanel.showReplacePopover(chip, e);
             });
         });
+
+        // Hover wildcard entry → highlight associated blocks in editor
+        // (skip transient hover highlight when a focus is already pinned)
+        container.querySelectorAll('.pu-rp-wc-entry').forEach(entry => {
+            entry.addEventListener('mouseenter', () => {
+                if (PU.state.previewMode.focusedWildcards.length > 0) return;
+                const wcName = entry.dataset.wcName;
+                if (wcName) PU.rightPanel._highlightBlocksForWildcard(wcName);
+            });
+            entry.addEventListener('mouseleave', () => {
+                if (PU.state.previewMode.focusedWildcards.length > 0) return;
+                PU.rightPanel._clearBlockHighlights();
+            });
+        });
+
+        // Bulb icon click → toggle persistent focus mode for wildcard (multi-focus OR)
+        container.querySelectorAll('.pu-wc-focus-icon').forEach(icon => {
+            icon.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const wcName = icon.dataset.wcName;
+                if (wcName) PU.rightPanel.toggleFocus(wcName);
+            });
+        });
+
+        // Re-apply persistent focus if active
+        if (PU.state.previewMode.focusedWildcards.length > 0) {
+            PU.rightPanel._applyFocusMulti();
+        }
     },
 
     /**
@@ -376,6 +408,210 @@ PU.rightPanel = {
         return '';
     },
 
+    // ============================================
+    // Wildcard ↔ Block Highlight (hover mapping)
+    // ============================================
+
+    /**
+     * Highlight editor blocks that use the given wildcard.
+     * Matching blocks get .pu-highlight-match, their ancestors get .pu-highlight-parent,
+     * all others dim via the .pu-wc-highlighting container class.
+     */
+    _highlightBlocksForWildcard(wcName) {
+        const blocksContainer = document.querySelector('[data-testid="pu-blocks-container"]');
+        if (!blocksContainer) return;
+
+        const map = PU.editor._wildcardToBlocks;
+        if (!map) return;
+
+        const matchingPaths = map[wcName] || new Set();
+
+        // Compute parent paths for all matching blocks
+        const parentPaths = new Set();
+        for (const path of matchingPaths) {
+            const parts = path.split('.');
+            for (let i = 1; i < parts.length; i++) {
+                parentPaths.add(parts.slice(0, i).join('.'));
+            }
+        }
+        // Match takes priority over parent
+        for (const path of matchingPaths) {
+            parentPaths.delete(path);
+        }
+
+        // Add container-level class (drives default dimming via CSS)
+        blocksContainer.classList.add('pu-wc-highlighting');
+
+        // Apply per-block classes
+        blocksContainer.querySelectorAll('.pu-block').forEach(block => {
+            const path = block.dataset.path;
+            block.classList.remove('pu-highlight-match', 'pu-highlight-parent');
+            if (matchingPaths.has(path)) {
+                block.classList.add('pu-highlight-match');
+            } else if (parentPaths.has(path)) {
+                block.classList.add('pu-highlight-parent');
+            }
+        });
+    },
+
+    /**
+     * Remove all block highlight classes.
+     */
+    _clearBlockHighlights() {
+        const blocksContainer = document.querySelector('[data-testid="pu-blocks-container"]');
+        if (!blocksContainer) return;
+
+        blocksContainer.classList.remove('pu-wc-highlighting');
+        blocksContainer.querySelectorAll('.pu-block').forEach(block => {
+            block.classList.remove('pu-highlight-match', 'pu-highlight-parent');
+        });
+    },
+
+    // ============================================
+    // Wildcard Focus Mode (bulb toggle, multi-focus OR)
+    // ============================================
+
+    /**
+     * Toggle persistent focus for a wildcard (multi-focus OR union).
+     * Each bulb click adds/removes a wildcard from the focused set.
+     * Visible blocks = union of all focused wildcards' blocks.
+     */
+    toggleFocus(wcName) {
+        const focused = PU.state.previewMode.focusedWildcards;
+        const idx = focused.indexOf(wcName);
+        if (idx >= 0) {
+            // Remove from set
+            focused.splice(idx, 1);
+        } else {
+            // Add to set
+            focused.push(wcName);
+        }
+
+        if (focused.length === 0) {
+            PU.rightPanel._removeFocus();
+        } else {
+            PU.rightPanel._applyFocusMulti();
+        }
+        PU.rightPanel.render();
+    },
+
+    /**
+     * Clear all wildcard focus — restore all blocks.
+     */
+    clearFocus() {
+        PU.state.previewMode.focusedWildcards = [];
+        PU.rightPanel._removeFocus();
+        PU.rightPanel.render();
+    },
+
+    /**
+     * Apply multi-focus mode (OR union): show blocks matching ANY focused wildcard.
+     */
+    _applyFocusMulti() {
+        const blocksContainer = document.querySelector('[data-testid="pu-blocks-container"]');
+        if (!blocksContainer) return;
+
+        const map = PU.editor._wildcardToBlocks;
+        if (!map) return;
+
+        const focused = PU.state.previewMode.focusedWildcards;
+        if (focused.length === 0) return;
+
+        // Union of all matching paths across focused wildcards
+        const matchingPaths = new Set();
+        for (const wcName of focused) {
+            const paths = map[wcName] || new Set();
+            for (const p of paths) matchingPaths.add(p);
+        }
+
+        // Compute parent paths
+        const parentPaths = new Set();
+        for (const path of matchingPaths) {
+            const parts = path.split('.');
+            for (let i = 1; i < parts.length; i++) {
+                parentPaths.add(parts.slice(0, i).join('.'));
+            }
+        }
+        for (const path of matchingPaths) {
+            parentPaths.delete(path);
+        }
+
+        // Add focus class to container
+        blocksContainer.classList.add('pu-wc-focus-active');
+        blocksContainer.classList.remove('pu-wc-highlighting');
+
+        // Classify blocks
+        let hiddenCount = 0;
+        let totalBlocks = 0;
+        blocksContainer.querySelectorAll('.pu-block').forEach(block => {
+            const path = block.dataset.path;
+            totalBlocks++;
+            block.classList.remove('pu-highlight-match', 'pu-highlight-parent', 'pu-focus-hidden');
+            if (matchingPaths.has(path)) {
+                block.classList.add('pu-highlight-match');
+            } else if (parentPaths.has(path)) {
+                block.classList.add('pu-highlight-parent');
+            } else {
+                block.classList.add('pu-focus-hidden');
+                if (!path.includes('.')) hiddenCount++;
+            }
+        });
+
+        // Show banner with all focused names + count
+        const visibleCount = totalBlocks - document.querySelectorAll('.pu-block.pu-focus-hidden').length;
+        PU.rightPanel._showFocusBanner(focused, visibleCount, totalBlocks);
+    },
+
+    /**
+     * Remove focus mode — restore all blocks, remove banner.
+     */
+    _removeFocus() {
+        const blocksContainer = document.querySelector('[data-testid="pu-blocks-container"]');
+        if (!blocksContainer) return;
+
+        blocksContainer.classList.remove('pu-wc-focus-active', 'pu-wc-highlighting');
+        blocksContainer.querySelectorAll('.pu-block').forEach(block => {
+            block.classList.remove('pu-highlight-match', 'pu-highlight-parent', 'pu-focus-hidden');
+        });
+
+        PU.rightPanel._hideFocusBanner();
+    },
+
+    /**
+     * Show the focus mode banner above the blocks container.
+     * Shows all focused wildcard names and block counts.
+     */
+    _showFocusBanner(focusedNames, visibleCount, totalCount) {
+        let banner = document.querySelector('[data-testid="pu-focus-banner"]');
+        const blocksContainer = document.querySelector('[data-testid="pu-blocks-container"]');
+        if (!blocksContainer) return;
+
+        if (!banner) {
+            banner = document.createElement('div');
+            banner.className = 'pu-focus-banner';
+            banner.dataset.testid = 'pu-focus-banner';
+            blocksContainer.parentNode.insertBefore(banner, blocksContainer);
+        }
+
+        const esc = PU.blocks.escapeHtml;
+        const namesHtml = focusedNames.map(n => `<b>__${esc(n)}__</b>`).join(', ');
+        const countText = ` &middot; ${visibleCount}/${totalCount} blocks`;
+        banner.innerHTML = `<span class="pu-focus-banner-text">&#128161; ${namesHtml}${countText}</span><button class="pu-focus-banner-close" data-testid="pu-focus-banner-close" title="Clear all focus">&times;</button>`;
+        banner.style.display = 'flex';
+
+        banner.querySelector('.pu-focus-banner-close').addEventListener('click', () => {
+            PU.rightPanel.clearFocus();
+        });
+    },
+
+    /**
+     * Hide the focus mode banner.
+     */
+    _hideFocusBanner() {
+        const banner = document.querySelector('[data-testid="pu-focus-banner"]');
+        if (banner) banner.style.display = 'none';
+    },
+
     /**
      * Render a centered line divider: ─── label ───
      */
@@ -388,12 +624,11 @@ PU.rightPanel = {
     },
 
     /**
-     * Render a single wildcard entry with header (name + path) + bordered chips.
-     * Bucket mode: in-window chips inside a frame, out-of-window chips outside.
+     * Render a single wildcard entry with header (name + path) + flat chips.
+     * Click = preview, Ctrl+Click = lock/unlock.
      * Operation mode: replaced-val chips show replacement text with asterisk.
-     * No filter/deselected logic — chips navigate on click.
      */
-    _renderWcEntry(wc, values, activeIdx, bucketInfo, blockPins, lockedValues) {
+    _renderWcEntry(wc, values, activeIdx, blockPins, lockedValues) {
         const esc = PU.blocks.escapeHtml;
         const name = wc.name;
         const safeName = esc(name);
@@ -402,9 +637,7 @@ PU.rightPanel = {
         // Operation mappings for this wildcard
         const opMappings = PU.rightPanel._getOpMappings(name);
 
-        // Block-pin asterisk indicator
-        const hasBlockPin = blockPins && blockPins[name];
-        const pinIndicator = hasBlockPin ? '<span class="pin-indicator" title="Pinned via block dropdown">*</span>' : '';
+        // Block-level per-block override indicator (shown as active chips instead of asterisk)
 
         // Override mark on name if operation has mappings for this wildcard
         const overrideMark = opMappings ? '<span class="pu-rp-wc-override-mark" title="Operation has replacements for this wildcard">*</span>' : '';
@@ -418,7 +651,7 @@ PU.rightPanel = {
         const wrappedIdx = values.length > 0 ? activeIdx % values.length : 0;
 
         // Helper: render a single chip with operation replacement applied
-        const renderChip = (originalValue, i, inWindow, isOutWindow) => {
+        const renderChip = (originalValue, i) => {
             let displayValue = originalValue;
             let cls = 'pu-rp-wc-v';
             let isReplaced = false;
@@ -431,9 +664,9 @@ PU.rightPanel = {
                 extraAttrs += ` data-original="${esc(originalValue)}"`;
             }
 
-            if (isOutWindow) {
-                cls += ' out-window';
-            } else if (i === wrappedIdx) {
+            // Active: global odometer position OR per-block override value
+            const isBlockActive = blockPins[name] && blockPins[name].has(originalValue);
+            if (i === wrappedIdx || isBlockActive) {
                 cls += ' active';
             }
 
@@ -444,44 +677,21 @@ PU.rightPanel = {
             const asterisk = isReplaced ? '<span class="asterisk">*</span>' : '';
             const lockIcon = isLocked ? '<span class="lock-icon">&#128274;</span>' : '';
 
-            // Tooltip: locked state > replacement > default
+            // Tooltip: locked > replacement > default
             let titleAttr;
             if (isReplaced) {
                 titleAttr = ` title="replaces &quot;${esc(originalValue)}&quot;"`;
-            } else if (isOutWindow) {
-                titleAttr = ` title="Click to lock this value (may expand bucket)"`;
             } else if (isLocked) {
-                titleAttr = ` title="Locked — click to unlock"`;
+                titleAttr = ` title="Locked — Ctrl+Click to unlock"`;
             } else {
-                titleAttr = ` title="Click to lock this value"`;
+                titleAttr = ` title="Click to preview, Ctrl+Click to lock"`;
             }
 
-            return `<span class="${cls}" data-testid="pu-rp-wc-chip-${safeName}-${i}" data-wc-name="${safeName}" data-value="${esc(originalValue)}" data-in-window="${inWindow}" data-idx="${i}"${titleAttr}${extraAttrs}>${lockIcon}${esc(displayValue)}${asterisk}</span>`;
+            return `<span class="${cls}" data-testid="pu-rp-wc-chip-${safeName}-${i}" data-wc-name="${safeName}" data-value="${esc(originalValue)}" data-idx="${i}"${titleAttr}${extraAttrs}>${lockIcon}${esc(displayValue)}${asterisk}</span>`;
         };
 
-        let chipsHtml;
-        // Per-wildcard effective max for bucket window
-        const effectiveWcMax = (bucketInfo && bucketInfo.wcMaxMap && bucketInfo.wcMaxMap[name]) || (bucketInfo && bucketInfo.wcMax) || 0;
-        if (bucketInfo && effectiveWcMax > 0 && values.length > effectiveWcMax) {
-            const bucketIdx = bucketInfo.bucketResult.wcBucketIndices[name] || 0;
-            const bucketStart = bucketIdx * effectiveWcMax;
-            const bucketEnd = Math.min(bucketStart + effectiveWcMax, values.length);
-
-            let inWindowChips = '';
-            for (let i = bucketStart; i < bucketEnd; i++) {
-                inWindowChips += renderChip(values[i], i, 'true', false);
-            }
-            const frameHtml = `<div class="pu-rp-wc-window-frame">${inWindowChips}</div>`;
-
-            let outWindowChips = '';
-            for (let i = 0; i < values.length; i++) {
-                if (i >= bucketStart && i < bucketEnd) continue;
-                outWindowChips += renderChip(values[i], i, 'false', true);
-            }
-            chipsHtml = frameHtml + outWindowChips;
-        } else {
-            chipsHtml = values.map((v, i) => renderChip(v, i, 'true', false)).join('');
-        }
+        // All chips rendered flat — no bucket window framing
+        const chipsHtml = values.map((v, i) => renderChip(v, i)).join('');
 
         // Unmatched operation rules warning
         let unmatchedHtml = '';
@@ -501,10 +711,14 @@ PU.rightPanel = {
             }
         }
 
-        return `<div class="pu-rp-wc-entry" data-testid="pu-rp-wc-entry-${safeName}">
+        const isFocused = PU.state.previewMode.focusedWildcards.includes(name);
+        const focusIcon = `<span class="pu-wc-focus-icon${isFocused ? ' active' : ''}" data-testid="pu-wc-focus-${safeName}" data-wc-name="${safeName}" title="${isFocused ? 'Remove from focus' : 'Illuminate: show blocks using this wildcard'}">&#128161;</span>`;
+
+        return `<div class="pu-rp-wc-entry${isFocused ? ' pu-wc-entry-focused' : ''}" data-testid="pu-rp-wc-entry-${safeName}" data-wc-name="${safeName}">
             <div class="pu-rp-wc-entry-header">
-                <span class="pu-rp-wc-name">${safeName}${overrideMark}${pinIndicator}</span>
+                <span class="pu-rp-wc-name">${safeName}${overrideMark}</span>
                 ${pathHtml}
+                ${focusIcon}
             </div>
             <div class="pu-rp-wc-values">${chipsHtml}</div>
             ${unmatchedHtml}
@@ -528,33 +742,12 @@ PU.rightPanel = {
             return;
         }
 
-        const { wcNames, wildcardCounts, extTextCount, extTextMax, wcMax, wcMaxMap, total } = PU.buildComposition._getCompositionParams();
-        const compId = PU.state.previewMode.compositionId;
-        const effectiveId = total > 0 ? compId % total : 0;
-        const effectiveMaxFn = (n) => (wcMaxMap && wcMaxMap[n]) || wcMax;
+        const { wcNames, wildcardCounts, extTextCount, total } = PU.buildComposition._getCompositionParams();
+        const lockedValues = PU.state.previewMode.lockedValues || {};
 
-        // Bucket window hint
-        let windowHint = '';
-        if (wcMax > 0 || (wcMaxMap && Object.keys(wcMaxMap).length > 0)) {
-            const sortedWc = Object.keys(wildcardCounts).sort();
-            const extBucketCount = extTextMax > 0 ? Math.ceil(extTextCount / extTextMax) : 1;
-            const bucketDims = [extBucketCount, ...sortedWc.map(n => { const em = effectiveMaxFn(n); return em > 0 ? Math.ceil(wildcardCounts[n] / em) : 1; })];
-            const totalBuckets = bucketDims.reduce((a, b) => a * b, 1);
-            // Compute current bucket index
-            const br = PU.preview.bucketCompositionToIndices(compId, extTextCount, extTextMax, wildcardCounts, wcMax, wcMaxMap);
-            // Compute overall bucket number from bucket indices
-            const bucketIndices = [br.extBucketIdx, ...sortedWc.map(n => br.wcBucketIndices[n] || 0)];
-            let currentBucket = 0;
-            let multiplier = 1;
-            for (let i = bucketDims.length - 1; i >= 0; i--) {
-                currentBucket += bucketIndices[i] * multiplier;
-                multiplier *= bucketDims[i];
-            }
-            windowHint = ` <span class="pu-rp-ops-nav-window">(window ${currentBucket + 1}/${totalBuckets})</span>`;
-        }
-
-        // Navigation label: "N / total (window X/M)"
-        const navLabel = `<b>${(effectiveId + 1).toLocaleString()}</b> / <b>${total.toLocaleString()}</b>${windowHint}`;
+        // Composition count: product of locked value counts (or 1 per wildcard if unlocked)
+        // This IS the export batch size
+        const lockedTotal = PU.rightPanel._computeLockedTotal(wildcardCounts, extTextCount, lockedValues);
 
         // Per-wildcard dimension summary
         let dimsHtml = '';
@@ -563,21 +756,15 @@ PU.rightPanel = {
             const sortedWc = wcNames.slice().sort();
 
             if (extTextCount > 1) {
-                if (extTextMax > 0 && extTextCount > extTextMax) {
-                    const buckets = Math.ceil(extTextCount / extTextMax);
-                    dimParts.push(`<span class="pu-rp-ops-dim"><span class="dim-bucket">${buckets}</span><span class="dim-sep">/</span>${extTextCount} txt</span>`);
-                } else {
-                    dimParts.push(`<span class="pu-rp-ops-dim">${extTextCount} txt</span>`);
-                }
+                dimParts.push(`<span class="pu-rp-ops-dim">${extTextCount} txt</span>`);
             }
 
             for (const n of sortedWc) {
                 const count = wildcardCounts[n];
-                const em = effectiveMaxFn(n);
+                const locked = lockedValues[n];
                 const abbr = n.length > 4 ? n.slice(0, 3) : n;
-                if (em > 0 && count > em) {
-                    const buckets = Math.ceil(count / em);
-                    dimParts.push(`<span class="pu-rp-ops-dim"><span class="dim-bucket">${buckets}</span><span class="dim-sep">/</span>${count} ${PU.blocks.escapeHtml(abbr)}</span>`);
+                if (locked && locked.length > 0) {
+                    dimParts.push(`<span class="pu-rp-ops-dim"><b>${locked.length}</b><span class="dim-sep">/</span>${count} ${PU.blocks.escapeHtml(abbr)}</span>`);
                 } else {
                     dimParts.push(`<span class="pu-rp-ops-dim">${count} ${PU.blocks.escapeHtml(abbr)}</span>`);
                 }
@@ -588,28 +775,15 @@ PU.rightPanel = {
 
         // Size estimate
         const sampleSize = 200;
-        const sizeStr = PU.buildComposition._formatBytes(sampleSize * total);
-
-        // Bucket count for bottom row
-        let bucketLabel = '';
-        if (wcMax > 0 || (wcMaxMap && Object.keys(wcMaxMap).length > 0)) {
-            const sortedWc = Object.keys(wildcardCounts).sort();
-            const extBucketCount = extTextMax > 0 ? Math.ceil(extTextCount / extTextMax) : 1;
-            const bucketDims = [extBucketCount, ...sortedWc.map(n => { const em = effectiveMaxFn(n); return em > 0 ? Math.ceil(wildcardCounts[n] / em) : 1; })];
-            const totalBuckets = bucketDims.reduce((a, b) => a * b, 1);
-            bucketLabel = `${totalBuckets} buckets <span class="pu-rp-ops-total-detail">&middot; </span>`;
-        }
+        const sizeStr = PU.buildComposition._formatBytes(sampleSize * lockedTotal);
 
         container.innerHTML = `
             <div class="pu-rp-ops-nav">
-                <button class="pu-rp-ops-nav-btn" data-testid="pu-rp-nav-prev" onclick="PU.rightPanel.navigate(-1)" title="Previous">&lsaquo;</button>
-                <span class="pu-rp-ops-nav-text" data-testid="pu-rp-nav-label">${navLabel}</span>
-                <button class="pu-rp-ops-nav-btn" data-testid="pu-rp-nav-next" onclick="PU.rightPanel.navigate(1)" title="Next">&rsaquo;</button>
-                <button class="pu-rp-ops-nav-btn" data-testid="pu-rp-nav-shuffle" onclick="PU.rightPanel.shuffle()" title="Shuffle">&#8635;</button>
+                <span class="pu-rp-ops-nav-text" data-testid="pu-rp-nav-label"><b>${lockedTotal.toLocaleString()}</b> compositions</span>
             </div>
             ${dimsHtml ? `<div class="pu-rp-ops-dims" data-testid="pu-rp-ops-dims">${dimsHtml}</div>` : ''}
             <div class="pu-rp-ops-bottom-row">
-                <span class="pu-rp-ops-total" data-testid="pu-rp-ops-total">${bucketLabel}${total.toLocaleString()} compositions</span>
+                <span class="pu-rp-ops-total" data-testid="pu-rp-ops-total">${lockedTotal.toLocaleString()} compositions</span>
                 <span class="pu-rp-ops-size" data-testid="pu-rp-ops-size">~${sizeStr}</span>
                 <button class="pu-rp-ops-export-btn" data-testid="pu-rp-export-btn" onclick="PU.buildComposition.exportTxt()">Export${PU.state.buildComposition.activeOperation ? `<span class="variant-label">&middot; ${PU.blocks.escapeHtml(PU.state.buildComposition.activeOperation)}</span>` : ' .txt'}</button>
             </div>
@@ -653,7 +827,9 @@ PU.rightPanel = {
         const exportBtn = document.querySelector('[data-testid="pu-rp-export-btn"]');
         if (!sizeEl) return;
 
-        const { total } = PU.buildComposition._getCompositionParams();
+        const { wildcardCounts, extTextCount } = PU.buildComposition._getCompositionParams();
+        const lockedValues = PU.state.previewMode.lockedValues || {};
+        const total = PU.rightPanel._computeLockedTotal(wildcardCounts, extTextCount, lockedValues);
         const sampleBytes = new Blob([sampleText]).size;
         const headerBytes = 40;
         const totalBytes = (sampleBytes + headerBytes + 2) * total;
@@ -681,7 +857,6 @@ PU.rightPanel = {
         return {
             composition: PU.state.previewMode.compositionId,
             locked_values: PU.helpers.deepClone(PU.state.previewMode.lockedValues),
-            wildcard_overrides: PU.helpers.deepClone(PU.state.previewMode.wildcardMaxOverrides),
             active_operation: PU.state.buildComposition.activeOperation || null
         };
     },
@@ -710,9 +885,6 @@ PU.rightPanel = {
                 delete PU.state.previewMode._compositionFromUrl;
                 if (promptSession.locked_values && typeof promptSession.locked_values === 'object') {
                     PU.state.previewMode.lockedValues = promptSession.locked_values;
-                }
-                if (promptSession.wildcard_overrides && typeof promptSession.wildcard_overrides === 'object') {
-                    PU.state.previewMode.wildcardMaxOverrides = promptSession.wildcard_overrides;
                 }
                 if (promptSession.active_operation !== undefined) {
                     const opName = promptSession.active_operation;
@@ -755,7 +927,6 @@ PU.rightPanel = {
         if (current.composition !== baseline.composition) return true;
         if (current.active_operation !== baseline.active_operation) return true;
         if (JSON.stringify(current.locked_values) !== JSON.stringify(baseline.locked_values)) return true;
-        if (JSON.stringify(current.wildcard_overrides) !== JSON.stringify(baseline.wildcard_overrides)) return true;
 
         return false;
     },
@@ -782,47 +953,29 @@ PU.rightPanel = {
     },
 
     // ============================================
-    // Navigation
+    // Lock-based composition
     // ============================================
 
     /**
-     * Navigate to prev/next composition (simple increment/decrement, wraps around).
+     * Compute total compositions based on locked values.
+     * With 0 locks: count = 1 (just the current preview combo).
+     * With locks: count = product of locked counts per wildcard × ext_text factor.
      */
-    async navigate(direction) {
-        const { total } = PU.buildComposition._getCompositionParams();
-        if (total <= 0) return;
-
-        let newId = PU.state.previewMode.compositionId + direction;
-        if (newId < 0) newId = total - 1;
-        if (newId >= total) newId = 0;
-
-        PU.state.previewMode.compositionId = newId;
-        PU.preview.clearStaleBlockOverrides();
-        PU.actions.updateUrl();
-        await PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
-        PU.rightPanel.render();
+    _computeLockedTotal(wildcardCounts, extTextCount, lockedValues) {
+        let total = Math.max(1, extTextCount);
+        const sortedWc = Object.keys(wildcardCounts).sort();
+        for (const n of sortedWc) {
+            const locked = lockedValues[n];
+            const effectiveDim = (locked && locked.length > 0) ? locked.length : 1;
+            total *= effectiveDim;
+        }
+        return total;
     },
 
     /**
-     * Jump to random composition.
-     */
-    async shuffle() {
-        const { total } = PU.buildComposition._getCompositionParams();
-        if (total <= 0) return;
-
-        const newId = Math.floor(Math.random() * total);
-        PU.state.previewMode.compositionId = newId;
-        PU.preview.clearStaleBlockOverrides();
-        PU.actions.updateUrl();
-        await PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
-        PU.rightPanel.render();
-    },
-
-    /**
-     * Toggle a locked wildcard value. In-window chips use this.
-     * Locked values constrain bucket navigation and set preview overrides.
-     * If the value is already locked, unlock it.
-     * When all locks for a wildcard are cleared, revert its per-wildcard max override.
+     * Toggle a locked wildcard value.
+     * Locked values define the Cartesian product dimensions for export.
+     * Click = preview (handled by previewValue), Ctrl+Click = lock (handled here).
      */
     async toggleLock(wcName, value) {
         const locked = PU.state.previewMode.lockedValues;
@@ -834,8 +987,6 @@ PU.rightPanel = {
             locked[wcName].splice(idx, 1);
             if (locked[wcName].length === 0) {
                 delete locked[wcName];
-                // Revert per-wildcard max override when all locks cleared
-                delete PU.state.previewMode.wildcardMaxOverrides[wcName];
             }
         } else {
             // Lock this value
@@ -854,325 +1005,41 @@ PU.rightPanel = {
             }
         }
 
-        // Re-render blocks with new override (suppress transitions)
+        // Re-render blocks instantly (no transitions)
         const container = document.querySelector('[data-testid="pu-blocks-container"]');
         if (container) container.classList.add('pu-no-transition');
         await PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
         if (container) {
-            container.offsetHeight;
-            container.classList.remove('pu-no-transition');
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                container.classList.remove('pu-no-transition');
+            }));
         }
         PU.rightPanel.render();
     },
 
     /**
-     * Handle out-of-window chip click.
-     * Locks the value. If the locked value's bucket differs from current,
-     * check if a composition exists that satisfies all locks.
-     * If not, show expand popover to increase per-wildcard max.
+     * Preview a wildcard value — updates the global preview without locking.
+     * Sets selectedWildcards['*'][wcName] to the clicked value and re-renders.
      */
-    async handleOutOfWindowClick(wcName, value, idx) {
-        const locked = PU.state.previewMode.lockedValues;
-        const wcMax = PU.state.previewMode.wildcardsMax;
-        const wcMaxMap = PU.state.previewMode.wildcardMaxOverrides || {};
-        const effectiveMax = wcMaxMap[wcName] || wcMax;
-
-        // Lock the value first
-        if (!locked[wcName]) locked[wcName] = [];
-        if (!locked[wcName].includes(value)) {
-            locked[wcName].push(value);
-        }
-
-        // Check if all locked values for this wildcard fit in one bucket window
-        const lockedForWc = locked[wcName];
-        if (effectiveMax > 0 && lockedForWc.length > 0) {
-            // Get full values list for this wildcard
-            const fullLookup = PU.preview.getFullWildcardLookup();
-            const allValues = fullLookup[wcName] || [];
-
-            // Find indices of all locked values
-            const lockedIndices = lockedForWc.map(v => allValues.indexOf(v)).filter(i => i >= 0);
-            if (lockedIndices.length > 0) {
-                const minIdx = Math.min(...lockedIndices);
-                const maxIdx = Math.max(...lockedIndices);
-                const minBucket = Math.floor(minIdx / effectiveMax);
-                const maxBucket = Math.floor(maxIdx / effectiveMax);
-
-                if (minBucket !== maxBucket) {
-                    // Locked values span multiple buckets — need expansion
-                    const neededMax = maxIdx - (minBucket * effectiveMax) + 1;
-                    // Ensure the needed max covers all locked values from the first locked bucket
-                    const coverMax = Math.max(neededMax, lockedForWc.length);
-                    const expandTo = Math.min(allValues.length, Math.max(coverMax, effectiveMax + 1));
-
-                    PU.rightPanel._showExpandPopover(wcName, value, expandTo, allValues.length);
-                    return;
-                }
-            }
-        }
-
-        // Values fit in one bucket — navigate to that bucket
-        if (effectiveMax > 0) {
-            const targetBucketIdx = Math.floor(idx / effectiveMax);
-            const newId = PU.rightPanel.findCompositionForBuckets({ [wcName]: targetBucketIdx });
-            if (newId !== null) {
-                PU.state.previewMode.compositionId = newId;
-                PU.preview.clearStaleBlockOverrides();
-            }
-        }
-
-        // Sync preview override
+    async previewValue(wcName, value, idx) {
+        // Set preview override
         const sw = PU.state.previewMode.selectedWildcards;
         if (!sw['*']) sw['*'] = {};
         sw['*'][wcName] = value;
 
-        PU.actions.updateUrl();
+        // Re-render blocks instantly (no transitions)
         const blockContainer = document.querySelector('[data-testid="pu-blocks-container"]');
         if (blockContainer) blockContainer.classList.add('pu-no-transition');
         await PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
         if (blockContainer) {
-            blockContainer.offsetHeight;
-            blockContainer.classList.remove('pu-no-transition');
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                blockContainer.classList.remove('pu-no-transition');
+            }));
         }
         PU.rightPanel.render();
     },
 
-    /**
-     * Show the expand popover when locked values span multiple buckets.
-     * Offers to increase per-wildcard max to accommodate all locked values.
-     */
-    _showExpandPopover(wcName, clickedValue, expandTo, totalValues) {
-        const popover = document.querySelector('[data-testid="pu-rp-replace-popover"]');
-        if (!popover) return;
-
-        const esc = PU.blocks.escapeHtml;
-        const currentMax = PU.state.previewMode.wildcardMaxOverrides[wcName] || PU.state.previewMode.wildcardsMax;
-        const lockedCount = (PU.state.previewMode.lockedValues[wcName] || []).length;
-
-        // Compute composition counts for context
-        const { total: currentTotal } = PU.buildComposition._getCompositionParams();
-        // Estimate new total with expanded max
-        const tempOverrides = { ...PU.state.previewMode.wildcardMaxOverrides, [wcName]: expandTo };
-        const { wildcardCounts, extTextCount, extTextMax, wcMax } = PU.buildComposition._getCompositionParams();
-        const newTotal = PU.preview.computeEffectiveTotal(extTextCount, wildcardCounts, extTextMax, wcMax, tempOverrides);
-
-        const html = `
-            <div class="pu-rp-expand-popover-header">
-                <span class="pu-rp-expand-icon">&#128274;</span>
-                Locked values span multiple buckets
-            </div>
-            <div class="pu-rp-expand-popover-detail">
-                <b>${esc(wcName)}</b>: ${lockedCount} locked values need a window of ${expandTo} (currently ${currentMax})
-            </div>
-            <div class="pu-rp-expand-popover-impact">
-                Compositions: ${currentTotal.toLocaleString()} &rarr; ${newTotal.toLocaleString()}
-            </div>
-            <div class="pu-rp-replace-popover-actions">
-                <button class="pu-rp-replace-popover-btn cancel" data-testid="pu-rp-expand-cancel"
-                        onclick="PU.rightPanel._cancelExpand('${esc(wcName)}', '${esc(clickedValue)}')">Cancel</button>
-                <button class="pu-rp-replace-popover-btn apply" data-testid="pu-rp-expand-apply"
-                        onclick="PU.rightPanel._applyExpand('${esc(wcName)}', ${expandTo})">Expand to ${expandTo}</button>
-            </div>`;
-
-        popover.innerHTML = html;
-
-        // Position near the wildcard entry
-        const stream = document.querySelector('[data-testid="pu-rp-wc-stream"]');
-        const entry = document.querySelector(`[data-testid="pu-rp-wc-entry-${esc(wcName)}"]`);
-        if (stream && entry) {
-            const streamRect = stream.getBoundingClientRect();
-            const entryRect = entry.getBoundingClientRect();
-            popover.style.top = (entryRect.bottom - streamRect.top + stream.scrollTop + 4) + 'px';
-            popover.style.left = '8px';
-        }
-        popover.style.display = 'block';
-    },
-
-    /**
-     * Cancel expansion — remove the just-locked out-of-window value and hide popover.
-     */
-    async _cancelExpand(wcName, clickedValue) {
-        // Remove the value that triggered the expand
-        const locked = PU.state.previewMode.lockedValues;
-        if (locked[wcName]) {
-            const idx = locked[wcName].indexOf(clickedValue);
-            if (idx >= 0) locked[wcName].splice(idx, 1);
-            if (locked[wcName].length === 0) {
-                delete locked[wcName];
-                delete PU.state.previewMode.wildcardMaxOverrides[wcName];
-            }
-        }
-        PU.rightPanel.hideReplacePopover();
-        PU.rightPanel.render();
-    },
-
-    /**
-     * Apply per-wildcard max expansion and navigate to a bucket containing all locked values.
-     */
-    async _applyExpand(wcName, expandTo) {
-        PU.state.previewMode.wildcardMaxOverrides[wcName] = expandTo;
-
-        // Navigate to the bucket containing the first locked value
-        const locked = PU.state.previewMode.lockedValues[wcName] || [];
-        if (locked.length > 0) {
-            const fullLookup = PU.preview.getFullWildcardLookup();
-            const allValues = fullLookup[wcName] || [];
-            const firstLockedIdx = allValues.indexOf(locked[0]);
-            if (firstLockedIdx >= 0) {
-                const targetBucket = Math.floor(firstLockedIdx / expandTo);
-                const newId = PU.rightPanel.findCompositionForBuckets({ [wcName]: targetBucket });
-                if (newId !== null) {
-                    PU.state.previewMode.compositionId = newId;
-                    PU.preview.clearStaleBlockOverrides();
-                }
-            }
-        }
-
-        // Sync preview override to last locked value
-        const sw = PU.state.previewMode.selectedWildcards;
-        if (!sw['*']) sw['*'] = {};
-        if (locked.length > 0) {
-            sw['*'][wcName] = locked[locked.length - 1];
-        }
-
-        PU.rightPanel.hideReplacePopover();
-        PU.actions.updateUrl();
-        await PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
-        PU.rightPanel.render();
-    },
-
-    /**
-     * Handle chip click: navigate to a composition that includes this value.
-     * In-window chip: find composition in current bucket with that value active.
-     * Out-of-window chip: jump to the bucket containing that value.
-     */
-    async navigateToValue(wcName, value, inWindow, idx) {
-        const { wildcardCounts, extTextCount, extTextMax, wcMax, wcMaxMap, total } = PU.buildComposition._getCompositionParams();
-        if (total <= 0) return;
-        const effectiveMax = (wcMaxMap && wcMaxMap[wcName]) || wcMax;
-
-        if (!inWindow && effectiveMax > 0) {
-            // Out-of-window: jump to the bucket containing this value
-            const targetBucketIdx = Math.floor(idx / effectiveMax);
-            const newId = PU.rightPanel.findCompositionForBuckets({ [wcName]: targetBucketIdx });
-            if (newId !== null) {
-                PU.state.previewMode.compositionId = newId;
-                PU.preview.clearStaleBlockOverrides();
-                PU.actions.updateUrl();
-                await PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
-                PU.rightPanel.render();
-            }
-        } else {
-            // In-window (or no bucketing): find composition with this value active
-            const newId = PU.rightPanel.findCompositionForValue(wcName, idx);
-            if (newId !== null) {
-                PU.state.previewMode.compositionId = newId;
-                PU.preview.clearStaleBlockOverrides();
-                PU.actions.updateUrl();
-                await PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
-                PU.rightPanel.render();
-            }
-        }
-    },
-
-    /**
-     * Find compositionId that produces a specific value index for one wildcard,
-     * keeping all other wildcards at their current indices.
-     * Uses reverse odometer to compute the target composition.
-     * @param {string} wcName - Wildcard name to change
-     * @param {number} targetIdx - Target value index
-     * @returns {number|null} compositionId, or null if computation fails
-     */
-    findCompositionForValue(wcName, targetIdx) {
-        const { wildcardCounts, extTextCount, extTextMax, wcMax, wcMaxMap, total } = PU.buildComposition._getCompositionParams();
-        if (total <= 0) return null;
-
-        const compositionId = PU.state.previewMode.compositionId;
-        const sortedWc = Object.keys(wildcardCounts).sort();
-        const effectiveMaxFn = (n) => (wcMaxMap && wcMaxMap[n]) || wcMax;
-        const hasBucketing = wcMax > 0 || (wcMaxMap && Object.keys(wcMaxMap).length > 0);
-
-        if (hasBucketing) {
-            // Bucketed mode: navigate within current bucket
-            const br = PU.preview.bucketCompositionToIndices(compositionId, extTextCount, extTextMax, wildcardCounts, wcMax, wcMaxMap);
-            const currentIndices = br.wcValueIndices;
-
-            // Build effective counts (capped by bucket window, per-wildcard max)
-            const effectiveCounts = {};
-            for (const n of sortedWc) {
-                const em = effectiveMaxFn(n);
-                const bucketIdx = br.wcBucketIndices[n] || 0;
-                const bucketStart = bucketIdx * em;
-                effectiveCounts[n] = em > 0 ? Math.min(em, wildcardCounts[n] - bucketStart) : wildcardCounts[n];
-            }
-
-            // Compute the target's offset within its bucket
-            const wcPos = sortedWc.indexOf(wcName);
-            if (wcPos < 0) return null;
-            const em = effectiveMaxFn(wcName);
-            const bucketIdx = br.wcBucketIndices[wcName] || 0;
-            const bucketStart = bucketIdx * em;
-            const offsetInBucket = targetIdx - bucketStart;
-            if (offsetInBucket < 0 || offsetInBucket >= effectiveCounts[wcName]) return null;
-
-            // Build dims for reverse odometer
-            const extBucketCount = extTextMax > 0 ? Math.ceil(extTextCount / extTextMax) : 1;
-            const dims = [extBucketCount];
-            for (const n of sortedWc) {
-                dims.push(effectiveCounts[n]);
-            }
-
-            // Current offsets within buckets
-            const offsets = [br.extBucketIdx !== undefined ? (br.wcValueIndices._extTextOffset || 0) : 0];
-            for (const n of sortedWc) {
-                const bIdx = br.wcBucketIndices[n] || 0;
-                const emN = effectiveMaxFn(n);
-                const bStart = bIdx * emN;
-                offsets.push((currentIndices[n] || 0) - bStart);
-            }
-
-            // Override the target
-            offsets[wcPos + 1] = offsetInBucket;
-
-            // Reconstruct bucket-local compositionId
-            let localId = 0;
-            let multiplier = 1;
-            for (let i = dims.length - 1; i >= 0; i--) {
-                localId += (offsets[i] % Math.max(1, dims[i])) * multiplier;
-                multiplier *= Math.max(1, dims[i]);
-            }
-
-            // Reconstruct full compositionId from bucket indices + local offset
-            // The bucket-composition system uses: bucketCompositionId * localProduct + localOffset
-            const bucketDims = [extBucketCount, ...sortedWc.map(n => { const emN = effectiveMaxFn(n); return emN > 0 ? Math.ceil(wildcardCounts[n] / emN) : 1; })];
-            let bucketCompId = 0;
-            let bMult = 1;
-            for (let i = bucketDims.length - 1; i >= 0; i--) {
-                const bIdx = i === 0 ? br.extBucketIdx : (br.wcBucketIndices[sortedWc[i - 1]] || 0);
-                bucketCompId += bIdx * bMult;
-                bMult *= bucketDims[i];
-            }
-            const localProduct = dims.reduce((a, b) => a * Math.max(1, b), 1);
-            return bucketCompId * localProduct + localId;
-        } else {
-            // Non-bucketed: simple reverse odometer
-            const [extIdx, currentIndices] = PU.preview.compositionToIndices(compositionId, extTextCount, wildcardCounts);
-            const dims = [Math.max(1, extTextCount)];
-            const indices = [extIdx];
-            for (const n of sortedWc) {
-                dims.push(wildcardCounts[n]);
-                indices.push(n === wcName ? targetIdx : (currentIndices[n] || 0));
-            }
-
-            let newId = 0;
-            let multiplier = 1;
-            for (let i = dims.length - 1; i >= 0; i--) {
-                newId += (indices[i] % dims[i]) * multiplier;
-                multiplier *= dims[i];
-            }
-            return newId;
-        }
-    },
+    // findCompositionForValue — removed (click-to-preview model doesn't need reverse odometer for chips)
 
     /**
      * Update the top bar with scope, variant selector, and wildcard count.
@@ -1232,45 +1099,7 @@ PU.rightPanel = {
         }
     },
 
-    /**
-     * Compute compositionId that produces the given bucket indices for specified wildcards,
-     * keeping all other bucket indices at their current values.
-     * O(1) reverse odometer.
-     * @param {Object} targetBuckets - { wcName: bucketIdx } overrides
-     * @returns {number|null} compositionId, or null if computation fails
-     */
-    findCompositionForBuckets(targetBuckets) {
-        const { wildcardCounts, extTextCount, extTextMax, wcMax, wcMaxMap } = PU.buildComposition._getCompositionParams();
-        const effectiveMaxFn = (n) => (wcMaxMap && wcMaxMap[n]) || wcMax;
-        if (wcMax <= 0 && (!wcMaxMap || Object.keys(wcMaxMap).length === 0)) return null;
-
-        const compositionId = PU.state.previewMode.compositionId;
-        const br = PU.preview.bucketCompositionToIndices(compositionId, extTextCount, extTextMax, wildcardCounts, wcMax, wcMaxMap);
-
-        // Get current bucket indices, override targeted ones
-        const sortedWc = Object.keys(wildcardCounts).sort();
-        const extBucketCount = extTextMax > 0 ? Math.ceil(extTextCount / extTextMax) : 1;
-        const bucketDims = [extBucketCount, ...sortedWc.map(n => { const em = effectiveMaxFn(n); return em > 0 ? Math.ceil(wildcardCounts[n] / em) : 1; })];
-        const currentBuckets = [br.extBucketIdx, ...sortedWc.map(n => br.wcBucketIndices[n] || 0)];
-
-        // Apply overrides
-        for (const [wcName, bucketIdx] of Object.entries(targetBuckets)) {
-            const wcPos = sortedWc.indexOf(wcName);
-            if (wcPos >= 0) {
-                currentBuckets[wcPos + 1] = bucketIdx;
-            }
-        }
-
-        // Forward odometer: reconstruct compositionId from bucket indices
-        let newId = 0;
-        let multiplier = 1;
-        for (let i = bucketDims.length - 1; i >= 0; i--) {
-            newId += (currentBuckets[i] % bucketDims[i]) * multiplier;
-            multiplier *= bucketDims[i];
-        }
-
-        return newId;
-    },
+    // findCompositionForBuckets — removed (click-to-preview model doesn't use bucket navigation)
 
     // ============================================
     // Replacement Popover (Phase 3)

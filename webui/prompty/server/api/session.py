@@ -102,11 +102,6 @@ def handle_session_save(handler, job_id, params):
             clean_data['composition'] = int(data['composition'])
         if 'locked_values' in data and isinstance(data['locked_values'], dict):
             clean_data['locked_values'] = data['locked_values']
-        if 'wildcard_overrides' in data and isinstance(data['wildcard_overrides'], dict):
-            clean_data['wildcard_overrides'] = {
-                k: int(v) for k, v in data['wildcard_overrides'].items()
-                if isinstance(v, (int, float))
-            }
         if 'active_operation' in data:
             if data['active_operation'] is None or isinstance(data['active_operation'], str):
                 clean_data['active_operation'] = data['active_operation']

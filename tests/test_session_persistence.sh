@@ -65,7 +65,7 @@ HAS_PROMPTS=$(echo "$BODY" | jq -r '.prompts | type' 2>/dev/null)
 echo ""
 log_test "OBJECTIVE: POST session saves and GET retrieves correctly"
 
-SAVE_DATA='{"prompt_id":"'"$PROMPT_ID"'","data":{"composition":42,"locked_values":{"persona":["CEO","CTO"]},"wildcard_overrides":{"persona":5},"active_operation":"role-replacements"}}'
+SAVE_DATA='{"prompt_id":"'"$PROMPT_ID"'","data":{"composition":42,"locked_values":{"persona":["CEO","CTO"]},"active_operation":"role-replacements"}}'
 
 RESULT=$(curl -sf -w "\n%{http_code}" -X POST "$BASE_URL/api/pu/job/$JOB_ID/session" \
     -H "Content-Type: application/json" -d "$SAVE_DATA" 2>&1)
@@ -92,11 +92,6 @@ LOCKED=$(echo "$RESULT" | jq -r ".prompts[\"$PROMPT_ID\"].locked_values.persona 
 [ "$LOCKED" = "2" ] \
     && log_pass "Saved locked_values retrieved: 2 values" \
     || log_fail "Expected 2 locked values, got: $LOCKED"
-
-WC_OVERRIDE=$(echo "$RESULT" | jq -r ".prompts[\"$PROMPT_ID\"].wildcard_overrides.persona" 2>/dev/null)
-[ "$WC_OVERRIDE" = "5" ] \
-    && log_pass "Saved wildcard_overrides retrieved: persona=5" \
-    || log_fail "Expected persona override 5, got: $WC_OVERRIDE"
 
 ACTIVE_OP=$(echo "$RESULT" | jq -r ".prompts[\"$PROMPT_ID\"].active_operation" 2>/dev/null)
 [ "$ACTIVE_OP" = "role-replacements" ] \
@@ -155,7 +150,7 @@ log_test "OBJECTIVE: Session state hydrated on prompt load"
 # Save known state
 curl -sf -X POST "$BASE_URL/api/pu/job/$JOB_ID/session" \
     -H "Content-Type: application/json" \
-    -d "{\"prompt_id\":\"$PROMPT_ID\",\"data\":{\"composition\":55,\"locked_values\":{\"persona\":[\"CTO\"]},\"wildcard_overrides\":{},\"active_operation\":null}}" > /dev/null
+    -d "{\"prompt_id\":\"$PROMPT_ID\",\"data\":{\"composition\":55,\"locked_values\":{\"persona\":[\"CTO\"]},\"active_operation\":null}}" > /dev/null
 
 # Open browser and load the prompt
 agent-browser close 2>/dev/null || true
@@ -231,8 +226,11 @@ fi
 echo ""
 log_test "OBJECTIVE: Changing compositionId makes session dirty"
 
-# Navigate to change composition
-agent-browser eval 'document.querySelector("[data-testid=pu-rp-nav-next]").click()' 2>/dev/null
+# Change composition directly (nav buttons removed in click-to-preview refactor)
+agent-browser eval '
+    PU.state.previewMode.compositionId = (PU.state.previewMode.compositionId || 0) + 1;
+    PU.rightPanel.render();
+' 2>/dev/null
 sleep 2
 
 IS_DIRTY_AFTER=$(agent-browser eval 'PU.rightPanel.isSessionDirty()' 2>/dev/null | tr -d '"')
@@ -289,10 +287,13 @@ API_COMP=$(echo "$API_RESULT" | jq -r ".prompts[\"$PROMPT_ID\"].composition" 2>/
 echo ""
 log_test "OBJECTIVE: Locking a value makes session dirty"
 
-# Lock a chip
+# Ctrl+Click a chip to lock it (plain click only previews now)
 agent-browser eval '
-    var chips = document.querySelectorAll(".pu-rp-wc-v[data-in-window=\"true\"]:not(.active)");
-    if (chips.length > 0) chips[0].click();
+    var chip = document.querySelector(".pu-rp-wc-v:not(.active):not(.locked)");
+    if (chip) {
+        var evt = new MouseEvent("click", { ctrlKey: true, bubbles: true });
+        chip.dispatchEvent(evt);
+    }
 ' 2>/dev/null
 sleep 2
 

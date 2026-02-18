@@ -106,7 +106,7 @@ PU.state = {
         visualizer: 'compact',  // Wildcard display style: compact | typewriter | reel | stack | ticker
         selectedWildcards: {},  // Per-block wildcard overrides: { blockPath: { wcName: value } }
         lockedValues: {},       // Locked wildcard values: { wcName: ["val1", "val2"] }
-        wildcardMaxOverrides: {},// Per-wildcard max overrides: { wcName: number }
+        focusedWildcards: [],   // Wildcard names for multi-focus mode (bulb toggle, OR union)
         _extTextCache: {},    // Cached ext_text API data: { "scope/name": data }
         _sessionBaseline: null // Snapshot of persisted session state (for dirty detection)
     }

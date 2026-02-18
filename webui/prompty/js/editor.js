@@ -135,6 +135,7 @@ PU.editor = {
 
             PU.editor.attachBlockInteractions();
             PU.blocks.initVisualizerAnimations();
+            PU.editor._buildWildcardBlockMap();
             return;
         }
 
@@ -149,6 +150,7 @@ PU.editor = {
 
             PU.editor.attachBlockInteractions();
             PU.blocks.initVisualizerAnimations();
+            PU.editor._buildWildcardBlockMap();
             return;
         }
 
@@ -167,6 +169,7 @@ PU.editor = {
 
             PU.editor.attachBlockInteractions();
             PU.blocks.initVisualizerAnimations();
+            PU.editor._buildWildcardBlockMap();
             return;
         }
 
@@ -175,6 +178,30 @@ PU.editor = {
 
     // Last computed resolutions (for focus mode context strip)
     _lastResolutions: null,
+
+    // Wildcard-to-blocks map: wcName -> Set of block paths (built after renderBlocks)
+    _wildcardToBlocks: {},
+
+    /**
+     * Build a map of wildcard name → Set of block paths that contain it.
+     * Queries [data-wc] spans in the rendered blocks and maps each to its
+     * closest .pu-block parent. Called after renderBlocks() completes.
+     */
+    _buildWildcardBlockMap() {
+        const map = {};
+        const container = document.querySelector('[data-testid="pu-blocks-container"]');
+        if (!container) { PU.editor._wildcardToBlocks = map; return; }
+
+        container.querySelectorAll('[data-wc]').forEach(span => {
+            const block = span.closest('.pu-block');
+            if (block && block.dataset.path !== undefined) {
+                const wcName = span.dataset.wc;
+                if (!map[wcName]) map[wcName] = new Set();
+                map[wcName].add(block.dataset.path);
+            }
+        });
+        PU.editor._wildcardToBlocks = map;
+    },
 
     /**
      * Build unique values per dimension from outputs (used by focus.js filter tree)

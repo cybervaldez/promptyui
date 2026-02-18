@@ -1661,6 +1661,108 @@ body {
     color: var(--pu-text-muted);
 }
 
+/* Wildcard hover highlight — right panel → block spatial mapping */
+.pu-wc-highlighting .pu-block > .pu-block-body {
+    opacity: 0.25;
+    transition: opacity 150ms ease;
+}
+.pu-wc-highlighting .pu-block.pu-highlight-match > .pu-block-body {
+    opacity: 1;
+}
+.pu-wc-highlighting .pu-block.pu-highlight-parent > .pu-block-body {
+    opacity: 0.7;
+}
+.pu-wc-highlighting .pu-block.pu-highlight-match {
+    border-left: 2px solid var(--pu-accent);
+}
+.pu-wc-highlighting .pu-block.pu-highlight-parent {
+    border-left: 2px solid var(--pu-accent-muted, rgba(255, 255, 255, 0.15));
+}
+/* Suppress sibling fade during wildcard highlighting */
+.pu-wc-highlighting .pu-block-children:hover > .pu-block-child {
+    opacity: 1;
+}
+
+/* ── Wildcard Focus Mode (bulb toggle, multi-focus OR) ─────────────── */
+
+/* Bulb icon in wildcard entry header */
+.pu-wc-focus-icon {
+    font-size: 11px;
+    cursor: pointer;
+    opacity: 0;
+    margin-left: auto;
+    transition: opacity var(--pu-transition-fast);
+    color: var(--pu-text-muted);
+    user-select: none;
+}
+.pu-rp-wc-entry:hover .pu-wc-focus-icon {
+    opacity: 0.5;
+}
+.pu-wc-focus-icon:hover {
+    opacity: 1 !important;
+    color: var(--pu-text-primary);
+}
+.pu-wc-focus-icon.active {
+    opacity: 1 !important;
+    color: var(--pu-warning);
+}
+
+/* Focused entry container accent */
+.pu-rp-wc-entry.pu-wc-entry-focused {
+    background: rgba(203, 145, 47, 0.06);
+    border-radius: var(--pu-radius);
+}
+
+/* Focus mode: hide non-matching blocks */
+.pu-wc-focus-active .pu-block.pu-focus-hidden {
+    display: none;
+}
+/* Focus mode: matching blocks get accent border */
+.pu-wc-focus-active .pu-block.pu-highlight-match {
+    border-left: 2px solid var(--pu-accent);
+}
+.pu-wc-focus-active .pu-block.pu-highlight-parent {
+    border-left: 2px solid var(--pu-accent-muted, rgba(255, 255, 255, 0.15));
+}
+/* Suppress sibling fade during focus */
+.pu-wc-focus-active .pu-block-children:hover > .pu-block-child {
+    opacity: 1;
+}
+
+/* Focus banner above blocks container */
+.pu-focus-banner {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 10px;
+    margin-bottom: 6px;
+    background: rgba(203, 145, 47, 0.08);
+    border: 1px solid rgba(203, 145, 47, 0.20);
+    border-radius: var(--pu-radius);
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-secondary);
+}
+.pu-focus-banner-text {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.pu-focus-banner-text b {
+    color: var(--pu-warning);
+}
+.pu-focus-banner-close {
+    background: none;
+    border: none;
+    color: var(--pu-text-muted);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0 2px;
+    line-height: 1;
+}
+.pu-focus-banner-close:hover {
+    color: var(--pu-text-primary);
+}
+
 /* Block Entry/Exit Animations */
 @keyframes pu-block-enter {
     from { opacity: 0; transform: translateY(-8px); }
@@ -2280,25 +2382,25 @@ body {
 .pu-rp-wc-v {
     font-size: 10px;
     padding: 2px 6px;
-    background: var(--pu-bg-tertiary);
-    border: 1px solid var(--pu-border-light);
+    background: transparent;
+    border: 1px solid transparent;
     border-radius: 3px;
-    color: var(--pu-text-secondary);
+    color: var(--pu-text-muted);
     cursor: pointer;
     transition: all var(--pu-transition-fast);
     white-space: nowrap;
 }
 
 .pu-rp-wc-v:hover {
-    background: var(--pu-accent-light);
-    color: var(--pu-text-primary);
-    border-color: var(--pu-accent-dim);
+    color: var(--pu-text-secondary);
+    background: var(--pu-bg-hover);
 }
 
 .pu-rp-wc-v.active {
-    background: var(--pu-accent-bg);
-    border-color: var(--pu-accent-dim);
-    color: var(--pu-accent);
+    background: rgba(203, 145, 47, 0.10);
+    border: 1px solid rgba(203, 145, 47, 0.25);
+    color: var(--pu-text-primary);
+    border-radius: 3px;
 }
 
 /* Locked chip (constrains navigation + sets preview) */
@@ -2373,26 +2475,7 @@ body {
     color: var(--pu-accent);
 }
 
-/* Bucket window frame — groups in-window chips */
-.pu-rp-wc-window-frame {
-    border: 1.5px solid var(--pu-accent);
-    border-radius: 4px;
-    padding: 3px 4px;
-    display: inline-flex;
-    flex-wrap: wrap;
-    gap: 3px;
-    align-items: center;
-    margin-bottom: 2px;
-}
-/* Out-of-window chips — muted, clickable for navigation */
-.pu-rp-wc-v.out-window {
-    opacity: 0.4;
-    border-style: dashed;
-    cursor: e-resize;
-}
-.pu-rp-wc-v.out-window:hover {
-    opacity: 0.75;
-}
+/* (bucket window frame and out-of-window styles removed — flat chip model) */
 
 /* Block-dropdown pin indicator (asterisk) */
 .pu-rp-wc-name .pin-indicator {
@@ -2414,8 +2497,10 @@ body {
     color: #d9a0ef;
 }
 .pu-rp-wc-v.replaced-val.active {
-    background: var(--pu-purple);
-    color: #fff;
+    background: rgba(198, 120, 221, 0.12);
+    border: 1px solid rgba(198, 120, 221, 0.30);
+    color: var(--pu-purple);
+    border-radius: 3px;
 }
 .pu-rp-wc-v.replaced-val .asterisk {
     font-size: 8px;
@@ -2627,34 +2712,6 @@ body {
     font-weight: 600;
 }
 
-/* Window hint inside nav label */
-.pu-rp-ops-nav-window {
-    font-size: 9px;
-    color: var(--pu-text-muted);
-    font-weight: 400;
-    margin-left: 2px;
-}
-
-.pu-rp-ops-nav-btn {
-    width: 22px;
-    height: 22px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--pu-bg-tertiary);
-    border: none;
-    border-radius: var(--pu-radius-sm);
-    color: var(--pu-text-secondary);
-    cursor: pointer;
-    font-size: 13px;
-    transition: all var(--pu-transition-fast);
-}
-
-.pu-rp-ops-nav-btn:hover {
-    background: var(--pu-accent-light);
-    color: var(--pu-text-primary);
-}
-
 /* Per-wildcard dimension summary */
 .pu-rp-ops-dims {
     display: flex;
@@ -2668,10 +2725,6 @@ body {
     font-family: var(--pu-font-mono);
     padding: 1px 2px;
     color: var(--pu-text-muted);
-}
-.pu-rp-ops-dim .dim-bucket {
-    color: var(--pu-accent);
-    font-weight: 500;
 }
 .pu-rp-ops-dim .dim-sep {
     color: var(--pu-text-muted);

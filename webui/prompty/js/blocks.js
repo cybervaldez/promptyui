@@ -564,13 +564,14 @@ PU.blocks = {
             const newValue = values[Math.floor(Math.random() * values.length)];
             PU.state.previewMode.selectedWildcards[blockPath][wcName] = newValue;
         });
-        // Suppress transitions during re-render to avoid block flash
+        // Re-render blocks instantly (no transitions)
         const container = document.querySelector('[data-testid="pu-blocks-container"]');
         if (container) container.classList.add('pu-no-transition');
         await PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
         if (container) {
-            container.offsetHeight;
-            container.classList.remove('pu-no-transition');
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                container.classList.remove('pu-no-transition');
+            }));
         }
     },
 

@@ -70,7 +70,6 @@ PU.actions = {
         const promptId = params.get('prompt');
         const modal = params.get('modal');
         const composition = params.get('composition');
-        const wcMax = params.get('wc_max');
         const extText = params.get('ext_text');
         const viz = params.get('viz');
 
@@ -89,15 +88,6 @@ PU.actions = {
             if (!isNaN(compId) && compId >= 0) {
                 PU.state.previewMode.compositionId = compId;
                 PU.state.previewMode._compositionFromUrl = true;
-            }
-        }
-
-        // Set wc_max from URL if provided
-        if (wcMax) {
-            const wcMaxVal = parseInt(wcMax, 10);
-            if (!isNaN(wcMaxVal) && wcMaxVal >= 0) {
-                PU.state.previewMode.wildcardsMax = wcMaxVal;
-                PU.state.previewMode._wcMaxFromUrl = true;
             }
         }
 
@@ -146,9 +136,6 @@ PU.actions = {
         }
         if (PU.state.activePromptId) {
             params.set('composition', PU.state.previewMode.compositionId);
-            if (PU.state.previewMode.wildcardsMax > 0) {
-                params.set('wc_max', PU.state.previewMode.wildcardsMax);
-            }
             if (PU.state.previewMode.extTextMax !== 1) {
                 params.set('ext_text', PU.state.previewMode.extTextMax);
             }
@@ -268,13 +255,12 @@ PU.actions = {
         PU.actions.updateHeader();
         PU.sidebar.renderJobs();
 
-        // Apply prompt-level wildcards_max on initial load (unless URL explicitly set wc_max)
-        if (PU.state.activePromptId && !PU.state.previewMode._wcMaxFromUrl) {
+        // Apply prompt-level wildcards_max (kept for build-composition export)
+        if (PU.state.activePromptId) {
             const p = PU.helpers.getActivePrompt();
             const j = PU.state.jobs[jobId];
             PU.state.previewMode.wildcardsMax = p?.wildcards_max ?? j?.defaults?.wildcards_max ?? 0;
         }
-        delete PU.state.previewMode._wcMaxFromUrl;
 
         // Load operations for this job (Phase 2)
         await PU.rightPanel.loadOperations();
@@ -312,9 +298,8 @@ PU.actions = {
         const activeJob = PU.helpers.getActiveJob();
         PU.state.previewMode.wildcardsMax = activePrompt?.wildcards_max ?? activeJob?.defaults?.wildcards_max ?? 0;
 
-        // Clear locked values and per-wildcard max overrides on prompt change
+        // Clear locked values on prompt change
         PU.state.previewMode.lockedValues = {};
-        PU.state.previewMode.wildcardMaxOverrides = {};
 
         // Invalidate autocomplete cache on prompt switch
         PU.state.autocompleteCache.loaded = false;

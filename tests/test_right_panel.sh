@@ -6,10 +6,10 @@
 # - Top bar: scope chip, variant selector (None), wildcard count
 # - Centered line dividers: "shared" and "local" sections
 # - Wildcard entries with name + wc-path (for shared) + bordered chips
-# - Bucket window frame (no badge), out-of-window dashed chips
-# - Navigate-to-value (click chip = navigate, no filter/deselect)
-# - Nav format: "N / total (window X/M)"
-# - Per-wildcard dims: "2/4 aud × 2/5 sen × ..."
+# - Flat chip rendering (no bucket window frames)
+# - Click-to-preview, Ctrl+Click-to-lock interaction model
+# - Composition count = product of locked counts
+# - Per-wildcard dims format
 #
 # Usage: ./tests/test_right_panel.sh [--port 8085]
 # ============================================================================
@@ -189,15 +189,23 @@ DESELECTED_COUNT=$(agent-browser eval 'document.querySelectorAll(".pu-rp-wc-v.de
     || log_fail "Found $DESELECTED_COUNT deselected chips — filter model should be removed"
 
 # ============================================================================
-# TEST 8: No bucket badge (removed)
+# TEST 8: No bucket artifacts (window-frame, out-window, badges)
 # ============================================================================
 echo ""
-log_test "OBJECTIVE: No bucket badges in window frames"
+log_test "OBJECTIVE: No bucket artifacts in right panel"
 
 BADGE_COUNT=$(agent-browser eval 'document.querySelectorAll(".pu-rp-wc-window-badge").length' 2>/dev/null | tr -d '"')
+FRAME_COUNT=$(agent-browser eval 'document.querySelectorAll(".pu-rp-wc-window-frame").length' 2>/dev/null | tr -d '"')
+OOW_COUNT=$(agent-browser eval 'document.querySelectorAll(".pu-rp-wc-v.out-window").length' 2>/dev/null | tr -d '"')
 [ "$BADGE_COUNT" = "0" ] \
-    && log_pass "No bucket badges (removed)" \
-    || log_fail "Found $BADGE_COUNT bucket badges — should be removed"
+    && log_pass "No bucket badges" \
+    || log_fail "Found $BADGE_COUNT bucket badges"
+[ "$FRAME_COUNT" = "0" ] \
+    && log_pass "No window frames" \
+    || log_fail "Found $FRAME_COUNT window frames"
+[ "$OOW_COUNT" = "0" ] \
+    && log_pass "No out-of-window chips" \
+    || log_fail "Found $OOW_COUNT out-of-window chips"
 
 # ============================================================================
 # TEST 9: selectedValues state removed
@@ -211,15 +219,15 @@ SV_EXISTS=$(agent-browser eval '"selectedValues" in PU.state.previewMode' 2>/dev
     || log_fail "selectedValues still in state — should be removed"
 
 # ============================================================================
-# TEST 10: Nav format shows "N / total"
+# TEST 10: Composition count display
 # ============================================================================
 echo ""
-log_test "OBJECTIVE: Navigator shows 'N / total' format (not 'Variation X of Y')"
+log_test "OBJECTIVE: Composition count shows 'N compositions' format"
 
 NAV_TEXT=$(agent-browser eval 'var el = document.querySelector("[data-testid=pu-rp-nav-label]"); el ? el.textContent.trim() : "MISSING"' 2>/dev/null | tr -d '"')
-echo "$NAV_TEXT" | grep -q "/" \
-    && log_pass "Nav text uses N / total format: $NAV_TEXT" \
-    || log_fail "Expected 'N / total' format: $NAV_TEXT"
+echo "$NAV_TEXT" | grep -qi "composition" \
+    && log_pass "Nav text shows compositions: $NAV_TEXT" \
+    || log_fail "Expected 'N compositions' format: $NAV_TEXT"
 
 # Should NOT contain "Variation" or "filtered"
 echo "$NAV_TEXT" | grep -qi "variation\|filtered" \
@@ -238,65 +246,92 @@ echo "$DIMS_HTML" | grep -q "pu-rp-ops-dim" \
     || log_pass "Dims HTML: $DIMS_HTML (may be empty with no wildcards)"
 
 # ============================================================================
-# TEST 12: Prev/Next navigation works
+# TEST 12: No prev/next/shuffle buttons in right panel
 # ============================================================================
 echo ""
-log_test "OBJECTIVE: Prev/Next buttons change composition"
+log_test "OBJECTIVE: No prev/next/shuffle buttons (removed from right panel)"
 
-BEFORE_COMP=$(agent-browser eval 'PU.state.previewMode.compositionId' 2>/dev/null | tr -d '"')
-
-agent-browser eval 'document.querySelector("[data-testid=pu-rp-nav-next]").click()' 2>/dev/null
-sleep 2
-
-AFTER_COMP=$(agent-browser eval 'PU.state.previewMode.compositionId' 2>/dev/null | tr -d '"')
-
-[ "$AFTER_COMP" != "$BEFORE_COMP" ] \
-    && log_pass "Next changed composition: $BEFORE_COMP -> $AFTER_COMP" \
-    || log_fail "Next didn't change composition: $BEFORE_COMP -> $AFTER_COMP"
-
-# ============================================================================
-# TEST 13: Shuffle works
-# ============================================================================
-echo ""
-log_test "OBJECTIVE: Shuffle button changes compositionId"
-
-SHUFFLE_BEFORE=$(agent-browser eval 'PU.state.previewMode.compositionId' 2>/dev/null | tr -d '"')
-
-agent-browser eval 'document.querySelector("[data-testid=pu-rp-nav-shuffle]").click()' 2>/dev/null
-sleep 2
-
-SHUFFLE_AFTER=$(agent-browser eval 'PU.state.previewMode.compositionId' 2>/dev/null | tr -d '"')
-
-[ "$SHUFFLE_AFTER" != "$SHUFFLE_BEFORE" ] \
-    && log_pass "Shuffle changed composition: $SHUFFLE_BEFORE -> $SHUFFLE_AFTER" \
-    || log_fail "Shuffle didn't change (may be rare collision)"
+HAS_PREV=$(agent-browser eval '!!document.querySelector("[data-testid=pu-rp-nav-prev]")' 2>/dev/null | tr -d '"')
+HAS_NEXT=$(agent-browser eval '!!document.querySelector("[data-testid=pu-rp-nav-next]")' 2>/dev/null | tr -d '"')
+HAS_SHUFFLE=$(agent-browser eval '!!document.querySelector("[data-testid=pu-rp-nav-shuffle]")' 2>/dev/null | tr -d '"')
+[ "$HAS_PREV" = "false" ] \
+    && log_pass "No prev button" \
+    || log_fail "Prev button still exists"
+[ "$HAS_NEXT" = "false" ] \
+    && log_pass "No next button" \
+    || log_fail "Next button still exists"
+[ "$HAS_SHUFFLE" = "false" ] \
+    && log_pass "No shuffle button" \
+    || log_fail "Shuffle button still exists"
 
 # ============================================================================
-# TEST 14: Chip click navigates (navigate-to-value)
+# TEST 13: Click chip = preview update (not navigation/filter)
 # ============================================================================
 echo ""
-log_test "OBJECTIVE: Clicking a chip navigates to that value (not filter/deselect)"
-
-NAV_BEFORE=$(agent-browser eval 'PU.state.previewMode.compositionId' 2>/dev/null | tr -d '"')
+log_test "OBJECTIVE: Clicking a chip updates preview (not filter/deselect)"
 
 # Click the first non-active chip
 agent-browser eval '
-    var chips = document.querySelectorAll(".pu-rp-wc-v:not(.active):not(.out-window)");
-    if (chips.length > 0) chips[0].click();
+    PU.state.previewMode.selectedWildcards = {};
+    PU.state.previewMode.lockedValues = {};
+    PU.rightPanel.render();
+' 2>/dev/null
+sleep 1
+
+agent-browser eval '
+    var chip = document.querySelector(".pu-rp-wc-v:not(.active)");
+    if (chip) chip.click();
 ' 2>/dev/null
 sleep 2
 
-NAV_AFTER=$(agent-browser eval 'PU.state.previewMode.compositionId' 2>/dev/null | tr -d '"')
+# Verify selectedWildcards['*'] was updated (preview mode)
+HAS_PREVIEW=$(agent-browser eval '
+    var sw = PU.state.previewMode.selectedWildcards;
+    !!(sw["*"] && Object.keys(sw["*"]).length > 0)
+' 2>/dev/null | tr -d '"')
+[ "$HAS_PREVIEW" = "true" ] \
+    && log_pass "Click set preview override in selectedWildcards['*']" \
+    || log_fail "No preview override after click"
 
-# Verify no deselected chips appeared (navigate, not filter)
+# Verify no deselected chips appeared (preview, not filter)
 DESELECTED_AFTER_CLICK=$(agent-browser eval 'document.querySelectorAll(".pu-rp-wc-v.deselected").length' 2>/dev/null | tr -d '"')
 [ "$DESELECTED_AFTER_CLICK" = "0" ] \
-    && log_pass "No deselected chips after click (navigate-to-value, not filter)" \
-    || log_fail "Deselected chips appeared after click — filter model should be removed"
+    && log_pass "No deselected chips after click (preview, not filter)" \
+    || log_fail "Deselected chips appeared after click"
 
-[ "$NAV_AFTER" != "$NAV_BEFORE" ] \
-    && log_pass "Chip click navigated: $NAV_BEFORE -> $NAV_AFTER" \
-    || log_pass "Composition unchanged (clicked chip may already be active value)"
+# ============================================================================
+# TEST 14: Ctrl+Click chip = lock (not preview-only)
+# ============================================================================
+echo ""
+log_test "OBJECTIVE: Ctrl+Click chip creates lock in lockedValues"
+
+agent-browser eval '
+    PU.state.previewMode.lockedValues = {};
+    PU.state.previewMode.selectedWildcards = {};
+    PU.rightPanel.render();
+' 2>/dev/null
+sleep 1
+
+agent-browser eval '
+    var chip = document.querySelector(".pu-rp-wc-v:not(.active)");
+    if (chip) {
+        var evt = new MouseEvent("click", { ctrlKey: true, bubbles: true });
+        chip.dispatchEvent(evt);
+    }
+' 2>/dev/null
+sleep 2
+
+LOCK_COUNT=$(agent-browser eval 'Object.keys(PU.state.previewMode.lockedValues).length' 2>/dev/null | tr -d '"')
+[ "$LOCK_COUNT" -gt 0 ] 2>/dev/null \
+    && log_pass "Ctrl+Click created lock: $LOCK_COUNT wildcard(s)" \
+    || log_fail "No lock created by Ctrl+Click"
+
+# Clean up
+agent-browser eval '
+    PU.state.previewMode.lockedValues = {};
+    PU.state.previewMode.selectedWildcards = {};
+    PU.rightPanel.render();
+' 2>/dev/null
 
 # ============================================================================
 # TEST 15: Export button present

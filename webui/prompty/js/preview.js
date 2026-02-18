@@ -281,23 +281,9 @@ PU.preview = {
             wildcardCounts[wcName] = wildcardLookup[wcName].length;
         }
 
-        // Step 4: Get odometer indices
-        const extTextMax = PU.state.previewMode.extTextMax;
-        const wcMax = PU.state.previewMode.wildcardsMax;
-
-        const wcMaxMap = PU.state.previewMode.wildcardMaxOverrides || null;
-        const hasOverrides = wcMaxMap && Object.keys(wcMaxMap).length > 0;
-
-        let extIdx, odometerIndices, bucketResult = null;
-        if (wcMax > 0 || hasOverrides) {
-            bucketResult = PU.preview.bucketCompositionToIndices(
-                compositionId, actualExtTextCount, extTextMax, wildcardCounts, wcMax, wcMaxMap
-            );
-            extIdx = bucketResult.extValueIdx;
-            odometerIndices = bucketResult.wcValueIndices;
-        } else {
-            [extIdx, odometerIndices] = PU.preview.compositionToIndices(compositionId, actualExtTextCount, wildcardCounts);
-        }
+        // Step 4: Get odometer indices (simple — no bucketed mode in UI)
+        let extIdx, odometerIndices;
+        [extIdx, odometerIndices] = PU.preview.compositionToIndices(compositionId, actualExtTextCount, wildcardCounts);
 
         const allSelectedOverrides = (options && options.ignoreOverrides)
             ? {}
@@ -474,13 +460,12 @@ PU.preview = {
 
     /**
      * Extract wildcard dropdowns from block text.
-     * BUCKET MODEL: Show only values in the current bucket (sliding window).
+     * Shows ALL values — block dropdowns are unrestricted for preview exploration.
      */
     extractBlockDropdowns(text, odometerIndices, wildcardLookup) {
         const dropdowns = [];
         const wcMatches = text.match(/__([a-zA-Z0-9_-]+)__/g) || [];
         const seen = new Set();
-        const wcMax = PU.state.previewMode.wildcardsMax;
 
         const uniqueNames = [];
         wcMatches.forEach(match => {
@@ -496,22 +481,9 @@ PU.preview = {
             const allValues = wildcardLookup[name] || [];
             const currentIndex = odometerIndices[name] || 0;
 
-            let values;
-            if (wcMax > 0 && allValues.length > wcMax) {
-                const sharedBucket = Math.floor(currentIndex / wcMax);
-                const startIdx = sharedBucket * wcMax;
-                values = [];
-                for (let i = 0; i < wcMax; i++) {
-                    const idx = (startIdx + i) % allValues.length;
-                    values.push(allValues[idx]);
-                }
-            } else {
-                values = allValues;
-            }
-
             dropdowns.push({
                 name: name,
-                values: values,
+                values: allValues,
                 count: allValues.length,
                 currentIndex: currentIndex
             });
@@ -749,19 +721,10 @@ PU.preview = {
     compositionPassesFilter(compId, extTextCount, wildcardCounts, selectedValues) {
         if (!selectedValues || Object.keys(selectedValues).length === 0) return true;
 
-        const wcMax = PU.state.previewMode.wildcardsMax || 0;
-        const extTextMax = PU.state.previewMode.extTextMax || 1;
         const fullLookup = PU.preview.getFullWildcardLookup();
 
-        const wcMaxMap = PU.state.previewMode.wildcardMaxOverrides || null;
-
         let wcIndices;
-        if (wcMax > 0 || (wcMaxMap && Object.keys(wcMaxMap).length > 0)) {
-            const br = PU.preview.bucketCompositionToIndices(compId, extTextCount, extTextMax, wildcardCounts, wcMax, wcMaxMap);
-            wcIndices = br.wcValueIndices;
-        } else {
-            [, wcIndices] = PU.preview.compositionToIndices(compId, extTextCount, wildcardCounts);
-        }
+        [, wcIndices] = PU.preview.compositionToIndices(compId, extTextCount, wildcardCounts);
 
         for (const [wcName, filterSet] of Object.entries(selectedValues)) {
             const allValues = fullLookup[wcName];
@@ -775,37 +738,16 @@ PU.preview = {
     },
 
     /**
-     * Clear stale block-level overrides whose values fall outside the current bucket range.
-     * Called after composition changes (navigate/shuffle) to keep editor consistent.
+     * Clear stale block-level overrides whose values no longer exist in the wildcard lookup.
+     * Called after composition changes to keep editor consistent.
      */
     clearStaleBlockOverrides() {
-        const wcMax = PU.state.previewMode.wildcardsMax;
-        const wcMaxMap = PU.state.previewMode.wildcardMaxOverrides || null;
-        const hasOverrides = wcMaxMap && Object.keys(wcMaxMap).length > 0;
-        if (wcMax <= 0 && !hasOverrides) return;
-
         const fullLookup = PU.preview.getFullWildcardLookup();
-        const wildcardCounts = {};
-        for (const [name, vals] of Object.entries(fullLookup)) {
-            wildcardCounts[name] = vals.length;
-        }
-        const extTextCount = PU.state.previewMode.extTextCount || 1;
-        const extTextMax = PU.state.previewMode.extTextMax || 1;
-        const compositionId = PU.state.previewMode.compositionId;
-
-        const br = PU.preview.bucketCompositionToIndices(compositionId, extTextCount, extTextMax, wildcardCounts, wcMax, wcMaxMap);
-        const effectiveMax = (name) => (wcMaxMap && wcMaxMap[name]) || wcMax;
 
         for (const [blockPath, overrides] of Object.entries(PU.state.previewMode.selectedWildcards)) {
             for (const [wcName, pinnedValue] of Object.entries(overrides)) {
                 const allValues = fullLookup[wcName];
-                const em = effectiveMax(wcName);
-                if (!allValues || em <= 0 || allValues.length <= em) continue;
-                const bucketIdx = br.wcBucketIndices[wcName] || 0;
-                const bucketStart = bucketIdx * em;
-                const bucketEnd = Math.min(bucketStart + em, allValues.length);
-                const bucketValues = allValues.slice(bucketStart, bucketEnd);
-                if (!bucketValues.includes(pinnedValue)) {
+                if (!allValues || !allValues.includes(pinnedValue)) {
                     delete overrides[wcName];
                 }
             }
@@ -1055,13 +997,14 @@ PU.preview = {
         const menu = document.querySelector('.pu-wc-dropdown-menu');
         if (menu) menu.remove();
 
-        // Re-render blocks with new selection (suppress transitions to avoid flash)
+        // Re-render blocks instantly (no transitions)
         const container = document.querySelector('[data-testid="pu-blocks-container"]');
         if (container) container.classList.add('pu-no-transition');
         await PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
         if (container) {
-            container.offsetHeight;
-            container.classList.remove('pu-no-transition');
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                container.classList.remove('pu-no-transition');
+            }));
         }
     },
 
@@ -1071,13 +1014,14 @@ PU.preview = {
     async clearWildcardSelections() {
         PU.state.previewMode.selectedWildcards = {};
 
-        // Re-render blocks (suppress transitions to avoid flash)
+        // Re-render blocks instantly (no transitions)
         const container = document.querySelector('[data-testid="pu-blocks-container"]');
         if (container) container.classList.add('pu-no-transition');
         await PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
         if (container) {
-            container.offsetHeight;
-            container.classList.remove('pu-no-transition');
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                container.classList.remove('pu-no-transition');
+            }));
         }
     },
 

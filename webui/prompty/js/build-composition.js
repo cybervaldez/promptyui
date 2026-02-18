@@ -76,13 +76,9 @@ PU.buildComposition = {
         const extTextMax = PU.state.previewMode.extTextMax || 1;
         const wcMax = PU.state.previewMode.wildcardsMax || 0;
 
-        // Per-wildcard max overrides
-        const overrides = PU.state.previewMode.wildcardMaxOverrides || {};
-        const wcMaxMap = Object.keys(overrides).length > 0 ? overrides : null;
+        const total = PU.preview.computeEffectiveTotal(extTextCount, wildcardCounts, extTextMax, wcMax);
 
-        const total = PU.preview.computeEffectiveTotal(extTextCount, wildcardCounts, extTextMax, wcMax, wcMaxMap);
-
-        return { lookup, wcNames, wildcardCounts, extTextCount, extTextMax, wcMax, wcMaxMap, total };
+        return { lookup, wcNames, wildcardCounts, extTextCount, extTextMax, wcMax, total };
     },
 
     /**
@@ -129,10 +125,9 @@ PU.buildComposition = {
         } else if (field === 'wildcards_max') {
             // Write to previewMode via preview API
             await PU.preview.updateWildcardsMax(isNaN(val) || val < 0 ? 0 : val);
-            // Clear pins and locks when wcMax changes (bucket boundaries shift)
+            // Clear pins and locks when wcMax changes
             PU.state.previewMode.selectedWildcards = {};
             PU.state.previewMode.lockedValues = {};
-            PU.state.previewMode.wildcardMaxOverrides = {};
         }
 
         // Re-render prompt section (dimensions may change)
@@ -280,18 +275,37 @@ PU.buildComposition = {
     },
 
     /**
-     * Navigate to prev/next composition (delegates to rightPanel for pin-awareness)
+     * Navigate to prev/next composition (wraps around total).
      */
     async navigate(direction) {
-        await PU.rightPanel.navigate(direction);
+        const { total } = PU.buildComposition._getCompositionParams();
+        if (total <= 0) return;
+
+        let newId = PU.state.previewMode.compositionId + direction;
+        if (newId < 0) newId = total - 1;
+        if (newId >= total) newId = 0;
+
+        PU.state.previewMode.compositionId = newId;
+        PU.preview.clearStaleBlockOverrides();
+        PU.actions.updateUrl();
+        await PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
+        PU.rightPanel.render();
         await PU.buildComposition.renderNavigator();
     },
 
     /**
-     * Jump to random composition (delegates to rightPanel for pin-awareness)
+     * Jump to random composition.
      */
     async shuffle() {
-        await PU.rightPanel.shuffle();
+        const { total } = PU.buildComposition._getCompositionParams();
+        if (total <= 0) return;
+
+        const newId = Math.floor(Math.random() * total);
+        PU.state.previewMode.compositionId = newId;
+        PU.preview.clearStaleBlockOverrides();
+        PU.actions.updateUrl();
+        await PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
+        PU.rightPanel.render();
         await PU.buildComposition.renderNavigator();
     },
 
