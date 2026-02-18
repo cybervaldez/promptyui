@@ -79,14 +79,18 @@ PU.preview = {
      * @param {number} wcMax - Max wildcards per bucket (0 = no bucketing)
      * @returns {Object} - {extBucketIdx, wcBucketIndices, extValueIdx, wcValueIndices, totalBuckets}
      */
-    bucketCompositionToIndices(composition, extTextCount, extTextMax, wildcardCounts, wcMax) {
+    bucketCompositionToIndices(composition, extTextCount, extTextMax, wildcardCounts, wcMax, wcMaxMap) {
+        // Per-wildcard effective max: wcMaxMap[name] || wcMax
+        const effectiveMax = (name) => (wcMaxMap && wcMaxMap[name]) || wcMax;
+
         // Calculate bucket counts
         const extBucketCount = extTextMax > 0 ? Math.ceil(extTextCount / extTextMax) : 1;
 
         const sortedWc = Object.keys(wildcardCounts).sort();
         const wcBucketCounts = {};
         for (const name of sortedWc) {
-            wcBucketCounts[name] = wcMax > 0 ? Math.ceil(wildcardCounts[name] / wcMax) : 1;
+            const em = effectiveMax(name);
+            wcBucketCounts[name] = em > 0 ? Math.ceil(wildcardCounts[name] / em) : 1;
         }
 
         // Apply odometer on bucket dimensions
@@ -101,15 +105,16 @@ PU.preview = {
             idx = Math.floor(idx / bucketDimensions[i]);
         }
 
-        // Convert bucket indices to value indices
+        // Convert bucket indices to value indices (uses per-wildcard max)
         const extBucketIdx = indices[0];
         const extValueIdx = extBucketIdx * extTextMax;
 
         const wcBucketIndices = {};
         const wcValueIndices = {};
         sortedWc.forEach((name, i) => {
+            const em = effectiveMax(name);
             wcBucketIndices[name] = indices[i + 1];
-            wcValueIndices[name] = indices[i + 1] * wcMax;
+            wcValueIndices[name] = indices[i + 1] * em;
         });
 
         return {
@@ -280,10 +285,13 @@ PU.preview = {
         const extTextMax = PU.state.previewMode.extTextMax;
         const wcMax = PU.state.previewMode.wildcardsMax;
 
+        const wcMaxMap = PU.state.previewMode.wildcardMaxOverrides || null;
+        const hasOverrides = wcMaxMap && Object.keys(wcMaxMap).length > 0;
+
         let extIdx, odometerIndices, bucketResult = null;
-        if (wcMax > 0) {
+        if (wcMax > 0 || hasOverrides) {
             bucketResult = PU.preview.bucketCompositionToIndices(
-                compositionId, actualExtTextCount, extTextMax, wildcardCounts, wcMax
+                compositionId, actualExtTextCount, extTextMax, wildcardCounts, wcMax, wcMaxMap
             );
             extIdx = bucketResult.extValueIdx;
             odometerIndices = bucketResult.wcValueIndices;
@@ -315,7 +323,9 @@ PU.preview = {
         function resolveText(text, blockPath) {
             if (!text) return { resolved: '', wildcards: [] };
 
-            const blockOverrides = allSelectedOverrides[blockPath] || {};
+            const globalOverrides = allSelectedOverrides['*'] || {};
+            const blockSpecific = allSelectedOverrides[blockPath] || {};
+            const blockOverrides = { ...globalOverrides, ...blockSpecific };
             const resolvedWildcards = [];
             const resolved = text.replace(/__([a-zA-Z0-9_-]+)__/g, (match, wcName) => {
                 const values = wildcardLookup[wcName];
@@ -669,19 +679,21 @@ PU.preview = {
      * @param {number} wcMax - Bucket size for wildcards (0 = no bucketing)
      * @returns {number} Effective total (bucketed if applicable)
      */
-    computeEffectiveTotal(extTextCount, wildcardCounts, extTextMax, wcMax) {
+    computeEffectiveTotal(extTextCount, wildcardCounts, extTextMax, wcMax, wcMaxMap) {
         extTextMax = Math.max(1, extTextMax || 1);
         wcMax = wcMax || 0;
+        const effectiveMax = (name) => (wcMaxMap && wcMaxMap[name]) || wcMax;
 
-        if (wcMax <= 0 && extTextMax <= 1) {
+        if (wcMax <= 0 && (!wcMaxMap || Object.keys(wcMaxMap).length === 0) && extTextMax <= 1) {
             return PU.preview.computeTotalCompositions(extTextCount, wildcardCounts);
         }
 
-        // Bucketed: ceil-divide each dimension
+        // Bucketed: ceil-divide each dimension (per-wildcard effective max)
         let total = Math.max(1, Math.ceil((extTextCount || 1) / extTextMax));
         for (const name of Object.keys(wildcardCounts)) {
             const raw = Math.max(1, wildcardCounts[name] || 1);
-            total *= wcMax > 0 ? Math.max(1, Math.ceil(raw / wcMax)) : raw;
+            const em = effectiveMax(name);
+            total *= em > 0 ? Math.max(1, Math.ceil(raw / em)) : raw;
         }
         return total;
     },
@@ -741,9 +753,11 @@ PU.preview = {
         const extTextMax = PU.state.previewMode.extTextMax || 1;
         const fullLookup = PU.preview.getFullWildcardLookup();
 
+        const wcMaxMap = PU.state.previewMode.wildcardMaxOverrides || null;
+
         let wcIndices;
-        if (wcMax > 0) {
-            const br = PU.preview.bucketCompositionToIndices(compId, extTextCount, extTextMax, wildcardCounts, wcMax);
+        if (wcMax > 0 || (wcMaxMap && Object.keys(wcMaxMap).length > 0)) {
+            const br = PU.preview.bucketCompositionToIndices(compId, extTextCount, extTextMax, wildcardCounts, wcMax, wcMaxMap);
             wcIndices = br.wcValueIndices;
         } else {
             [, wcIndices] = PU.preview.compositionToIndices(compId, extTextCount, wildcardCounts);
@@ -766,7 +780,9 @@ PU.preview = {
      */
     clearStaleBlockOverrides() {
         const wcMax = PU.state.previewMode.wildcardsMax;
-        if (wcMax <= 0) return;
+        const wcMaxMap = PU.state.previewMode.wildcardMaxOverrides || null;
+        const hasOverrides = wcMaxMap && Object.keys(wcMaxMap).length > 0;
+        if (wcMax <= 0 && !hasOverrides) return;
 
         const fullLookup = PU.preview.getFullWildcardLookup();
         const wildcardCounts = {};
@@ -777,15 +793,17 @@ PU.preview = {
         const extTextMax = PU.state.previewMode.extTextMax || 1;
         const compositionId = PU.state.previewMode.compositionId;
 
-        const br = PU.preview.bucketCompositionToIndices(compositionId, extTextCount, extTextMax, wildcardCounts, wcMax);
+        const br = PU.preview.bucketCompositionToIndices(compositionId, extTextCount, extTextMax, wildcardCounts, wcMax, wcMaxMap);
+        const effectiveMax = (name) => (wcMaxMap && wcMaxMap[name]) || wcMax;
 
         for (const [blockPath, overrides] of Object.entries(PU.state.previewMode.selectedWildcards)) {
             for (const [wcName, pinnedValue] of Object.entries(overrides)) {
                 const allValues = fullLookup[wcName];
-                if (!allValues || allValues.length <= wcMax) continue;
+                const em = effectiveMax(wcName);
+                if (!allValues || em <= 0 || allValues.length <= em) continue;
                 const bucketIdx = br.wcBucketIndices[wcName] || 0;
-                const bucketStart = bucketIdx * wcMax;
-                const bucketEnd = Math.min(bucketStart + wcMax, allValues.length);
+                const bucketStart = bucketIdx * em;
+                const bucketEnd = Math.min(bucketStart + em, allValues.length);
                 const bucketValues = allValues.slice(bucketStart, bucketEnd);
                 if (!bucketValues.includes(pinnedValue)) {
                     delete overrides[wcName];

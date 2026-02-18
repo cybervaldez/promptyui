@@ -53,14 +53,30 @@ class PUHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         """Handle GET requests."""
-        from .api import jobs, extensions
+        from .api import jobs, extensions, operations, session
 
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
         params = dict(urllib.parse.parse_qsl(parsed.query))
 
-        # API routes
-        if path == '/api/pu/jobs':
+        # API routes — order matters (more specific first)
+        # Session: /api/pu/job/{id}/session
+        session_match = re.match(r'^/api/pu/job/([^/]+)/session$', path)
+        # Operations: /api/pu/job/{id}/operations or /api/pu/job/{id}/operation/{name}
+        op_match = re.match(r'^/api/pu/job/([^/]+)/operations$', path)
+        op_get_match = re.match(r'^/api/pu/job/([^/]+)/operation/([^/]+)$', path)
+
+        if session_match:
+            job_id = urllib.parse.unquote(session_match.group(1))
+            session.handle_session_get(self, job_id)
+        elif op_match:
+            job_id = urllib.parse.unquote(op_match.group(1))
+            operations.handle_operations_list(self, job_id)
+        elif op_get_match:
+            job_id = urllib.parse.unquote(op_get_match.group(1))
+            op_name = urllib.parse.unquote(op_get_match.group(2))
+            operations.handle_operation_get(self, job_id, op_name)
+        elif path == '/api/pu/jobs':
             jobs.handle_jobs_list(self, params)
         elif path.startswith('/api/pu/job/'):
             job_id = urllib.parse.unquote(path[12:])
@@ -78,7 +94,7 @@ class PUHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         """Handle POST requests."""
-        from .api import preview, export, extensions
+        from .api import preview, export, extensions, operations, session
 
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
@@ -88,7 +104,19 @@ class PUHandler(http.server.SimpleHTTPRequestHandler):
         body = self.rfile.read(content_length).decode('utf-8')
         params = json.loads(body) if body else {}
 
-        if path == '/api/pu/preview':
+        # Session save: /api/pu/job/{id}/session
+        session_save_match = re.match(r'^/api/pu/job/([^/]+)/session$', path)
+        # Operations save: /api/pu/job/{id}/operation/{name}
+        op_save_match = re.match(r'^/api/pu/job/([^/]+)/operation/([^/]+)$', path)
+
+        if session_save_match:
+            job_id = urllib.parse.unquote(session_save_match.group(1))
+            session.handle_session_save(self, job_id, params)
+        elif op_save_match:
+            job_id = urllib.parse.unquote(op_save_match.group(1))
+            op_name = urllib.parse.unquote(op_save_match.group(2))
+            operations.handle_operation_save(self, job_id, op_name, params)
+        elif path == '/api/pu/preview':
             preview.handle_preview(self, params)
         elif path == '/api/pu/validate':
             export.handle_validate(self, params)

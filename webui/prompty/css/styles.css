@@ -2301,24 +2301,64 @@ body {
     color: var(--pu-accent);
 }
 
-/* Pinned chip (user-selected override) */
-.pu-rp-wc-v.pinned {
+/* Locked chip (constrains navigation + sets preview) */
+.pu-rp-wc-v.locked {
     background: var(--pu-accent-bg);
     border-color: var(--pu-accent);
     color: var(--pu-accent);
     position: relative;
 }
 
-.pu-rp-wc-v.pinned::after {
-    content: '';
-    position: absolute;
-    top: -2px;
-    right: -2px;
-    width: 5px;
-    height: 5px;
-    background: var(--pu-warning);
-    border-radius: 50%;
-    border: 1px solid var(--pu-bg-secondary);
+.pu-rp-wc-v.locked .lock-icon {
+    font-size: 9px;
+    margin-right: 2px;
+    opacity: 0.8;
+}
+
+/* Expand popover styles */
+.pu-rp-expand-popover-header {
+    font-weight: 600;
+    font-size: var(--pu-font-size-sm);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.pu-rp-expand-icon {
+    font-size: 12px;
+}
+
+.pu-rp-expand-popover-detail {
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-secondary);
+    margin-bottom: 4px;
+}
+
+.pu-rp-expand-popover-impact {
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-warning);
+    margin-bottom: 8px;
+}
+
+/* Session save button (dirty-state only) */
+.pu-rp-session-save-btn {
+    display: block;
+    width: 100%;
+    padding: 6px 0;
+    margin-top: 6px;
+    background: var(--pu-accent-bg);
+    border: 1px solid var(--pu-accent);
+    border-radius: 4px;
+    color: var(--pu-accent);
+    font-size: var(--pu-font-size-xs);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+.pu-rp-session-save-btn:hover {
+    background: var(--pu-accent);
+    color: var(--pu-bg-primary);
 }
 
 /* Overflow link for 6+ wildcards in a section */
@@ -2348,6 +2388,7 @@ body {
 .pu-rp-wc-v.out-window {
     opacity: 0.4;
     border-style: dashed;
+    cursor: e-resize;
 }
 .pu-rp-wc-v.out-window:hover {
     opacity: 0.75;
@@ -2359,6 +2400,197 @@ body {
     font-weight: bold;
     margin-left: 3px;
     font-size: var(--pu-font-size-sm);
+}
+
+/* Replaced value chip (operation-mapped): purple with asterisk */
+.pu-rp-wc-v.replaced-val {
+    background: rgba(198, 120, 221, 0.1);
+    color: var(--pu-purple);
+    font-weight: 500;
+    cursor: pointer;
+}
+.pu-rp-wc-v.replaced-val:hover {
+    background: rgba(198, 120, 221, 0.18);
+    color: #d9a0ef;
+}
+.pu-rp-wc-v.replaced-val.active {
+    background: var(--pu-purple);
+    color: #fff;
+}
+.pu-rp-wc-v.replaced-val .asterisk {
+    font-size: 8px;
+    vertical-align: super;
+    margin-left: 1px;
+    opacity: 0.7;
+}
+
+/* Override asterisk on wildcard name (operation has mappings) */
+.pu-rp-wc-override-mark {
+    color: var(--pu-success);
+    cursor: help;
+}
+
+/* Chip context-menu highlight (right-click target) */
+.pu-rp-wc-v.context-target {
+    outline: 1px solid var(--pu-purple);
+    outline-offset: 1px;
+}
+
+/* Unmatched operation warning */
+.pu-rp-wc-unmatched {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 9px;
+    color: var(--pu-error);
+    padding: 3px 6px;
+    margin-top: 2px;
+    background: rgba(224, 108, 117, 0.1);
+    border-radius: var(--pu-radius-sm);
+}
+.pu-rp-wc-unmatched-icon {
+    font-size: 10px;
+}
+
+/* Operation selector dropdown (appears below top bar) */
+.pu-rp-op-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--pu-bg-secondary);
+    border: 1px solid var(--pu-border-light);
+    border-radius: 0 0 6px 6px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    z-index: 100;
+    max-height: 200px;
+    overflow-y: auto;
+}
+.pu-rp-op-dropdown-item {
+    display: flex;
+    align-items: center;
+    padding: 6px 12px;
+    font-size: 11px;
+    color: var(--pu-text-secondary);
+    cursor: pointer;
+    transition: background var(--pu-transition-fast);
+}
+.pu-rp-op-dropdown-item:hover {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--pu-text-primary);
+}
+.pu-rp-op-dropdown-item.active {
+    color: var(--pu-purple);
+    font-weight: 500;
+}
+.pu-rp-op-dropdown-item.none-item {
+    color: var(--pu-text-muted);
+    font-style: italic;
+}
+
+/* Right-click replacement popover */
+.pu-rp-replace-popover {
+    position: absolute;
+    background: var(--pu-bg-secondary);
+    border: 1px solid var(--pu-border-light);
+    border-radius: 6px;
+    padding: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    width: 200px;
+    z-index: 200;
+}
+.pu-rp-replace-popover-header {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 6px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--pu-border);
+}
+.pu-rp-replace-popover-original {
+    font-family: var(--pu-font-mono);
+    font-size: 11px;
+    color: var(--pu-text-primary);
+    background: var(--pu-bg-tertiary);
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+.pu-rp-replace-popover-arrow {
+    font-size: 10px;
+    color: var(--pu-purple);
+}
+.pu-rp-replace-popover-hint {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    margin-bottom: 6px;
+}
+.pu-rp-replace-popover-input {
+    width: 100%;
+    padding: 5px 8px;
+    background: var(--pu-bg-input);
+    border: 1px solid var(--pu-border-light);
+    border-radius: var(--pu-radius-sm);
+    color: var(--pu-text-primary);
+    font-family: var(--pu-font-mono);
+    font-size: 11px;
+    outline: none;
+    margin-bottom: 6px;
+    box-sizing: border-box;
+}
+.pu-rp-replace-popover-input:focus {
+    border-color: var(--pu-purple);
+    box-shadow: 0 0 0 1px rgba(198, 120, 221, 0.2);
+}
+.pu-rp-replace-popover-input::placeholder {
+    color: var(--pu-text-muted);
+    font-style: italic;
+}
+.pu-rp-replace-popover-actions {
+    display: flex;
+    gap: 4px;
+    justify-content: flex-end;
+}
+.pu-rp-replace-popover-btn {
+    font-size: 10px;
+    padding: 3px 10px;
+    border: none;
+    border-radius: var(--pu-radius-sm);
+    cursor: pointer;
+    font-family: var(--pu-font-body);
+    transition: all var(--pu-transition-fast);
+}
+.pu-rp-replace-popover-btn.cancel {
+    background: var(--pu-bg-tertiary);
+    color: var(--pu-text-secondary);
+}
+.pu-rp-replace-popover-btn.cancel:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+.pu-rp-replace-popover-btn.apply {
+    background: var(--pu-purple);
+    color: #fff;
+}
+.pu-rp-replace-popover-btn.apply:hover {
+    filter: brightness(1.15);
+}
+.pu-rp-replace-popover-remove {
+    font-size: 9px;
+    color: var(--pu-error);
+    cursor: pointer;
+    text-align: center;
+    padding-top: 6px;
+    border-top: 1px solid var(--pu-border);
+    margin-top: 4px;
+}
+.pu-rp-replace-popover-remove:hover {
+    color: #f08090;
+}
+
+/* Export button variant label */
+.pu-rp-ops-export-btn .variant-label {
+    font-size: 8px;
+    opacity: 0.8;
+    margin-left: 4px;
 }
 
 /* Compositions section (fixed bottom) */

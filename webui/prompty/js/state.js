@@ -105,7 +105,10 @@ PU.state = {
         wildcardsMax: 0,      // 0 = use actual wildcard counts, >0 = override all wildcard counts
         visualizer: 'compact',  // Wildcard display style: compact | typewriter | reel | stack | ticker
         selectedWildcards: {},  // Per-block wildcard overrides: { blockPath: { wcName: value } }
-        _extTextCache: {}     // Cached ext_text API data: { "scope/name": data }
+        lockedValues: {},       // Locked wildcard values: { wcName: ["val1", "val2"] }
+        wildcardMaxOverrides: {},// Per-wildcard max overrides: { wcName: number }
+        _extTextCache: {},    // Cached ext_text API data: { "scope/name": data }
+        _sessionBaseline: null // Snapshot of persisted session state (for dirty detection)
     }
 };
 
@@ -386,6 +389,42 @@ PU.helpers = {
  * API Helpers
  */
 PU.api = {
+    /**
+     * Load operations list for a job
+     */
+    async loadOperations(jobId) {
+        const data = await PU.api.get(`/api/pu/job/${encodeURIComponent(jobId)}/operations`);
+        return data.operations || [];
+    },
+
+    /**
+     * Load single operation content
+     */
+    async loadOperation(jobId, opName) {
+        return PU.api.get(`/api/pu/job/${encodeURIComponent(jobId)}/operation/${encodeURIComponent(opName)}`);
+    },
+
+    /**
+     * Save operation content
+     */
+    async saveOperation(jobId, opName, mappings) {
+        return PU.api.post(`/api/pu/job/${encodeURIComponent(jobId)}/operation/${encodeURIComponent(opName)}`, { mappings });
+    },
+
+    /**
+     * Load session state for a job
+     */
+    async loadSession(jobId) {
+        return PU.api.get(`/api/pu/job/${encodeURIComponent(jobId)}/session`);
+    },
+
+    /**
+     * Save session state for a prompt
+     */
+    async saveSession(jobId, promptId, data) {
+        return PU.api.post(`/api/pu/job/${encodeURIComponent(jobId)}/session`, { prompt_id: promptId, data });
+    },
+
     /**
      * Make GET request
      */

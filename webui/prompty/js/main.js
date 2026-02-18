@@ -88,6 +88,7 @@ PU.actions = {
             const compId = parseInt(composition, 10);
             if (!isNaN(compId) && compId >= 0) {
                 PU.state.previewMode.compositionId = compId;
+                PU.state.previewMode._compositionFromUrl = true;
             }
         }
 
@@ -275,6 +276,14 @@ PU.actions = {
         }
         delete PU.state.previewMode._wcMaxFromUrl;
 
+        // Load operations for this job (Phase 2)
+        await PU.rightPanel.loadOperations();
+
+        // Load session state (initial load — set baseline, hydrate non-URL fields)
+        if (PU.state.activePromptId) {
+            await PU.rightPanel.loadSession();
+        }
+
         if (PU.state.activePromptId) {
             await PU.editor.showPrompt(jobId, PU.state.activePromptId);
             PU.rightPanel.render();
@@ -303,9 +312,16 @@ PU.actions = {
         const activeJob = PU.helpers.getActiveJob();
         PU.state.previewMode.wildcardsMax = activePrompt?.wildcards_max ?? activeJob?.defaults?.wildcards_max ?? 0;
 
+        // Clear locked values and per-wildcard max overrides on prompt change
+        PU.state.previewMode.lockedValues = {};
+        PU.state.previewMode.wildcardMaxOverrides = {};
+
         // Invalidate autocomplete cache on prompt switch
         PU.state.autocompleteCache.loaded = false;
         PU.state.autocompleteCache.extWildcardNames = [];
+
+        // Load session state (restores composition, locks, overrides, active operation)
+        await PU.rightPanel.loadSession();
 
         // Update UI
         PU.sidebar.updateActiveStates();

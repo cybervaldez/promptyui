@@ -75,9 +75,14 @@ PU.buildComposition = {
         const extTextCount = PU.state.previewMode.extTextCount || 1;
         const extTextMax = PU.state.previewMode.extTextMax || 1;
         const wcMax = PU.state.previewMode.wildcardsMax || 0;
-        const total = PU.preview.computeEffectiveTotal(extTextCount, wildcardCounts, extTextMax, wcMax);
 
-        return { lookup, wcNames, wildcardCounts, extTextCount, extTextMax, wcMax, total };
+        // Per-wildcard max overrides
+        const overrides = PU.state.previewMode.wildcardMaxOverrides || {};
+        const wcMaxMap = Object.keys(overrides).length > 0 ? overrides : null;
+
+        const total = PU.preview.computeEffectiveTotal(extTextCount, wildcardCounts, extTextMax, wcMax, wcMaxMap);
+
+        return { lookup, wcNames, wildcardCounts, extTextCount, extTextMax, wcMax, wcMaxMap, total };
     },
 
     /**
@@ -124,8 +129,10 @@ PU.buildComposition = {
         } else if (field === 'wildcards_max') {
             // Write to previewMode via preview API
             await PU.preview.updateWildcardsMax(isNaN(val) || val < 0 ? 0 : val);
-            // Clear pins when wcMax changes (bucket boundaries shift)
+            // Clear pins and locks when wcMax changes (bucket boundaries shift)
             PU.state.previewMode.selectedWildcards = {};
+            PU.state.previewMode.lockedValues = {};
+            PU.state.previewMode.wildcardMaxOverrides = {};
         }
 
         // Re-render prompt section (dimensions may change)

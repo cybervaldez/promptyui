@@ -135,17 +135,22 @@
             <!-- Right Panel (wildcard stream + compositions) -->
             <aside class="pu-right-panel" data-testid="pu-right-panel">
                 <!-- Top bar: scope + variant selector + wc count -->
-                <div class="pu-rp-top-bar" data-testid="pu-rp-top-bar" style="display: none;">
+                <div class="pu-rp-top-bar" data-testid="pu-rp-top-bar" style="display: none; position: relative;">
                     <span class="pu-rp-scope-chip" data-testid="pu-rp-scope"></span>
                     <span class="pu-rp-top-sep"></span>
                     <span class="pu-rp-op-selector" data-testid="pu-rp-op-selector"></span>
                     <span class="pu-rp-top-spacer"></span>
                     <span class="pu-rp-top-stats" data-testid="pu-rp-wc-count"></span>
+                    <!-- Operation dropdown (hidden by default) -->
+                    <div class="pu-rp-op-dropdown" data-testid="pu-rp-op-dropdown" style="display: none;"></div>
                 </div>
-                <!-- Wildcard stream (scrollable) -->
-                <div class="pu-rp-wc-stream" data-testid="pu-rp-wc-stream">
+                <!-- Wildcard stream (scrollable, relative for popover positioning) -->
+                <div class="pu-rp-wc-stream" data-testid="pu-rp-wc-stream" style="position: relative;">
                     <div class="pu-rp-note">No wildcards or themes yet. The panel shows the composition navigator once wildcards are added.</div>
                 </div>
+
+                <!-- Replacement popover (hidden by default, positioned absolutely) -->
+                <div class="pu-rp-replace-popover" data-testid="pu-rp-replace-popover" style="display: none;"></div>
 
                 <!-- Compositions section (fixed bottom) -->
                 <div class="pu-rp-ops-section" data-testid="pu-rp-ops-section">

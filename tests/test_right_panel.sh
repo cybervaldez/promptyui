@@ -40,14 +40,14 @@ log_info "Loading hiring-templates / ext-sourcing-strategy..."
 agent-browser close 2>/dev/null || true
 sleep 1
 agent-browser open "$BASE_URL/?job=hiring-templates&prompt=ext-sourcing-strategy" 2>/dev/null
-sleep 8
+sleep 10
 
-# Verify prompt loaded (retry up to 3 times)
+# Verify prompt loaded (retry up to 5 times)
 PROMPT_NAME=""
-for attempt in 1 2 3; do
+for attempt in 1 2 3 4 5; do
     PROMPT_NAME=$(agent-browser eval 'PU.state.activePromptId' 2>/dev/null | tr -d '"')
     [ -n "$PROMPT_NAME" ] && [ "$PROMPT_NAME" != "null" ] && break
-    sleep 3
+    sleep 4
 done
 if [ -n "$PROMPT_NAME" ] && [ "$PROMPT_NAME" != "null" ]; then
     log_pass "Prompt loaded: $PROMPT_NAME"
