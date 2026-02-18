@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nesting A: Slim Header (toolbar on hover)</title>
+<style>
+  :root {
+    --pu-bg-primary: #191919;
+    --pu-bg-secondary: #202020;
+    --pu-bg-tertiary: #2f2f2f;
+    --pu-bg-hover: rgba(255, 255, 255, 0.04);
+    --pu-bg-selected: rgba(255, 255, 255, 0.06);
+    --pu-text-primary: #ebebeb;
+    --pu-text-secondary: #999999;
+    --pu-text-muted: #7a7a7a;
+    --pu-accent: #529CCA;
+    --pu-accent-bg: rgba(82, 156, 202, 0.08);
+    --pu-accent-border: rgba(82, 156, 202, 0.25);
+    --pu-border: rgba(255, 255, 255, 0.06);
+    --pu-border-light: rgba(255, 255, 255, 0.09);
+    --pu-radius: 4px;
+    --pu-radius-lg: 6px;
+    --pu-font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --pu-font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+    --pu-font-size-xs: 11px;
+    --pu-font-size-sm: 12px;
+    --pu-font-size-md: 13px;
+    --pu-space-xs: 4px;
+    --pu-space-sm: 8px;
+    --pu-space-md: 12px;
+    --pu-space-lg: 16px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--pu-bg-primary);
+    color: var(--pu-text-primary);
+    font-family: var(--pu-font-body);
+    padding: 40px 20px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+  .header h1 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--pu-accent);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 8px;
+  }
+  .header p {
+    font-size: 13px;
+    color: var(--pu-text-secondary);
+    max-width: 600px;
+    margin: 0 auto;
+    line-height: 1.5;
+  }
+
+  .label {
+    font-size: 11px;
+    color: var(--pu-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 32px 0 12px;
+    padding-left: 4px;
+  }
+
+  /* ===== CURRENT LAYOUT (for comparison) ===== */
+  .current .pu-block {
+    background: var(--pu-bg-hover);
+    border: 1px solid transparent;
+    border-radius: var(--pu-radius-lg);
+    margin-bottom: var(--pu-space-md);
+  }
+  .current .pu-block-header {
+    display: flex;
+    align-items: center;
+    padding: var(--pu-space-md) var(--pu-space-lg);
+    background: var(--pu-bg-hover);
+    border-radius: var(--pu-radius-lg) var(--pu-radius-lg) 0 0;
+    gap: var(--pu-space-sm);
+  }
+  .current .pu-block-toggle {
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    transform: rotate(90deg);
+  }
+  .current .pu-block-path {
+    font-family: var(--pu-font-mono);
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-secondary);
+    background: var(--pu-bg-secondary);
+    padding: 2px 6px;
+    border-radius: var(--pu-radius);
+  }
+  .current .pu-block-type {
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-accent);
+    font-weight: 500;
+  }
+  .current .pu-block-actions {
+    margin-left: auto;
+    display: flex;
+    gap: var(--pu-space-xs);
+  }
+  .current .pu-block-action {
+    padding: var(--pu-space-xs) var(--pu-space-sm);
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--pu-text-muted);
+    border-radius: var(--pu-radius);
+    font-size: var(--pu-font-size-sm);
+    font-family: var(--pu-font-body);
+    cursor: pointer;
+  }
+  .current .pu-block-content {
+    position: relative;
+    padding: 14px var(--pu-space-lg);
+  }
+  .current .pu-block-visualizer {
+    text-align: center;
+    font-size: 19px;
+    line-height: 1.7;
+    padding: 20px 40px 40px;
+    word-break: break-word;
+    white-space: pre-wrap;
+  }
+  .current .pu-block[data-depth="1"] .pu-block-visualizer {
+    font-size: 16px;
+    opacity: 0.88;
+    padding: 14px 32px 32px;
+  }
+  .current .pu-block-children {
+    margin-left: 28px;
+    padding-left: var(--pu-space-md);
+    padding-bottom: var(--pu-space-md);
+    border-left: 1px solid var(--pu-border-light);
+  }
+  .current .pu-block-children .pu-block {
+    margin-bottom: var(--pu-space-sm);
+  }
+  .current .pu-block-parent-context {
+    color: var(--pu-text-muted);
+    opacity: 0.65;
+    font-size: var(--pu-font-size-sm);
+    line-height: 1.5;
+    padding: 0 32px 4px;
+    text-align: left;
+  }
+  .current .pu-parent-dash { opacity: 0.4; margin-left: 4px; }
+  .current .pu-block-viz-arrow { color: var(--pu-accent); opacity: 0.7; margin-right: 6px; }
+
+  .wc-pill {
+    display: inline-block;
+    background: var(--pu-accent-bg);
+    border: 1px solid var(--pu-accent-border);
+    border-radius: var(--pu-radius);
+    padding: 2px 8px;
+    color: var(--pu-accent);
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  /* ===== VARIATION A: SLIM HEADER ===== */
+  .slim .pu-block {
+    background: var(--pu-bg-hover);
+    border: 1px solid transparent;
+    border-radius: var(--pu-radius-lg);
+    margin-bottom: var(--pu-space-md);
+    position: relative;
+  }
+
+  /* Slim header: just a thin 4px colored bar + hover expand */
+  .slim .pu-block-header {
+    height: 4px;
+    background: var(--pu-border-light);
+    border-radius: var(--pu-radius-lg) var(--pu-radius-lg) 0 0;
+    position: relative;
+    overflow: visible;
+    transition: height 150ms ease, padding 150ms ease, background 150ms ease;
+    cursor: pointer;
+  }
+  .slim .pu-block-header-toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--pu-space-sm);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 150ms ease;
+    padding: 0 var(--pu-space-lg);
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 100%;
+  }
+
+  .slim .pu-block:hover > .pu-block-header,
+  .slim .pu-block:focus-within > .pu-block-header {
+    height: 32px;
+    background: var(--pu-bg-hover);
+    padding: 0;
+  }
+  .slim .pu-block:hover > .pu-block-header .pu-block-header-toolbar,
+  .slim .pu-block:focus-within > .pu-block-header .pu-block-header-toolbar {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .slim .pu-block-path {
+    font-family: var(--pu-font-mono);
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-secondary);
+    background: var(--pu-bg-secondary);
+    padding: 2px 6px;
+    border-radius: var(--pu-radius);
+  }
+  .slim .pu-block-type {
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-accent);
+    font-weight: 500;
+  }
+  .slim .pu-block-actions {
+    margin-left: auto;
+    display: flex;
+    gap: var(--pu-space-xs);
+  }
+  .slim .pu-block-action {
+    padding: 2px 6px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--pu-text-muted);
+    border-radius: var(--pu-radius);
+    font-size: 10px;
+    font-family: var(--pu-font-body);
+    cursor: pointer;
+  }
+
+  .slim .pu-block-content {
+    position: relative;
+    padding: 10px var(--pu-space-lg);
+  }
+  .slim .pu-block-visualizer {
+    text-align: center;
+    font-size: 19px;
+    line-height: 1.7;
+    padding: 16px 40px 32px;
+    word-break: break-word;
+    white-space: pre-wrap;
+  }
+  .slim .pu-block[data-depth="1"] .pu-block-visualizer {
+    font-size: 16px;
+    opacity: 0.88;
+    padding: 10px 32px 24px;
+  }
+  .slim .pu-block-children {
+    margin-left: 28px;
+    padding-left: var(--pu-space-md);
+    padding-bottom: var(--pu-space-md);
+    border-left: 1px solid var(--pu-border-light);
+  }
+  .slim .pu-block-children .pu-block {
+    margin-bottom: var(--pu-space-sm);
+  }
+
+  /* Distance markers */
+  .distance-marker {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 4px 0;
+    padding-left: 48px;
+  }
+  .distance-marker .line {
+    flex: 0 0 2px;
+    height: 20px;
+    background: rgba(255, 100, 100, 0.4);
+  }
+  .distance-marker .label-dist {
+    font-size: 10px;
+    color: rgba(255, 100, 100, 0.7);
+    font-family: var(--pu-font-mono);
+  }
+
+  .comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    margin-top: 24px;
+  }
+  .comparison > div {
+    min-width: 0;
+  }
+
+  @media (max-width: 800px) {
+    .comparison {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--pu-accent);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+    padding: 6px 12px;
+    background: var(--pu-accent-bg);
+    border-radius: var(--pu-radius);
+    display: inline-block;
+  }
+</style>
+</head>
+<body>
+  <div class="header">
+    <h1>Variation A: Slim Header</h1>
+    <p>Block header collapses to a 4px bar at rest. Full toolbar (path, type, actions) reveals on hover.
+       This cuts ~32px of vertical distance per nested block, bringing child content visually closer to parent.</p>
+    <p style="margin-top: 8px; color: var(--pu-text-muted); font-size: 12px;">
+      <strong>Key change:</strong> No parent context text needed — the reduced gap makes the parent visible above without reminder.
+    </p>
+  </div>
+
+  <div class="comparison">
+    <!-- CURRENT -->
+    <div>
+      <div class="section-label">Current (full header)</div>
+      <div class="current">
+        <div class="pu-block" data-depth="0">
+          <div class="pu-block-header">
+            <span class="pu-block-toggle">&#9654;</span>
+            <span class="pu-block-path">Path: 0</span>
+            <span class="pu-block-type">content</span>
+            <div class="pu-block-actions">
+              <button class="pu-block-action">+ Nest</button>
+              <button class="pu-block-action">&#128465;</button>
+            </div>
+          </div>
+          <div class="pu-block-content">
+            <div class="pu-block-visualizer">
+              Write a one-pager culture document for a growth <span class="wc-pill">fintech</span> company
+            </div>
+          </div>
+          <div class="pu-block-children">
+            <div class="pu-block" data-depth="1">
+              <div class="pu-block-header">
+                <span class="pu-block-toggle">&#9654;</span>
+                <span class="pu-block-path">Path: 0.0</span>
+                <span class="pu-block-type">content</span>
+                <div class="pu-block-actions">
+                  <button class="pu-block-action">+ Nest</button>
+                  <button class="pu-block-action">&#128465;</button>
+                </div>
+              </div>
+              <div class="pu-block-content">
+                <div class="pu-block-parent-context">
+                  Write a one-pager culture document for a growth fintech company <span class="pu-parent-dash">──</span>
+                </div>
+                <div class="pu-block-visualizer" style="font-size:16px; opacity:0.88; padding:14px 32px 32px;">
+                  <span class="pu-block-viz-arrow">→</span> Emphasize <span class="wc-pill">ownership</span> as a core value
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIM -->
+    <div>
+      <div class="section-label">Variation A: Slim header</div>
+      <div class="slim">
+        <div class="pu-block" data-depth="0">
+          <div class="pu-block-header">
+            <div class="pu-block-header-toolbar">
+              <span class="pu-block-path">Path: 0</span>
+              <span class="pu-block-type">content</span>
+              <div class="pu-block-actions">
+                <button class="pu-block-action">+ Nest</button>
+                <button class="pu-block-action">&#128465;</button>
+              </div>
+            </div>
+          </div>
+          <div class="pu-block-content">
+            <div class="pu-block-visualizer">
+              Write a one-pager culture document for a growth <span class="wc-pill">fintech</span> company
+            </div>
+          </div>
+          <div class="pu-block-children">
+            <div class="pu-block" data-depth="1">
+              <div class="pu-block-header">
+                <div class="pu-block-header-toolbar">
+                  <span class="pu-block-path">Path: 0.0</span>
+                  <span class="pu-block-type">content</span>
+                  <div class="pu-block-actions">
+                    <button class="pu-block-action">+ Nest</button>
+                    <button class="pu-block-action">&#128465;</button>
+                  </div>
+                </div>
+              </div>
+              <div class="pu-block-content">
+                <div class="pu-block-visualizer" style="font-size:16px; opacity:0.88; padding:10px 32px 24px;">
+                  Emphasize <span class="wc-pill">ownership</span> as a core value
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p style="font-size: 11px; color: var(--pu-text-muted); margin-top: 12px;">
+        ↑ Hover over blocks to reveal the full toolbar. No parent context or arrow needed.
+      </p>
+    </div>
+  </div>
+</body>
+</html>

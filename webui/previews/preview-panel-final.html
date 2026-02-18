@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Right Panel: Wildcard Tree + Operations</title>
+<style>
+:root {
+    --pu-bg-primary: #191919;
+    --pu-bg-secondary: #202020;
+    --pu-bg-tertiary: #2f2f2f;
+    --pu-bg-input: #252525;
+    --pu-bg-hover: rgba(255, 255, 255, 0.04);
+    --pu-bg-selected: rgba(255, 255, 255, 0.06);
+    --pu-text-primary: #ebebeb;
+    --pu-text-secondary: #999999;
+    --pu-text-muted: #7a7a7a;
+    --pu-accent: #529CCA;
+    --pu-accent-bg: rgba(82, 156, 202, 0.08);
+    --pu-accent-light: rgba(82, 156, 202, 0.12);
+    --pu-success: #4daa57;
+    --pu-success-bg: rgba(77, 170, 87, 0.12);
+    --pu-warning: #cb912f;
+    --pu-warning-bg: rgba(203, 145, 47, 0.1);
+    --pu-error: #e06c75;
+    --pu-error-bg: rgba(224, 108, 117, 0.1);
+    --pu-orange: #e8943a;
+    --pu-purple: #c678dd;
+    --pu-purple-bg: rgba(198, 120, 221, 0.1);
+    --pu-border: rgba(255, 255, 255, 0.06);
+    --pu-border-light: rgba(255, 255, 255, 0.09);
+    --pu-radius: 4px;
+    --pu-radius-sm: 3px;
+    --pu-font-body: 'Inter', -apple-system, sans-serif;
+    --pu-font-mono: 'JetBrains Mono', monospace;
+    --pu-space-xs: 4px;
+    --pu-space-sm: 8px;
+    --pu-space-md: 12px;
+    --pu-space-lg: 16px;
+    --pu-transition-fast: 120ms ease-out;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: var(--pu-font-body);
+    background: var(--pu-bg-primary);
+    color: var(--pu-text-primary);
+    display: flex;
+    justify-content: center;
+    padding: 40px;
+    gap: 24px;
+}
+.preview-label {
+    position: fixed; top: 12px; left: 12px;
+    background: var(--pu-accent); color: #fff;
+    padding: 4px 12px; border-radius: 4px;
+    font-size: 12px; font-weight: 600; z-index: 99;
+}
+.state-label {
+    position: fixed; top: 12px; right: 12px;
+    background: var(--pu-bg-tertiary); color: var(--pu-text-muted);
+    padding: 4px 12px; border-radius: 4px;
+    font-size: 11px; z-index: 99;
+}
+
+/* === PANEL === */
+.panel {
+    width: 320px;
+    background: var(--pu-bg-secondary);
+    display: flex;
+    flex-direction: column;
+    height: 85vh;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--pu-border);
+    flex-shrink: 0;
+}
+.panel-label {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 6px 12px 2px;
+    background: var(--pu-bg-primary);
+}
+
+/* Top bar: scope + operation selector */
+.top-bar {
+    display: flex;
+    align-items: center;
+    padding: 6px var(--pu-space-md);
+    border-bottom: 1px solid var(--pu-border);
+    background: var(--pu-bg-primary);
+    gap: 6px;
+    flex-shrink: 0;
+}
+.scope-chip {
+    font-family: var(--pu-font-mono);
+    font-size: 10px;
+    color: var(--pu-warning);
+    background: var(--pu-warning-bg);
+    padding: 2px 7px;
+    border-radius: var(--pu-radius-sm);
+    white-space: nowrap;
+}
+.top-sep {
+    width: 1px;
+    height: 14px;
+    background: var(--pu-border-light);
+}
+.op-selector {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: var(--pu-purple);
+    background: var(--pu-purple-bg);
+    padding: 2px 7px;
+    border-radius: var(--pu-radius-sm);
+    cursor: pointer;
+    white-space: nowrap;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.op-selector .arrow { font-size: 8px; opacity: 0.6; }
+.op-selector.none {
+    color: var(--pu-text-muted);
+    background: var(--pu-bg-tertiary);
+}
+.top-spacer { flex: 1; }
+.top-stats {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    font-family: var(--pu-font-mono);
+    white-space: nowrap;
+}
+
+/* === WILDCARD STREAM (scrollable) === */
+.wc-stream {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--pu-space-xs) var(--pu-space-sm);
+}
+
+/* Thin divider between ext and local */
+.wc-divider {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 4px 4px;
+}
+.wc-divider-line { flex: 1; height: 1px; background: var(--pu-border); }
+.wc-divider-label {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+/* Each wildcard entry */
+.wc-entry {
+    padding: 5px 6px;
+    border-radius: var(--pu-radius);
+    margin-bottom: 1px;
+    transition: background var(--pu-transition-fast);
+}
+.wc-entry:hover { background: var(--pu-bg-hover); }
+
+.wc-entry-header {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 3px;
+}
+.wc-name {
+    font-family: var(--pu-font-mono);
+    font-size: 11px;
+    color: var(--pu-text-primary);
+    font-weight: 500;
+}
+.wc-src {
+    font-size: 7px;
+    padding: 1px 4px;
+    border-radius: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    font-weight: 600;
+}
+.wc-src.local { background: var(--pu-accent-bg); color: var(--pu-accent); }
+.wc-src.ext { background: var(--pu-warning-bg); color: var(--pu-warning); }
+.wc-src.override {
+    background: var(--pu-success-bg);
+    color: var(--pu-success);
+}
+.wc-path {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    margin-left: auto;
+    font-family: var(--pu-font-mono);
+    opacity: 0.7;
+}
+
+/* Value chips */
+.wc-values {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    align-items: center;
+}
+.wc-v {
+    font-size: 10px;
+    padding: 1px 6px;
+    background: var(--pu-bg-tertiary);
+    border-radius: 3px;
+    color: var(--pu-text-secondary);
+    cursor: pointer;
+    transition: all var(--pu-transition-fast);
+    white-space: nowrap;
+}
+.wc-v:hover {
+    background: var(--pu-accent-light);
+    color: var(--pu-text-primary);
+}
+.wc-v.active {
+    background: var(--pu-accent);
+    color: #fff;
+}
+
+/* Replacement arrow chip */
+.wc-replace-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    background: var(--pu-purple-bg);
+    border-radius: 3px;
+    overflow: hidden;
+}
+.wc-v.replaced {
+    background: transparent;
+    color: var(--pu-text-muted);
+    text-decoration: line-through;
+    text-decoration-color: rgba(122, 122, 122, 0.5);
+    border-radius: 3px 0 0 3px;
+    padding-right: 3px;
+}
+.wc-replace-arrow {
+    font-size: 9px;
+    color: var(--pu-purple);
+    padding: 0 2px;
+}
+.wc-v.replacement {
+    background: transparent;
+    color: var(--pu-purple);
+    font-weight: 500;
+    border-radius: 0 3px 3px 0;
+    padding-left: 3px;
+    cursor: pointer;
+}
+.wc-v.replacement:hover {
+    color: #d9a0ef;
+}
+.wc-v.replacement.active {
+    background: var(--pu-purple);
+    color: #fff;
+}
+
+/* Unmatched operation warning */
+.wc-unmatched {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 9px;
+    color: var(--pu-error);
+    padding: 3px 6px;
+    margin-top: 2px;
+    background: var(--pu-error-bg);
+    border-radius: var(--pu-radius-sm);
+}
+.wc-unmatched-icon { font-size: 10px; }
+
+/* === OPERATIONS SECTION (bottom, fixed) === */
+.ops-section {
+    border-top: 1px solid var(--pu-border);
+    background: var(--pu-bg-primary);
+    flex-shrink: 0;
+}
+
+/* Composition navigator */
+.ops-nav {
+    display: flex;
+    align-items: center;
+    padding: 5px var(--pu-space-md);
+    gap: 4px;
+    border-bottom: 1px solid var(--pu-border);
+}
+.ops-nav-btn {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--pu-bg-tertiary);
+    border: none;
+    border-radius: var(--pu-radius-sm);
+    color: var(--pu-text-secondary);
+    cursor: pointer;
+    font-size: 13px;
+    transition: all var(--pu-transition-fast);
+}
+.ops-nav-btn:hover {
+    background: var(--pu-accent-light);
+    color: var(--pu-text-primary);
+}
+.ops-nav-label {
+    font-size: 11px;
+    font-family: var(--pu-font-mono);
+    color: var(--pu-text-primary);
+    padding: 0 4px;
+    min-width: 70px;
+    text-align: center;
+}
+.ops-nav-spacer { flex: 1; }
+.ops-nav-tags {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 140px;
+}
+
+/* Resolved output preview */
+.ops-output {
+    padding: 6px var(--pu-space-md);
+    max-height: 80px;
+    overflow-y: auto;
+    font-size: 11px;
+    color: var(--pu-text-secondary);
+    line-height: 1.5;
+    border-bottom: 1px solid var(--pu-border);
+    background: var(--pu-bg-hover);
+}
+.ops-output em {
+    color: var(--pu-accent);
+    font-style: normal;
+    font-weight: 500;
+}
+.ops-output .replaced-text {
+    color: var(--pu-purple);
+    font-weight: 500;
+}
+
+/* Dims + export */
+.ops-footer {
+    padding: 6px var(--pu-space-md);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.ops-dims {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+.ops-dim {
+    font-size: 9px;
+    font-family: var(--pu-font-mono);
+    padding: 1px 2px;
+    color: var(--pu-text-muted);
+}
+.ops-dim.local { color: var(--pu-text-muted); }
+.ops-dim.ext { color: var(--pu-text-muted); }
+.ops-x {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+}
+.ops-bottom-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.ops-total {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--pu-accent);
+}
+.ops-size {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+}
+.ops-export-btn {
+    margin-left: auto;
+    font-size: 10px;
+    padding: 3px 10px;
+    background: var(--pu-accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--pu-radius-sm);
+    cursor: pointer;
+    transition: all var(--pu-transition-fast);
+    font-family: var(--pu-font-body);
+}
+.ops-export-btn:hover {
+    background: #6ab0d6;
+}
+
+/* === RIGHT-CLICK REPLACEMENT POPOVER === */
+.replace-popover {
+    position: absolute;
+    background: var(--pu-bg-secondary);
+    border: 1px solid var(--pu-border-light);
+    border-radius: 6px;
+    padding: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    width: 200px;
+    z-index: 100;
+}
+.replace-popover-header {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 6px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--pu-border);
+}
+.replace-popover-original {
+    font-family: var(--pu-font-mono);
+    font-size: 11px;
+    color: var(--pu-text-primary);
+    background: var(--pu-bg-tertiary);
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+.replace-popover-arrow {
+    font-size: 10px;
+    color: var(--pu-purple);
+}
+.replace-popover-input {
+    width: 100%;
+    padding: 5px 8px;
+    background: var(--pu-bg-input);
+    border: 1px solid var(--pu-border-light);
+    border-radius: var(--pu-radius-sm);
+    color: var(--pu-text-primary);
+    font-family: var(--pu-font-mono);
+    font-size: 11px;
+    outline: none;
+    margin-bottom: 6px;
+}
+.replace-popover-input:focus {
+    border-color: var(--pu-purple);
+    box-shadow: 0 0 0 1px rgba(198, 120, 221, 0.2);
+}
+.replace-popover-input::placeholder {
+    color: var(--pu-text-muted);
+    font-style: italic;
+}
+.replace-popover-actions {
+    display: flex;
+    gap: 4px;
+    justify-content: flex-end;
+}
+.replace-popover-btn {
+    font-size: 10px;
+    padding: 3px 10px;
+    border: none;
+    border-radius: var(--pu-radius-sm);
+    cursor: pointer;
+    font-family: var(--pu-font-body);
+    transition: all var(--pu-transition-fast);
+}
+.replace-popover-btn.cancel {
+    background: var(--pu-bg-tertiary);
+    color: var(--pu-text-secondary);
+}
+.replace-popover-btn.cancel:hover {
+    background: var(--pu-bg-selected);
+}
+.replace-popover-btn.apply {
+    background: var(--pu-purple);
+    color: #fff;
+}
+.replace-popover-btn.apply:hover {
+    background: #d09ae8;
+}
+.replace-popover-hint {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    margin-bottom: 6px;
+}
+.replace-popover-remove {
+    font-size: 9px;
+    color: var(--pu-error);
+    cursor: pointer;
+    text-align: center;
+    padding-top: 6px;
+    border-top: 1px solid var(--pu-border);
+    margin-top: 4px;
+}
+.replace-popover-remove:hover {
+    color: #f08090;
+}
+
+/* Chip context-menu highlight */
+.wc-v.context-target {
+    outline: 1px solid var(--pu-purple);
+    outline-offset: 1px;
+}
+</style>
+</head>
+<body>
+<div class="preview-label">Final: Inheritance + Operations</div>
+
+<!-- ============================================ -->
+<!-- PANEL 1: With active operation file          -->
+<!-- ============================================ -->
+<div class="panel">
+    <div class="panel-label">State: Operation active</div>
+    <div class="top-bar">
+        <span class="scope-chip">hiring/</span>
+        <span class="top-sep"></span>
+        <span class="op-selector">
+            role-replacements <span class="arrow">&#9662;</span>
+        </span>
+        <span class="top-spacer"></span>
+        <span class="top-stats">6 wc</span>
+    </div>
+
+    <div class="wc-stream">
+        <!-- EXT WILDCARDS -->
+        <div class="wc-divider">
+            <span class="wc-divider-line"></span>
+            <span class="wc-divider-label">from extensions</span>
+            <span class="wc-divider-line"></span>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">seniority</span>
+                <span class="wc-src ext">ext</span>
+                <span class="wc-path">hiring/roles</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v">Junior</span>
+                <span class="wc-v active">Mid-level</span>
+                <span class="wc-v">Senior</span>
+                <span class="wc-v">Staff</span>
+                <span class="wc-v">Principal</span>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">deal_stage</span>
+                <span class="wc-src ext">ext</span>
+                <span class="wc-path">sales/personas</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v active">prospecting</span>
+                <span class="wc-v">discovery</span>
+                <span class="wc-v">evaluation</span>
+                <span class="wc-v">negotiation</span>
+                <span class="wc-v">closed-won</span>
+            </div>
+        </div>
+
+        <!-- LOCAL WILDCARDS -->
+        <div class="wc-divider">
+            <span class="wc-divider-line"></span>
+            <span class="wc-divider-label">prompt-defined</span>
+            <span class="wc-divider-line"></span>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">role</span>
+                <span class="wc-src local">local</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v">Sr SW Eng</span>
+                <span class="wc-v">PM</span>
+                <span class="wc-v">DevOps</span>
+                <!-- Replaced value: Frontend Dev → UI Designer -->
+                <span class="wc-replace-group">
+                    <span class="wc-v replaced">Frontend Dev</span>
+                    <span class="wc-replace-arrow">&rarr;</span>
+                    <span class="wc-v replacement active">UI Designer</span>
+                </span>
+                <!-- Replaced value: Data Scientist → Data Analyst -->
+                <span class="wc-replace-group">
+                    <span class="wc-v replaced">Data Scientist</span>
+                    <span class="wc-replace-arrow">&rarr;</span>
+                    <span class="wc-v replacement">Data Analyst</span>
+                </span>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">mood</span>
+                <span class="wc-src override">local &bull; overrides</span>
+                <span class="wc-path">professional/tones</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v active">happy</span>
+                <span class="wc-v">sad</span>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">count</span>
+                <span class="wc-src local">local</span>
+            </div>
+            <div class="wc-values">
+                <!-- Replaced: 3 → 1 -->
+                <span class="wc-replace-group">
+                    <span class="wc-v replaced">3</span>
+                    <span class="wc-replace-arrow">&rarr;</span>
+                    <span class="wc-v replacement">1</span>
+                </span>
+                <span class="wc-v active">5</span>
+                <span class="wc-v">10</span>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">approach</span>
+                <span class="wc-src local">local</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v active">personalized</span>
+                <span class="wc-v">automated</span>
+                <span class="wc-v">hybrid</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- OPERATIONS SECTION -->
+    <div class="ops-section">
+        <div class="ops-nav">
+            <button class="ops-nav-btn">&lsaquo;</button>
+            <span class="ops-nav-label">47 / 1,800</span>
+            <button class="ops-nav-btn">&rsaquo;</button>
+            <button class="ops-nav-btn" title="Shuffle">&#8635;</button>
+            <span class="ops-nav-spacer"></span>
+            <span class="ops-nav-tags">role=<b>UI Designer</b>, count=5</span>
+        </div>
+        <div class="ops-output">
+            Write a job posting for a <span class="replaced-text">UI Designer</span> position with a <em>happy</em> tone, targeting <em>personalized</em> approach through <em>Mid-level</em> seniority...
+        </div>
+        <div class="ops-footer">
+            <div class="ops-dims">
+                <span class="ops-dim ext">seniority(5)</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim ext">deal_stage(5)</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim local">role(5)</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim local">mood(2)</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim local">count(3)</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim local">approach(3)</span>
+            </div>
+            <div class="ops-bottom-row">
+                <span class="ops-total">1,800 compositions</span>
+                <span class="ops-size">~414 KB</span>
+                <button class="ops-export-btn">Export .txt</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- PANEL 2: No operation (raw prompt)           -->
+<!-- ============================================ -->
+<div class="panel">
+    <div class="panel-label">State: No operation</div>
+    <div class="top-bar">
+        <span class="scope-chip">hiring/</span>
+        <span class="top-sep"></span>
+        <span class="op-selector none">
+            No operation <span class="arrow">&#9662;</span>
+        </span>
+        <span class="top-spacer"></span>
+        <span class="top-stats">6 wc</span>
+    </div>
+
+    <div class="wc-stream">
+        <div class="wc-divider">
+            <span class="wc-divider-line"></span>
+            <span class="wc-divider-label">from extensions</span>
+            <span class="wc-divider-line"></span>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">seniority</span>
+                <span class="wc-src ext">ext</span>
+                <span class="wc-path">hiring/roles</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v">Junior</span>
+                <span class="wc-v active">Mid-level</span>
+                <span class="wc-v">Senior</span>
+                <span class="wc-v">Staff</span>
+                <span class="wc-v">Principal</span>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">deal_stage</span>
+                <span class="wc-src ext">ext</span>
+                <span class="wc-path">sales/personas</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v active">prospecting</span>
+                <span class="wc-v">discovery</span>
+                <span class="wc-v">evaluation</span>
+                <span class="wc-v">negotiation</span>
+                <span class="wc-v">closed-won</span>
+            </div>
+        </div>
+
+        <div class="wc-divider">
+            <span class="wc-divider-line"></span>
+            <span class="wc-divider-label">prompt-defined</span>
+            <span class="wc-divider-line"></span>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">role</span>
+                <span class="wc-src local">local</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v">Sr SW Eng</span>
+                <span class="wc-v">PM</span>
+                <span class="wc-v">DevOps</span>
+                <span class="wc-v active">Frontend Dev</span>
+                <span class="wc-v">Data Scientist</span>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">mood</span>
+                <span class="wc-src override">local &bull; overrides</span>
+                <span class="wc-path">professional/tones</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v active">happy</span>
+                <span class="wc-v">sad</span>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">count</span>
+                <span class="wc-src local">local</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v">3</span>
+                <span class="wc-v active">5</span>
+                <span class="wc-v">10</span>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">approach</span>
+                <span class="wc-src local">local</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v active">personalized</span>
+                <span class="wc-v">automated</span>
+                <span class="wc-v">hybrid</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- OPERATIONS SECTION (no operation active) -->
+    <div class="ops-section">
+        <div class="ops-nav">
+            <button class="ops-nav-btn">&lsaquo;</button>
+            <span class="ops-nav-label">47 / 1,800</span>
+            <button class="ops-nav-btn">&rsaquo;</button>
+            <button class="ops-nav-btn" title="Shuffle">&#8635;</button>
+            <span class="ops-nav-spacer"></span>
+            <span class="ops-nav-tags">role=<b>Frontend Dev</b>, count=5</span>
+        </div>
+        <div class="ops-output">
+            Write a job posting for a <em>Frontend Dev</em> position with a <em>happy</em> tone, targeting <em>personalized</em> approach through <em>Mid-level</em> seniority...
+        </div>
+        <div class="ops-footer">
+            <div class="ops-dims">
+                <span class="ops-dim ext">seniority(5)</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim ext">deal_stage(5)</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim local">role(5)</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim local">mood(2)</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim local">count(3)</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim local">approach(3)</span>
+            </div>
+            <div class="ops-bottom-row">
+                <span class="ops-total">1,800 compositions</span>
+                <span class="ops-size">~414 KB</span>
+                <button class="ops-export-btn">Export .txt</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- PANEL 3: Operation with unmatched rules      -->
+<!-- ============================================ -->
+<div class="panel">
+    <div class="panel-label">State: Unmatched operation rules</div>
+    <div class="top-bar">
+        <span class="scope-chip">hiring/</span>
+        <span class="top-sep"></span>
+        <span class="op-selector">
+            role-replacements <span class="arrow">&#9662;</span>
+        </span>
+        <span class="top-spacer"></span>
+        <span class="top-stats">3 wc</span>
+    </div>
+
+    <div class="wc-stream">
+        <div class="wc-divider">
+            <span class="wc-divider-line"></span>
+            <span class="wc-divider-label">prompt-defined</span>
+            <span class="wc-divider-line"></span>
+        </div>
+
+        <!-- This prompt has different role values — operation rules don't match -->
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">role</span>
+                <span class="wc-src local">local</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v active">engineering</span>
+                <span class="wc-v">product</span>
+                <span class="wc-v">design</span>
+            </div>
+            <div class="wc-unmatched">
+                <span class="wc-unmatched-icon">&#9888;</span>
+                "Frontend Developer" &rarr; no match
+            </div>
+            <div class="wc-unmatched">
+                <span class="wc-unmatched-icon">&#9888;</span>
+                "Data Scientist" &rarr; no match
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">count</span>
+                <span class="wc-src local">local</span>
+            </div>
+            <div class="wc-values">
+                <!-- "3" matches, so replacement works -->
+                <span class="wc-replace-group">
+                    <span class="wc-v replaced">3</span>
+                    <span class="wc-replace-arrow">&rarr;</span>
+                    <span class="wc-v replacement">1</span>
+                </span>
+                <span class="wc-v active">5</span>
+                <span class="wc-v">10</span>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">skill</span>
+                <span class="wc-src local">local</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v active">problem solving</span>
+                <span class="wc-v">system design</span>
+                <span class="wc-v">leadership</span>
+                <span class="wc-v">collaboration</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- OPERATIONS SECTION -->
+    <div class="ops-section">
+        <div class="ops-nav">
+            <button class="ops-nav-btn">&lsaquo;</button>
+            <span class="ops-nav-label">3 / 36</span>
+            <button class="ops-nav-btn">&rsaquo;</button>
+            <button class="ops-nav-btn" title="Shuffle">&#8635;</button>
+            <span class="ops-nav-spacer"></span>
+            <span class="ops-nav-tags">role=<b>engineering</b>, count=5</span>
+        </div>
+        <div class="ops-output">
+            Generate <em>5</em> interview questions for <em>engineering</em> focusing on <em>problem solving</em>
+        </div>
+        <div class="ops-footer">
+            <div class="ops-dims">
+                <span class="ops-dim local">role(3)</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim local">count(3)</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim local">skill(4)</span>
+            </div>
+            <div class="ops-bottom-row">
+                <span class="ops-total">36 compositions</span>
+                <span class="ops-size">~8.3 KB</span>
+                <button class="ops-export-btn">Export .txt</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- PANEL 4: Right-click to add replacement      -->
+<!-- ============================================ -->
+<div class="panel" style="position: relative;">
+    <div class="panel-label">State: Adding replacement (right-click)</div>
+    <div class="top-bar">
+        <span class="scope-chip">hiring/</span>
+        <span class="top-sep"></span>
+        <span class="op-selector">
+            role-replacements <span class="arrow">&#9662;</span>
+        </span>
+        <span class="top-spacer"></span>
+        <span class="top-stats">6 wc</span>
+    </div>
+
+    <div class="wc-stream">
+        <div class="wc-divider">
+            <span class="wc-divider-line"></span>
+            <span class="wc-divider-label">from extensions</span>
+            <span class="wc-divider-line"></span>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">seniority</span>
+                <span class="wc-src ext">ext</span>
+                <span class="wc-path">hiring/roles</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v">Junior</span>
+                <span class="wc-v active">Mid-level</span>
+                <!-- User right-clicked "Senior" to add a replacement -->
+                <span class="wc-v context-target">Senior</span>
+                <span class="wc-v">Staff</span>
+                <span class="wc-v">Principal</span>
+            </div>
+        </div>
+
+        <!-- Popover positioned near the right-clicked chip -->
+        <div class="replace-popover" style="position: absolute; top: 118px; left: 120px;">
+            <div class="replace-popover-header">
+                <span class="replace-popover-original">Senior</span>
+                <span class="replace-popover-arrow">&rarr;</span>
+            </div>
+            <div class="replace-popover-hint">Replace with (in active operation):</div>
+            <input class="replace-popover-input" type="text" placeholder="e.g. Lead" value="Lead Engineer" autofocus>
+            <div class="replace-popover-actions">
+                <button class="replace-popover-btn cancel">Cancel</button>
+                <button class="replace-popover-btn apply">Apply</button>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">deal_stage</span>
+                <span class="wc-src ext">ext</span>
+                <span class="wc-path">sales/personas</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v active">prospecting</span>
+                <span class="wc-v">discovery</span>
+                <span class="wc-v">evaluation</span>
+                <span class="wc-v">negotiation</span>
+                <span class="wc-v">closed-won</span>
+            </div>
+        </div>
+
+        <div class="wc-divider">
+            <span class="wc-divider-line"></span>
+            <span class="wc-divider-label">prompt-defined</span>
+            <span class="wc-divider-line"></span>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">role</span>
+                <span class="wc-src local">local</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v">Sr SW Eng</span>
+                <span class="wc-v">PM</span>
+                <span class="wc-v">DevOps</span>
+                <span class="wc-replace-group">
+                    <span class="wc-v replaced">Frontend Dev</span>
+                    <span class="wc-replace-arrow">&rarr;</span>
+                    <span class="wc-v replacement active">UI Designer</span>
+                </span>
+                <span class="wc-replace-group">
+                    <span class="wc-v replaced">Data Scientist</span>
+                    <span class="wc-replace-arrow">&rarr;</span>
+                    <span class="wc-v replacement">Data Analyst</span>
+                </span>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">mood</span>
+                <span class="wc-src override">local &bull; overrides</span>
+                <span class="wc-path">professional/tones</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v active">happy</span>
+                <span class="wc-v">sad</span>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">count</span>
+                <span class="wc-src local">local</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-replace-group">
+                    <span class="wc-v replaced">3</span>
+                    <span class="wc-replace-arrow">&rarr;</span>
+                    <span class="wc-v replacement">1</span>
+                </span>
+                <span class="wc-v active">5</span>
+                <span class="wc-v">10</span>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">approach</span>
+                <span class="wc-src local">local</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v active">personalized</span>
+                <span class="wc-v">automated</span>
+                <span class="wc-v">hybrid</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="ops-section">
+        <div class="ops-nav">
+            <button class="ops-nav-btn">&lsaquo;</button>
+            <span class="ops-nav-label">47 / 1,800</span>
+            <button class="ops-nav-btn">&rsaquo;</button>
+            <button class="ops-nav-btn" title="Shuffle">&#8635;</button>
+            <span class="ops-nav-spacer"></span>
+            <span class="ops-nav-tags">role=<b>UI Designer</b>, count=5</span>
+        </div>
+        <div class="ops-output">
+            Write a job posting for a <span class="replaced-text">UI Designer</span> position with a <em>happy</em> tone, targeting <em>personalized</em> approach through <em>Mid-level</em> seniority...
+        </div>
+        <div class="ops-footer">
+            <div class="ops-dims">
+                <span class="ops-dim ext">seniority(5)</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim ext">deal_stage(5)</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim local">role(5)</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim local">mood(2)</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim local">count(3)</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim local">approach(3)</span>
+            </div>
+            <div class="ops-bottom-row">
+                <span class="ops-total">1,800 compositions</span>
+                <span class="ops-size">~414 KB</span>
+                <button class="ops-export-btn">Export .txt</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- PANEL 5: Editing existing replacement        -->
+<!-- ============================================ -->
+<div class="panel" style="position: relative;">
+    <div class="panel-label">State: Editing existing replacement</div>
+    <div class="top-bar">
+        <span class="scope-chip">hiring/</span>
+        <span class="top-sep"></span>
+        <span class="op-selector">
+            role-replacements <span class="arrow">&#9662;</span>
+        </span>
+        <span class="top-spacer"></span>
+        <span class="top-stats">6 wc</span>
+    </div>
+
+    <div class="wc-stream">
+        <div class="wc-divider">
+            <span class="wc-divider-line"></span>
+            <span class="wc-divider-label">from extensions</span>
+            <span class="wc-divider-line"></span>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">seniority</span>
+                <span class="wc-src ext">ext</span>
+                <span class="wc-path">hiring/roles</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v">Junior</span>
+                <span class="wc-v active">Mid-level</span>
+                <span class="wc-v">Senior</span>
+                <span class="wc-v">Staff</span>
+                <span class="wc-v">Principal</span>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">deal_stage</span>
+                <span class="wc-src ext">ext</span>
+                <span class="wc-path">sales/personas</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v active">prospecting</span>
+                <span class="wc-v">discovery</span>
+                <span class="wc-v">evaluation</span>
+                <span class="wc-v">negotiation</span>
+                <span class="wc-v">closed-won</span>
+            </div>
+        </div>
+
+        <div class="wc-divider">
+            <span class="wc-divider-line"></span>
+            <span class="wc-divider-label">prompt-defined</span>
+            <span class="wc-divider-line"></span>
+        </div>
+
+        <div class="wc-entry" style="position: relative;">
+            <div class="wc-entry-header">
+                <span class="wc-name">role</span>
+                <span class="wc-src local">local</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v">Sr SW Eng</span>
+                <span class="wc-v">PM</span>
+                <span class="wc-v">DevOps</span>
+                <!-- Right-clicked on the existing replacement to edit it -->
+                <span class="wc-replace-group context-target" style="outline: 1px solid var(--pu-purple); outline-offset: 1px;">
+                    <span class="wc-v replaced">Frontend Dev</span>
+                    <span class="wc-replace-arrow">&rarr;</span>
+                    <span class="wc-v replacement active">UI Designer</span>
+                </span>
+                <span class="wc-replace-group">
+                    <span class="wc-v replaced">Data Scientist</span>
+                    <span class="wc-replace-arrow">&rarr;</span>
+                    <span class="wc-v replacement">Data Analyst</span>
+                </span>
+            </div>
+
+            <!-- Edit popover for existing replacement -->
+            <div class="replace-popover" style="position: absolute; top: 44px; left: 90px;">
+                <div class="replace-popover-header">
+                    <span class="replace-popover-original">Frontend Dev</span>
+                    <span class="replace-popover-arrow">&rarr;</span>
+                </div>
+                <div class="replace-popover-hint">Edit replacement value:</div>
+                <input class="replace-popover-input" type="text" value="UI Designer">
+                <div class="replace-popover-actions">
+                    <button class="replace-popover-btn cancel">Cancel</button>
+                    <button class="replace-popover-btn apply">Update</button>
+                </div>
+                <div class="replace-popover-remove">Remove this replacement</div>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">mood</span>
+                <span class="wc-src override">local &bull; overrides</span>
+                <span class="wc-path">professional/tones</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v active">happy</span>
+                <span class="wc-v">sad</span>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">count</span>
+                <span class="wc-src local">local</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-replace-group">
+                    <span class="wc-v replaced">3</span>
+                    <span class="wc-replace-arrow">&rarr;</span>
+                    <span class="wc-v replacement">1</span>
+                </span>
+                <span class="wc-v active">5</span>
+                <span class="wc-v">10</span>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">approach</span>
+                <span class="wc-src local">local</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v active">personalized</span>
+                <span class="wc-v">automated</span>
+                <span class="wc-v">hybrid</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="ops-section">
+        <div class="ops-nav">
+            <button class="ops-nav-btn">&lsaquo;</button>
+            <span class="ops-nav-label">47 / 1,800</span>
+            <button class="ops-nav-btn">&rsaquo;</button>
+            <button class="ops-nav-btn" title="Shuffle">&#8635;</button>
+            <span class="ops-nav-spacer"></span>
+            <span class="ops-nav-tags">role=<b>UI Designer</b>, count=5</span>
+        </div>
+        <div class="ops-output">
+            Write a job posting for a <span class="replaced-text">UI Designer</span> position with a <em>happy</em> tone, targeting <em>personalized</em> approach through <em>Mid-level</em> seniority...
+        </div>
+        <div class="ops-footer">
+            <div class="ops-dims">
+                <span class="ops-dim ext">seniority(5)</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim ext">deal_stage(5)</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim local">role(5)</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim local">mood(2)</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim local">count(3)</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim local">approach(3)</span>
+            </div>
+            <div class="ops-bottom-row">
+                <span class="ops-total">1,800 compositions</span>
+                <span class="ops-size">~414 KB</span>
+                <button class="ops-export-btn">Export .txt</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

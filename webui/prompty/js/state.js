@@ -38,13 +38,13 @@ PU.state = {
             defaults: false
         },
         jobsExpanded: {},
-        inspectorExtensionFilter: '',
         outputFooterCollapsed: false,
         outputLabelMode: 'none',
         outputGroupBy: null,
         outputGroupCollapsed: {},
         outputFilters: {},
-        outputFilterCollapsed: {}
+        outputFilterCollapsed: {},
+        rpSectionsCollapsed: {}    // (deprecated — kept for compat)
     },
 
     // Preview state
@@ -59,6 +59,15 @@ PU.state = {
         quillInstance: null,     // Transient Quill (not in PU.quill.instances)
         enterTimestamp: 0,       // Debounce guard
         pendingPath: null        // URL-restored path, consumed after render
+    },
+
+    // Build Composition panel state
+    buildComposition: {
+        visible: false,
+        operations: [],              // Available operation file names
+        activeOperation: null,       // Currently selected operation name
+        activeOperationData: null,   // Loaded operation YAML content
+        generating: false            // Loading state for Export button
     },
 
     // Export modal state
@@ -80,12 +89,20 @@ PU.state = {
         extScope: null         // ext scope string (invalidate on change)
     },
 
+    // Theme management UI state
+    themes: {
+        swapDropdown: { visible: false, path: null, currentTheme: null },
+        diffPopover: { visible: false, targetTheme: null, diffData: null },
+        contextMenu: { visible: false, path: null, isTheme: false },
+        saveModal: { visible: false, blockPath: null }
+    },
+
     // Preview/resolution state (odometer + wildcard selections)
     previewMode: {
         compositionId: 99,    // Default composition (matching v4 default)
         extTextMax: 1,        // Bucket size limit for ext_text (user-controlled)
         extTextCount: 1,      // Actual ext_text count (computed from loaded data)
-        extWildcardsMax: 0,   // 0 = use actual wildcard counts, >0 = override all wildcard counts
+        wildcardsMax: 0,      // 0 = use actual wildcard counts, >0 = override all wildcard counts
         visualizer: 'compact',  // Wildcard display style: compact | typewriter | reel | stack | ticker
         selectedWildcards: {},  // Per-block wildcard overrides: { blockPath: { wcName: value } }
         _extTextCache: {}     // Cached ext_text API data: { "scope/name": data }

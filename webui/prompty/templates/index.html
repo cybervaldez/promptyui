@@ -23,6 +23,9 @@
                 <span class="pu-header-active-job" data-testid="pu-header-active-job">No job selected</span>
             </div>
             <div class="pu-header-right">
+                <button class="pu-btn" data-testid="pu-header-build-btn" onclick="PU.buildComposition.toggle()">
+                    Build
+                </button>
                 <button class="pu-btn pu-btn-primary" data-testid="pu-header-export-btn" onclick="PU.actions.openExportModal()">
                     Export
                 </button>
@@ -86,57 +89,6 @@
                                         <option value="">Loading...</option>
                                     </select>
                                 </div>
-                                <div class="pu-defaults-row">
-                                    <label>ext_text_max:</label>
-                                    <input type="number" min="0" value="0"
-                                           data-testid="pu-defaults-ext-text-max"
-                                           onchange="PU.actions.updateDefaults('ext_text_max', this.value)">
-                                    <span class="pu-defaults-hint">0 = all</span>
-                                </div>
-                                <div class="pu-defaults-row">
-                                    <label>ext_wildcards_max:</label>
-                                    <input type="number" min="0" value="0"
-                                           data-testid="pu-defaults-ext-wildcards-max"
-                                           onchange="PU.actions.updateDefaults('ext_wildcards_max', this.value)">
-                                    <span class="pu-defaults-hint">0 = all</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Odometer Toolbar -->
-                    <div class="pu-odometer-toolbar" data-testid="pu-odometer-toolbar">
-                        <div class="pu-odometer-inputs">
-                            <div class="pu-odometer-field">
-                                <label>Comp:</label>
-                                <input type="number" min="0" value="99"
-                                       data-testid="pu-odometer-composition"
-                                       oninput="PU.editor.handleOdometerChange('composition', this.value)">
-                                <button class="pu-btn-icon-only" data-testid="pu-odometer-dice-btn"
-                                        onclick="PU.editor.randomizeComposition()" title="Random">&#8635;</button>
-                            </div>
-                            <div class="pu-odometer-field">
-                                <label>ext_text:</label>
-                                <input type="number" min="1" value="1"
-                                       data-testid="pu-odometer-ext-text"
-                                       oninput="PU.editor.handleOdometerChange('ext_text', this.value)">
-                            </div>
-                            <div class="pu-odometer-field">
-                                <label>wc_max:</label>
-                                <input type="number" min="0" value="0"
-                                       data-testid="pu-odometer-wc-max"
-                                       oninput="PU.editor.handleOdometerChange('wc_max', this.value)">
-                            </div>
-                            <div class="pu-odometer-field">
-                                <label>Viz:</label>
-                                <select data-testid="pu-odometer-visualizer"
-                                        onchange="PU.editor.handleVisualizerChange(this.value)">
-                                    <option value="compact">Compact</option>
-                                    <option value="typewriter">Typewriter</option>
-                                    <option value="reel">Reel</option>
-                                    <option value="stack">Stack</option>
-                                    <option value="ticker">Ticker</option>
-                                </select>
                             </div>
                         </div>
                     </div>
@@ -145,42 +97,21 @@
                     <div class="pu-prompt-header">
                         <span class="pu-prompt-label">PROMPT:</span>
                         <span class="pu-prompt-title" data-testid="pu-editor-title">No prompt selected</span>
+                        <div class="pu-prompt-header-actions">
+                            <select data-testid="pu-editor-visualizer"
+                                    onchange="PU.editor.handleVisualizerChange(this.value)">
+                                <option value="compact">Compact</option>
+                                <option value="typewriter">Typewriter</option>
+                                <option value="reel">Reel</option>
+                                <option value="stack">Stack</option>
+                                <option value="ticker">Ticker</option>
+                            </select>
+                        </div>
                     </div>
 
                     <!-- Blocks Container -->
                     <div class="pu-blocks-container" data-testid="pu-blocks-container">
                         <!-- Blocks rendered by JS -->
-                    </div>
-
-                    <!-- Output Footer -->
-                    <div class="pu-output-footer" data-testid="pu-output-footer">
-                        <div class="pu-output-footer-header" data-testid="pu-output-footer-toggle"
-                             onclick="PU.actions.toggleOutputFooter()">
-                            <span class="pu-output-footer-title">Resolved Output</span>
-                            <span class="pu-output-footer-count" data-testid="pu-output-footer-count"></span>
-                            <span class="pu-output-filter-badge" data-testid="pu-output-filter-badge" style="display:none"></span>
-                            <button class="pu-btn-sm pu-output-label-toggle"
-                                    data-testid="pu-output-label-toggle"
-                                    onclick="event.stopPropagation(); PU.actions.cycleOutputLabelMode()"
-                                    title="Label mode: none">&#8210;</button>
-                            <button class="pu-btn-sm" data-testid="pu-output-footer-copy"
-                                    onclick="event.stopPropagation(); PU.actions.copyOutputFooter()">Copy All</button>
-                            <span class="pu-output-footer-chevron" data-testid="pu-output-footer-chevron">&#9660;</span>
-                        </div>
-                        <div class="pu-output-footer-body" data-testid="pu-output-footer-body">
-                            <div class="pu-filter-tree" data-testid="pu-filter-tree" style="display:none">
-                                <div class="pu-filter-tree-scroll" data-testid="pu-filter-tree-scroll"></div>
-                                <div class="pu-filter-tree-footer">
-                                    <button class="pu-filter-reset-btn" data-testid="pu-filter-reset-btn"
-                                            style="display:none"
-                                            onclick="event.stopPropagation(); PU.actions.resetOutputFilters()">
-                                        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 1l10 10M11 1L1 11"/></svg>
-                                        RESET
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="pu-output-list" data-testid="pu-output-list"></div>
-                        </div>
                     </div>
 
                     <!-- Add Block Buttons -->
@@ -192,7 +123,7 @@
                                     Add Content Input
                                 </button>
                                 <button data-testid="pu-add-exttext-btn" onclick="PU.actions.addBlock('ext_text')">
-                                    Add ext_text Reference
+                                    Add Theme
                                 </button>
                             </div>
                         </div>
@@ -201,34 +132,25 @@
 
             </main>
 
-            <!-- Right Inspector -->
-            <aside class="pu-inspector" data-testid="pu-inspector">
-                <!-- Global Extensions Section (Top) -->
-                <section class="pu-inspector-section pu-inspector-global-ext" data-testid="pu-inspector-global-ext">
-                    <div class="pu-inspector-header">
-                        <span class="pu-inspector-title">GLOBAL EXTENSIONS</span>
-                    </div>
-                    <div class="pu-inspector-search">
-                        <input type="text" placeholder="Search extensions..."
-                               oninput="PU.actions.filterInspectorExtensions(this.value)">
-                    </div>
-                    <div class="pu-inspector-ext-tree" data-testid="pu-inspector-ext-tree">
-                        <!-- Mini extension tree rendered by JS -->
-                    </div>
-                </section>
+            <!-- Right Panel (wildcard stream + compositions) -->
+            <aside class="pu-right-panel" data-testid="pu-right-panel">
+                <!-- Top bar: scope + variant selector + wc count -->
+                <div class="pu-rp-top-bar" data-testid="pu-rp-top-bar" style="display: none;">
+                    <span class="pu-rp-scope-chip" data-testid="pu-rp-scope"></span>
+                    <span class="pu-rp-top-sep"></span>
+                    <span class="pu-rp-op-selector" data-testid="pu-rp-op-selector"></span>
+                    <span class="pu-rp-top-spacer"></span>
+                    <span class="pu-rp-top-stats" data-testid="pu-rp-wc-count"></span>
+                </div>
+                <!-- Wildcard stream (scrollable) -->
+                <div class="pu-rp-wc-stream" data-testid="pu-rp-wc-stream">
+                    <div class="pu-rp-note">No wildcards or themes yet. The panel shows the composition navigator once wildcards are added.</div>
+                </div>
 
-                <!-- Local Context Section (Bottom) -->
-                <section class="pu-inspector-section pu-inspector-local" data-testid="pu-inspector-local">
-                    <div class="pu-inspector-header">
-                        <span class="pu-inspector-title">LOCAL CONTEXT</span>
-                    </div>
-                    <div class="pu-inspector-context" data-testid="pu-inspector-context">
-                        <!-- Context content changes based on selection -->
-                        <div class="pu-inspector-empty">
-                            <p>Select a block to see wildcards and context</p>
-                        </div>
-                    </div>
-                </section>
+                <!-- Compositions section (fixed bottom) -->
+                <div class="pu-rp-ops-section" data-testid="pu-rp-ops-section">
+                    <!-- Rendered by JS -->
+                </div>
             </aside>
         </div>
 
@@ -295,24 +217,95 @@
             </div>
         </div>
 
+        <!-- Build Composition Panel (slide-out) -->
+        <div class="pu-build-panel" data-testid="pu-build-panel" style="display: none;">
+            <div class="pu-build-header">
+                <span class="pu-build-title">BUILD COMPOSITION</span>
+                <button class="pu-focus-close" data-testid="pu-build-close-btn"
+                        onclick="PU.buildComposition.close()">&times;</button>
+            </div>
+            <div class="pu-build-body">
+                <!-- Defaults Section -->
+                <div class="pu-build-section">
+                    <div class="pu-build-section-label">DEFAULTS</div>
+                    <div class="pu-build-section-hint">Shared across all prompts</div>
+                    <div class="pu-build-defaults-form">
+                        <div class="pu-build-field">
+                            <label>ext scope:</label>
+                            <select data-testid="pu-build-defaults-ext"
+                                    onchange="PU.buildComposition.updateDefault('ext', this.value)">
+                                <option value="">Loading...</option>
+                            </select>
+                        </div>
+                        <div class="pu-build-field">
+                            <label>ext_text_max:</label>
+                            <input type="number" min="0" value="0"
+                                   data-testid="pu-build-defaults-ext-text-max"
+                                   onchange="PU.buildComposition.updateDefault('ext_text_max', this.value)">
+                            <span class="pu-build-hint">0 = all</span>
+                        </div>
+                        <div class="pu-build-field">
+                            <label>wc_max:</label>
+                            <input type="number" min="0" value="0"
+                                   data-testid="pu-build-defaults-ext-wc-max"
+                                   onchange="PU.buildComposition.updateDefault('wildcards_max', this.value)">
+                            <span class="pu-build-hint">0 = all</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Prompt Section -->
+                <div class="pu-build-section">
+                    <div class="pu-build-section-label">PROMPT</div>
+                    <div data-testid="pu-build-prompt-section"></div>
+                </div>
+
+                <!-- Operation Section (Phase 2 stub) -->
+                <div class="pu-build-section">
+                    <div class="pu-build-section-label">OPERATION</div>
+                    <div data-testid="pu-build-operation-section">
+                        <div class="pu-build-empty">None</div>
+                    </div>
+                </div>
+
+                <!-- Navigator Section -->
+                <div class="pu-build-section">
+                    <div class="pu-build-section-label">NAVIGATE</div>
+                    <div data-testid="pu-build-navigator"></div>
+                </div>
+
+                <!-- Export Section -->
+                <div class="pu-build-section">
+                    <div class="pu-build-section-label">EXPORT</div>
+                    <div data-testid="pu-build-export-section">
+                        <div class="pu-build-export-controls">
+                            <button class="pu-btn pu-btn-primary" data-testid="pu-build-export-btn"
+                                    onclick="PU.buildComposition.exportTxt()">Export .txt</button>
+                        </div>
+                        <div class="pu-build-export-estimate" data-testid="pu-build-export-estimate"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Extension Picker Popup (hidden by default) -->
         <div class="pu-ext-picker-popup" data-testid="pu-ext-picker-popup" style="display: none;">
             <div class="pu-ext-picker-header">
                 <span>Select Extension</span>
                 <button class="pu-ext-picker-close" data-testid="pu-ext-picker-close-btn"
-                        onclick="PU.inspector.closeExtPicker()">&times;</button>
+                        onclick="PU.rightPanel.closeExtPicker()">&times;</button>
             </div>
             <div class="pu-ext-picker-search">
                 <input type="text" data-testid="pu-ext-picker-search"
                        placeholder="Search extensions..."
-                       oninput="PU.inspector.filterExtPicker(this.value)">
+                       oninput="PU.rightPanel.filterExtPicker(this.value)">
             </div>
             <div class="pu-ext-picker-tree" data-testid="pu-ext-picker-tree">
                 <!-- Tree rendered by JS with data-testid="pu-ext-picker-item-{id}" per item -->
             </div>
             <div class="pu-ext-picker-actions">
                 <button class="pu-btn" data-testid="pu-ext-picker-cancel-btn"
-                        onclick="PU.inspector.closeExtPicker()">Cancel</button>
+                        onclick="PU.rightPanel.closeExtPicker()">Cancel</button>
             </div>
         </div>
 
@@ -352,6 +345,30 @@
             </div>
         </div>
 
+        <!-- Save as Theme Modal -->
+        <div class="pu-modal-overlay" data-testid="pu-theme-save-modal" style="display: none;">
+            <div class="pu-modal">
+                <div class="pu-modal-header">
+                    <h2>Save as Theme</h2>
+                    <button class="pu-modal-close" onclick="PU.themes.closeSaveModal()">&times;</button>
+                </div>
+                <div class="pu-modal-body">
+                    <label>Theme Name
+                        <input type="text" data-testid="pu-theme-save-name" placeholder="my-theme">
+                    </label>
+                    <label>Folder
+                        <select data-testid="pu-theme-save-folder"></select>
+                    </label>
+                    <div class="pu-theme-save-preview" data-testid="pu-theme-save-preview"></div>
+                </div>
+                <div class="pu-modal-footer">
+                    <button class="pu-btn" onclick="PU.themes.closeSaveModal()">Cancel</button>
+                    <button class="pu-btn pu-btn-primary" data-testid="pu-theme-save-confirm"
+                            onclick="PU.themes.confirmSave()">Save</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Toast Container -->
         <div class="pu-toast-container" data-testid="pu-toast-container"></div>
     </div>
@@ -363,10 +380,12 @@
     <script src="js/sidebar.js"></script>
     <script src="js/blocks.js"></script>
     <script src="js/editor.js"></script>
-    <script src="js/inspector.js"></script>
+    <script src="js/right-panel.js"></script>
     <script src="js/preview.js"></script>
     <script src="js/focus.js"></script>
     <script src="js/wildcard-popover.js"></script>
+    <script src="js/build-composition.js"></script>
+    <script src="js/themes.js"></script>
     <script src="js/export.js"></script>
     <script src="js/main.js"></script>
 </body>

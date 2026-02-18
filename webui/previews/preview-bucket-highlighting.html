@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bucket Window Highlighting — 3 Variations</title>
+<style>
+/* ── Base: Match PromptyUI dark palette ── */
+:root {
+    --bg-primary: #191919;
+    --bg-secondary: #202020;
+    --bg-tertiary: #2f2f2f;
+    --bg-input: #252525;
+    --bg-hover: rgba(255, 255, 255, 0.04);
+    --text-primary: #ebebeb;
+    --text-secondary: #999999;
+    --text-muted: #7a7a7a;
+    --accent: #529CCA;
+    --accent-bg: rgba(82, 156, 202, 0.08);
+    --accent-dim: rgba(82, 156, 202, 0.25);
+    --purple: #c678dd;
+    --purple-bg: rgba(198, 120, 221, 0.1);
+    --success: #4daa57;
+    --warning: #cb912f;
+    --error: #e06c75;
+    --border: rgba(255, 255, 255, 0.06);
+    --border-light: rgba(255, 255, 255, 0.09);
+    --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+    --radius: 4px;
+    --radius-sm: 3px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: 13px;
+    padding: 32px;
+}
+
+h1 {
+    font-size: 18px;
+    font-weight: 500;
+    margin-bottom: 8px;
+    color: var(--text-primary);
+}
+
+.subtitle {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 32px;
+    line-height: 1.6;
+}
+
+.subtitle code {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    background: var(--bg-tertiary);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--accent);
+}
+
+/* ── Scenario legend ── */
+.scenario-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 28px;
+    padding: 10px 14px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    flex-wrap: wrap;
+}
+
+.scenario-bar strong {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.scenario-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    font-size: 10px;
+    font-family: var(--font-mono);
+}
+
+.scenario-pill.active {
+    background: var(--accent-bg);
+    border: 1px solid var(--accent-dim);
+    color: var(--accent);
+}
+
+.scenario-pill.in-window {
+    background: rgba(82, 156, 202, 0.04);
+    border: 1px solid var(--border-light);
+    color: var(--text-secondary);
+}
+
+.scenario-pill.out-window {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    opacity: 0.5;
+}
+
+/* ── Grid: 3 columns ── */
+.variations-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+}
+
+/* ── Each variation panel ── */
+.variation {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.variation-header {
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--border);
+}
+
+.variation-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.variation-desc {
+    font-size: 10px;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+.variation-body {
+    padding: 16px;
+}
+
+/* ── Shared right-panel mock styles ── */
+.rp-divider {
+    font-size: 10px;
+    color: var(--text-muted);
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 8px;
+}
+
+.rp-entry {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.rp-entry:last-child { border-bottom: none; }
+
+.rp-wc-name {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--accent);
+}
+
+.rp-wc-name.theme {
+    color: var(--purple);
+}
+
+.rp-values {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+}
+
+/* Base chip */
+.rp-chip {
+    font-size: 10px;
+    padding: 2px 6px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-light);
+    border-radius: 3px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    transition: all 120ms ease-out;
+    cursor: default;
+}
+
+/* ── VARIATION A: Excel-style container border ── */
+.var-a .rp-chip.active {
+    background: var(--accent-bg);
+    border-color: var(--accent-dim);
+    color: var(--accent);
+}
+
+.var-a .rp-chip.in-window {
+    /* same as default — part of the bucket */
+}
+
+.var-a .rp-chip.out-window {
+    /* same as default — outside bucket */
+}
+
+/* Excel-style highlight border wrapping in-window chips */
+.var-a .window-frame {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 3px 4px;
+    border: 1.5px solid rgba(82, 156, 202, 0.35);
+    border-radius: 4px;
+    background: rgba(82, 156, 202, 0.03);
+    position: relative;
+}
+
+/* Window badge label */
+.var-a .window-badge {
+    position: absolute;
+    top: -7px;
+    left: 6px;
+    font-size: 8px;
+    font-family: var(--font-mono);
+    color: rgba(82, 156, 202, 0.5);
+    background: var(--bg-secondary);
+    padding: 0 3px;
+    letter-spacing: 0.3px;
+}
+
+/* Out-of-window chips sit outside the frame */
+.var-a .out-chips {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+/* ── VARIATION B: Opacity fade ── */
+.var-b .rp-chip.active {
+    background: var(--accent-bg);
+    border-color: var(--accent-dim);
+    color: var(--accent);
+    opacity: 1;
+}
+
+.var-b .rp-chip.in-window {
+    opacity: 1;
+}
+
+.var-b .rp-chip.out-window {
+    opacity: 0.3;
+}
+
+/* ── VARIATION C: Bracket + dot-list ── */
+.var-c .rp-chip.active {
+    background: var(--accent-bg);
+    border-color: var(--accent-dim);
+    color: var(--accent);
+}
+
+.var-c .rp-chip.in-window {
+    /* normal chip */
+}
+
+/* Out-of-window shown as text list */
+.var-c .out-list {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    line-height: 1.6;
+    padding-top: 2px;
+    opacity: 0.5;
+}
+
+.var-c .out-list span {
+    display: inline;
+}
+
+.var-c .out-list span::before {
+    content: '· ';
+    color: var(--text-muted);
+    opacity: 0.5;
+}
+
+/* ── Composition navigator mock ── */
+.rp-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 0;
+    margin-top: 12px;
+    border-top: 1px solid var(--border);
+}
+
+.rp-nav-btn {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-light);
+    color: var(--text-secondary);
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 10px;
+    cursor: pointer;
+}
+
+.rp-nav-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.rp-nav-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
+.rp-nav-label strong {
+    color: var(--text-secondary);
+}
+
+/* ── Footer notes ── */
+.footer-notes {
+    margin-top: 32px;
+    padding: 14px 16px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+}
+
+.footer-notes h3 {
+    font-size: 12px;
+    font-weight: 500;
+    margin-bottom: 8px;
+    color: var(--text-secondary);
+}
+
+.footer-notes ul {
+    list-style: none;
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.8;
+}
+
+.footer-notes li::before {
+    content: '→ ';
+    color: var(--accent);
+    opacity: 0.5;
+}
+
+/* ── Composition selector ── */
+.comp-selector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 20px;
+    padding: 8px 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+}
+
+.comp-selector label {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.comp-selector select {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-light);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.comp-selector .comp-info {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    margin-left: auto;
+}
+</style>
+</head>
+<body>
+
+<h1>Bucket Window Highlighting</h1>
+<p class="subtitle">
+    How to visually distinguish in-window vs out-of-window wildcard values in the right panel.<br>
+    Scenario: wildcard <code>__mood__</code> has 5 values, <code>wcMax = 2</code> → 3 buckets.
+    Composition 0 maps to bucket 0 (indices 0–1).
+</p>
+
+<!-- Interactive composition selector -->
+<div class="comp-selector">
+    <label>Composition:</label>
+    <select id="comp-select" onchange="updateAll()">
+        <option value="0">Composition 0 → Bucket 0 (values 0–1)</option>
+        <option value="1">Composition 1 → Bucket 1 (values 2–3)</option>
+        <option value="2">Composition 2 → Bucket 2 (value 4 only)</option>
+    </select>
+    <span class="comp-info" id="comp-info">bucket 0 of 3 · active: <strong>cheerful</strong></span>
+</div>
+
+<!-- Scenario legend -->
+<div class="scenario-bar">
+    <strong>Legend:</strong>
+    <span class="scenario-pill active">active</span> composition-selected value
+    <span class="scenario-pill in-window">in-window</span> same bucket, reachable via dropdown
+    <span class="scenario-pill out-window">out-of-window</span> different bucket, not reachable
+</div>
+
+<div class="variations-grid">
+
+<!-- ═══════════════════ VARIATION A: Excel Border ═══════════════════ -->
+<div class="variation var-a">
+    <div class="variation-header">
+        <div class="variation-title">A — Excel-Style Container Border</div>
+        <div class="variation-desc">
+            In-window chips wrapped in a subtle accent border frame.<br>
+            Out-of-window chips sit outside the frame as regular chips.
+        </div>
+    </div>
+    <div class="variation-body">
+        <div class="rp-divider">— prompt-defined</div>
+
+        <!-- mood: 5 values, wcMax=2 -->
+        <div class="rp-entry" id="va-mood">
+            <div class="rp-wc-name">__mood__</div>
+            <div class="rp-values" id="va-mood-values">
+                <!-- filled by JS -->
+            </div>
+        </div>
+
+        <!-- style: 3 values, wcMax=2 -->
+        <div class="rp-entry" id="va-style">
+            <div class="rp-wc-name">__style__</div>
+            <div class="rp-values" id="va-style-values">
+                <!-- filled by JS -->
+            </div>
+        </div>
+
+        <div class="rp-divider" style="margin-top: 12px; color: #c678dd;">— from themes (pixel-art)</div>
+
+        <!-- palette: 4 values, wcMax=2 -->
+        <div class="rp-entry" id="va-palette">
+            <div class="rp-wc-name theme">__palette__</div>
+            <div class="rp-values" id="va-palette-values">
+                <!-- filled by JS -->
+            </div>
+        </div>
+
+        <div class="rp-nav">
+            <button class="rp-nav-btn" onclick="prevComp()">‹</button>
+            <span class="rp-nav-label" id="va-nav-label">Variation <strong>1</strong> of 3</span>
+            <button class="rp-nav-btn" onclick="nextComp()">›</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════ VARIATION B: Opacity Fade ═══════════════════ -->
+<div class="variation var-b">
+    <div class="variation-header">
+        <div class="variation-title">B — Opacity Fade</div>
+        <div class="variation-desc">
+            In-window chips at 100% opacity.<br>
+            Out-of-window chips faded to 30% opacity. Simple, no extra DOM.
+        </div>
+    </div>
+    <div class="variation-body">
+        <div class="rp-divider">— prompt-defined</div>
+
+        <div class="rp-entry" id="vb-mood">
+            <div class="rp-wc-name">__mood__</div>
+            <div class="rp-values" id="vb-mood-values"></div>
+        </div>
+
+        <div class="rp-entry" id="vb-style">
+            <div class="rp-wc-name">__style__</div>
+            <div class="rp-values" id="vb-style-values"></div>
+        </div>
+
+        <div class="rp-divider" style="margin-top: 12px; color: #c678dd;">— from themes (pixel-art)</div>
+
+        <div class="rp-entry" id="vb-palette">
+            <div class="rp-wc-name theme">__palette__</div>
+            <div class="rp-values" id="vb-palette-values"></div>
+        </div>
+
+        <div class="rp-nav">
+            <button class="rp-nav-btn" onclick="prevComp()">‹</button>
+            <span class="rp-nav-label" id="vb-nav-label">Variation <strong>1</strong> of 3</span>
+            <button class="rp-nav-btn" onclick="nextComp()">›</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════ VARIATION C: Bracket + Dot-List ═══════════════════ -->
+<div class="variation var-c">
+    <div class="variation-header">
+        <div class="variation-title">C — Bracket + Dot-List</div>
+        <div class="variation-desc">
+            In-window values shown as normal chips.<br>
+            Out-of-window values collapsed to a muted dot-separated text list.
+        </div>
+    </div>
+    <div class="variation-body">
+        <div class="rp-divider">— prompt-defined</div>
+
+        <div class="rp-entry" id="vc-mood">
+            <div class="rp-wc-name">__mood__</div>
+            <div class="rp-values" id="vc-mood-values"></div>
+        </div>
+
+        <div class="rp-entry" id="vc-style">
+            <div class="rp-wc-name">__style__</div>
+            <div class="rp-values" id="vc-style-values"></div>
+        </div>
+
+        <div class="rp-divider" style="margin-top: 12px; color: #c678dd;">— from themes (pixel-art)</div>
+
+        <div class="rp-entry" id="vc-palette">
+            <div class="rp-wc-name theme">__palette__</div>
+            <div class="rp-values" id="vc-palette-values"></div>
+        </div>
+
+        <div class="rp-nav">
+            <button class="rp-nav-btn" onclick="prevComp()">‹</button>
+            <span class="rp-nav-label" id="vc-nav-label">Variation <strong>1</strong> of 3</span>
+            <button class="rp-nav-btn" onclick="nextComp()">›</button>
+        </div>
+    </div>
+</div>
+
+</div><!-- variations-grid -->
+
+<div class="footer-notes">
+    <h3>Key Differences</h3>
+    <ul>
+        <li><strong>A (Excel Border)</strong> — Most explicit boundary. Clear visual "window frame" around reachable values. Adds DOM nesting.</li>
+        <li><strong>B (Opacity Fade)</strong> — Lightest touch. No extra DOM, just CSS opacity. Out-of-window values still visible as chips.</li>
+        <li><strong>C (Bracket + Dot-List)</strong> — Most compact. Out-of-window values take less space as text. Clearest hierarchy separation.</li>
+        <li>All three: chips are <strong>read-only</strong> (no pin/toggle). Active = composition-derived, interactive selection stays in block dropdowns.</li>
+    </ul>
+</div>
+
+<script>
+// ── Data ──
+const wildcards = {
+    mood:    { values: ['cheerful', 'melancholic', 'energetic', 'serene', 'chaotic'], wcMax: 2 },
+    style:   { values: ['minimalist', 'ornate', 'retro'],                             wcMax: 2 },
+    palette: { values: ['neon-sunset', 'ocean-deep', 'forest-dusk', 'midnight'],      wcMax: 2 }
+};
+
+let currentComp = 0;
+
+function getBucket(totalValues, wcMax, compIdx) {
+    const bucketCount = Math.ceil(totalValues / wcMax);
+    const bucketIdx = compIdx % bucketCount;
+    const start = bucketIdx * wcMax;
+    const end = Math.min(start + wcMax, totalValues);
+    return { bucketIdx, bucketCount, start, end };
+}
+
+function esc(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Render Variation A ──
+function renderA() {
+    for (const [name, wc] of Object.entries(wildcards)) {
+        const container = document.getElementById('va-' + name + '-values');
+        const b = getBucket(wc.values.length, wc.wcMax, currentComp);
+        const activeIdx = b.start; // first in bucket is "active"
+
+        let html = '';
+
+        // In-window frame
+        const inWindowChips = [];
+        for (let i = b.start; i < b.end; i++) {
+            const cls = i === activeIdx ? 'active' : 'in-window';
+            inWindowChips.push(`<span class="rp-chip ${cls}">${esc(wc.values[i])}</span>`);
+        }
+
+        html += `<span class="window-frame"><span class="window-badge">bucket ${b.bucketIdx}</span>${inWindowChips.join('')}</span>`;
+
+        // Out-of-window chips
+        const outChips = [];
+        for (let i = 0; i < wc.values.length; i++) {
+            if (i >= b.start && i < b.end) continue;
+            outChips.push(`<span class="rp-chip out-window">${esc(wc.values[i])}</span>`);
+        }
+        if (outChips.length > 0) {
+            html += `<span class="out-chips">${outChips.join('')}</span>`;
+        }
+
+        container.innerHTML = html;
+    }
+    document.getElementById('va-nav-label').innerHTML = `Variation <strong>${currentComp + 1}</strong> of 3`;
+}
+
+// ── Render Variation B ──
+function renderB() {
+    for (const [name, wc] of Object.entries(wildcards)) {
+        const container = document.getElementById('vb-' + name + '-values');
+        const b = getBucket(wc.values.length, wc.wcMax, currentComp);
+        const activeIdx = b.start;
+
+        let html = '';
+        for (let i = 0; i < wc.values.length; i++) {
+            let cls;
+            if (i === activeIdx) cls = 'active';
+            else if (i >= b.start && i < b.end) cls = 'in-window';
+            else cls = 'out-window';
+            html += `<span class="rp-chip ${cls}">${esc(wc.values[i])}</span>`;
+        }
+        container.innerHTML = html;
+    }
+    document.getElementById('vb-nav-label').innerHTML = `Variation <strong>${currentComp + 1}</strong> of 3`;
+}
+
+// ── Render Variation C ──
+function renderC() {
+    for (const [name, wc] of Object.entries(wildcards)) {
+        const container = document.getElementById('vc-' + name + '-values');
+        const b = getBucket(wc.values.length, wc.wcMax, currentComp);
+        const activeIdx = b.start;
+
+        let html = '';
+
+        // In-window as chips
+        for (let i = b.start; i < b.end; i++) {
+            const cls = i === activeIdx ? 'active' : 'in-window';
+            html += `<span class="rp-chip ${cls}">${esc(wc.values[i])}</span>`;
+        }
+
+        // Out-of-window as text list
+        const outValues = [];
+        for (let i = 0; i < wc.values.length; i++) {
+            if (i >= b.start && i < b.end) continue;
+            outValues.push(wc.values[i]);
+        }
+        if (outValues.length > 0) {
+            html += `<div class="out-list">${outValues.map(v => `<span>${esc(v)}</span>`).join(' ')}</div>`;
+        }
+
+        container.innerHTML = html;
+    }
+    document.getElementById('vc-nav-label').innerHTML = `Variation <strong>${currentComp + 1}</strong> of 3`;
+}
+
+// ── Controls ──
+function updateAll() {
+    currentComp = parseInt(document.getElementById('comp-select').value, 10);
+    renderA();
+    renderB();
+    renderC();
+    updateInfo();
+}
+
+function updateInfo() {
+    const b = getBucket(wildcards.mood.values.length, wildcards.mood.wcMax, currentComp);
+    const active = wildcards.mood.values[b.start];
+    document.getElementById('comp-info').innerHTML =
+        `bucket ${b.bucketIdx} of ${b.bucketCount} · active: <strong>${esc(active)}</strong>`;
+}
+
+function prevComp() {
+    const sel = document.getElementById('comp-select');
+    if (currentComp > 0) {
+        currentComp--;
+        sel.value = currentComp;
+        updateAll();
+    }
+}
+
+function nextComp() {
+    const sel = document.getElementById('comp-select');
+    if (currentComp < 2) {
+        currentComp++;
+        sel.value = currentComp;
+        updateAll();
+    }
+}
+
+// ── Init ──
+updateAll();
+</script>
+</body>
+</html>

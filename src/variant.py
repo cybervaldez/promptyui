@@ -36,7 +36,7 @@ def build_variant_structure(
     job_name: str = "",
     job_dir: Optional[Path] = None,
     default_params: Optional[dict] = None,
-    ext_wildcards_max: int = 0,
+    wildcards_max: int = 0,
     ext_text_max: int = 1,
     default_ext: str = "defaults",
     samplers_config: Optional[list] = None,
@@ -60,7 +60,7 @@ def build_variant_structure(
         job_name: Name of the job
         job_dir: Path to job directory (for hash computation)
         default_params: Default generation parameters {width, height, steps, cfg}
-        ext_wildcards_max: Extension wildcard expansion limit
+        wildcards_max: Wildcard expansion limit (caps ALL wildcards post-merge)
         ext_text_max: Extension text consumption limit
         default_ext: Default extension folder
         samplers_config: Sampler configuration list
@@ -86,7 +86,7 @@ def build_variant_structure(
         range_increment,
         prompts_delimiter,
         global_conf,
-        ext_wildcards_max=ext_wildcards_max,
+        wildcards_max=wildcards_max,
         ext_text_max=ext_text_max,
         default_ext=default_ext,
         samplers_config=samplers_config,

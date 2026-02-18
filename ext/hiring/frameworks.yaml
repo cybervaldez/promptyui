@@ -1,0 +1,12 @@
+id: "frameworks"
+text:
+  - "STAR method (Situation, Task, Action, Result)"
+  - "Competency-based assessment"
+  - "Culture-add evaluation"
+  - "Technical depth interview"
+  - "Behavioral pattern analysis"
+wildcards:
+  - name: "evaluation_focus"
+    text: ["problem-solving", "leadership", "collaboration", "adaptability", "domain expertise"]
+  - name: "interview_style"
+    text: ["structured", "conversational", "panel", "case-study"]

@@ -3,6 +3,8 @@
 
 defaults:
   composition: 42
+  ext: "hiring"
+  wildcards_max: 3
 
 prompts:
   # JOB POSTING GENERATOR
@@ -114,16 +116,28 @@ prompts:
       - name: "approach"
         text: ["personalized", "automated", "hybrid"]
 
-  # STRESS TEST — Max wildcards + wide nesting
+  # STRESS TEST — All composition features: ext_text, themes, bucketing, nesting, many wildcards
   - id: "stress-test-prompt"
+    ext: "hiring"
+    wildcards_max: 3
     text:
+      # Root 1: Local wildcards + deep nesting (3 levels)
       - content: "As a __persona__, write a __format__ about __topic__"
         after:
           - content: "Use a __tone__ tone targeting __audience__"
           - content: "Include __count__ examples from __industry__"
-      - content: "Add a __section__ section"
+      # Root 2: ext_text theme (hiring/roles) — brings in seniority wildcard
+      - ext_text: "hiring/roles"
+        ext_text_max: 3
         after:
-          - content: "Focus on __metric__ as the key metric"
+          - content: "For each role, describe __seniority__-level expectations around __metric__"
+      # Root 3: ext_text theme (hiring/frameworks) — brings in evaluation_focus + interview_style
+      - ext_text: "hiring/frameworks"
+        ext_text_max: 2
+        after:
+          - content: "Apply the __interview_style__ style focusing on __evaluation_focus__"
+      # Root 4: Local wildcard leaf
+      - content: "Add a __section__ section summarizing the above"
     wildcards:
       - name: "persona"
         text: ["CEO", "CTO", "VP People", "recruiter", "hiring manager"]

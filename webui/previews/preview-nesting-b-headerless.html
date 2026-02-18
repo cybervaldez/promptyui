@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nesting B: Headerless Children</title>
+<style>
+  :root {
+    --pu-bg-primary: #191919;
+    --pu-bg-secondary: #202020;
+    --pu-bg-tertiary: #2f2f2f;
+    --pu-bg-hover: rgba(255, 255, 255, 0.04);
+    --pu-bg-selected: rgba(255, 255, 255, 0.06);
+    --pu-text-primary: #ebebeb;
+    --pu-text-secondary: #999999;
+    --pu-text-muted: #7a7a7a;
+    --pu-accent: #529CCA;
+    --pu-accent-bg: rgba(82, 156, 202, 0.08);
+    --pu-accent-border: rgba(82, 156, 202, 0.25);
+    --pu-border: rgba(255, 255, 255, 0.06);
+    --pu-border-light: rgba(255, 255, 255, 0.09);
+    --pu-radius: 4px;
+    --pu-radius-lg: 6px;
+    --pu-font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --pu-font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+    --pu-font-size-xs: 11px;
+    --pu-font-size-sm: 12px;
+    --pu-font-size-md: 13px;
+    --pu-space-xs: 4px;
+    --pu-space-sm: 8px;
+    --pu-space-md: 12px;
+    --pu-space-lg: 16px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--pu-bg-primary);
+    color: var(--pu-text-primary);
+    font-family: var(--pu-font-body);
+    padding: 40px 20px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+  .header h1 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--pu-accent);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 8px;
+  }
+  .header p {
+    font-size: 13px;
+    color: var(--pu-text-secondary);
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.5;
+  }
+
+  .wc-pill {
+    display: inline-block;
+    background: var(--pu-accent-bg);
+    border: 1px solid var(--pu-accent-border);
+    border-radius: var(--pu-radius);
+    padding: 2px 8px;
+    color: var(--pu-accent);
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    margin-top: 24px;
+  }
+  @media (max-width: 800px) {
+    .comparison { grid-template-columns: 1fr; }
+  }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--pu-accent);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+    padding: 6px 12px;
+    background: var(--pu-accent-bg);
+    border-radius: var(--pu-radius);
+    display: inline-block;
+  }
+
+  /* ===== CURRENT LAYOUT ===== */
+  .current .pu-block {
+    background: var(--pu-bg-hover);
+    border: 1px solid transparent;
+    border-radius: var(--pu-radius-lg);
+    margin-bottom: var(--pu-space-md);
+  }
+  .current .pu-block-header {
+    display: flex;
+    align-items: center;
+    padding: var(--pu-space-md) var(--pu-space-lg);
+    background: var(--pu-bg-hover);
+    border-radius: var(--pu-radius-lg) var(--pu-radius-lg) 0 0;
+    gap: var(--pu-space-sm);
+  }
+  .current .pu-block-toggle { font-size: 10px; color: var(--pu-text-muted); transform: rotate(90deg); }
+  .current .pu-block-path {
+    font-family: var(--pu-font-mono);
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-secondary);
+    background: var(--pu-bg-secondary);
+    padding: 2px 6px;
+    border-radius: var(--pu-radius);
+  }
+  .current .pu-block-type { font-size: var(--pu-font-size-xs); color: var(--pu-accent); font-weight: 500; }
+  .current .pu-block-actions { margin-left: auto; display: flex; gap: var(--pu-space-xs); }
+  .current .pu-block-action {
+    padding: var(--pu-space-xs) var(--pu-space-sm);
+    background: transparent; border: 1px solid transparent;
+    color: var(--pu-text-muted); border-radius: var(--pu-radius);
+    font-size: var(--pu-font-size-sm); font-family: var(--pu-font-body); cursor: pointer;
+  }
+  .current .pu-block-content { position: relative; padding: 14px var(--pu-space-lg); }
+  .current .pu-block-visualizer {
+    text-align: center; font-size: 19px; line-height: 1.7;
+    padding: 20px 40px 40px; word-break: break-word; white-space: pre-wrap;
+  }
+  .current .pu-block[data-depth="1"] .pu-block-visualizer {
+    font-size: 16px; opacity: 0.88; padding: 14px 32px 32px;
+  }
+  .current .pu-block-children {
+    margin-left: 28px; padding-left: var(--pu-space-md);
+    padding-bottom: var(--pu-space-md); border-left: 1px solid var(--pu-border-light);
+  }
+  .current .pu-block-children .pu-block { margin-bottom: var(--pu-space-sm); }
+  .current .pu-block-parent-context {
+    color: var(--pu-text-muted); opacity: 0.65;
+    font-size: var(--pu-font-size-sm); line-height: 1.5;
+    padding: 0 32px 4px; text-align: left;
+  }
+  .current .pu-parent-dash { opacity: 0.4; margin-left: 4px; }
+  .current .pu-block-viz-arrow { color: var(--pu-accent); opacity: 0.7; margin-right: 6px; }
+
+  /* ===== VARIATION B: HEADERLESS CHILDREN ===== */
+  .headerless .pu-block {
+    background: var(--pu-bg-hover);
+    border: 1px solid transparent;
+    border-radius: var(--pu-radius-lg);
+    margin-bottom: var(--pu-space-md);
+    position: relative;
+  }
+  .headerless .pu-block:hover {
+    border-color: var(--pu-border);
+  }
+
+  /* Root blocks keep their header */
+  .headerless .pu-block-header {
+    display: flex;
+    align-items: center;
+    padding: var(--pu-space-md) var(--pu-space-lg);
+    background: var(--pu-bg-hover);
+    border-radius: var(--pu-radius-lg) var(--pu-radius-lg) 0 0;
+    gap: var(--pu-space-sm);
+  }
+  .headerless .pu-block-toggle { font-size: 10px; color: var(--pu-text-muted); transform: rotate(90deg); }
+  .headerless .pu-block-path {
+    font-family: var(--pu-font-mono); font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-secondary); background: var(--pu-bg-secondary);
+    padding: 2px 6px; border-radius: var(--pu-radius);
+  }
+  .headerless .pu-block-type { font-size: var(--pu-font-size-xs); color: var(--pu-accent); font-weight: 500; }
+  .headerless .pu-block-actions-root { margin-left: auto; display: flex; gap: var(--pu-space-xs); }
+  .headerless .pu-block-action {
+    padding: var(--pu-space-xs) var(--pu-space-sm);
+    background: transparent; border: 1px solid transparent;
+    color: var(--pu-text-muted); border-radius: var(--pu-radius);
+    font-size: var(--pu-font-size-sm); font-family: var(--pu-font-body); cursor: pointer;
+  }
+
+  /* Child blocks: NO header. Actions float on hover. */
+  .headerless .pu-block-children .pu-block-header {
+    display: none;
+  }
+  .headerless .pu-block-children .pu-block {
+    margin-bottom: 4px;
+    border-radius: var(--pu-radius);
+    background: transparent;
+  }
+  .headerless .pu-block-children .pu-block:hover {
+    background: var(--pu-bg-hover);
+  }
+
+  /* Floating actions for child blocks */
+  .headerless .pu-child-actions {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: flex;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+  .headerless .pu-block-children .pu-block:hover .pu-child-actions {
+    opacity: 1;
+  }
+  .headerless .pu-child-actions button {
+    padding: 2px 6px;
+    background: var(--pu-bg-secondary);
+    border: 1px solid var(--pu-border-light);
+    color: var(--pu-text-muted);
+    border-radius: var(--pu-radius);
+    font-size: 10px;
+    font-family: var(--pu-font-body);
+    cursor: pointer;
+  }
+  .headerless .pu-child-actions button:hover {
+    color: var(--pu-text-primary);
+    background: var(--pu-bg-tertiary);
+  }
+
+  .headerless .pu-block-content { position: relative; padding: 10px var(--pu-space-lg); }
+  .headerless .pu-block-visualizer {
+    text-align: center; font-size: 19px; line-height: 1.7;
+    padding: 20px 40px 40px; word-break: break-word; white-space: pre-wrap;
+  }
+  .headerless .pu-block[data-depth="1"] .pu-block-visualizer {
+    font-size: 16px; opacity: 0.88; padding: 8px 24px 20px;
+  }
+  .headerless .pu-block-children {
+    margin-left: 28px;
+    padding-left: var(--pu-space-md);
+    padding-bottom: var(--pu-space-sm);
+    border-left: 1px solid var(--pu-border-light);
+  }
+
+  /* Depth hint: small path chip for child blocks */
+  .headerless .pu-child-path-hint {
+    font-family: var(--pu-font-mono);
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    opacity: 0;
+    position: absolute;
+    top: 6px;
+    left: var(--pu-space-lg);
+    transition: opacity 120ms ease;
+  }
+  .headerless .pu-block-children .pu-block:hover .pu-child-path-hint {
+    opacity: 0.6;
+  }
+</style>
+</head>
+<body>
+  <div class="header">
+    <h1>Variation B: Headerless Children</h1>
+    <p>Child blocks have <strong>no header</strong> at all. Actions appear as floating icons on hover.
+       Path shown as tiny hint on hover. Parent-child relationship conveyed purely through indentation + left border.
+       This is the most aggressive distance reduction — child content sits directly below parent content.</p>
+  </div>
+
+  <div class="comparison">
+    <!-- CURRENT -->
+    <div>
+      <div class="section-label">Current</div>
+      <div class="current">
+        <div class="pu-block" data-depth="0">
+          <div class="pu-block-header">
+            <span class="pu-block-toggle">&#9654;</span>
+            <span class="pu-block-path">Path: 0</span>
+            <span class="pu-block-type">content</span>
+            <div class="pu-block-actions">
+              <button class="pu-block-action">+ Nest</button>
+              <button class="pu-block-action">&#128465;</button>
+            </div>
+          </div>
+          <div class="pu-block-content">
+            <div class="pu-block-visualizer">
+              Write a one-pager culture document for a growth <span class="wc-pill">fintech</span> company
+            </div>
+          </div>
+          <div class="pu-block-children">
+            <div class="pu-block" data-depth="1">
+              <div class="pu-block-header">
+                <span class="pu-block-toggle">&#9654;</span>
+                <span class="pu-block-path">Path: 0.0</span>
+                <span class="pu-block-type">content</span>
+                <div class="pu-block-actions">
+                  <button class="pu-block-action">+ Nest</button>
+                  <button class="pu-block-action">&#128465;</button>
+                </div>
+              </div>
+              <div class="pu-block-content">
+                <div class="pu-block-parent-context">
+                  Write a one-pager culture document for a growth fintech company <span class="pu-parent-dash">──</span>
+                </div>
+                <div class="pu-block-visualizer" style="font-size:16px; opacity:0.88; padding:14px 32px 32px;">
+                  <span class="pu-block-viz-arrow">→</span> Emphasize <span class="wc-pill">ownership</span> as a core value
+                </div>
+              </div>
+            </div>
+            <div class="pu-block" data-depth="1">
+              <div class="pu-block-header">
+                <span class="pu-block-toggle">&#9654;</span>
+                <span class="pu-block-path">Path: 0.1</span>
+                <span class="pu-block-type">content</span>
+                <div class="pu-block-actions">
+                  <button class="pu-block-action">+ Nest</button>
+                  <button class="pu-block-action">&#128465;</button>
+                </div>
+              </div>
+              <div class="pu-block-content">
+                <div class="pu-block-parent-context">
+                  Write a one-pager culture document for a growth fintech company <span class="pu-parent-dash">──</span>
+                </div>
+                <div class="pu-block-visualizer" style="font-size:16px; opacity:0.88; padding:14px 32px 32px;">
+                  <span class="pu-block-viz-arrow">→</span> Include a section on <span class="wc-pill">remote-first</span> practices
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HEADERLESS -->
+    <div>
+      <div class="section-label">Variation B: Headerless children</div>
+      <div class="headerless">
+        <div class="pu-block" data-depth="0">
+          <div class="pu-block-header">
+            <span class="pu-block-toggle">&#9654;</span>
+            <span class="pu-block-path">Path: 0</span>
+            <span class="pu-block-type">content</span>
+            <div class="pu-block-actions-root">
+              <button class="pu-block-action">+ Nest</button>
+              <button class="pu-block-action">&#128465;</button>
+            </div>
+          </div>
+          <div class="pu-block-content">
+            <div class="pu-block-visualizer">
+              Write a one-pager culture document for a growth <span class="wc-pill">fintech</span> company
+            </div>
+          </div>
+          <div class="pu-block-children">
+            <div class="pu-block" data-depth="1" style="position:relative;">
+              <span class="pu-child-path-hint">0.0</span>
+              <div class="pu-child-actions">
+                <button>EDIT</button>
+                <button>+ Nest</button>
+                <button>&#128465;</button>
+              </div>
+              <div class="pu-block-content">
+                <div class="pu-block-visualizer" style="font-size:16px; opacity:0.88; padding:8px 24px 20px;">
+                  Emphasize <span class="wc-pill">ownership</span> as a core value
+                </div>
+              </div>
+            </div>
+            <div class="pu-block" data-depth="1" style="position:relative;">
+              <span class="pu-child-path-hint">0.1</span>
+              <div class="pu-child-actions">
+                <button>EDIT</button>
+                <button>+ Nest</button>
+                <button>&#128465;</button>
+              </div>
+              <div class="pu-block-content">
+                <div class="pu-block-visualizer" style="font-size:16px; opacity:0.88; padding:8px 24px 20px;">
+                  Include a section on <span class="wc-pill">remote-first</span> practices
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p style="font-size: 11px; color: var(--pu-text-muted); margin-top: 12px;">
+        ↑ Hover over child blocks to see path hint + floating actions. No header, no parent context, no arrow.
+      </p>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Panel B: Tabbed Manager</title>
+<style>
+:root {
+    --pu-bg-primary: #191919;
+    --pu-bg-secondary: #202020;
+    --pu-bg-tertiary: #2f2f2f;
+    --pu-bg-input: #252525;
+    --pu-bg-hover: rgba(255, 255, 255, 0.04);
+    --pu-bg-selected: rgba(255, 255, 255, 0.06);
+    --pu-text-primary: #ebebeb;
+    --pu-text-secondary: #999999;
+    --pu-text-muted: #7a7a7a;
+    --pu-accent: #529CCA;
+    --pu-accent-bg: rgba(82, 156, 202, 0.08);
+    --pu-accent-light: rgba(82, 156, 202, 0.12);
+    --pu-success: #4daa57;
+    --pu-success-bg: rgba(77, 170, 87, 0.12);
+    --pu-warning: #cb912f;
+    --pu-warning-bg: rgba(203, 145, 47, 0.1);
+    --pu-error: #e06c75;
+    --pu-orange: #e8943a;
+    --pu-border: rgba(255, 255, 255, 0.06);
+    --pu-border-light: rgba(255, 255, 255, 0.09);
+    --pu-radius: 4px;
+    --pu-radius-sm: 3px;
+    --pu-font-body: 'Inter', -apple-system, sans-serif;
+    --pu-font-mono: 'JetBrains Mono', monospace;
+    --pu-space-xs: 4px;
+    --pu-space-sm: 8px;
+    --pu-space-md: 12px;
+    --pu-space-lg: 16px;
+    --pu-space-xl: 24px;
+    --pu-transition-fast: 120ms ease-out;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: var(--pu-font-body);
+    background: var(--pu-bg-primary);
+    color: var(--pu-text-primary);
+    display: flex;
+    justify-content: center;
+    padding: 40px;
+}
+.preview-label {
+    position: fixed; top: 12px; left: 12px;
+    background: var(--pu-accent); color: #fff;
+    padding: 4px 12px; border-radius: 4px;
+    font-size: 12px; font-weight: 600; z-index: 99;
+}
+
+/* === PANEL B: Tabbed Manager ===
+   Two tabs: "Wildcards" and "Extensions"
+   Wildcards tab shows unified list with source annotations
+   Extensions tab shows the tree browser + scope selector */
+
+.panel {
+    width: 320px;
+    background: var(--pu-bg-secondary);
+    display: flex;
+    flex-direction: column;
+    height: 85vh;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--pu-border);
+}
+
+/* Tab bar */
+.tab-bar {
+    display: flex;
+    border-bottom: 1px solid var(--pu-border);
+    background: var(--pu-bg-hover);
+}
+.tab {
+    flex: 1;
+    padding: 9px 0;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--pu-text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all var(--pu-transition-fast);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.tab:hover {
+    color: var(--pu-text-secondary);
+}
+.tab.active {
+    color: var(--pu-accent);
+    border-bottom-color: var(--pu-accent);
+}
+.tab .tab-count {
+    font-size: 9px;
+    background: var(--pu-bg-tertiary);
+    padding: 1px 5px;
+    border-radius: 8px;
+    margin-left: 4px;
+}
+.tab.active .tab-count {
+    background: var(--pu-accent-bg);
+}
+
+/* Scope bar (inside extensions tab, but also shown in wildcards tab as context) */
+.scope-bar {
+    display: flex;
+    align-items: center;
+    padding: 6px var(--pu-space-md);
+    background: var(--pu-bg-primary);
+    border-bottom: 1px solid var(--pu-border);
+    gap: 6px;
+}
+.scope-label {
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    text-transform: uppercase;
+}
+.scope-value {
+    font-size: 11px;
+    font-family: var(--pu-font-mono);
+    color: var(--pu-warning);
+    background: var(--pu-warning-bg);
+    padding: 2px 8px;
+    border-radius: var(--pu-radius-sm);
+}
+
+/* Tab content */
+.tab-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--pu-space-sm);
+}
+
+/* Wildcard groups */
+.wc-group {
+    margin-bottom: var(--pu-space-md);
+}
+.wc-group-header {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: var(--pu-text-muted);
+    padding: 4px 8px;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.wc-group-header::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--pu-border);
+}
+.wc-group-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.wc-group-dot.local { background: var(--pu-accent); }
+.wc-group-dot.ext { background: var(--pu-warning); }
+
+/* Wildcard cards */
+.wc-card {
+    background: var(--pu-bg-hover);
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius);
+    padding: 8px 10px;
+    margin-bottom: 4px;
+    cursor: pointer;
+    transition: all var(--pu-transition-fast);
+}
+.wc-card:hover {
+    border-color: var(--pu-border-light);
+    background: var(--pu-bg-selected);
+}
+.wc-card-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.wc-card-name {
+    font-family: var(--pu-font-mono);
+    font-size: 12px;
+    color: var(--pu-text-primary);
+}
+.wc-card-meta {
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    margin-left: auto;
+}
+.wc-card-values {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    margin-top: 6px;
+}
+.wc-chip {
+    font-size: 10px;
+    padding: 1px 6px;
+    background: var(--pu-bg-tertiary);
+    border-radius: 3px;
+    color: var(--pu-text-secondary);
+}
+.wc-chip.current {
+    background: var(--pu-accent);
+    color: #fff;
+}
+.wc-card-override {
+    font-size: 10px;
+    color: var(--pu-success);
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.wc-card-override::before {
+    content: '';
+    width: 4px; height: 4px;
+    background: var(--pu-success);
+    border-radius: 50%;
+}
+
+/* Impact footer */
+.impact-footer {
+    border-top: 1px solid var(--pu-border);
+    padding: 8px var(--pu-space-md);
+    background: var(--pu-bg-hover);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.impact-dims-mini {
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    font-family: var(--pu-font-mono);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.impact-total-badge {
+    font-size: 11px;
+    color: var(--pu-accent);
+    font-weight: 600;
+    white-space: nowrap;
+}
+</style>
+</head>
+<body>
+<div class="preview-label">B: Tabbed Manager</div>
+
+<div class="panel">
+    <div class="tab-bar">
+        <div class="tab active">Wildcards <span class="tab-count">6</span></div>
+        <div class="tab">Extensions <span class="tab-count">3</span></div>
+    </div>
+
+    <div class="scope-bar">
+        <span class="scope-label">Ext scope:</span>
+        <span class="scope-value">hiring</span>
+    </div>
+
+    <div class="tab-content">
+        <!-- Local wildcards group -->
+        <div class="wc-group">
+            <div class="wc-group-header">
+                <span class="wc-group-dot local"></span>
+                Prompt Wildcards
+            </div>
+
+            <div class="wc-card">
+                <div class="wc-card-row">
+                    <span class="wc-card-name">channel</span>
+                    <span class="wc-card-meta">4 values</span>
+                </div>
+                <div class="wc-card-values">
+                    <span class="wc-chip current">inbound</span>
+                    <span class="wc-chip">outbound</span>
+                    <span class="wc-chip">referral</span>
+                    <span class="wc-chip">campus</span>
+                </div>
+            </div>
+
+            <div class="wc-card">
+                <div class="wc-card-row">
+                    <span class="wc-card-name">mood</span>
+                    <span class="wc-card-meta">2 values</span>
+                </div>
+                <div class="wc-card-values">
+                    <span class="wc-chip current">happy</span>
+                    <span class="wc-chip">sad</span>
+                </div>
+                <div class="wc-card-override">Overrides ext (5 values in professional/tones)</div>
+            </div>
+
+            <div class="wc-card">
+                <div class="wc-card-row">
+                    <span class="wc-card-name">count</span>
+                    <span class="wc-card-meta">3 values</span>
+                </div>
+                <div class="wc-card-values">
+                    <span class="wc-chip">3</span>
+                    <span class="wc-chip current">5</span>
+                    <span class="wc-chip">10</span>
+                </div>
+            </div>
+
+            <div class="wc-card">
+                <div class="wc-card-row">
+                    <span class="wc-card-name">approach</span>
+                    <span class="wc-card-meta">3 values</span>
+                </div>
+                <div class="wc-card-values">
+                    <span class="wc-chip current">personalized</span>
+                    <span class="wc-chip">automated</span>
+                    <span class="wc-chip">hybrid</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Extension wildcards group -->
+        <div class="wc-group">
+            <div class="wc-group-header">
+                <span class="wc-group-dot ext"></span>
+                From Extensions
+            </div>
+
+            <div class="wc-card">
+                <div class="wc-card-row">
+                    <span class="wc-card-name">seniority</span>
+                    <span class="wc-card-meta">5 &middot; hiring/roles</span>
+                </div>
+                <div class="wc-card-values">
+                    <span class="wc-chip">Junior</span>
+                    <span class="wc-chip current">Mid-level</span>
+                    <span class="wc-chip">Senior</span>
+                    <span class="wc-chip">Staff</span>
+                    <span class="wc-chip">Principal</span>
+                </div>
+            </div>
+
+            <div class="wc-card">
+                <div class="wc-card-row">
+                    <span class="wc-card-name">deal_stage</span>
+                    <span class="wc-card-meta">5 &middot; sales/personas</span>
+                </div>
+                <div class="wc-card-values">
+                    <span class="wc-chip current">prospecting</span>
+                    <span class="wc-chip">discovery</span>
+                    <span class="wc-chip">evaluation</span>
+                    <span class="wc-chip">negotiation</span>
+                    <span class="wc-chip">closed-won</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="impact-footer">
+        <span class="impact-dims-mini">4 &times; 2 &times; 3 &times; 3 &times; 5 &times; 5</span>
+        <span class="impact-total-badge">1,800 compositions</span>
+    </div>
+</div>
+</body>
+</html>

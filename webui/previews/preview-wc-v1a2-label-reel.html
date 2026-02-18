@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>V1a2: Label Reel</title>
+<style>
+  :root {
+    --pu-bg-primary: #191919;
+    --pu-bg-secondary: #202020;
+    --pu-bg-tertiary: #2f2f2f;
+    --pu-text-primary: #ebebeb;
+    --pu-text-secondary: #999999;
+    --pu-text-muted: #7a7a7a;
+    --pu-accent: #529CCA;
+    --pu-accent-bg: rgba(82, 156, 202, 0.08);
+    --pu-accent-border: rgba(82, 156, 202, 0.25);
+    --pu-border: rgba(255, 255, 255, 0.06);
+    --pu-radius: 4px;
+    --pu-radius-sm: 3px;
+    --pu-font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --pu-font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+    --pu-orange: #e8943a;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--pu-bg-primary);
+    color: var(--pu-text-primary);
+    font-family: var(--pu-font-body);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 40px 20px;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 48px;
+    max-width: 600px;
+  }
+
+  .header h1 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--pu-accent);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 8px;
+  }
+
+  .header p {
+    font-size: 13px;
+    color: var(--pu-text-muted);
+    line-height: 1.6;
+  }
+
+  .prompt-container {
+    position: relative;
+    max-width: 700px;
+    width: 100%;
+  }
+
+  .prompt-block {
+    width: 100%;
+    text-align: center;
+    font-size: 19px;
+    line-height: 1.85;
+    color: var(--pu-text-primary);
+    padding: 40px;
+    padding-top: 56px;
+    background: var(--pu-bg-secondary);
+    border: 1px solid var(--pu-border);
+    border-radius: 8px;
+  }
+
+  .wc {
+    position: relative;
+    display: inline-block;
+    font-family: var(--pu-font-mono);
+    font-size: 16px;
+    padding: 0 8px;
+    border-radius: var(--pu-radius-sm);
+    background: var(--pu-accent-bg);
+    border: 1px solid transparent;
+    vertical-align: middle;
+    overflow: visible;
+  }
+
+  .wc-label {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    text-align: center;
+    color: var(--pu-orange);
+    font-family: var(--pu-font-mono);
+    font-size: 16px;
+    white-space: nowrap;
+    z-index: 2;
+    transform-origin: center center;
+    transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .wc-reel {
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to bottom,
+      transparent 0%,
+      black 15%,
+      black 85%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(to bottom,
+      transparent 0%,
+      black 15%,
+      black 85%,
+      transparent 100%
+    );
+  }
+
+  .wc-track {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+
+  .wc-track.visible {
+    opacity: 1;
+  }
+
+  .wc-track-item {
+    white-space: nowrap;
+    font-family: var(--pu-font-mono);
+    font-size: 16px;
+    color: var(--pu-accent);
+    line-height: 1.6em;
+    height: 1.6em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .play-stop-btn {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--pu-text-muted);
+    background: none;
+    border: 1px solid transparent;
+    border-radius: var(--pu-radius);
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+  }
+
+  .play-stop-btn:hover {
+    color: var(--pu-text-primary);
+    border-color: var(--pu-border);
+  }
+
+  .play-stop-btn svg {
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>V1a2: Label Reel</h1>
+  <p>Wildcards start showing their name in orange. All labels simultaneously move up and scale down to sit above the slot. The first value fades in, pauses 1 second, then the reel begins cycling.</p>
+</div>
+
+<div class="prompt-container">
+  <div class="prompt-block">
+    <span>As a </span><span class="wc" data-wc="role"></span><span>, describe a </span><span class="wc" data-wc="stage"></span><span> startup in a </span><span class="wc" data-wc="tone"></span><span> tone. Focus on the </span><span class="wc" data-wc="theme"></span><span> and the spark that ignited the vision.</span>
+  </div>
+  <button class="play-stop-btn" id="toggleBtn" title="Play">
+    <svg viewBox="0 0 14 14"><polygon points="3,1 13,7 3,13"/></svg>
+  </button>
+</div>
+
+<script>
+const wildcards = {
+  role: ['narrator', 'critic', 'poet'],
+  stage: ['Series A', 'seed', 'pre-seed'],
+  tone: ['cheerful', 'melancholy', 'fierce'],
+  theme: ['founding moment', 'pivot point', 'first failure']
+};
+
+const INTRO_SHOW = 1400;
+const LABEL_ANIM = 600;
+const HOLD_TIME = 2500;
+const SCROLL_TIME = 800;
+
+let cycling = false;
+let introComplete = false;
+let pendingTimeouts = [];
+
+function schedule(fn, delay) {
+  const id = setTimeout(() => {
+    pendingTimeouts = pendingTimeouts.filter(t => t !== id);
+    if (cycling) fn();
+  }, delay);
+  pendingTimeouts.push(id);
+}
+
+function clearPending() {
+  pendingTimeouts.forEach(id => clearTimeout(id));
+  pendingTimeouts = [];
+}
+
+const wcEls = [];
+
+document.querySelectorAll('.wc').forEach((el) => {
+  const name = el.dataset.wc;
+  const values = wildcards[name];
+  if (!values) return;
+
+  const n = values.length;
+
+  const label = document.createElement('span');
+  label.className = 'wc-label';
+  label.textContent = `__${name}__`;
+
+  const reel = document.createElement('div');
+  reel.className = 'wc-reel';
+
+  const track = document.createElement('div');
+  track.className = 'wc-track';
+
+  for (let r = 0; r < 3; r++) {
+    values.forEach(val => {
+      const item = document.createElement('div');
+      item.className = 'wc-track-item';
+      item.textContent = val;
+      track.appendChild(item);
+    });
+  }
+
+  reel.appendChild(track);
+  el.appendChild(label);
+  el.appendChild(reel);
+
+  const itemH = track.querySelector('.wc-track-item').getBoundingClientRect().height;
+  el.style.height = itemH + 'px';
+  reel.style.height = itemH + 'px';
+  label.style.lineHeight = itemH + 'px';
+
+  const targetY = -(itemH / 2 + 6);
+
+  let currentItem = n;
+
+  function setPos(idx, animate) {
+    if (animate) {
+      track.style.transition = `opacity 0.4s ease, transform ${SCROLL_TIME}ms cubic-bezier(0.4, 0, 0.2, 1)`;
+    } else {
+      track.style.transition = 'opacity 0.4s ease';
+      track.style.transform = `translateY(-${idx * itemH}px)`;
+      return;
+    }
+    track.style.transform = `translateY(-${idx * itemH}px)`;
+  }
+
+  setPos(currentItem, false);
+
+  function cycle() {
+    schedule(() => {
+      currentItem++;
+      setPos(currentItem, true);
+
+      schedule(() => {
+        if (currentItem >= 2 * n) {
+          currentItem -= n;
+          track.style.transition = 'none';
+          track.style.transform = `translateY(-${currentItem * itemH}px)`;
+          void track.offsetHeight;
+        }
+        cycle();
+      }, SCROLL_TIME + 50);
+    }, HOLD_TIME);
+  }
+
+  wcEls.push({ el, label, track, cycle, targetY });
+});
+
+// Intro: labels animate up → first values fade in → pause
+function runIntro() {
+  setTimeout(() => {
+    wcEls.forEach(({ label, targetY }) => {
+      label.style.transform = `translateY(${targetY}px) scale(0.55)`;
+    });
+
+    setTimeout(() => {
+      wcEls.forEach(({ track }) => {
+        track.classList.add('visible');
+      });
+      introComplete = true;
+    }, LABEL_ANIM + 100);
+  }, INTRO_SHOW);
+}
+
+function play() {
+  if (!introComplete) return;
+  cycling = true;
+  wcEls.forEach(({ cycle }) => cycle());
+  toggleBtn.innerHTML = stopIcon;
+  toggleBtn.title = 'Stop';
+}
+
+function pause() {
+  cycling = false;
+  clearPending();
+  toggleBtn.innerHTML = playIcon;
+  toggleBtn.title = 'Play';
+}
+
+const stopIcon = '<svg viewBox="0 0 14 14"><rect x="2" y="2" width="10" height="10" rx="1"/></svg>';
+const playIcon = '<svg viewBox="0 0 14 14"><polygon points="3,1 13,7 3,13"/></svg>';
+const toggleBtn = document.getElementById('toggleBtn');
+
+toggleBtn.addEventListener('click', () => {
+  if (cycling) {
+    pause();
+  } else {
+    play();
+  }
+});
+
+runIntro();
+</script>
+</body>
+</html>

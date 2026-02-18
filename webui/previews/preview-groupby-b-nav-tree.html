@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Option B: Group Navigation Tree (Side Panel)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --pu-bg-primary: #191919;
+    --pu-bg-secondary: #202020;
+    --pu-bg-tertiary: #2f2f2f;
+    --pu-bg-hover: rgba(255, 255, 255, 0.04);
+    --pu-bg-selected: rgba(255, 255, 255, 0.06);
+    --pu-bg-elevated: #252525;
+    --pu-bg-input: #252525;
+    --pu-text-primary: #ebebeb;
+    --pu-text-secondary: #999999;
+    --pu-text-muted: #7a7a7a;
+    --pu-accent: #529CCA;
+    --pu-accent-bg: rgba(82, 156, 202, 0.08);
+    --pu-accent-light: rgba(82, 156, 202, 0.12);
+    --pu-accent-border: rgba(82, 156, 202, 0.25);
+    --pu-accent-muted: rgba(82, 156, 202, 0.5);
+    --pu-border: rgba(255, 255, 255, 0.06);
+    --pu-border-light: rgba(255, 255, 255, 0.09);
+    --pu-radius: 4px;
+    --pu-radius-sm: 3px;
+    --pu-radius-lg: 6px;
+    --pu-radius-full: 9999px;
+    --pu-font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --pu-font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+    --pu-font-size-2xs: 10px;
+    --pu-font-size-xs: 11px;
+    --pu-font-size-sm: 12px;
+    --pu-font-size-md: 13px;
+    --pu-font-size-base: 14px;
+    --pu-space-xs: 4px;
+    --pu-space-sm: 8px;
+    --pu-space-md: 12px;
+    --pu-space-lg: 16px;
+    --pu-space-xl: 24px;
+    --pu-transition-fast: 120ms ease-out;
+    --pu-transition-normal: 200ms ease-out;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--pu-bg-primary);
+    color: var(--pu-text-primary);
+    font-family: var(--pu-font-body);
+    padding: 24px;
+  }
+
+  .preview-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--pu-accent);
+    margin-bottom: 4px;
+  }
+  .preview-desc {
+    font-size: 12px;
+    color: var(--pu-text-muted);
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+
+  /* === Output footer container === */
+  .pu-output-footer {
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius-lg);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    max-height: 500px;
+  }
+
+  .pu-output-footer-header {
+    display: flex;
+    align-items: center;
+    gap: var(--pu-space-sm);
+    padding: var(--pu-space-sm) var(--pu-space-lg);
+    background: var(--pu-bg-secondary);
+    user-select: none;
+    flex-shrink: 0;
+  }
+  .pu-output-footer-title {
+    font-size: var(--pu-font-size-xs);
+    font-weight: 500;
+    color: var(--pu-text-muted);
+    text-transform: uppercase;
+  }
+  .pu-output-footer-count {
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-muted);
+    background: var(--pu-bg-primary);
+    padding: 1px 6px;
+    border-radius: var(--pu-radius-full);
+  }
+  .header-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: var(--pu-space-sm);
+  }
+  .pu-btn-sm {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px var(--pu-space-sm);
+    background: var(--pu-bg-hover);
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius);
+    color: var(--pu-text-secondary);
+    font-family: var(--pu-font-body);
+    font-size: var(--pu-font-size-2xs);
+    cursor: pointer;
+    transition: all var(--pu-transition-fast);
+  }
+  .pu-btn-sm:hover {
+    background: var(--pu-bg-selected);
+    border-color: var(--pu-border-light);
+    color: var(--pu-text-primary);
+  }
+
+  /* === Split body: nav tree + output list === */
+  .pu-output-footer-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  /* --- Left nav tree --- */
+  .nav-tree {
+    width: 160px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--pu-border);
+    overflow-y: auto;
+    padding: var(--pu-space-sm) 0;
+    background: var(--pu-bg-secondary);
+  }
+
+  .nav-dim {
+    margin-bottom: 2px;
+  }
+
+  .nav-dim-header {
+    display: flex;
+    align-items: center;
+    gap: var(--pu-space-xs);
+    padding: var(--pu-space-xs) var(--pu-space-md);
+    font-size: var(--pu-font-size-2xs);
+    font-weight: 500;
+    color: var(--pu-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    user-select: none;
+    transition: all var(--pu-transition-fast);
+    border-left: 2px solid transparent;
+  }
+  .nav-dim-header:hover {
+    color: var(--pu-text-secondary);
+    background: var(--pu-bg-hover);
+  }
+  .nav-dim-header.active {
+    color: var(--pu-accent);
+    background: var(--pu-accent-bg);
+    border-left-color: var(--pu-accent);
+  }
+
+  .nav-dim-chevron {
+    font-size: 8px;
+    transition: transform var(--pu-transition-normal);
+    display: inline-block;
+  }
+  .nav-dim-chevron.expanded {
+    transform: rotate(90deg);
+  }
+
+  .nav-dim-values {
+    overflow: hidden;
+    transition: max-height var(--pu-transition-normal);
+  }
+  .nav-dim-values.collapsed {
+    max-height: 0 !important;
+  }
+
+  .nav-value {
+    display: flex;
+    align-items: center;
+    padding: 3px var(--pu-space-md) 3px 22px;
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-secondary);
+    cursor: pointer;
+    user-select: none;
+    transition: all var(--pu-transition-fast);
+  }
+  .nav-value:hover {
+    background: var(--pu-bg-hover);
+    color: var(--pu-text-primary);
+  }
+  .nav-value.highlight {
+    color: var(--pu-accent);
+  }
+
+  .nav-value-count {
+    font-size: var(--pu-font-size-2xs);
+    color: var(--pu-text-muted);
+    margin-left: auto;
+  }
+
+  /* --- Right output list --- */
+  .output-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--pu-space-sm) var(--pu-space-md);
+    min-width: 0;
+  }
+
+  .output-item {
+    background: var(--pu-bg-hover);
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius);
+    padding: var(--pu-space-sm) var(--pu-space-md);
+    margin-bottom: var(--pu-space-xs);
+  }
+  .output-item-label {
+    font-family: var(--pu-font-mono);
+    font-size: var(--pu-font-size-2xs);
+    color: var(--pu-text-muted);
+    display: block;
+    margin-bottom: 2px;
+  }
+  .output-item-text {
+    font-size: var(--pu-font-size-sm);
+    color: var(--pu-text-primary);
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .label-wc-name { color: var(--pu-text-muted); }
+  .label-wc-eq { color: var(--pu-text-muted); opacity: 0.5; }
+  .label-wc-val { color: var(--pu-accent); }
+  .label-wc-sep { color: var(--pu-text-muted); opacity: 0.3; margin: 0 3px; }
+
+  /* Group headers in output list */
+  .output-group {
+    margin-bottom: var(--pu-space-sm);
+  }
+  .output-group-header {
+    display: flex;
+    align-items: center;
+    gap: var(--pu-space-xs);
+    padding: var(--pu-space-xs) var(--pu-space-sm);
+    background: var(--pu-bg-secondary);
+    border-radius: var(--pu-radius);
+    cursor: pointer;
+    user-select: none;
+    transition: background var(--pu-transition-fast);
+    margin-bottom: var(--pu-space-xs);
+  }
+  .output-group-header:hover {
+    background: var(--pu-bg-hover);
+  }
+  .group-chevron {
+    font-size: var(--pu-font-size-2xs);
+    color: var(--pu-text-muted);
+    transition: transform var(--pu-transition-normal);
+    display: inline-block;
+  }
+  .group-chevron.expanded {
+    transform: rotate(90deg);
+  }
+  .output-group-name {
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-muted);
+    text-transform: uppercase;
+  }
+  .output-group-eq {
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-muted);
+    opacity: 0.5;
+  }
+  .output-group-value {
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-accent);
+    font-weight: 500;
+  }
+  .output-group-count {
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-muted);
+    margin-left: auto;
+  }
+  .output-group-body {
+    padding-left: var(--pu-space-md);
+  }
+  .output-group-body.collapsed {
+    display: none;
+  }
+
+  /* Flat mode hint */
+  .flat-hint {
+    font-size: var(--pu-font-size-2xs);
+    color: var(--pu-text-muted);
+    padding: var(--pu-space-xs) var(--pu-space-sm);
+    text-align: center;
+    font-style: italic;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+</style>
+</head>
+<body>
+  <div class="preview-title">Option B: Group Navigation Tree (Side Panel)</div>
+  <div class="preview-desc">
+    Click a dimension name to group outputs by that dimension (outputs reorganize into collapsible groups).
+    Click a specific value to scroll to that group. Click the active dimension again to return to flat view.
+    The active dimension is highlighted with accent color.
+  </div>
+
+  <div class="pu-output-footer">
+    <div class="pu-output-footer-header">
+      <span class="pu-output-footer-title">Resolved Output</span>
+      <span class="pu-output-footer-count">27</span>
+      <div class="header-right">
+        <button class="pu-btn-sm">&#8210;</button>
+        <button class="pu-btn-sm">Copy All</button>
+      </div>
+    </div>
+    <div class="pu-output-footer-body">
+      <div class="nav-tree" id="nav-tree"></div>
+      <div class="output-list" id="output-list"></div>
+    </div>
+  </div>
+
+<script>
+const WILDCARDS = {
+  Stage:  ['Series A', 'seed', 'x'],
+  Tone:   ['cheerful', 'melancholy', 'fierce'],
+  Role:   ['narrator', 'critic', 'poet']
+};
+
+const PROMPT_TEMPLATE = (stage, tone, role) =>
+  `As a ${role}, describe a ${stage} startup in a ${tone} tone. Focus on the founding moment and the spark that ignited the vision.`;
+
+const outputs = [];
+for (const stage of WILDCARDS.Stage) {
+  for (const tone of WILDCARDS.Tone) {
+    for (const role of WILDCARDS.Role) {
+      outputs.push({
+        dims: { Stage: stage, Tone: tone, Role: role },
+        text: PROMPT_TEMPLATE(stage, tone, role)
+      });
+    }
+  }
+}
+
+let activeDim = null; // which dimension is being grouped by
+const collapsedGroups = new Set(); // track collapsed groups
+
+function buildNavTree() {
+  const tree = document.getElementById('nav-tree');
+  let html = '';
+
+  for (const [dim, values] of Object.entries(WILDCARDS)) {
+    const isActive = activeDim === dim;
+    html += `<div class="nav-dim">
+      <div class="nav-dim-header ${isActive ? 'active' : ''}"
+           onclick="toggleGroupBy('${dim}')">
+        <span class="nav-dim-chevron ${isActive ? 'expanded' : ''}">&#9654;</span>
+        ${dim}
+      </div>
+      <div class="nav-dim-values ${isActive ? '' : 'collapsed'}" style="max-height:200px">`;
+
+    for (const val of values) {
+      const count = outputs.filter(o => o.dims[dim] === val).length;
+      html += `<div class="nav-value ${isActive ? 'highlight' : ''}"
+                    onclick="scrollToGroup('${dim}', '${val}')">
+        ${val}
+        <span class="nav-value-count">${count}</span>
+      </div>`;
+    }
+    html += '</div></div>';
+  }
+  tree.innerHTML = html;
+}
+
+function toggleGroupBy(dim) {
+  if (activeDim === dim) {
+    activeDim = null;
+    collapsedGroups.clear();
+  } else {
+    activeDim = dim;
+    collapsedGroups.clear();
+  }
+  render();
+}
+
+function scrollToGroup(dim, val) {
+  if (activeDim !== dim) {
+    activeDim = dim;
+    collapsedGroups.clear();
+    render();
+  }
+  const el = document.getElementById(`group-${val.replace(/\s+/g, '-')}`);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function toggleGroup(val) {
+  if (collapsedGroups.has(val)) {
+    collapsedGroups.delete(val);
+  } else {
+    collapsedGroups.add(val);
+  }
+  renderOutputList();
+}
+
+function labelHtml(dims) {
+  return Object.entries(dims).map(([k, v]) =>
+    `<span class="label-wc-name">${k}</span><span class="label-wc-eq">=</span><span class="label-wc-val">${v}</span>`
+  ).join('<span class="label-wc-sep">|</span>');
+}
+
+function renderOutputList() {
+  const list = document.getElementById('output-list');
+
+  if (!activeDim) {
+    // Flat view
+    let html = '<div class="flat-hint">Click a dimension on the left to group outputs</div>';
+    for (const o of outputs) {
+      html += `<div class="output-item">
+        <span class="output-item-label">${labelHtml(o.dims)}</span>
+        <div class="output-item-text">${o.text}</div>
+      </div>`;
+    }
+    list.innerHTML = html;
+    return;
+  }
+
+  // Grouped view
+  const groups = {};
+  for (const val of WILDCARDS[activeDim]) {
+    groups[val] = outputs.filter(o => o.dims[activeDim] === val);
+  }
+
+  let html = '';
+  for (const [val, items] of Object.entries(groups)) {
+    const isCollapsed = collapsedGroups.has(val);
+    const groupId = val.replace(/\s+/g, '-');
+    html += `<div class="output-group" id="group-${groupId}">
+      <div class="output-group-header" onclick="toggleGroup('${val}')">
+        <span class="group-chevron ${isCollapsed ? '' : 'expanded'}">&#9654;</span>
+        <span class="output-group-name">${activeDim}</span>
+        <span class="output-group-eq">=</span>
+        <span class="output-group-value">${val}</span>
+        <span class="output-group-count">(${items.length})</span>
+      </div>
+      <div class="output-group-body ${isCollapsed ? 'collapsed' : ''}">`;
+
+    for (const o of items) {
+      // Label excludes the grouped dimension
+      const otherDims = Object.entries(o.dims).filter(([k]) => k !== activeDim);
+      const label = otherDims.map(([k, v]) =>
+        `<span class="label-wc-name">${k}</span><span class="label-wc-eq">=</span><span class="label-wc-val">${v}</span>`
+      ).join('<span class="label-wc-sep">|</span>');
+
+      html += `<div class="output-item">
+        <span class="output-item-label">${label}</span>
+        <div class="output-item-text">${o.text}</div>
+      </div>`;
+    }
+    html += '</div></div>';
+  }
+  list.innerHTML = html;
+}
+
+function render() {
+  buildNavTree();
+  renderOutputList();
+}
+
+render();
+</script>
+</body>
+</html>

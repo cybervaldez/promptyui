@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Preview: Blocks-First Theme Flow (v3)</title>
+<style>
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --pu-bg-primary: #191919;
+  --pu-bg-secondary: #202020;
+  --pu-bg-tertiary: #262626;
+  --pu-bg-hover: rgba(255,255,255,0.04);
+  --pu-text-primary: #ebebeb;
+  --pu-text-secondary: #999;
+  --pu-text-muted: #7a7a7a;
+  --pu-accent: #529CCA;
+  --pu-accent-bg: rgba(82,156,202,0.08);
+  --pu-accent-dim: rgba(82,156,202,0.4);
+  --pu-warning: #cb912f;
+  --pu-warning-bg: rgba(203,145,47,0.1);
+  --pu-error: #e06c75;
+  --pu-error-bg: rgba(224,108,117,0.1);
+  --pu-success: #73c991;
+  --pu-success-bg: rgba(115,201,145,0.1);
+  --pu-purple: #c678dd;
+  --pu-purple-bg: rgba(198,120,221,0.1);
+  --pu-orange: #e8943a;
+  --pu-border: rgba(255,255,255,0.06);
+  --pu-border-light: rgba(255,255,255,0.09);
+  --pu-radius: 4px;
+  --pu-radius-lg: 6px;
+  --pu-font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --pu-font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --pu-font-size-xs: 11px;
+  --pu-font-size-sm: 12px;
+  --pu-font-size-md: 13px;
+}
+
+body {
+  font-family: var(--pu-font-body);
+  font-size: var(--pu-font-size-md);
+  color: var(--pu-text-primary);
+  background: var(--pu-bg-primary);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* ── Layout ── */
+.preview-layout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  grid-template-rows: auto auto 1fr;
+  height: 100vh;
+}
+
+/* ── Header Banner ── */
+.preview-banner {
+  grid-column: 1 / -1;
+  background: var(--pu-bg-secondary);
+  border-bottom: 1px solid var(--pu-border);
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.preview-banner h1 { font-size: 14px; font-weight: 600; }
+.preview-banner .subtitle { font-size: var(--pu-font-size-sm); color: var(--pu-text-muted); }
+.stage-tabs {
+  margin-left: auto;
+  display: flex;
+  gap: 2px;
+  background: var(--pu-bg-primary);
+  border-radius: var(--pu-radius);
+  padding: 2px;
+}
+.stage-tab {
+  font-size: var(--pu-font-size-xs);
+  font-family: var(--pu-font-body);
+  padding: 4px 10px;
+  border: none;
+  background: transparent;
+  color: var(--pu-text-muted);
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 150ms;
+  white-space: nowrap;
+}
+.stage-tab:hover { color: var(--pu-text-secondary); background: var(--pu-bg-hover); }
+.stage-tab.active { color: var(--pu-text-primary); background: var(--pu-bg-tertiary); }
+
+/* ── Mode bar ── */
+.mode-bar {
+  grid-column: 1 / -1;
+  background: var(--pu-bg-primary);
+  border-bottom: 1px solid var(--pu-border);
+  padding: 6px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.mode-label {
+  font-size: 10px;
+  color: var(--pu-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.mode-tabs {
+  display: flex;
+  gap: 2px;
+  background: var(--pu-bg-secondary);
+  border-radius: var(--pu-radius);
+  padding: 2px;
+}
+.mode-tab {
+  font-size: 10px;
+  font-family: var(--pu-font-body);
+  padding: 3px 10px;
+  border: none;
+  background: transparent;
+  color: var(--pu-text-muted);
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 150ms;
+}
+.mode-tab:hover { color: var(--pu-text-secondary); }
+.mode-tab.active { color: var(--pu-text-primary); background: var(--pu-bg-tertiary); }
+.mode-tab.active.is-compact { color: var(--pu-accent); }
+.mode-desc {
+  font-size: 10px;
+  color: var(--pu-text-muted);
+  font-style: italic;
+}
+
+/* ── Editor Area ── */
+.editor-area {
+  background: var(--pu-bg-primary);
+  overflow-y: auto;
+  padding: 20px 24px;
+}
+
+/* ── Right Panel ── */
+.right-panel-stub {
+  background: var(--pu-bg-secondary);
+  border-left: 1px solid var(--pu-border);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+}
+.rp-label { font-size: var(--pu-font-size-xs); color: var(--pu-text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.rp-note { font-size: var(--pu-font-size-sm); color: var(--pu-text-secondary); padding: 12px; background: var(--pu-bg-primary); border-radius: var(--pu-radius); border: 1px solid var(--pu-border); line-height: 1.6; }
+.rp-wc-entry { display: flex; flex-direction: column; gap: 4px; padding: 8px 0; border-bottom: 1px solid var(--pu-border); }
+.rp-wc-name { font-family: var(--pu-font-mono); font-size: var(--pu-font-size-xs); color: var(--pu-accent); }
+.rp-wc-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.rp-wc-chip { font-size: 10px; padding: 2px 6px; background: var(--pu-bg-tertiary); border: 1px solid var(--pu-border-light); border-radius: 3px; color: var(--pu-text-secondary); cursor: pointer; }
+.rp-wc-chip.active { background: var(--pu-accent-bg); border-color: var(--pu-accent-dim); color: var(--pu-accent); }
+.rp-wc-chip.from-theme { border-left: 2px solid var(--pu-purple); }
+
+/* ── Block Tree ── */
+.block-tree { display: flex; flex-direction: column; }
+.block { background: var(--pu-bg-secondary); border: 1px solid var(--pu-border); border-radius: var(--pu-radius-lg); overflow: visible; position: relative; }
+.block-header { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--pu-border); }
+.block-toggle { font-size: 10px; color: var(--pu-text-muted); cursor: pointer; user-select: none; }
+.block-toggle.expanded { transform: rotate(90deg); }
+.block-path { font-family: var(--pu-font-mono); font-size: var(--pu-font-size-xs); color: var(--pu-text-muted); }
+.block-type { font-size: 10px; padding: 1px 5px; border-radius: 3px; margin-left: auto; }
+.block-type.content { background: var(--pu-accent-bg); color: var(--pu-accent); }
+
+/* ── Resolved wildcard values ── */
+.wc-val {
+  font-family: var(--pu-font-mono);
+  font-size: var(--pu-font-size-sm);
+  color: var(--pu-accent);
+  border-bottom: 1px dotted var(--pu-accent-dim);
+  cursor: pointer;
+  transition: opacity 150ms;
+}
+.wc-val:hover { opacity: 0.7; }
+.wc-val.from-theme {
+  color: var(--pu-purple);
+  border-bottom-color: rgba(198,120,221,0.4);
+}
+
+/* ── Typewriter wildcard (animated mode) ── */
+.wc-typewriter {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  font-family: var(--pu-font-mono);
+  font-size: var(--pu-font-size-sm);
+}
+.wc-tw-label {
+  color: var(--pu-text-muted);
+  font-size: 10px;
+}
+.wc-tw-value {
+  color: var(--pu-accent);
+  position: relative;
+  min-width: 40px;
+}
+.wc-tw-value.from-theme { color: var(--pu-purple); }
+.wc-tw-value::after {
+  content: '|';
+  animation: blink 1s step-end infinite;
+  color: var(--pu-accent);
+  margin-left: 1px;
+}
+.wc-tw-value.from-theme::after { color: var(--pu-purple); }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* ── Reel wildcard (animated mode) ── */
+.wc-reel {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--pu-font-mono);
+  font-size: var(--pu-font-size-sm);
+  background: var(--pu-accent-bg);
+  padding: 1px 6px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.wc-reel.from-theme { background: var(--pu-purple-bg); }
+.wc-reel-label {
+  font-size: 9px;
+  color: var(--pu-warning);
+  text-transform: uppercase;
+}
+.wc-reel-track {
+  color: var(--pu-accent);
+  animation: reelSlide 3s ease-in-out infinite;
+}
+.wc-reel.from-theme .wc-reel-track { color: var(--pu-purple); }
+@keyframes reelSlide {
+  0%, 30% { transform: translateY(0); }
+  35%, 65% { transform: translateY(-1.2em); }
+  70%, 100% { transform: translateY(0); }
+}
+
+/* Block content */
+.block-content {
+  padding: 10px 14px;
+  font-size: var(--pu-font-size-md);
+  line-height: 1.7;
+  color: var(--pu-text-primary);
+  position: relative;
+}
+
+/* ── Dice button (animated modes only) ── */
+.dice-btn {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  background: none;
+  border: none;
+  color: var(--pu-text-muted);
+  cursor: pointer;
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin-left: 6px;
+  transition: all 150ms;
+}
+.dice-btn:hover { color: var(--pu-accent); background: var(--pu-accent-bg); }
+
+/* ── Right-edge actions (animated modes) ── */
+.right-edge-actions {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 150ms;
+}
+.block-content:hover .right-edge-actions,
+.child-block:hover .right-edge-actions { opacity: 1; }
+.right-edge-btn {
+  font-size: 12px;
+  background: none;
+  border: none;
+  color: var(--pu-text-muted);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 3px;
+}
+.right-edge-btn:hover { color: var(--pu-text-primary); background: var(--pu-bg-hover); }
+
+/* ── Child Blocks ── */
+.block-children { padding: 0 0 0 20px; border-left: 2px solid var(--pu-border); margin-left: 16px; margin-bottom: 8px; }
+.child-divider { display: flex; align-items: center; gap: 8px; padding: 6px 0 2px 0; }
+.child-path { font-family: var(--pu-font-mono); font-size: var(--pu-font-size-xs); color: var(--pu-text-muted); }
+.child-delete { font-size: 10px; background: none; border: none; color: var(--pu-text-muted); cursor: pointer; opacity: 0; transition: opacity 150ms; }
+.child-divider:hover .child-delete { opacity: 1; }
+.child-block { background: var(--pu-bg-primary); border: 1px solid var(--pu-border); border-radius: var(--pu-radius); padding: 8px 12px; font-size: var(--pu-font-size-md); line-height: 1.7; margin-bottom: 4px; position: relative; }
+
+/* Theme child block */
+.child-block.is-theme { border-left: 3px solid var(--pu-purple); background: rgba(198,120,221,0.03); }
+.theme-label { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; color: var(--pu-purple); background: var(--pu-purple-bg); padding: 2px 6px; border-radius: 3px; margin-bottom: 4px; font-family: var(--pu-font-mono); }
+
+/* ── Add Block Actions (compact only) ── */
+.block-actions { display: flex; align-items: center; gap: 6px; padding: 4px 0 8px 20px; margin-left: 16px; }
+.add-child-btn, .insert-theme-btn {
+  font-family: var(--pu-font-body);
+  font-size: var(--pu-font-size-xs);
+  padding: 3px 8px;
+  border-radius: var(--pu-radius);
+  border: 1px dashed var(--pu-border-light);
+  background: transparent;
+  color: var(--pu-text-muted);
+  cursor: pointer;
+  transition: all 150ms;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.add-child-btn:hover { border-color: var(--pu-accent-dim); color: var(--pu-accent); background: var(--pu-accent-bg); }
+.insert-theme-btn:hover { border-color: rgba(198,120,221,0.4); color: var(--pu-purple); background: var(--pu-purple-bg); }
+
+/* ── Compact inline actions ── */
+.compact-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 8px;
+  opacity: 0;
+  transition: opacity 150ms;
+}
+.block-content:hover .compact-actions,
+.child-block:hover .compact-actions { opacity: 1; }
+.compact-action-btn {
+  font-size: 11px;
+  background: none;
+  border: none;
+  color: var(--pu-text-muted);
+  cursor: pointer;
+  padding: 1px 3px;
+  border-radius: 3px;
+}
+.compact-action-btn:hover { color: var(--pu-text-primary); background: var(--pu-bg-hover); }
+
+/* ── Context Menu ── */
+.ctx-menu { position: absolute; top: 100%; right: 8px; background: var(--pu-bg-tertiary); border: 1px solid var(--pu-border-light); border-radius: var(--pu-radius-lg); padding: 4px 0; min-width: 180px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: 100; display: none; }
+.ctx-menu.visible { display: block; }
+.ctx-item { display: flex; align-items: center; gap: 8px; padding: 6px 12px; font-size: var(--pu-font-size-sm); color: var(--pu-text-secondary); cursor: pointer; transition: background 100ms; }
+.ctx-item:hover { background: var(--pu-bg-hover); color: var(--pu-text-primary); }
+.ctx-item .icon { font-size: 13px; width: 16px; text-align: center; }
+.ctx-item.theme-action { color: var(--pu-purple); }
+.ctx-item.theme-action:hover { background: var(--pu-purple-bg); }
+.ctx-item.danger { color: var(--pu-error); }
+.ctx-item.danger:hover { background: var(--pu-error-bg); }
+.ctx-sep { height: 1px; background: var(--pu-border); margin: 4px 0; }
+
+/* More button */
+.block-more { position: absolute; top: 8px; right: 8px; font-size: 14px; background: none; border: none; color: var(--pu-text-muted); cursor: pointer; opacity: 0; transition: opacity 150ms; padding: 2px 4px; border-radius: 3px; }
+.block-more:hover { color: var(--pu-text-primary); background: var(--pu-bg-hover); }
+.child-block:hover .block-more, .block:hover > .block-content > .block-more { opacity: 1; }
+
+/* ── Theme Picker Popover ── */
+.theme-picker { position: fixed; background: var(--pu-bg-tertiary); border: 1px solid var(--pu-border-light); border-radius: var(--pu-radius-lg); box-shadow: 0 12px 32px rgba(0,0,0,0.5); width: 280px; max-height: 360px; z-index: 200; display: none; flex-direction: column; }
+.theme-picker.visible { display: flex; }
+.theme-picker-header { padding: 10px 12px 8px; border-bottom: 1px solid var(--pu-border); }
+.theme-picker-title { font-size: var(--pu-font-size-sm); font-weight: 600; color: var(--pu-text-primary); margin-bottom: 6px; }
+.theme-picker-search { width: 100%; font-family: var(--pu-font-body); font-size: var(--pu-font-size-sm); padding: 5px 8px; background: var(--pu-bg-primary); border: 1px solid var(--pu-border-light); border-radius: var(--pu-radius); color: var(--pu-text-primary); outline: none; }
+.theme-picker-search:focus { border-color: var(--pu-accent-dim); }
+.theme-picker-search::placeholder { color: var(--pu-text-muted); }
+.theme-picker-list { overflow-y: auto; flex: 1; padding: 4px 0; }
+.theme-folder { padding: 6px 12px 4px; font-size: 10px; color: var(--pu-text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.theme-item { display: flex; align-items: center; gap: 8px; padding: 6px 12px; cursor: pointer; transition: background 100ms; }
+.theme-item:hover { background: var(--pu-purple-bg); }
+.theme-item-icon { font-size: 14px; }
+.theme-item-info { flex: 1; min-width: 0; }
+.theme-item-name { font-size: var(--pu-font-size-sm); color: var(--pu-text-primary); font-weight: 500; }
+.theme-item-meta { font-size: 10px; color: var(--pu-text-muted); font-family: var(--pu-font-mono); }
+.theme-item-counts { display: flex; gap: 6px; font-size: 10px; color: var(--pu-text-muted); }
+.theme-picker-footer { border-top: 1px solid var(--pu-border); padding: 8px 12px; }
+.theme-picker-footer button { font-family: var(--pu-font-body); font-size: var(--pu-font-size-xs); width: 100%; padding: 5px; background: transparent; border: 1px dashed var(--pu-border-light); border-radius: var(--pu-radius); color: var(--pu-text-muted); cursor: pointer; }
+.theme-picker-footer button:hover { border-color: var(--pu-accent-dim); color: var(--pu-accent); background: var(--pu-accent-bg); }
+
+/* ── Save as Theme Dialog ── */
+.save-theme-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--pu-bg-tertiary); border: 1px solid var(--pu-border-light); border-radius: 8px; box-shadow: 0 16px 48px rgba(0,0,0,0.5); width: 340px; z-index: 300; display: none; }
+.save-theme-dialog.visible { display: block; }
+.save-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 299; display: none; }
+.save-overlay.visible { display: block; }
+.save-header { padding: 14px 16px 10px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--pu-border); }
+.save-header h3 { font-size: 14px; font-weight: 600; }
+.save-header .icon { font-size: 16px; }
+.save-close { margin-left: auto; background: none; border: none; color: var(--pu-text-muted); cursor: pointer; font-size: 16px; }
+.save-body { padding: 14px 16px; }
+.save-field { margin-bottom: 12px; }
+.save-field label { display: block; font-size: var(--pu-font-size-xs); color: var(--pu-text-secondary); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px; }
+.save-field input, .save-field select { width: 100%; font-family: var(--pu-font-mono); font-size: var(--pu-font-size-sm); padding: 6px 8px; background: var(--pu-bg-primary); border: 1px solid var(--pu-border-light); border-radius: var(--pu-radius); color: var(--pu-text-primary); outline: none; }
+.save-field input:focus, .save-field select:focus { border-color: var(--pu-accent-dim); }
+.save-field .path-preview { font-family: var(--pu-font-mono); font-size: 10px; color: var(--pu-text-muted); margin-top: 4px; }
+.save-wc-list { display: flex; flex-direction: column; gap: 4px; max-height: 120px; overflow-y: auto; }
+.save-wc-item { display: flex; align-items: center; gap: 6px; font-size: var(--pu-font-size-sm); }
+.save-wc-item input[type="checkbox"] { width: auto; accent-color: var(--pu-purple); }
+.save-wc-item .wc-name { font-family: var(--pu-font-mono); color: var(--pu-accent); }
+.save-wc-item .wc-count { margin-left: auto; font-size: 10px; color: var(--pu-text-muted); }
+.save-footer { padding: 10px 16px 14px; display: flex; gap: 8px; justify-content: flex-end; }
+.save-footer button { font-family: var(--pu-font-body); font-size: var(--pu-font-size-sm); padding: 6px 14px; border-radius: var(--pu-radius); cursor: pointer; border: none; }
+.save-cancel { background: var(--pu-bg-primary); color: var(--pu-text-secondary); border: 1px solid var(--pu-border-light) !important; }
+.save-confirm { background: var(--pu-purple); color: #fff; }
+.save-confirm:hover { filter: brightness(1.1); }
+
+/* ── Stage Annotations ── */
+.stage-annotation { font-size: var(--pu-font-size-xs); color: var(--pu-warning); background: var(--pu-warning-bg); border: 1px solid rgba(203,145,47,0.2); border-radius: var(--pu-radius); padding: 6px 10px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; line-height: 1.5; }
+.stage-annotation .label { font-weight: 600; white-space: nowrap; }
+
+.level-badge { font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px; letter-spacing: 0.3px; vertical-align: middle; }
+.level-badge.l0 { background: var(--pu-bg-tertiary); color: var(--pu-text-muted); }
+.level-badge.l1 { background: var(--pu-accent-bg); color: var(--pu-accent); }
+.level-badge.l2 { background: var(--pu-success-bg); color: var(--pu-success); }
+.level-badge.l3 { background: var(--pu-purple-bg); color: var(--pu-purple); }
+.level-badge.l4 { background: var(--pu-warning-bg); color: var(--pu-warning); }
+
+/* ── Progression sidebar ── */
+.progression-ladder { display: flex; flex-direction: column; }
+.prog-step { display: flex; gap: 8px; padding: 8px 10px; border-radius: var(--pu-radius); position: relative; }
+.prog-step::before { content: ''; position: absolute; left: 18px; top: 28px; bottom: -8px; width: 1px; background: var(--pu-border-light); }
+.prog-step:last-child::before { display: none; }
+.prog-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--pu-border-light); flex-shrink: 0; margin-top: 2px; }
+.prog-step.active .prog-dot { border-color: var(--pu-accent); background: var(--pu-accent); }
+.prog-step.completed .prog-dot { border-color: var(--pu-success); background: var(--pu-success); }
+.prog-label { font-size: var(--pu-font-size-xs); color: var(--pu-text-secondary); }
+.prog-step.active .prog-label { color: var(--pu-text-primary); font-weight: 500; }
+.prog-sublabel { font-size: 10px; color: var(--pu-text-muted); }
+
+/* ── Animations ── */
+@keyframes fadeSlideIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+.animate-in { animation: fadeSlideIn 200ms ease; }
+
+/* ── Theme Swap Dropdown ── */
+.theme-label.clickable { cursor: pointer; transition: all 150ms; position: relative; }
+.theme-label.clickable:hover { background: rgba(198,120,221,0.2); }
+.swap-arrow { font-size: 9px; margin-left: 2px; opacity: 0.6; }
+
+.swap-dropdown {
+  position: fixed; background: var(--pu-bg-tertiary); border: 1px solid var(--pu-border-light);
+  border-radius: var(--pu-radius-lg); box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+  width: 240px; z-index: 200; display: none; flex-direction: column;
+}
+.swap-dropdown.visible { display: flex; animation: fadeSlideIn 150ms ease; }
+.swap-dd-header { padding: 8px 12px; border-bottom: 1px solid var(--pu-border); font-size: 11px; color: var(--pu-text-muted); display: flex; align-items: center; gap: 6px; }
+.swap-dd-header strong { color: var(--pu-purple); font-family: var(--pu-font-mono); }
+.swap-dd-list { padding: 4px 0; }
+.swap-dd-folder { padding: 4px 12px 2px; font-size: 10px; color: var(--pu-text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.swap-dd-item { display: flex; align-items: center; gap: 8px; padding: 7px 12px; cursor: pointer; transition: background 100ms; }
+.swap-dd-item:hover { background: var(--pu-purple-bg); }
+.swap-dd-item.current { background: rgba(198,120,221,0.06); pointer-events: none; }
+.swap-dd-icon { font-size: 13px; }
+.swap-dd-name { font-size: 12px; color: var(--pu-text-primary); flex: 1; }
+.swap-dd-item.current .swap-dd-name { color: var(--pu-purple); }
+.swap-dd-item.current .swap-dd-name::after { content: ' ✓'; font-size: 10px; }
+.swap-compat { font-size: 9px; padding: 1px 5px; border-radius: 3px; font-weight: 600; letter-spacing: 0.3px; }
+.swap-compat.full { background: var(--pu-success-bg); color: var(--pu-success); }
+.swap-compat.partial { background: var(--pu-warning-bg); color: var(--pu-warning); }
+.swap-compat.none { background: var(--pu-error-bg); color: var(--pu-error); }
+
+/* ── Diff Popover (slides out right of dropdown) ── */
+.swap-diff {
+  position: fixed; background: var(--pu-bg-tertiary); border: 1px solid var(--pu-border-light);
+  border-radius: var(--pu-radius-lg); box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+  width: 300px; z-index: 201; display: none; flex-direction: column;
+}
+.swap-diff.visible { display: flex; animation: fadeSlideIn 150ms ease; }
+.swap-diff-header { padding: 10px 12px 8px; border-bottom: 1px solid var(--pu-border); }
+.swap-diff-title { font-size: 12px; font-weight: 600; color: var(--pu-text-primary); display: flex; align-items: center; gap: 6px; }
+.swap-diff-subtitle { font-size: 10px; color: var(--pu-text-muted); margin-top: 2px; }
+.swap-diff-body { padding: 4px 0; max-height: 260px; overflow-y: auto; }
+.swap-diff-section { padding: 6px 12px 2px; }
+.swap-diff-slabel { font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-bottom: 4px; }
+.swap-diff-slabel.mapped { color: var(--pu-success); }
+.swap-diff-slabel.orphaned { color: var(--pu-warning); }
+.swap-diff-slabel.added { color: var(--pu-accent); }
+.swap-diff-row { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 11px; }
+.swap-diff-wc { font-family: var(--pu-font-mono); color: var(--pu-purple); min-width: 80px; }
+.swap-diff-arrow { color: var(--pu-text-muted); font-size: 10px; }
+.swap-diff-vals { font-family: var(--pu-font-mono); font-size: 10px; }
+.swap-diff-vals.old { color: var(--pu-text-muted); text-decoration: line-through; }
+.swap-diff-vals.new { color: var(--pu-success); }
+.swap-diff-vals.orphan { color: var(--pu-warning); }
+.swap-diff-vals.fresh { color: var(--pu-accent); }
+.swap-diff-footer { padding: 8px 12px; border-top: 1px solid var(--pu-border); }
+.swap-diff-btn {
+  font-family: var(--pu-font-body); font-size: 11px; width: 100%; padding: 6px 10px;
+  border: none; border-radius: var(--pu-radius); cursor: pointer; font-weight: 500;
+}
+.swap-diff-btn.safe { background: var(--pu-purple); color: #fff; }
+.swap-diff-btn.warn { background: var(--pu-warning); color: #000; }
+.swap-diff-btn:hover { filter: brightness(1.1); }
+
+/* ── Fill-in Dialog ── */
+.fillin-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 299; display: none; }
+.fillin-overlay.visible { display: block; }
+.fillin-dialog {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  background: var(--pu-bg-tertiary); border: 1px solid var(--pu-border-light);
+  border-radius: 8px; box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+  width: 400px; z-index: 300; display: none;
+}
+.fillin-dialog.visible { display: block; animation: fadeSlideIn 200ms ease; }
+.fillin-header { padding: 14px 16px 10px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--pu-border); }
+.fillin-header h3 { font-size: 14px; font-weight: 600; }
+.fillin-close { margin-left: auto; background: none; border: none; color: var(--pu-text-muted); cursor: pointer; font-size: 16px; }
+.fillin-body { padding: 14px 16px; }
+.fillin-note { font-size: 11px; color: var(--pu-text-secondary); margin-bottom: 12px; line-height: 1.5; }
+.fillin-note strong { color: var(--pu-warning); }
+.fillin-wc-row { margin-bottom: 10px; }
+.fillin-wc-label { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-bottom: 4px; }
+.fillin-wc-name { font-family: var(--pu-font-mono); color: var(--pu-warning); }
+.fillin-wc-hint { font-size: 10px; color: var(--pu-text-muted); }
+.fillin-wc-input {
+  width: 100%; font-family: var(--pu-font-mono); font-size: 11px; padding: 6px 8px;
+  background: var(--pu-bg-primary); border: 1px solid var(--pu-border-light);
+  border-radius: var(--pu-radius); color: var(--pu-text-primary); outline: none;
+}
+.fillin-wc-input:focus { border-color: var(--pu-warning); }
+.fillin-wc-input::placeholder { color: var(--pu-text-muted); }
+.fillin-dest {
+  font-size: 10px; color: var(--pu-text-muted); padding: 8px; background: var(--pu-bg-primary);
+  border-radius: var(--pu-radius); margin-top: 12px; display: flex; align-items: center; gap: 6px; line-height: 1.5;
+}
+.fillin-footer { padding: 10px 16px 14px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--pu-border); }
+.fillin-footer button { font-family: var(--pu-font-body); font-size: 12px; padding: 6px 14px; border-radius: var(--pu-radius); cursor: pointer; border: none; }
+.fillin-cancel { background: var(--pu-bg-primary); color: var(--pu-text-secondary); border: 1px solid var(--pu-border-light) !important; }
+.fillin-confirm { background: var(--pu-warning); color: #000; font-weight: 500; }
+.fillin-confirm:hover { filter: brightness(1.1); }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="preview-layout" id="layout">
+  <!-- Banner -->
+  <div class="preview-banner">
+    <h1>Blocks-First Theme Flow</h1>
+    <span class="subtitle">v3 — swap diff popover + fill-in dialog</span>
+    <div class="stage-tabs">
+      <button class="stage-tab active" onclick="showStage(0)">L0 Plain</button>
+      <button class="stage-tab" onclick="showStage(1)">L1 Wildcards</button>
+      <button class="stage-tab" onclick="showStage(2)">L2 Nesting</button>
+      <button class="stage-tab" onclick="showStage(3)">L3 Consume</button>
+      <button class="stage-tab" onclick="showStage(4)">L4 Create</button>
+      <button class="stage-tab" onclick="showStage(5)">L5 Compose</button>
+    </div>
+  </div>
+
+  <!-- Mode bar -->
+  <div class="mode-bar">
+    <span class="mode-label">Visualizer</span>
+    <div class="mode-tabs">
+      <button class="mode-tab active is-compact" onclick="setMode('compact')">Compact</button>
+      <button class="mode-tab" onclick="setMode('typewriter')">Typewriter</button>
+      <button class="mode-tab" onclick="setMode('reel')">Reel</button>
+    </div>
+    <span class="mode-desc" id="modeDesc">Build mode — editing tools + clickable value dropdowns</span>
+  </div>
+
+  <div class="editor-area" id="editor"></div>
+  <div class="right-panel-stub" id="rightPanel"></div>
+</div>
+
+<!-- Theme Picker Popover -->
+<div class="theme-picker" id="themePicker">
+  <div class="theme-picker-header">
+    <div class="theme-picker-title">Insert Theme</div>
+    <input class="theme-picker-search" placeholder="Search themes...">
+  </div>
+  <div class="theme-picker-list">
+    <div class="theme-folder">genres/</div>
+    <div class="theme-item" onclick="insertTheme('fantasy-books')"><span class="theme-item-icon">📦</span><div class="theme-item-info"><div class="theme-item-name">fantasy-books</div><div class="theme-item-meta">3 text, 2 wc</div></div><div class="theme-item-counts"><span>📝3</span><span>🎲2</span></div></div>
+    <div class="theme-item" onclick="insertTheme('horror-books')"><span class="theme-item-icon">📦</span><div class="theme-item-info"><div class="theme-item-name">horror-books</div><div class="theme-item-meta">4 text, 3 wc</div></div><div class="theme-item-counts"><span>📝4</span><span>🎲3</span></div></div>
+    <div class="theme-item" onclick="insertTheme('scifi-worlds')"><span class="theme-item-icon">📦</span><div class="theme-item-info"><div class="theme-item-name">scifi-worlds</div><div class="theme-item-meta">5 text, 4 wc</div></div><div class="theme-item-counts"><span>📝5</span><span>🎲4</span></div></div>
+    <div class="theme-folder">tones/</div>
+    <div class="theme-item" onclick="insertTheme('dark-gritty')"><span class="theme-item-icon">📦</span><div class="theme-item-info"><div class="theme-item-name">dark-gritty</div><div class="theme-item-meta">2 text, 1 wc</div></div><div class="theme-item-counts"><span>📝2</span><span>🎲1</span></div></div>
+    <div class="theme-item" onclick="insertTheme('whimsical')"><span class="theme-item-icon">📦</span><div class="theme-item-info"><div class="theme-item-name">whimsical</div><div class="theme-item-meta">3 text, 2 wc</div></div><div class="theme-item-counts"><span>📝3</span><span>🎲2</span></div></div>
+  </div>
+  <div class="theme-picker-footer"><button onclick="showSaveDialog()">+ Create new theme</button></div>
+</div>
+
+<!-- Save Dialog -->
+<div class="save-overlay" id="saveOverlay" onclick="closeSaveDialog()"></div>
+<div class="save-theme-dialog" id="saveDialog">
+  <div class="save-header"><span class="icon">📦</span><h3>Save as Theme</h3><button class="save-close" onclick="closeSaveDialog()">&times;</button></div>
+  <div class="save-body">
+    <div class="save-field"><label>Theme Name</label><input type="text" id="saveThemeName" value="my-character-settings"></div>
+    <div class="save-field"><label>Folder</label><select><option>genres/</option><option>tones/</option><option>ext/ (root)</option></select><div class="path-preview">ext/genres/<span id="savePathName">my-character-settings</span>.yaml</div></div>
+    <div class="save-field"><label>Include Wildcards</label><div class="save-wc-list">
+      <label class="save-wc-item"><input type="checkbox" checked><span class="wc-name">__character__</span><span class="wc-count">5 values</span></label>
+      <label class="save-wc-item"><input type="checkbox" checked><span class="wc-name">__setting__</span><span class="wc-count">4 values</span></label>
+      <label class="save-wc-item"><input type="checkbox"><span class="wc-name">__mood__</span><span class="wc-count">6 values</span></label>
+    </div></div>
+    <div class="save-field"><label>Include Children</label><div style="display:flex;gap:12px;padding:4px 0;"><label class="save-wc-item" style="font-size:12px;color:var(--pu-text-secondary)"><input type="radio" name="ch" checked> This block only</label><label class="save-wc-item" style="font-size:12px;color:var(--pu-text-secondary)"><input type="radio" name="ch"> Block + children</label></div></div>
+  </div>
+  <div class="save-footer"><button class="save-cancel" onclick="closeSaveDialog()">Cancel</button><button class="save-confirm" onclick="closeSaveDialog()">Save Theme</button></div>
+</div>
+
+<!-- Swap Dropdown -->
+<div class="swap-dropdown" id="swapDropdown">
+  <div class="swap-dd-header">Swap theme from <strong id="swapFromName">fantasy-books</strong></div>
+  <div class="swap-dd-list" id="swapDdList"></div>
+</div>
+
+<!-- Diff Popover -->
+<div class="swap-diff" id="swapDiff">
+  <div class="swap-diff-header">
+    <div class="swap-diff-title"><span id="diffIcon">📦</span> <span id="diffTitle">horror-books</span></div>
+    <div class="swap-diff-subtitle" id="diffSubtitle">Partial match — 1 of 3 wildcards shared</div>
+  </div>
+  <div class="swap-diff-body" id="diffBody"></div>
+  <div class="swap-diff-footer">
+    <button class="swap-diff-btn warn" id="diffConfirmBtn" onclick="confirmSwap()">Swap &amp; fill missing values</button>
+  </div>
+</div>
+
+<!-- Fill-in Dialog -->
+<div class="fillin-overlay" id="fillinOverlay" onclick="closeFillin()"></div>
+<div class="fillin-dialog" id="fillinDialog">
+  <div class="fillin-header"><span style="font-size:16px">⚠️</span><h3>Fill Missing Wildcards</h3><button class="fillin-close" onclick="closeFillin()">&times;</button></div>
+  <div class="fillin-body">
+    <div class="fillin-note">Swapping to <strong id="fillinTarget">horror-books</strong> removes these wildcards. They're still used in your blocks, so provide replacement values:</div>
+    <div id="fillinFields"></div>
+    <div class="fillin-dest">ℹ️ These values will be added to your <strong>prompt-level wildcards</strong>, not the theme file. Theme files stay read-only.</div>
+  </div>
+  <div class="fillin-footer"><button class="fillin-cancel" onclick="closeFillin()">Cancel</button><button class="fillin-confirm" onclick="applySwap()">Apply Swap</button></div>
+</div>
+
+<!-- Context Menu -->
+<div class="ctx-menu" id="ctxMenu">
+  <div class="ctx-item"><span class="icon">↑</span> Move Up</div>
+  <div class="ctx-item"><span class="icon">↓</span> Move Down</div>
+  <div class="ctx-item"><span class="icon">📋</span> Duplicate</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item theme-action" onclick="showSaveDialog()"><span class="icon">📦</span> Save as Theme...</div>
+  <div class="ctx-item theme-action" id="ctxMerge" style="display:none"><span class="icon">🔀</span> Merge into Prompt...</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item danger"><span class="icon">🗑</span> Delete</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+// WILDCARD RENDERING HELPERS
+// ═══════════════════════════════════════════════════════════════════════
+
+// Map of wildcard → current resolved value (simulating the odometer)
+const wcValues = {
+  character: 'Harry Potter', setting: 'Hogwarts', trait: 'courage',
+  mood: 'ominous', weather: 'stormy', emotion: 'determination',
+  realm_name: 'Eldoria', creature: 'dragons', artifact: 'Crystal Shard',
+  challenge: 'labyrinth', atmosphere: 'oppressive', threat: 'wraiths',
+  comic_relief: 'a talking frog', surprise: 'confetti explosions'
+};
+
+function wc(name, opts = {}) {
+  const val = wcValues[name] || name;
+  const themeClass = opts.theme ? ' from-theme' : '';
+
+  if (currentMode === 'compact') {
+    return `<span class="wc-val${themeClass}" title="__${name}__">${val}</span>`;
+  } else if (currentMode === 'typewriter') {
+    return `<span class="wc-typewriter"><span class="wc-tw-label">${name}:</span><span class="wc-tw-value${themeClass}">${val}</span></span>`;
+  } else {
+    return `<span class="wc-reel${themeClass}"><span class="wc-reel-label">${name}</span><span class="wc-reel-track">${val}</span></span>`;
+  }
+}
+
+function compactActions() {
+  if (currentMode !== 'compact') return '';
+  return `<span class="compact-actions"><button class="compact-action-btn" title="Edit">✏</button><button class="compact-action-btn" title="Delete">✕</button></span>`;
+}
+
+function animatedActions() {
+  if (currentMode === 'compact') return '';
+  return `<div class="right-edge-actions"><button class="right-edge-btn" title="Edit">✏</button><button class="right-edge-btn" title="Delete">🗑</button></div>`;
+}
+
+function diceBtn() {
+  if (currentMode === 'compact') return '';
+  return `<button class="dice-btn" title="Re-roll wildcards">🎲</button>`;
+}
+
+function themeTools(parentPath) {
+  if (currentMode !== 'compact') return '';
+  return `
+    <div class="block-actions">
+      <button class="add-child-btn">+ Add Child</button>
+      <button class="insert-theme-btn" onclick="showThemePicker(event)"><span style="font-size:12px">📦</span> Insert Theme</button>
+    </div>`;
+}
+
+function moreBtn(isTheme) {
+  if (currentMode !== 'compact') return '';
+  return `<button class="block-more" onclick="showCtx(event, ${isTheme})">⋯</button>`;
+}
+
+function themeLabel(name) {
+  if (currentMode === 'compact') {
+    return `<div class="theme-label clickable" onclick="showSwapDropdown(event, '${name}')"><span style="font-size:12px">📦</span> ${name} <span class="swap-arrow">▾</span></div>`;
+  }
+  return `<div class="theme-label"><span style="font-size:12px">📦</span> ${name}</div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// STAGE DEFINITIONS
+// ═══════════════════════════════════════════════════════════════════════
+
+function getStages() {
+  return [
+    // L0: Plain text
+    {
+      annotation: 'Plain text blocks. No features visible — just write.',
+      blocks: () => `
+        <div class="block">
+          <div class="block-header"><span class="block-toggle expanded">▶</span><span class="block-path">0</span><span class="block-type content">content</span></div>
+          <div class="block-content">
+            Write about a character who goes on an epic adventure through mysterious lands, facing challenges that test their courage and wisdom.
+            ${compactActions()}${animatedActions()}
+          </div>
+        </div>`,
+      panel: () => `
+        <div class="rp-label">Right Panel</div>
+        <div class="rp-note">No wildcards or themes yet. The panel shows the composition navigator once wildcards are added.</div>`
+    },
+
+    // L1: Wildcards — resolved values shown
+    {
+      annotation: 'Wildcards discovered. Values resolve inline — click to change (compact) or watch them cycle (animated).',
+      blocks: () => `
+        <div class="block">
+          <div class="block-header"><span class="block-toggle expanded">▶</span><span class="block-path">0</span><span class="block-type content">content</span></div>
+          <div class="block-content">
+            Write about a ${wc('character')} who goes on an epic adventure through ${wc('setting')}, facing challenges that test their ${wc('trait')}.
+            ${diceBtn()}${compactActions()}${animatedActions()}
+          </div>
+        </div>`,
+      panel: () => `
+        <div class="rp-label">Wildcards</div>
+        <div class="rp-wc-entry"><div class="rp-wc-name">character</div><div class="rp-wc-chips"><span class="rp-wc-chip active">Harry Potter</span><span class="rp-wc-chip">Frodo</span><span class="rp-wc-chip">Katniss</span></div></div>
+        <div class="rp-wc-entry"><div class="rp-wc-name">setting</div><div class="rp-wc-chips"><span class="rp-wc-chip active">Hogwarts</span><span class="rp-wc-chip">Middle Earth</span><span class="rp-wc-chip">District 12</span></div></div>
+        <div class="rp-wc-entry"><div class="rp-wc-name">trait</div><div class="rp-wc-chips"><span class="rp-wc-chip active">courage</span><span class="rp-wc-chip">wisdom</span><span class="rp-wc-chip">loyalty</span></div></div>
+        <div style="border-top:1px solid var(--pu-border);margin-top:8px;padding-top:8px">
+          <div class="rp-label" style="margin-bottom:6px">Compositions</div>
+          <div style="font-size:12px;color:var(--pu-text-secondary)">Variation 1 of 27 <span style="color:var(--pu-text-muted);font-size:10px">3 × 3 × 3</span></div>
+        </div>`
+    },
+
+    // L2: Nested blocks
+    {
+      annotation: 'Nesting discovered. Blocks compose into a tree. [+ Add Child] builds depth.',
+      blocks: () => `
+        <div class="block">
+          <div class="block-header"><span class="block-toggle expanded">▶</span><span class="block-path">0</span><span class="block-type content">content</span></div>
+          <div class="block-content">
+            Write about a ${wc('character')} who goes on an epic adventure through ${wc('setting')}.
+            ${diceBtn()}${compactActions()}${animatedActions()}
+          </div>
+          <div class="block-children">
+            <div class="child-divider"><span class="child-path">↳ 0.0</span><button class="child-delete">🗑</button></div>
+            <div class="child-block">
+              The atmosphere is ${wc('mood')}, with ${wc('weather')} skies.
+              ${diceBtn()}${animatedActions()}
+            </div>
+            <div class="child-divider"><span class="child-path">↳ 0.1</span><button class="child-delete">🗑</button></div>
+            <div class="child-block">
+              Their quest demands ${wc('trait')} above all else.
+              ${diceBtn()}${animatedActions()}
+            </div>
+            ${currentMode === 'compact' ? '<div class="block-actions"><button class="add-child-btn">+ Add Child</button></div>' : ''}
+          </div>
+        </div>`,
+      panel: () => `
+        <div class="rp-label">Wildcards <span style="color:var(--pu-text-muted)">5</span></div>
+        <div class="rp-wc-entry"><div class="rp-wc-name">character</div><div class="rp-wc-chips"><span class="rp-wc-chip active">Harry Potter</span><span class="rp-wc-chip">Frodo</span></div></div>
+        <div class="rp-wc-entry"><div class="rp-wc-name">mood</div><div class="rp-wc-chips"><span class="rp-wc-chip active">ominous</span><span class="rp-wc-chip">serene</span></div></div>
+        <div class="rp-wc-entry"><div class="rp-wc-name">setting</div><div class="rp-wc-chips"><span class="rp-wc-chip active">Hogwarts</span><span class="rp-wc-chip">Middle Earth</span></div></div>
+        <div class="rp-wc-entry" style="border-bottom:none"><div class="rp-wc-name" style="color:var(--pu-text-muted)">+ 2 more</div></div>
+        <div style="border-top:1px solid var(--pu-border);margin-top:4px;padding-top:8px"><div class="rp-label" style="margin-bottom:6px">Compositions</div><div style="font-size:12px;color:var(--pu-text-secondary)">Variation 1 of 48</div></div>`
+    },
+
+    // L3: Theme consumption
+    {
+      annotation: currentMode === 'compact'
+        ? 'Theme consumption. [+ Insert Theme] adds themes. Click the 📦 label to swap themes — hover shows a diff popover with mapped/orphaned/added wildcards.'
+        : 'Theme consumption. In animated mode, theme values cycle like any wildcard — purple indicates theme origin. No build tools shown.',
+      blocks: () => `
+        <div class="block">
+          <div class="block-header"><span class="block-toggle expanded">▶</span><span class="block-path">0</span><span class="block-type content">content</span></div>
+          <div class="block-content">
+            Write about a ${wc('character')} who goes on an epic adventure through ${wc('setting')}.
+            ${diceBtn()}${compactActions()}${animatedActions()}
+          </div>
+          <div class="block-children">
+            <div class="child-divider"><span class="child-path">↳ 0.0</span><button class="child-delete">🗑</button></div>
+            <div class="child-block">
+              The atmosphere is ${wc('mood')}, with ${wc('weather')} skies.
+              ${diceBtn()}${animatedActions()}
+            </div>
+            <div class="child-divider"><span class="child-path">↳ 0.1</span><button class="child-delete">🗑</button></div>
+            <div class="child-block is-theme">
+              ${themeLabel('fantasy-books')}
+              In the realm of ${wc('realm_name',{theme:true})}, where ${wc('creature',{theme:true})} roam the ancient forests, the ${wc('character')} must seek the ${wc('artifact',{theme:true})}.
+              ${diceBtn()}${moreBtn(true)}${animatedActions()}
+            </div>
+            <div class="child-divider"><span class="child-path">↳ 0.2</span><button class="child-delete">🗑</button></div>
+            <div class="child-block">
+              Their quest demands ${wc('trait')} above all else.
+              ${diceBtn()}${moreBtn(false)}${animatedActions()}
+            </div>
+            ${themeTools('0')}
+          </div>
+        </div>`,
+      panel: () => `
+        <div class="rp-label">Wildcards <span style="color:var(--pu-text-muted)">8</span></div>
+        <div style="font-size:10px;color:var(--pu-text-muted);margin-bottom:8px;border-bottom:1px solid var(--pu-border);padding-bottom:6px">— prompt-defined</div>
+        <div class="rp-wc-entry"><div class="rp-wc-name">character</div><div class="rp-wc-chips"><span class="rp-wc-chip active">Harry Potter</span><span class="rp-wc-chip">Frodo</span></div></div>
+        <div class="rp-wc-entry"><div class="rp-wc-name">mood</div><div class="rp-wc-chips"><span class="rp-wc-chip active">ominous</span><span class="rp-wc-chip">serene</span></div></div>
+        <div style="font-size:10px;color:var(--pu-purple);margin:8px 0;border-bottom:1px solid var(--pu-border);padding-bottom:6px">— from themes <span style="font-size:9px;color:var(--pu-text-muted)">(fantasy-books)</span></div>
+        <div class="rp-wc-entry"><div class="rp-wc-name" style="color:var(--pu-purple)">realm_name</div><div class="rp-wc-chips"><span class="rp-wc-chip from-theme active">Eldoria</span><span class="rp-wc-chip from-theme">Nyx</span><span class="rp-wc-chip from-theme">Avalon</span></div></div>
+        <div class="rp-wc-entry"><div class="rp-wc-name" style="color:var(--pu-purple)">creature</div><div class="rp-wc-chips"><span class="rp-wc-chip from-theme active">dragons</span><span class="rp-wc-chip from-theme">griffins</span></div></div>
+        <div class="rp-wc-entry" style="border-bottom:none"><div class="rp-wc-name" style="color:var(--pu-purple)">artifact</div><div class="rp-wc-chips"><span class="rp-wc-chip from-theme active">Crystal Shard</span><span class="rp-wc-chip from-theme">Elder Wand</span></div></div>
+        <div style="border-top:1px solid var(--pu-border);margin-top:8px;padding-top:8px"><div class="rp-label" style="margin-bottom:6px">Compositions</div><div style="font-size:12px;color:var(--pu-text-secondary)">Variation 1 of 432 <span style="color:var(--pu-text-muted);font-size:10px">3 text × 144 wc</span></div></div>`
+    },
+
+    // L4: Theme creation
+    {
+      annotation: currentMode === 'compact'
+        ? 'Theme creation. The ... menu on any block offers "Save as Theme" — packages text + wildcards into ext/ file.'
+        : 'In animated mode, blocks are presentation-only. Switch to compact to access Save as Theme.',
+      blocks: () => {
+        const showCtxDemo = currentMode === 'compact';
+        return `
+        <div class="block">
+          <div class="block-header"><span class="block-toggle expanded">▶</span><span class="block-path">0</span><span class="block-type content">content</span></div>
+          <div class="block-content" style="position:relative">
+            Write about a ${wc('character')} who goes on an epic adventure through ${wc('setting')}.
+            ${diceBtn()}${compactActions()}${animatedActions()}
+          </div>
+          <div class="block-children">
+            <div class="child-divider"><span class="child-path">↳ 0.0</span><button class="child-delete">🗑</button></div>
+            <div class="child-block" style="position:relative">
+              The atmosphere is ${wc('mood')}, with ${wc('weather')} skies. The ${wc('character')} feels a sense of ${wc('emotion')}.
+              ${diceBtn()}${animatedActions()}
+              ${showCtxDemo ? '<button class="block-more" style="opacity:1;background:var(--pu-bg-hover);color:var(--pu-text-primary)" onclick="showCtx(event,false)">⋯</button>' : ''}
+            </div>
+            ${showCtxDemo ? `
+            <div class="ctx-menu visible animate-in" style="position:relative;top:0;right:auto;margin-top:4px;margin-left:60%;width:180px">
+              <div class="ctx-item"><span class="icon">↑</span> Move Up</div>
+              <div class="ctx-item"><span class="icon">↓</span> Move Down</div>
+              <div class="ctx-item"><span class="icon">📋</span> Duplicate</div>
+              <div class="ctx-sep"></div>
+              <div class="ctx-item theme-action" onclick="showSaveDialog()" style="background:var(--pu-purple-bg)"><span class="icon">📦</span> Save as Theme...</div>
+              <div class="ctx-sep"></div>
+              <div class="ctx-item danger"><span class="icon">🗑</span> Delete</div>
+            </div>` : ''}
+            <div class="child-divider"><span class="child-path">↳ 0.1</span><button class="child-delete">🗑</button></div>
+            <div class="child-block is-theme">
+              ${themeLabel('fantasy-books')}
+              In the realm of ${wc('realm_name',{theme:true})}, where ${wc('creature',{theme:true})} roam...
+              ${diceBtn()}${moreBtn(true)}${animatedActions()}
+            </div>
+            ${themeTools('0')}
+          </div>
+        </div>`;
+      },
+      panel: () => `
+        <div class="rp-label">Wildcards <span style="color:var(--pu-text-muted)">7</span></div>
+        <div class="rp-wc-entry"><div class="rp-wc-name">character</div><div class="rp-wc-chips"><span class="rp-wc-chip active">Harry Potter</span><span class="rp-wc-chip">Frodo</span></div></div>
+        <div class="rp-wc-entry"><div class="rp-wc-name">mood</div><div class="rp-wc-chips"><span class="rp-wc-chip active">ominous</span><span class="rp-wc-chip">serene</span></div></div>
+        <div style="font-size:10px;color:var(--pu-purple);margin:8px 0;border-bottom:1px solid var(--pu-border);padding-bottom:6px">— from themes</div>
+        <div class="rp-wc-entry"><div class="rp-wc-name" style="color:var(--pu-purple)">realm_name</div><div class="rp-wc-chips"><span class="rp-wc-chip from-theme active">Eldoria</span><span class="rp-wc-chip from-theme">Nyx</span></div></div>
+        <div class="rp-wc-entry" style="border-bottom:none"><div class="rp-wc-name" style="color:var(--pu-purple)">creature</div><div class="rp-wc-chips"><span class="rp-wc-chip from-theme active">dragons</span><span class="rp-wc-chip from-theme">griffins</span></div></div>
+        ${currentMode === 'compact' ? '<div style="border-top:1px solid var(--pu-border);margin-top:8px;padding-top:8px;text-align:center"><div class="rp-note" style="font-size:11px"><strong style="color:var(--pu-purple)">Tip:</strong> Use the <strong>...</strong> menu on any block to save it as a reusable theme.</div></div>' : '<div style="border-top:1px solid var(--pu-border);margin-top:8px;padding-top:8px;text-align:center"><div class="rp-note" style="font-size:11px">Switch to <strong style="color:var(--pu-accent)">Compact</strong> mode to access build tools like Save as Theme.</div></div>'}`
+    },
+
+    // L5: Theme composition
+    {
+      annotation: currentMode === 'compact'
+        ? 'Theme composition. 3 themes at different depths. Each contributes text entries + wildcards. Full build tools available.'
+        : 'Theme composition in presentation mode. All theme wildcards resolve and cycle. Purple values = from themes.',
+      blocks: () => `
+        <div class="block">
+          <div class="block-header"><span class="block-toggle expanded">▶</span><span class="block-path">0</span><span class="block-type content">content</span></div>
+          <div class="block-content">
+            Write about a ${wc('character')} who goes on an epic adventure.
+            ${diceBtn()}${compactActions()}${animatedActions()}
+          </div>
+          <div class="block-children">
+            <div class="child-divider"><span class="child-path">↳ 0.0</span><button class="child-delete">🗑</button></div>
+            <div class="child-block is-theme">
+              ${themeLabel('fantasy-books')}
+              In the realm of ${wc('realm_name',{theme:true})}, where ${wc('creature',{theme:true})} roam the ancient forests.
+              ${diceBtn()}${moreBtn(true)}${animatedActions()}
+            </div>
+
+            <div class="child-divider"><span class="child-path">↳ 0.1</span></div>
+            <div class="child-block" style="position:relative">
+              The ${wc('character')} encounters a ${wc('challenge')} that demands ${wc('trait')}.
+              ${diceBtn()}${moreBtn(false)}${animatedActions()}
+              <div class="block-children" style="margin-left:0;padding-left:14px;margin-top:8px">
+                <div class="child-divider"><span class="child-path">↳ 0.1.0</span></div>
+                <div class="child-block is-theme">
+                  ${themeLabel('dark-gritty')}
+                  The ${wc('atmosphere',{theme:true})} closes in. Every shadow hides a ${wc('threat',{theme:true})}.
+                  ${diceBtn()}${moreBtn(true)}${animatedActions()}
+                </div>
+                ${themeTools('0.1')}
+              </div>
+            </div>
+
+            <div class="child-divider"><span class="child-path">↳ 0.2</span><button class="child-delete">🗑</button></div>
+            <div class="child-block is-theme">
+              ${themeLabel('whimsical')}
+              But through it all, ${wc('comic_relief',{theme:true})} lightens the mood with unexpected ${wc('surprise',{theme:true})}.
+              ${diceBtn()}${moreBtn(true)}${animatedActions()}
+            </div>
+            ${themeTools('0')}
+          </div>
+        </div>`,
+      panel: () => `
+        <div class="rp-label">Wildcards <span style="color:var(--pu-text-muted)">11</span></div>
+        <div style="font-size:10px;color:var(--pu-text-muted);margin-bottom:6px;border-bottom:1px solid var(--pu-border);padding-bottom:6px">— prompt-defined</div>
+        <div class="rp-wc-entry"><div class="rp-wc-name">character</div><div class="rp-wc-chips"><span class="rp-wc-chip active">Harry Potter</span><span class="rp-wc-chip">Frodo</span></div></div>
+        <div class="rp-wc-entry"><div class="rp-wc-name">challenge</div><div class="rp-wc-chips"><span class="rp-wc-chip active">labyrinth</span><span class="rp-wc-chip">riddle</span></div></div>
+        <div class="rp-wc-entry"><div class="rp-wc-name">trait</div><div class="rp-wc-chips"><span class="rp-wc-chip active">courage</span><span class="rp-wc-chip">wisdom</span></div></div>
+        <div style="font-size:10px;color:var(--pu-purple);margin:8px 0 6px;border-bottom:1px solid var(--pu-border);padding-bottom:6px">— from themes <span style="font-size:9px;color:var(--pu-text-muted)">(3 themes)</span></div>
+        <div class="rp-wc-entry"><div class="rp-wc-name" style="color:var(--pu-purple)">realm_name <span style="font-size:9px;color:var(--pu-text-muted)">fantasy</span></div><div class="rp-wc-chips"><span class="rp-wc-chip from-theme active">Eldoria</span><span class="rp-wc-chip from-theme">Nyx</span></div></div>
+        <div class="rp-wc-entry"><div class="rp-wc-name" style="color:var(--pu-purple)">atmosphere <span style="font-size:9px;color:var(--pu-text-muted)">dark-gritty</span></div><div class="rp-wc-chips"><span class="rp-wc-chip from-theme active">oppressive</span><span class="rp-wc-chip from-theme">suffocating</span></div></div>
+        <div class="rp-wc-entry"><div class="rp-wc-name" style="color:var(--pu-purple)">comic_relief <span style="font-size:9px;color:var(--pu-text-muted)">whimsical</span></div><div class="rp-wc-chips"><span class="rp-wc-chip from-theme active">a talking frog</span><span class="rp-wc-chip from-theme">sentient cheese</span></div></div>
+        <div class="rp-wc-entry" style="border-bottom:none"><div class="rp-wc-name" style="color:var(--pu-text-muted)">+ 5 more from themes</div></div>
+        <div style="border-top:1px solid var(--pu-border);margin-top:8px;padding-top:8px"><div class="rp-label" style="margin-bottom:6px">Compositions</div><div style="font-size:12px;color:var(--pu-text-secondary)">Variation 1 of 51,840</div><div style="font-size:10px;color:var(--pu-text-muted);margin-top:2px">3 themes × 11 wildcards × text entries</div></div>
+        <div style="border-top:1px solid var(--pu-border);margin-top:8px;padding-top:8px">
+          <div class="rp-label" style="margin-bottom:6px">Progression</div>
+          <div class="progression-ladder">
+            <div class="prog-step completed"><div class="prog-dot"></div><div><div class="prog-label">Plain text</div></div></div>
+            <div class="prog-step completed"><div class="prog-dot"></div><div><div class="prog-label">Wildcards</div></div></div>
+            <div class="prog-step completed"><div class="prog-dot"></div><div><div class="prog-label">Nested blocks</div></div></div>
+            <div class="prog-step completed"><div class="prog-dot"></div><div><div class="prog-label">Theme consumption</div></div></div>
+            <div class="prog-step completed"><div class="prog-dot"></div><div><div class="prog-label">Theme creation</div></div></div>
+            <div class="prog-step active"><div class="prog-dot"></div><div><div class="prog-label">Theme composition</div><div class="prog-sublabel">You are here</div></div></div>
+          </div>
+        </div>`
+    }
+  ];
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// STATE + RENDERING
+// ═══════════════════════════════════════════════════════════════════════
+
+let currentStage = 0;
+let currentMode = 'compact';
+
+const modeDescs = {
+  compact: 'Build mode — editing tools + clickable value dropdowns',
+  typewriter: 'Presentation mode — values type/erase with cursor animation',
+  reel: 'Presentation mode — values flip through a reel window'
+};
+
+function setMode(mode) {
+  currentMode = mode;
+  document.querySelectorAll('.mode-tab').forEach(t => {
+    t.classList.toggle('active', t.textContent.toLowerCase() === mode);
+    t.classList.toggle('is-compact', t.textContent.toLowerCase() === 'compact');
+  });
+  document.getElementById('modeDesc').textContent = modeDescs[mode];
+  showStage(currentStage);
+}
+
+function showStage(idx) {
+  currentStage = idx;
+  const stages = getStages();
+  const s = stages[idx];
+
+  document.querySelectorAll('.stage-tab').forEach((t, i) => t.classList.toggle('active', i === idx));
+
+  const editor = document.getElementById('editor');
+  const annotation = typeof s.annotation === 'function' ? s.annotation() : s.annotation;
+  editor.innerHTML = `
+    <div class="stage-annotation animate-in">
+      <span class="label"><span class="level-badge l${idx}">L${idx}</span></span>
+      ${annotation}
+    </div>
+    <div class="block-tree animate-in">${typeof s.blocks === 'function' ? s.blocks() : s.blocks}</div>`;
+
+  document.getElementById('rightPanel').innerHTML = `<div class="animate-in">${typeof s.panel === 'function' ? s.panel() : s.panel}</div>`;
+
+  closeThemePicker();
+  closeSaveDialog();
+  closeCtx();
+  closeSwapDropdown();
+  closeFillin();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// INTERACTIONS
+// ═══════════════════════════════════════════════════════════════════════
+
+function showThemePicker(e) {
+  e.stopPropagation();
+  const picker = document.getElementById('themePicker');
+  const rect = e.target.getBoundingClientRect();
+  picker.style.left = rect.left + 'px';
+  picker.style.top = (rect.bottom + 4) + 'px';
+  picker.classList.add('visible');
+}
+function closeThemePicker() { document.getElementById('themePicker').classList.remove('visible'); }
+function insertTheme(name) {
+  closeThemePicker();
+  const btn = document.querySelector('.insert-theme-btn');
+  if (btn) { const o = btn.innerHTML; btn.innerHTML = '✓ Inserted ' + name; btn.style.color = 'var(--pu-success)'; setTimeout(() => { btn.innerHTML = o; btn.style.color = ''; }, 1500); }
+}
+function showSaveDialog() { closeCtx(); closeThemePicker(); document.getElementById('saveDialog').classList.add('visible'); document.getElementById('saveOverlay').classList.add('visible'); }
+function closeSaveDialog() { document.getElementById('saveDialog').classList.remove('visible'); document.getElementById('saveOverlay').classList.remove('visible'); }
+function showCtx(e, isTheme) {
+  e.stopPropagation();
+  const m = document.getElementById('ctxMenu'), r = e.target.getBoundingClientRect();
+  m.style.position = 'fixed'; m.style.left = (r.right - 180) + 'px'; m.style.top = (r.bottom + 4) + 'px';
+  m.classList.add('visible', 'animate-in');
+  document.getElementById('ctxMerge').style.display = isTheme ? 'flex' : 'none';
+}
+function closeCtx() { document.getElementById('ctxMenu').classList.remove('visible'); }
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.theme-picker') && !e.target.closest('.insert-theme-btn')) closeThemePicker();
+  if (!e.target.closest('.ctx-menu') && !e.target.closest('.block-more') && !e.target.closest('[style*="margin-left:60%"]')) closeCtx();
+  if (!e.target.closest('.swap-dropdown') && !e.target.closest('.swap-diff') && !e.target.closest('.theme-label.clickable')) closeSwapDropdown();
+});
+document.getElementById('saveThemeName')?.addEventListener('input', (e) => { const el = document.getElementById('savePathName'); if (el) el.textContent = e.target.value || 'my-theme'; });
+
+// ═══════════════════════════════════════════════════════════════════════
+// THEME SWAP DATA & INTERACTIONS
+// ═══════════════════════════════════════════════════════════════════════
+
+const themeWildcards = {
+  'fantasy-books':  { folder: 'genres', wc: ['realm_name', 'creature', 'artifact'] },
+  'horror-books':   { folder: 'genres', wc: ['realm_name', 'monster', 'weapon', 'darkness_level'] },
+  'scifi-worlds':   { folder: 'genres', wc: ['planet_name', 'species', 'tech_level', 'artifact'] },
+  'dark-gritty':    { folder: 'tones',  wc: ['atmosphere', 'threat'] },
+  'whimsical':      { folder: 'tones',  wc: ['comic_relief', 'surprise'] }
+};
+
+// Sample values per wildcard (for diff preview)
+const wcSampleValues = {
+  realm_name: ['Eldoria', 'Nyx', 'Avalon'],
+  creature: ['dragons', 'griffins'],
+  artifact: ['Crystal Shard', 'Elder Wand'],
+  monster: ['banshee', 'wendigo', 'wraith'],
+  weapon: ['silver dagger', 'enchanted bow'],
+  darkness_level: ['pitch black', 'twilight'],
+  planet_name: ['Kepler-7', 'Andros Prime'],
+  species: ['synthoids', 'void walkers'],
+  tech_level: ['FTL-capable', 'pre-warp'],
+  atmosphere: ['oppressive', 'suffocating'],
+  threat: ['wraiths', 'shadow beasts'],
+  comic_relief: ['a talking frog', 'sentient cheese'],
+  surprise: ['confetti explosions', 'spontaneous dancing']
+};
+
+let swapFromTheme = null;
+let swapToTheme = null;
+
+function computeDiff(fromName, toName) {
+  const from = themeWildcards[fromName]?.wc || [];
+  const to = themeWildcards[toName]?.wc || [];
+  const fromSet = new Set(from);
+  const toSet = new Set(to);
+  const mapped = from.filter(w => toSet.has(w));
+  const orphaned = from.filter(w => !toSet.has(w));
+  const added = to.filter(w => !fromSet.has(w));
+  const compat = mapped.length === from.length && orphaned.length === 0 ? 'full'
+    : mapped.length > 0 ? 'partial' : 'none';
+  return { mapped, orphaned, added, compat };
+}
+
+function showSwapDropdown(e, currentTheme) {
+  e.stopPropagation();
+  closeCtx(); closeThemePicker(); closeSaveDialog();
+  swapFromTheme = currentTheme;
+  document.getElementById('swapFromName').textContent = currentTheme;
+
+  // Build dropdown items grouped by folder
+  const folders = {};
+  for (const [name, info] of Object.entries(themeWildcards)) {
+    if (!folders[info.folder]) folders[info.folder] = [];
+    folders[info.folder].push(name);
+  }
+
+  let html = '';
+  for (const [folder, themes] of Object.entries(folders)) {
+    html += `<div class="swap-dd-folder">${folder}/</div>`;
+    for (const name of themes) {
+      const isCurrent = name === currentTheme;
+      const diff = isCurrent ? null : computeDiff(currentTheme, name);
+      const compatHtml = isCurrent ? '' : `<span class="swap-compat ${diff.compat}">${diff.compat}</span>`;
+      html += `<div class="swap-dd-item${isCurrent ? ' current' : ''}"
+        onmouseenter="${isCurrent ? '' : `showSwapDiff(event,'${name}')`}"
+        onclick="${isCurrent ? '' : `selectSwapTarget('${name}')`}">
+        <span class="swap-dd-icon">📦</span>
+        <span class="swap-dd-name">${name}</span>
+        ${compatHtml}
+      </div>`;
+    }
+  }
+  document.getElementById('swapDdList').innerHTML = html;
+
+  const dd = document.getElementById('swapDropdown');
+  const rect = e.target.closest('.theme-label').getBoundingClientRect();
+  dd.style.left = rect.left + 'px';
+  dd.style.top = (rect.bottom + 4) + 'px';
+  dd.classList.add('visible');
+}
+
+function showSwapDiff(e, targetName) {
+  swapToTheme = targetName;
+  const diff = computeDiff(swapFromTheme, targetName);
+
+  document.getElementById('diffTitle').textContent = targetName;
+  const matchCount = diff.mapped.length;
+  const totalOld = themeWildcards[swapFromTheme]?.wc.length || 0;
+  const subtitleEl = document.getElementById('diffSubtitle');
+  if (diff.compat === 'full') {
+    subtitleEl.textContent = `Full match — all ${totalOld} wildcards shared`;
+  } else if (diff.compat === 'partial') {
+    subtitleEl.textContent = `Partial match — ${matchCount} of ${totalOld} wildcards shared`;
+  } else {
+    subtitleEl.textContent = `No match — 0 of ${totalOld} wildcards shared`;
+  }
+
+  // Build diff body
+  let html = '';
+  if (diff.mapped.length > 0) {
+    html += `<div class="swap-diff-section"><div class="swap-diff-slabel mapped">✓ Mapped (values transfer)</div>`;
+    for (const w of diff.mapped) {
+      const oldVals = (wcSampleValues[w] || ['...']).slice(0, 2).join(', ');
+      const newVals = (wcSampleValues[w] || ['...']).slice(0, 2).join(', ');
+      html += `<div class="swap-diff-row">
+        <span class="swap-diff-wc">${w}</span>
+        <span class="swap-diff-arrow">→</span>
+        <span class="swap-diff-vals new">${newVals}</span>
+      </div>`;
+    }
+    html += `</div>`;
+  }
+  if (diff.orphaned.length > 0) {
+    html += `<div class="swap-diff-section"><div class="swap-diff-slabel orphaned">⚠ Orphaned (need values)</div>`;
+    for (const w of diff.orphaned) {
+      const oldVals = (wcSampleValues[w] || ['...']).slice(0, 2).join(', ');
+      html += `<div class="swap-diff-row">
+        <span class="swap-diff-wc">${w}</span>
+        <span class="swap-diff-arrow">→</span>
+        <span class="swap-diff-vals orphan">??? <span style="font-size:9px;opacity:0.7">(was: ${oldVals})</span></span>
+      </div>`;
+    }
+    html += `</div>`;
+  }
+  if (diff.added.length > 0) {
+    html += `<div class="swap-diff-section"><div class="swap-diff-slabel added">+ Added (new from theme)</div>`;
+    for (const w of diff.added) {
+      const newVals = (wcSampleValues[w] || ['...']).slice(0, 2).join(', ');
+      html += `<div class="swap-diff-row">
+        <span class="swap-diff-wc">${w}</span>
+        <span class="swap-diff-arrow">←</span>
+        <span class="swap-diff-vals fresh">${newVals}</span>
+      </div>`;
+    }
+    html += `</div>`;
+  }
+  document.getElementById('diffBody').innerHTML = html;
+
+  // Button style
+  const btn = document.getElementById('diffConfirmBtn');
+  if (diff.orphaned.length > 0) {
+    btn.className = 'swap-diff-btn warn';
+    btn.textContent = 'Swap & fill missing values';
+  } else {
+    btn.className = 'swap-diff-btn safe';
+    btn.textContent = 'Swap theme';
+  }
+
+  // Position diff popover to the right of the dropdown
+  const ddRect = document.getElementById('swapDropdown').getBoundingClientRect();
+  const diffEl = document.getElementById('swapDiff');
+  diffEl.style.left = (ddRect.right + 4) + 'px';
+  diffEl.style.top = ddRect.top + 'px';
+  diffEl.classList.add('visible');
+}
+
+function selectSwapTarget(name) {
+  showSwapDiff({ target: document.querySelector('.swap-dd-item:not(.current)') }, name);
+}
+
+function confirmSwap() {
+  const diff = computeDiff(swapFromTheme, swapToTheme);
+  if (diff.orphaned.length > 0) {
+    showFillin(diff.orphaned);
+  } else {
+    applySwap();
+  }
+}
+
+function showFillin(orphanedWildcards) {
+  closeSwapDropdown();
+  document.getElementById('fillinTarget').textContent = swapToTheme;
+  let html = '';
+  for (const w of orphanedWildcards) {
+    const oldVals = (wcSampleValues[w] || []).slice(0, 2).join(', ');
+    html += `<div class="fillin-wc-row">
+      <div class="fillin-wc-label">
+        <span class="fillin-wc-name">__${w}__</span>
+        <span class="fillin-wc-hint">${oldVals ? 'was: ' + oldVals : ''}</span>
+      </div>
+      <input class="fillin-wc-input" placeholder="Enter values (comma-separated)" value="${oldVals}">
+    </div>`;
+  }
+  document.getElementById('fillinFields').innerHTML = html;
+  document.getElementById('fillinDialog').classList.add('visible');
+  document.getElementById('fillinOverlay').classList.add('visible');
+}
+
+function closeFillin() {
+  document.getElementById('fillinDialog').classList.remove('visible');
+  document.getElementById('fillinOverlay').classList.remove('visible');
+}
+
+function closeSwapDropdown() {
+  document.getElementById('swapDropdown').classList.remove('visible');
+  document.getElementById('swapDiff').classList.remove('visible');
+}
+
+function applySwap() {
+  closeFillin();
+  closeSwapDropdown();
+  // Visual feedback: flash the theme label
+  const labels = document.querySelectorAll('.theme-label');
+  labels.forEach(l => {
+    if (l.textContent.includes(swapFromTheme)) {
+      l.style.transition = 'all 300ms';
+      l.style.background = 'var(--pu-success-bg)';
+      l.style.color = 'var(--pu-success)';
+      const inner = l.innerHTML.replace(swapFromTheme, swapToTheme);
+      setTimeout(() => { l.innerHTML = inner; l.style.background = ''; l.style.color = ''; }, 400);
+    }
+  });
+}
+
+showStage(0);
+</script>
+</body>
+</html>

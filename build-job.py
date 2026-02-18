@@ -91,7 +91,7 @@ def main():
         job_defaults = job_defaults[0] if job_defaults else {}
     default_ext = job_defaults.get('ext', 'defaults')
     ext_text_max = job_defaults.get('ext_text_max', 1)
-    ext_wildcards_max = job_defaults.get('ext_wildcards_max', 0)
+    ext_wildcards_max = job_defaults.get('wildcards_max', job_defaults.get('ext_wildcards_max', 0))
     
     # Auto-load extensions from /ext/{ext}/ folder
     ext_dir = root_dir / "ext" / default_ext

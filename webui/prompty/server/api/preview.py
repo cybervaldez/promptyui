@@ -105,7 +105,7 @@ def resolve_wildcards_in_text(text, wildcard_lookup, max_per_wildcard=0):
     return results
 
 
-def build_variations_recursive(items, ext_texts, wildcards, ext_text_max=0, ext_wildcards_max=0, path_prefix=""):
+def build_variations_recursive(items, ext_texts, wildcards, ext_text_max=0, wildcards_max=0, path_prefix=""):
     """
     Recursively build text variations from nested content/after structure.
 
@@ -129,7 +129,7 @@ def build_variations_recursive(items, ext_texts, wildcards, ext_text_max=0, ext_
         if 'content' in item:
             # Content block - resolve wildcards
             content = item['content']
-            resolved = resolve_wildcards_in_text(content, wildcards, ext_wildcards_max)
+            resolved = resolve_wildcards_in_text(content, wildcards, wildcards_max)
 
             for resolved_text, wc_values in resolved:
                 base_variations.append({
@@ -158,7 +158,7 @@ def build_variations_recursive(items, ext_texts, wildcards, ext_text_max=0, ext_
 
                 for ext_idx, ext_value in enumerate(ext_values):
                     # Resolve wildcards in ext_text value
-                    resolved = resolve_wildcards_in_text(ext_value, wildcards, ext_wildcards_max)
+                    resolved = resolve_wildcards_in_text(ext_value, wildcards, wildcards_max)
 
                     for resolved_text, wc_values in resolved:
                         base_variations.append({
@@ -172,7 +172,7 @@ def build_variations_recursive(items, ext_texts, wildcards, ext_text_max=0, ext_
         if 'after' in item and base_variations:
             after_variations = build_variations_recursive(
                 item['after'], ext_texts, wildcards,
-                ext_text_max, ext_wildcards_max,
+                ext_text_max, wildcards_max,
                 path_prefix=item_path
             )
 
@@ -250,7 +250,7 @@ def handle_preview(handler, params):
     include_nested = params.get('include_nested', True)
     limit = params.get('limit', 50)
     ext_text_max = params.get('ext_text_max', 0)
-    ext_wildcards_max = params.get('ext_wildcards_max', 0)
+    ext_wildcards_max = params.get('wildcards_max', params.get('ext_wildcards_max', 0))
 
     # Build wildcard lookup
     wildcards = {}
@@ -292,7 +292,9 @@ def handle_preview(handler, params):
                             # Get prompt-level ext settings
                             if 'ext_text_max' in p:
                                 ext_text_max = p['ext_text_max']
-                            if 'ext_wildcards_max' in p:
+                            if 'wildcards_max' in p:
+                                ext_wildcards_max = p['wildcards_max']
+                            elif 'ext_wildcards_max' in p:
                                 ext_wildcards_max = p['ext_wildcards_max']
                             break
 

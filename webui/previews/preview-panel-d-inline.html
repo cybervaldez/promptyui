@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Panel D: Inline Stream</title>
+<style>
+:root {
+    --pu-bg-primary: #191919;
+    --pu-bg-secondary: #202020;
+    --pu-bg-tertiary: #2f2f2f;
+    --pu-bg-input: #252525;
+    --pu-bg-hover: rgba(255, 255, 255, 0.04);
+    --pu-bg-selected: rgba(255, 255, 255, 0.06);
+    --pu-text-primary: #ebebeb;
+    --pu-text-secondary: #999999;
+    --pu-text-muted: #7a7a7a;
+    --pu-accent: #529CCA;
+    --pu-accent-bg: rgba(82, 156, 202, 0.08);
+    --pu-accent-light: rgba(82, 156, 202, 0.12);
+    --pu-success: #4daa57;
+    --pu-success-bg: rgba(77, 170, 87, 0.12);
+    --pu-warning: #cb912f;
+    --pu-warning-bg: rgba(203, 145, 47, 0.1);
+    --pu-error: #e06c75;
+    --pu-orange: #e8943a;
+    --pu-border: rgba(255, 255, 255, 0.06);
+    --pu-border-light: rgba(255, 255, 255, 0.09);
+    --pu-radius: 4px;
+    --pu-radius-sm: 3px;
+    --pu-font-body: 'Inter', -apple-system, sans-serif;
+    --pu-font-mono: 'JetBrains Mono', monospace;
+    --pu-space-xs: 4px;
+    --pu-space-sm: 8px;
+    --pu-space-md: 12px;
+    --pu-space-lg: 16px;
+    --pu-space-xl: 24px;
+    --pu-transition-fast: 120ms ease-out;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: var(--pu-font-body);
+    background: var(--pu-bg-primary);
+    color: var(--pu-text-primary);
+    display: flex;
+    justify-content: center;
+    padding: 40px;
+}
+.preview-label {
+    position: fixed; top: 12px; left: 12px;
+    background: var(--pu-accent); color: #fff;
+    padding: 4px 12px; border-radius: 4px;
+    font-size: 12px; font-weight: 600; z-index: 99;
+}
+
+/* === PANEL D: Inline Stream ===
+   No groups, no tabs, no accordion.
+   Each wildcard is a self-contained row with integrated source badge.
+   Dense, scan-friendly. IDE-like feel. */
+
+.panel {
+    width: 320px;
+    background: var(--pu-bg-secondary);
+    display: flex;
+    flex-direction: column;
+    height: 85vh;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--pu-border);
+}
+
+/* Top bar with scope + wildcard count */
+.top-bar {
+    display: flex;
+    align-items: center;
+    padding: 8px var(--pu-space-md);
+    border-bottom: 1px solid var(--pu-border);
+    background: var(--pu-bg-primary);
+    gap: 6px;
+}
+.top-scope {
+    font-family: var(--pu-font-mono);
+    font-size: 11px;
+    color: var(--pu-warning);
+    background: var(--pu-warning-bg);
+    padding: 2px 8px;
+    border-radius: var(--pu-radius-sm);
+}
+.top-spacer { flex: 1; }
+.top-stats {
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    font-family: var(--pu-font-mono);
+}
+
+/* Wildcard stream */
+.wc-stream {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--pu-space-xs);
+}
+
+/* Each wildcard is a self-contained mini-card */
+.wc-entry {
+    padding: 6px 8px;
+    border-radius: var(--pu-radius);
+    margin-bottom: 2px;
+    transition: background var(--pu-transition-fast);
+}
+.wc-entry:hover {
+    background: var(--pu-bg-hover);
+}
+
+/* Top line: name + source + value count */
+.wc-entry-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+.wc-entry-name {
+    font-family: var(--pu-font-mono);
+    font-size: 12px;
+    color: var(--pu-text-primary);
+    font-weight: 500;
+}
+.wc-entry-src {
+    font-size: 8px;
+    padding: 1px 4px;
+    border-radius: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    font-weight: 600;
+}
+.wc-entry-src.local {
+    background: var(--pu-accent-bg);
+    color: var(--pu-accent);
+}
+.wc-entry-src.ext {
+    background: var(--pu-warning-bg);
+    color: var(--pu-warning);
+}
+.wc-entry-src.override {
+    background: var(--pu-success-bg);
+    color: var(--pu-success);
+}
+.wc-entry-path {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    margin-left: auto;
+    font-family: var(--pu-font-mono);
+}
+
+/* Value chips inline */
+.wc-entry-values {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+}
+.wc-v {
+    font-size: 10px;
+    padding: 1px 6px;
+    background: var(--pu-bg-tertiary);
+    border-radius: 3px;
+    color: var(--pu-text-secondary);
+    cursor: pointer;
+    transition: all var(--pu-transition-fast);
+}
+.wc-v:hover {
+    background: var(--pu-accent-light);
+    color: var(--pu-text-primary);
+}
+.wc-v.active {
+    background: var(--pu-accent);
+    color: #fff;
+}
+.wc-v.dimmed {
+    opacity: 0.5;
+}
+
+/* Thin separator between local and ext */
+.wc-divider {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px 4px;
+}
+.wc-divider-line {
+    flex: 1;
+    height: 1px;
+    background: var(--pu-border);
+}
+.wc-divider-label {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Impact footer — two rows */
+.impact-footer {
+    border-top: 1px solid var(--pu-border);
+    padding: 6px var(--pu-space-md) 8px;
+    background: var(--pu-bg-hover);
+}
+.impact-formula {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    margin-bottom: 4px;
+}
+.impact-dim {
+    font-size: 10px;
+    font-family: var(--pu-font-mono);
+    padding: 1px 5px;
+    border-radius: 2px;
+    background: var(--pu-bg-tertiary);
+    color: var(--pu-text-secondary);
+}
+.impact-dim.local { border-left: 2px solid var(--pu-accent); }
+.impact-dim.ext { border-left: 2px solid var(--pu-warning); }
+.impact-op {
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    display: flex;
+    align-items: center;
+}
+.impact-result {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.impact-total-num {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--pu-accent);
+}
+.impact-size {
+    font-size: 10px;
+    color: var(--pu-text-muted);
+}
+</style>
+</head>
+<body>
+<div class="preview-label">D: Inline Stream</div>
+
+<div class="panel">
+    <div class="top-bar">
+        <span class="top-scope">hiring</span>
+        <span class="top-spacer"></span>
+        <span class="top-stats">6 wc &middot; 4 local &middot; 2 ext</span>
+    </div>
+
+    <div class="wc-stream">
+        <!-- Local wildcards -->
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-entry-name">channel</span>
+                <span class="wc-entry-src local">local</span>
+            </div>
+            <div class="wc-entry-values">
+                <span class="wc-v active">inbound</span>
+                <span class="wc-v">outbound</span>
+                <span class="wc-v">referral</span>
+                <span class="wc-v">campus</span>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-entry-name">mood</span>
+                <span class="wc-entry-src override">local &bull; overrides</span>
+                <span class="wc-entry-path">professional/tones</span>
+            </div>
+            <div class="wc-entry-values">
+                <span class="wc-v active">happy</span>
+                <span class="wc-v">sad</span>
+                <span class="wc-v dimmed" title="ext: hidden by local override">cheerful</span>
+                <span class="wc-v dimmed" title="ext: hidden by local override">formal</span>
+                <span class="wc-v dimmed" title="ext: hidden by local override">casual</span>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-entry-name">count</span>
+                <span class="wc-entry-src local">local</span>
+            </div>
+            <div class="wc-entry-values">
+                <span class="wc-v">3</span>
+                <span class="wc-v active">5</span>
+                <span class="wc-v">10</span>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-entry-name">approach</span>
+                <span class="wc-entry-src local">local</span>
+            </div>
+            <div class="wc-entry-values">
+                <span class="wc-v active">personalized</span>
+                <span class="wc-v">automated</span>
+                <span class="wc-v">hybrid</span>
+            </div>
+        </div>
+
+        <div class="wc-divider">
+            <span class="wc-divider-line"></span>
+            <span class="wc-divider-label">from extensions</span>
+            <span class="wc-divider-line"></span>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-entry-name">seniority</span>
+                <span class="wc-entry-src ext">ext</span>
+                <span class="wc-entry-path">hiring/roles</span>
+            </div>
+            <div class="wc-entry-values">
+                <span class="wc-v">Junior</span>
+                <span class="wc-v active">Mid-level</span>
+                <span class="wc-v">Senior</span>
+                <span class="wc-v">Staff</span>
+                <span class="wc-v">Principal</span>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-entry-name">deal_stage</span>
+                <span class="wc-entry-src ext">ext</span>
+                <span class="wc-entry-path">sales/personas</span>
+            </div>
+            <div class="wc-entry-values">
+                <span class="wc-v active">prospecting</span>
+                <span class="wc-v">discovery</span>
+                <span class="wc-v">evaluation</span>
+                <span class="wc-v">negotiation</span>
+                <span class="wc-v">closed-won</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Impact footer with colored dimension chips -->
+    <div class="impact-footer">
+        <div class="impact-formula">
+            <span class="impact-dim local">channel(4)</span>
+            <span class="impact-op">&times;</span>
+            <span class="impact-dim local">mood(2)</span>
+            <span class="impact-op">&times;</span>
+            <span class="impact-dim local">count(3)</span>
+            <span class="impact-op">&times;</span>
+            <span class="impact-dim local">approach(3)</span>
+            <span class="impact-op">&times;</span>
+            <span class="impact-dim ext">seniority(5)</span>
+            <span class="impact-op">&times;</span>
+            <span class="impact-dim ext">deal_stage(5)</span>
+        </div>
+        <div class="impact-result">
+            <span class="impact-total-num">1,800 compositions</span>
+            <span class="impact-size">~414 KB</span>
+        </div>
+    </div>
+</div>
+</body>
+</html>

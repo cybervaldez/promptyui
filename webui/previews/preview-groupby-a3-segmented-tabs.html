@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Option A3: Segmented Tab Filters</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --pu-bg-primary: #191919;
+    --pu-bg-secondary: #202020;
+    --pu-bg-tertiary: #2f2f2f;
+    --pu-bg-hover: rgba(255, 255, 255, 0.04);
+    --pu-bg-selected: rgba(255, 255, 255, 0.06);
+    --pu-bg-elevated: #252525;
+    --pu-text-primary: #ebebeb;
+    --pu-text-secondary: #999999;
+    --pu-text-muted: #7a7a7a;
+    --pu-accent: #529CCA;
+    --pu-accent-bg: rgba(82, 156, 202, 0.08);
+    --pu-accent-light: rgba(82, 156, 202, 0.12);
+    --pu-accent-border: rgba(82, 156, 202, 0.25);
+    --pu-accent-muted: rgba(82, 156, 202, 0.5);
+    --pu-border: rgba(255, 255, 255, 0.06);
+    --pu-border-light: rgba(255, 255, 255, 0.09);
+    --pu-radius: 4px;
+    --pu-radius-sm: 3px;
+    --pu-radius-lg: 6px;
+    --pu-radius-full: 9999px;
+    --pu-font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --pu-font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+    --pu-font-size-2xs: 10px;
+    --pu-font-size-xs: 11px;
+    --pu-font-size-sm: 12px;
+    --pu-font-size-md: 13px;
+    --pu-font-size-base: 14px;
+    --pu-space-xs: 4px;
+    --pu-space-sm: 8px;
+    --pu-space-md: 12px;
+    --pu-space-lg: 16px;
+    --pu-space-xl: 24px;
+    --pu-transition-fast: 120ms ease-out;
+    --pu-transition-normal: 200ms ease-out;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--pu-bg-primary);
+    color: var(--pu-text-primary);
+    font-family: var(--pu-font-body);
+    padding: 24px;
+  }
+
+  .preview-title { font-size: 14px; font-weight: 600; color: var(--pu-accent); margin-bottom: 4px; }
+  .preview-desc { font-size: 12px; color: var(--pu-text-muted); margin-bottom: 20px; line-height: 1.5; }
+
+  .pu-output-footer {
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius-lg);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    max-height: 520px;
+  }
+  .pu-output-footer-header {
+    display: flex;
+    align-items: center;
+    gap: var(--pu-space-sm);
+    padding: var(--pu-space-sm) var(--pu-space-lg);
+    background: var(--pu-bg-secondary);
+    flex-shrink: 0;
+  }
+  .pu-output-footer-title { font-size: var(--pu-font-size-xs); font-weight: 500; color: var(--pu-text-muted); text-transform: uppercase; }
+  .pu-output-footer-count { font-size: var(--pu-font-size-xs); color: var(--pu-text-muted); background: var(--pu-bg-primary); padding: 1px 6px; border-radius: var(--pu-radius-full); }
+  .header-right { margin-left: auto; display: flex; align-items: center; gap: var(--pu-space-sm); }
+  .pu-btn-sm {
+    display: inline-flex; align-items: center; padding: 2px var(--pu-space-sm);
+    background: var(--pu-bg-hover); border: 1px solid var(--pu-border); border-radius: var(--pu-radius);
+    color: var(--pu-text-secondary); font-family: var(--pu-font-body); font-size: var(--pu-font-size-2xs);
+    cursor: pointer; transition: all var(--pu-transition-fast);
+  }
+  .pu-btn-sm:hover { background: var(--pu-bg-selected); border-color: var(--pu-border-light); color: var(--pu-text-primary); }
+  .filter-active-count { font-size: var(--pu-font-size-2xs); color: var(--pu-accent); background: var(--pu-accent-bg); padding: 1px 5px; border-radius: var(--pu-radius-full); }
+
+  .pu-output-footer-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  /* === Dimension tabs as vertical segments on the left === */
+  .filter-panel {
+    display: flex;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--pu-border);
+    background: var(--pu-bg-secondary);
+  }
+
+  /* Left: vertical dimension tabs */
+  .dim-tabs {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--pu-border);
+    flex-shrink: 0;
+    width: 72px;
+  }
+
+  .dim-tab {
+    padding: var(--pu-space-sm) var(--pu-space-sm);
+    font-size: var(--pu-font-size-2xs);
+    font-weight: 500;
+    color: var(--pu-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    user-select: none;
+    text-align: center;
+    border-bottom: 1px solid var(--pu-border);
+    transition: all var(--pu-transition-fast);
+    position: relative;
+  }
+  .dim-tab:last-child { border-bottom: none; }
+  .dim-tab:hover {
+    background: var(--pu-bg-hover);
+    color: var(--pu-text-secondary);
+  }
+  .dim-tab.active {
+    background: var(--pu-bg-primary);
+    color: var(--pu-text-primary);
+  }
+  .dim-tab.active::after {
+    content: '';
+    position: absolute;
+    right: -1px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--pu-accent);
+  }
+  .dim-tab.has-filter {
+    color: var(--pu-accent);
+  }
+  .dim-tab-dot {
+    display: inline-block;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--pu-accent);
+    margin-left: 3px;
+    vertical-align: middle;
+  }
+
+  /* Right: value tags for selected dimension */
+  .dim-values-panel {
+    flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    align-content: flex-start;
+    gap: 5px;
+    padding: var(--pu-space-sm) var(--pu-space-md);
+    min-height: 42px;
+    overflow-y: auto;
+    max-height: 80px;
+  }
+
+  .dim-value-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 3px 10px;
+    border-radius: var(--pu-radius);
+    border: 1px solid var(--pu-border-light);
+    background: var(--pu-bg-primary);
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-secondary);
+    cursor: pointer;
+    user-select: none;
+    transition: all var(--pu-transition-fast);
+  }
+  .dim-value-tag:hover {
+    border-color: var(--pu-accent-border);
+    background: var(--pu-bg-hover);
+    color: var(--pu-text-primary);
+  }
+  .dim-value-tag.active {
+    border-color: var(--pu-accent-border);
+    background: var(--pu-accent-bg);
+    color: var(--pu-accent);
+    font-weight: 500;
+  }
+  .dim-value-tag.zero {
+    opacity: 0.3;
+    pointer-events: none;
+  }
+
+  .tag-count {
+    font-size: var(--pu-font-size-2xs);
+    font-family: var(--pu-font-mono);
+    color: var(--pu-text-muted);
+    opacity: 0.7;
+  }
+  .dim-value-tag.active .tag-count {
+    color: var(--pu-accent-muted);
+  }
+
+  /* Reset link in values panel */
+  .dim-values-reset {
+    font-size: var(--pu-font-size-2xs);
+    color: var(--pu-accent);
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-family: var(--pu-font-body);
+    padding: 3px 6px;
+    border-radius: var(--pu-radius);
+    transition: all var(--pu-transition-fast);
+    align-self: center;
+  }
+  .dim-values-reset:hover { background: var(--pu-accent-bg); }
+
+  /* Active filter summary bar */
+  .active-filters-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--pu-space-xs);
+    padding: 3px var(--pu-space-md) 3px calc(72px + var(--pu-space-md));
+    background: var(--pu-accent-bg);
+    border-bottom: 1px solid var(--pu-accent-border);
+    font-size: var(--pu-font-size-2xs);
+    color: var(--pu-accent);
+    flex-shrink: 0;
+  }
+  .active-filters-bar.hidden { display: none; }
+  .active-filter-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 6px;
+    border-radius: var(--pu-radius-full);
+    background: rgba(82, 156, 202, 0.15);
+    font-size: var(--pu-font-size-2xs);
+  }
+  .active-filter-pill-dim {
+    color: var(--pu-text-muted);
+    font-weight: 500;
+  }
+  .active-filter-pill-val {
+    color: var(--pu-accent);
+  }
+  .active-filter-pill-x {
+    cursor: pointer;
+    color: var(--pu-text-muted);
+    font-size: 10px;
+    margin-left: 2px;
+    transition: color var(--pu-transition-fast);
+  }
+  .active-filter-pill-x:hover { color: var(--pu-text-primary); }
+  .active-filters-clear {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: var(--pu-accent-muted);
+    font-family: var(--pu-font-body);
+    font-size: var(--pu-font-size-2xs);
+    cursor: pointer;
+    transition: color var(--pu-transition-fast);
+  }
+  .active-filters-clear:hover { color: var(--pu-accent); }
+
+  /* === Output list === */
+  .output-list { flex: 1; overflow-y: auto; padding: var(--pu-space-sm) var(--pu-space-md); min-width: 0; }
+  .output-item {
+    background: var(--pu-bg-hover); border: 1px solid var(--pu-border); border-radius: var(--pu-radius);
+    padding: var(--pu-space-sm) var(--pu-space-md); margin-bottom: var(--pu-space-xs);
+  }
+  .output-item.hidden { display: none; }
+  .output-item-label { font-family: var(--pu-font-mono); font-size: var(--pu-font-size-2xs); color: var(--pu-text-muted); display: block; margin-bottom: 2px; }
+  .output-item-text { font-size: var(--pu-font-size-sm); color: var(--pu-text-primary); line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+  .label-wc-name { color: var(--pu-text-muted); }
+  .label-wc-eq { color: var(--pu-text-muted); opacity: 0.5; }
+  .label-wc-val { color: var(--pu-accent); }
+  .label-wc-sep { color: var(--pu-text-muted); opacity: 0.3; margin: 0 3px; }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+</style>
+</head>
+<body>
+  <div class="preview-title">A3: Segmented Tab Filters</div>
+  <div class="preview-desc">
+    Dimensions as vertical tabs on the left; values as horizontal tags on the right.
+    Active filters summarized in a highlight bar between filter panel and output list.
+    Each filter pill has an x to remove. Compact vertical footprint since values flow horizontally.
+  </div>
+
+  <div class="pu-output-footer">
+    <div class="pu-output-footer-header">
+      <span class="pu-output-footer-title">Resolved Output</span>
+      <span class="pu-output-footer-count" id="count-badge">27</span>
+      <span class="filter-active-count" id="filter-badge" style="display:none"></span>
+      <div class="header-right">
+        <button class="pu-btn-sm">&#8210;</button>
+        <button class="pu-btn-sm">Copy All</button>
+      </div>
+    </div>
+    <div class="pu-output-footer-body">
+      <!-- Filter panel: tabs + values -->
+      <div class="filter-panel">
+        <div class="dim-tabs" id="dim-tabs"></div>
+        <div class="dim-values-panel" id="dim-values"></div>
+      </div>
+      <!-- Active filter summary -->
+      <div class="active-filters-bar hidden" id="active-bar"></div>
+      <!-- Output list -->
+      <div class="output-list" id="output-list"></div>
+    </div>
+  </div>
+
+<script>
+const WILDCARDS = {
+  Stage: ['Series A', 'seed', 'x'],
+  Tone:  ['cheerful', 'melancholy', 'fierce'],
+  Role:  ['narrator', 'critic', 'poet']
+};
+const DIM_NAMES = Object.keys(WILDCARDS);
+
+const PROMPT_TEMPLATE = (stage, tone, role) =>
+  `As a ${role}, describe a ${stage} startup in a ${tone} tone. Focus on the founding moment and the spark that ignited the vision.`;
+
+const outputs = [];
+for (const stage of WILDCARDS.Stage)
+  for (const tone of WILDCARDS.Tone)
+    for (const role of WILDCARDS.Role)
+      outputs.push({ dims: { Stage: stage, Tone: tone, Role: role }, text: PROMPT_TEMPLATE(stage, tone, role) });
+
+const activeFilters = {};
+for (const dim of DIM_NAMES) activeFilters[dim] = new Set();
+let activeTab = DIM_NAMES[0];
+
+function countMatches(dim, val) {
+  return outputs.filter(o => {
+    for (const [d, set] of Object.entries(activeFilters)) {
+      if (d === dim) { if (o.dims[d] !== val) return false; }
+      else { if (set.size > 0 && !set.has(o.dims[d])) return false; }
+    }
+    return true;
+  }).length;
+}
+
+function isVisible(o) {
+  for (const [dim, set] of Object.entries(activeFilters))
+    if (set.size > 0 && !set.has(o.dims[dim])) return false;
+  return true;
+}
+
+function buildTabs() {
+  const tabs = document.getElementById('dim-tabs');
+  tabs.innerHTML = DIM_NAMES.map(dim => {
+    const hasFilter = activeFilters[dim].size > 0;
+    const isActive = dim === activeTab;
+    return `<div class="dim-tab ${isActive ? 'active' : ''} ${hasFilter ? 'has-filter' : ''}"
+                 onclick="selectTab('${dim}')">
+      ${dim}${hasFilter ? '<span class="dim-tab-dot"></span>' : ''}
+    </div>`;
+  }).join('');
+}
+
+function buildValues() {
+  const panel = document.getElementById('dim-values');
+  const values = WILDCARDS[activeTab];
+  const dimHasFilter = activeFilters[activeTab].size > 0;
+
+  let html = '';
+  for (const val of values) {
+    const isActive = activeFilters[activeTab].has(val);
+    const count = countMatches(activeTab, val);
+    const isZero = count === 0 && !isActive;
+    html += `<div class="dim-value-tag ${isActive ? 'active' : ''} ${isZero ? 'zero' : ''}"
+                  onclick="toggleFilter('${activeTab}', '${val}')">
+      ${val} <span class="tag-count">${count}</span>
+    </div>`;
+  }
+  if (dimHasFilter) {
+    html += `<button class="dim-values-reset" onclick="clearDim('${activeTab}')">Clear</button>`;
+  }
+  panel.innerHTML = html;
+}
+
+function buildActiveBar() {
+  const bar = document.getElementById('active-bar');
+  const allActive = [];
+  for (const [dim, set] of Object.entries(activeFilters)) {
+    for (const val of set) allActive.push({ dim, val });
+  }
+  if (allActive.length === 0) {
+    bar.classList.add('hidden');
+    return;
+  }
+  bar.classList.remove('hidden');
+  let html = allActive.map(({ dim, val }) =>
+    `<span class="active-filter-pill">
+      <span class="active-filter-pill-dim">${dim}:</span>
+      <span class="active-filter-pill-val">${val}</span>
+      <span class="active-filter-pill-x" onclick="removeFilter('${dim}','${val}')">&times;</span>
+    </span>`
+  ).join('');
+  html += `<button class="active-filters-clear" onclick="resetFilters()">Clear all</button>`;
+  bar.innerHTML = html;
+}
+
+function selectTab(dim) { activeTab = dim; render(); }
+function toggleFilter(dim, val) {
+  activeFilters[dim].has(val) ? activeFilters[dim].delete(val) : activeFilters[dim].add(val);
+  render();
+}
+function removeFilter(dim, val) { activeFilters[dim].delete(val); render(); }
+function clearDim(dim) { activeFilters[dim].clear(); render(); }
+function resetFilters() { for (const d of DIM_NAMES) activeFilters[d].clear(); render(); }
+
+function buildOutputList() {
+  const list = document.getElementById('output-list');
+  let html = '', visibleCount = 0;
+  for (const o of outputs) {
+    const visible = isVisible(o);
+    if (visible) visibleCount++;
+    const label = Object.entries(o.dims).map(([k,v]) =>
+      `<span class="label-wc-name">${k}</span><span class="label-wc-eq">=</span><span class="label-wc-val">${v}</span>`
+    ).join('<span class="label-wc-sep">|</span>');
+    html += `<div class="output-item ${visible ? '' : 'hidden'}">
+      <span class="output-item-label">${label}</span>
+      <div class="output-item-text">${o.text}</div>
+    </div>`;
+  }
+  list.innerHTML = html;
+  const hasFilters = Object.values(activeFilters).some(s => s.size > 0);
+  document.getElementById('count-badge').textContent = hasFilters ? `${visibleCount} / 27` : '27';
+  const fb = document.getElementById('filter-badge');
+  if (hasFilters) {
+    const n = Object.values(activeFilters).reduce((s,set) => s + set.size, 0);
+    fb.textContent = `${n} filter${n > 1 ? 's' : ''}`; fb.style.display = '';
+  } else { fb.style.display = 'none'; }
+}
+
+function render() {
+  buildTabs();
+  buildValues();
+  buildActiveBar();
+  buildOutputList();
+}
+render();
+</script>
+</body>
+</html>

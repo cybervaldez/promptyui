@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Option A: Resolved Output Footer</title>
+<style>
+/* PromptyUI Design Tokens */
+:root {
+    --pu-bg-primary: #191919;
+    --pu-bg-secondary: #202020;
+    --pu-bg-tertiary: #2f2f2f;
+    --pu-bg-input: #252525;
+    --pu-bg-hover: rgba(255, 255, 255, 0.04);
+    --pu-bg-selected: rgba(255, 255, 255, 0.06);
+    --pu-bg-elevated: #252525;
+    --pu-text-primary: #ebebeb;
+    --pu-text-secondary: #999999;
+    --pu-text-muted: #7a7a7a;
+    --pu-accent: #529CCA;
+    --pu-accent-bg: rgba(82, 156, 202, 0.08);
+    --pu-accent-light: rgba(82, 156, 202, 0.12);
+    --pu-accent-border: rgba(82, 156, 202, 0.25);
+    --pu-accent-muted: rgba(82, 156, 202, 0.5);
+    --pu-success: #4daa57;
+    --pu-warning: #cb912f;
+    --pu-border: rgba(255, 255, 255, 0.06);
+    --pu-border-light: rgba(255, 255, 255, 0.09);
+    --pu-radius: 4px;
+    --pu-radius-lg: 6px;
+    --pu-radius-full: 9999px;
+    --pu-font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --pu-font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+    --pu-font-size-2xs: 10px;
+    --pu-font-size-xs: 11px;
+    --pu-font-size-sm: 12px;
+    --pu-font-size-md: 13px;
+    --pu-font-size-base: 14px;
+    --pu-font-size-lg: 16px;
+    --pu-space-xs: 4px;
+    --pu-space-sm: 8px;
+    --pu-space-md: 12px;
+    --pu-space-lg: 16px;
+    --pu-space-xl: 24px;
+    --pu-transition-fast: 120ms ease-out;
+    --pu-transition-normal: 200ms ease-out;
+    --pu-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    font-family: var(--pu-font-body);
+    font-size: var(--pu-font-size-base);
+    line-height: 1.5;
+    background: var(--pu-bg-primary);
+    color: var(--pu-text-primary);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Label */
+.preview-label {
+    background: var(--pu-accent);
+    color: #fff;
+    padding: 8px 16px;
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    flex-shrink: 0;
+}
+.preview-label small { font-weight: 400; opacity: 0.8; margin-left: 8px; }
+
+/* Odometer */
+.odometer {
+    display: flex;
+    align-items: center;
+    padding: var(--pu-space-sm) var(--pu-space-lg);
+    background: var(--pu-bg-hover);
+    border-bottom: 1px solid var(--pu-border);
+    gap: var(--pu-space-md);
+    flex-shrink: 0;
+}
+.odo-field {
+    display: flex;
+    align-items: center;
+    gap: var(--pu-space-xs);
+}
+.odo-field label {
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-muted);
+}
+.odo-field input {
+    width: 50px;
+    padding: var(--pu-space-xs) 6px;
+    background: var(--pu-bg-input);
+    border: 1px solid transparent;
+    border-radius: var(--pu-radius);
+    color: var(--pu-text-primary);
+    font-family: var(--pu-font-mono);
+    font-size: var(--pu-font-size-xs);
+    text-align: center;
+}
+.odo-dice {
+    width: 28px; height: 28px; padding: 0;
+    background: var(--pu-bg-hover);
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius);
+    color: var(--pu-text-secondary);
+    cursor: pointer;
+    font-size: 14px;
+}
+.odo-total {
+    font-size: var(--pu-font-size-2xs);
+    color: var(--pu-text-muted);
+    background: var(--pu-accent-bg);
+    padding: 2px var(--pu-space-sm);
+    border-radius: var(--pu-radius);
+}
+
+/* Prompt header */
+.prompt-header {
+    display: flex;
+    align-items: center;
+    padding: var(--pu-space-md) var(--pu-space-lg);
+    background: var(--pu-bg-secondary);
+    border-bottom: 1px solid var(--pu-border);
+    flex-shrink: 0;
+}
+.prompt-label { font-size: var(--pu-font-size-xs); color: var(--pu-text-muted); margin-right: 8px; }
+.prompt-title { font-size: var(--pu-font-size-lg); font-weight: 500; }
+
+/* Blocks area — takes remaining space, scrolls */
+.blocks-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    min-height: 0;
+}
+
+/* Block */
+.block {
+    background: var(--pu-bg-hover);
+    border: 1px solid transparent;
+    border-radius: var(--pu-radius-lg);
+    margin-bottom: var(--pu-space-md);
+    transition: border-color var(--pu-transition-normal);
+}
+.block:hover {
+    background: var(--pu-bg-selected);
+    border-color: var(--pu-border);
+}
+.block-header {
+    display: flex;
+    align-items: center;
+    padding: var(--pu-space-md) var(--pu-space-lg);
+    background: var(--pu-bg-hover);
+    border-radius: var(--pu-radius-lg) var(--pu-radius-lg) 0 0;
+    gap: var(--pu-space-sm);
+}
+.block-toggle { font-size: 10px; color: var(--pu-text-muted); }
+.block-path {
+    font-family: var(--pu-font-mono);
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-secondary);
+    background: var(--pu-bg-secondary);
+    padding: 2px 6px;
+    border-radius: var(--pu-radius);
+}
+.block-type { font-size: var(--pu-font-size-xs); color: var(--pu-accent); font-weight: 500; }
+.block-clickable {
+    cursor: pointer;
+    position: relative;
+    padding: 14px var(--pu-space-lg);
+    transition: background var(--pu-transition-fast);
+}
+.block-clickable:hover { background: var(--pu-bg-hover); }
+.block-edit-icon {
+    position: absolute; top: 8px; right: 8px;
+    font-size: 14px; color: var(--pu-text-muted);
+    opacity: 0; transition: opacity var(--pu-transition-normal);
+}
+.block-clickable:hover .block-edit-icon { opacity: 0.6; }
+.resolved-text {
+    font-size: var(--pu-font-size-md);
+    line-height: 1.6;
+    color: var(--pu-text-primary);
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+
+/* Wildcard dropdown */
+.wc-dropdown {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--pu-space-xs);
+    padding: 2px var(--pu-space-sm);
+    background: transparent;
+    border: 1px solid transparent;
+    border-bottom: 1px dotted var(--pu-accent-muted);
+    border-radius: var(--pu-radius);
+    cursor: pointer;
+    font-size: var(--pu-font-size-sm);
+    transition: all var(--pu-transition-normal);
+    color: var(--pu-text-primary);
+}
+.wc-dropdown:hover {
+    background: var(--pu-accent-light);
+    border: 1px solid var(--pu-accent-border);
+}
+
+/* Nested block */
+.block-children {
+    margin-left: 28px;
+    padding-left: var(--pu-space-md);
+    padding-bottom: var(--pu-space-md);
+    border-left: 1px solid var(--pu-border-light);
+}
+
+/* ==============================================
+   OPTION A: Resolved Output Footer
+   ============================================== */
+.resolved-output-footer {
+    border-top: 1px solid var(--pu-border);
+    background: var(--pu-bg-secondary);
+    flex-shrink: 0;
+    transition: max-height 300ms ease-out;
+}
+
+.resolved-output-header {
+    display: flex;
+    align-items: center;
+    padding: var(--pu-space-sm) var(--pu-space-lg);
+    cursor: pointer;
+    user-select: none;
+    gap: var(--pu-space-sm);
+}
+.resolved-output-header:hover {
+    background: var(--pu-bg-hover);
+}
+
+.resolved-output-toggle {
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    transition: transform var(--pu-transition-normal);
+}
+.resolved-output-toggle.expanded { transform: rotate(90deg); }
+
+.resolved-output-title {
+    font-size: var(--pu-font-size-xs);
+    font-weight: 500;
+    color: var(--pu-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.resolved-output-actions {
+    margin-left: auto;
+    display: flex;
+    gap: var(--pu-space-sm);
+}
+
+.copy-btn {
+    padding: 2px 10px;
+    font-size: var(--pu-font-size-xs);
+    background: var(--pu-bg-hover);
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius);
+    color: var(--pu-text-secondary);
+    cursor: pointer;
+    transition: all var(--pu-transition-fast);
+}
+.copy-btn:hover {
+    background: var(--pu-accent-bg);
+    border-color: var(--pu-accent-border);
+    color: var(--pu-accent);
+}
+
+.resolved-output-body {
+    padding: 0 var(--pu-space-lg) var(--pu-space-lg);
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.resolved-output-path {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--pu-space-sm);
+    margin-bottom: var(--pu-space-md);
+    padding: var(--pu-space-md);
+    background: var(--pu-bg-primary);
+    border-radius: var(--pu-radius-lg);
+    border: 1px solid var(--pu-border);
+}
+.resolved-output-path:last-child { margin-bottom: 0; }
+
+.path-label {
+    font-family: var(--pu-font-mono);
+    font-size: var(--pu-font-size-xs);
+    font-weight: 500;
+    color: var(--pu-accent);
+    background: var(--pu-accent-bg);
+    padding: 2px 8px;
+    border-radius: var(--pu-radius);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.path-text {
+    font-size: var(--pu-font-size-md);
+    line-height: 1.6;
+    color: var(--pu-text-primary);
+    word-break: break-word;
+}
+
+/* Collapsed state */
+.resolved-output-body.collapsed { display: none; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="preview-label">
+    Option A: Resolved Output Footer
+    <small>Collapsible section below block tree showing full concatenated prompt per terminal path</small>
+</div>
+
+<!-- Odometer -->
+<div class="odometer" data-testid="pu-odometer-toolbar">
+    <div class="odo-field">
+        <label>Comp:</label>
+        <input type="number" value="42">
+        <button class="odo-dice" title="Random">&#8635;</button>
+    </div>
+    <div class="odo-field">
+        <label>Ext:</label>
+        <input type="number" value="3">
+    </div>
+    <div class="odo-field">
+        <label>WC:</label>
+        <input type="number" value="5">
+    </div>
+    <span class="odo-total">Total: 1,260 compositions</span>
+</div>
+
+<!-- Prompt header -->
+<div class="prompt-header">
+    <span class="prompt-label">PROMPT</span>
+    <span class="prompt-title">cinematic_landscape</span>
+</div>
+
+<!-- Blocks -->
+<div class="blocks-area">
+    <!-- Block 0 -->
+    <div class="block">
+        <div class="block-header">
+            <span class="block-toggle">&#9654;</span>
+            <span class="block-path">0</span>
+            <span class="block-type">content</span>
+        </div>
+        <div class="block-clickable">
+            <span class="block-edit-icon">&#9998;</span>
+            <div class="resolved-text">a beautiful <span class="wc-dropdown">sunset</span>, <span class="wc-dropdown">cinematic</span> lighting</div>
+        </div>
+        <!-- Child block -->
+        <div class="block-children">
+            <div class="block">
+                <div class="block-header">
+                    <span class="block-toggle">&#9654;</span>
+                    <span class="block-path">0.0</span>
+                    <span class="block-type">content</span>
+                </div>
+                <div class="block-clickable">
+                    <span class="block-edit-icon">&#9998;</span>
+                    <div class="resolved-text"><span class="wc-dropdown">dramatic</span> sky, golden hour</div>
+                </div>
+            </div>
+            <div class="block">
+                <div class="block-header">
+                    <span class="block-toggle">&#9654;</span>
+                    <span class="block-path">0.1</span>
+                    <span class="block-type">content</span>
+                </div>
+                <div class="block-clickable">
+                    <span class="block-edit-icon">&#9998;</span>
+                    <div class="resolved-text">misty mountains, fog rolling through valleys</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Block 1 -->
+    <div class="block">
+        <div class="block-header">
+            <span class="block-toggle">&#9654;</span>
+            <span class="block-path">1</span>
+            <span class="block-type">ext_text</span>
+        </div>
+        <div class="block-clickable">
+            <span class="block-edit-icon">&#9998;</span>
+            <div class="resolved-text">8k resolution, ultra detailed, photorealistic</div>
+        </div>
+    </div>
+</div>
+
+<!-- OPTION A: Resolved Output Footer -->
+<div class="resolved-output-footer" data-testid="pu-resolved-output">
+    <div class="resolved-output-header" onclick="toggleOutput()">
+        <span class="resolved-output-toggle expanded" id="outputToggle">&#9654;</span>
+        <span class="resolved-output-title">Resolved Output</span>
+        <span style="font-size:11px; color: var(--pu-text-muted);">2 terminal paths</span>
+        <div class="resolved-output-actions">
+            <button class="copy-btn" onclick="event.stopPropagation()">Copy All</button>
+        </div>
+    </div>
+    <div class="resolved-output-body" id="outputBody">
+        <div class="resolved-output-path">
+            <span class="path-label">0/0.0</span>
+            <div class="path-text">a beautiful sunset, cinematic lighting, dramatic sky, golden hour, 8k resolution, ultra detailed, photorealistic</div>
+        </div>
+        <div class="resolved-output-path">
+            <span class="path-label">0/0.1</span>
+            <div class="path-text">a beautiful sunset, cinematic lighting, misty mountains, fog rolling through valleys, 8k resolution, ultra detailed, photorealistic</div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleOutput() {
+    const body = document.getElementById('outputBody');
+    const toggle = document.getElementById('outputToggle');
+    body.classList.toggle('collapsed');
+    toggle.classList.toggle('expanded');
+}
+</script>
+
+</body>
+</html>

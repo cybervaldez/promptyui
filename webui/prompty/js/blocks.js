@@ -75,7 +75,7 @@ PU.blocks = {
 
         // Nest button at bottom of block (visible on hover) — root blocks only
         if (!isChild) {
-            html += `<div class="pu-nest-action"><button class="pu-nest-btn" data-testid="pu-nest-btn-${pathId}" onclick="PU.actions.addNestedBlock('${path}')" title="Add nested block">+</button></div>`;
+            html += `<div class="pu-nest-action"><button class="pu-nest-btn" data-testid="pu-nest-btn-${pathId}" onclick="PU.actions.addNestedBlock('${path}')" title="Add nested block">+ Add Child</button><button class="pu-nest-btn pu-nest-theme-btn" data-testid="pu-nest-theme-btn-${pathId}" onclick="PU.themes.addThemeAsChild('${path}')" title="Insert theme as child">+ Insert Theme</button></div>`;
         }
 
         html += `</div>`;
@@ -126,6 +126,7 @@ PU.blocks = {
         const vizClass = viz !== 'compact' ? ' pu-block-visualizer' : '';
         const inlineDice = PU.blocks._renderInlineDice(pathId);
         const inlineCompact = PU.blocks._renderInlineCompactActions(path, pathId);
+        const moreBtn = (viz === 'compact') ? `<button class="block-more" onclick="PU.themes.openContextMenu(event, '${path}', false)" data-testid="pu-block-more-${pathId}">&#8943;</button>` : '';
         const hasChildren = item.after && item.after.length > 0;
         const isChild = depth > 0;
         const parentConnector = hasChildren
@@ -144,7 +145,7 @@ PU.blocks = {
         if (resolution) {
             return `
                 <div class="pu-block-content" data-testid="pu-block-input-${pathId}" data-path="${path}">
-                    <div class="pu-resolved-text${vizClass}">${inlinePathHint}${resolution.resolvedHtml}${inlineDice}${inlineCompact}${parentConnector}${nestConnector}</div>
+                    <div class="pu-resolved-text${vizClass}">${inlinePathHint}${resolution.resolvedHtml}${inlineDice}${inlineCompact}${moreBtn}${parentConnector}${nestConnector}</div>
                     ${rightEdge}
                 </div>
             `;
@@ -153,14 +154,14 @@ PU.blocks = {
         // Fallback: show escaped raw text (loading state or no resolution)
         return `
             <div class="pu-block-content" data-testid="pu-block-input-${pathId}" data-path="${path}">
-                <div class="pu-resolved-text">${inlinePathHint}${PU.blocks.escapeHtml(content)}${inlineDice}${inlineCompact}${parentConnector}${nestConnector}</div>
+                <div class="pu-resolved-text">${inlinePathHint}${PU.blocks.escapeHtml(content)}${inlineDice}${inlineCompact}${moreBtn}${parentConnector}${nestConnector}</div>
                 ${rightEdge}
             </div>
         `;
     },
 
     /**
-     * Render ext_text reference block
+     * Render ext_text reference block (theme block)
      */
     renderExtTextBlock(item, path, pathId, resolution, depth = 0) {
         const extName = item.ext_text || '';
@@ -168,32 +169,52 @@ PU.blocks = {
         const viz = PU.state.previewMode.visualizer;
         const vizClass = viz !== 'compact' ? ' pu-block-visualizer' : '';
         const isChild = depth > 0;
+        const shortName = extName.split('/').pop() || extName;
 
         const resolvedContent = resolution
             ? `<div class="pu-resolved-text${vizClass}">${resolution.resolvedHtml}</div>`
             : '';
         const accumulatedHtml = resolution ? PU.blocks.renderAccumulatedText(resolution) : '';
 
-        // Right-edge actions inside content div for proper centering
+        // Right-edge actions (animated modes only)
         const rightEdge = (viz !== 'compact') ? PU.blocks._renderRightEdgeActions(path, pathId, isChild) : '';
 
+        if (viz === 'compact') {
+            // Compact mode: clickable label with swap arrow, ext_text_max input, inline actions, context menu
+            const extMaxInput = `<label class="pu-theme-max-label">max: <input type="number" min="0" value="${extMax || 0}" onclick="event.stopPropagation()" onchange="PU.actions.updateExtTextMax('${path}', this.value)"></label>`;
+            const inlineCompact = PU.blocks._renderInlineCompactActions(path, pathId);
+            const moreBtn = `<button class="block-more" onclick="PU.themes.openContextMenu(event, '${path}', true)" data-testid="pu-theme-more-${pathId}">&#8943;</button>`;
+
+            return `
+                <div class="pu-block-content pu-theme-block">
+                    <div class="pu-theme-ref" data-testid="pu-theme-ref-${pathId}">
+                        <div class="pu-theme-label clickable" onclick="PU.themes.openSwapDropdown(event, '${path}', '${PU.blocks.escapeAttr(extName)}')"
+                             data-testid="pu-theme-label-${pathId}">
+                            <span class="pu-theme-icon">&#128230;</span>
+                            <span class="pu-theme-name">${PU.blocks.escapeHtml(shortName)}</span>
+                            <span class="pu-theme-swap-arrow">&#9662;</span>
+                        </div>
+                        ${extMaxInput}
+                        ${inlineCompact}
+                        ${moreBtn}
+                    </div>
+                    ${resolvedContent}
+                    ${accumulatedHtml}
+                </div>
+            `;
+        }
+
+        // Animated modes: static purple label, no build tools
         return `
-            <div class="pu-block-content">
-                <div class="pu-exttext-ref" data-testid="pu-block-exttext-${pathId}"
-                     onclick="PU.actions.selectBlock('${path}')">
-                    <span class="pu-exttext-icon">&#128218;</span>
-                    <span class="pu-exttext-name">ext_text: ${extName}</span>
-                    ${extMax !== undefined ? `<span class="pu-exttext-count">(max: ${extMax})</span>` : ''}
+            <div class="pu-block-content pu-theme-block">
+                <div class="pu-theme-ref" data-testid="pu-theme-ref-${pathId}">
+                    <div class="pu-theme-label">
+                        <span class="pu-theme-icon">&#128230;</span>
+                        <span class="pu-theme-name">${PU.blocks.escapeHtml(shortName)}</span>
+                    </div>
                 </div>
                 ${resolvedContent}
                 ${accumulatedHtml}
-                <div class="pu-exttext-settings">
-                    <label>
-                        ext_text_max:
-                        <input type="number" min="0" value="${extMax || 0}"
-                               onchange="PU.actions.updateExtTextMax('${path}', this.value)">
-                    </label>
-                </div>
                 ${rightEdge}
             </div>
         `;

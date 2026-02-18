@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>V1b: Step Reel</title>
+<style>
+  :root {
+    --pu-bg-primary: #191919;
+    --pu-bg-secondary: #202020;
+    --pu-bg-tertiary: #2f2f2f;
+    --pu-text-primary: #ebebeb;
+    --pu-text-secondary: #999999;
+    --pu-text-muted: #7a7a7a;
+    --pu-accent: #529CCA;
+    --pu-accent-bg: rgba(82, 156, 202, 0.08);
+    --pu-accent-border: rgba(82, 156, 202, 0.25);
+    --pu-border: rgba(255, 255, 255, 0.06);
+    --pu-radius: 4px;
+    --pu-radius-sm: 3px;
+    --pu-font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --pu-font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--pu-bg-primary);
+    color: var(--pu-text-primary);
+    font-family: var(--pu-font-body);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 40px 20px;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 48px;
+    max-width: 600px;
+  }
+
+  .header h1 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--pu-accent);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 8px;
+  }
+
+  .header p {
+    font-size: 13px;
+    color: var(--pu-text-muted);
+    line-height: 1.6;
+  }
+
+  .prompt-block {
+    max-width: 700px;
+    width: 100%;
+    text-align: center;
+    font-size: 19px;
+    line-height: 1.7;
+    color: var(--pu-text-primary);
+    padding: 40px;
+    background: var(--pu-bg-secondary);
+    border: 1px solid var(--pu-border);
+    border-radius: 8px;
+  }
+
+  .wc-container {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    vertical-align: middle;
+    gap: 2px;
+    position: relative;
+  }
+
+  .wc-step-item {
+    white-space: nowrap;
+    font-family: var(--pu-font-mono);
+    font-size: 14px;
+    color: var(--pu-accent);
+    padding: 2px 10px;
+    border-radius: var(--pu-radius-sm);
+    background: rgba(82, 156, 202, 0.06);
+    transition: opacity 0.5s ease, transform 0.5s ease, background 0.5s ease, font-size 0.5s ease;
+    line-height: 1.5;
+    cursor: pointer;
+  }
+
+  .wc-step-item.center {
+    opacity: 1;
+    background: var(--pu-accent-bg);
+    border-bottom: 2px solid var(--pu-accent);
+    font-size: 16px;
+    transform: scale(1.05);
+  }
+
+  .wc-step-item.near {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+
+  .wc-step-item.far {
+    opacity: 0.25;
+    transform: scale(0.95);
+  }
+
+  .wc-step-item.hidden {
+    opacity: 0;
+    transform: scale(0.9);
+    max-height: 0;
+    padding: 0 10px;
+    overflow: hidden;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>V1b: Step Reel</h1>
+  <p>The cascade is always visible. Click any value to scroll it to the center position. The centered value gets a subtle underline. Values above and below fade by distance.</p>
+</div>
+
+<div class="prompt-block">
+  <span>As a </span><span class="wc-container" data-wc="role"></span><span>, describe a </span><span class="wc-container" data-wc="stage"></span><span> startup in a </span><span class="wc-container" data-wc="tone"></span><span> tone. Focus on the </span><span class="wc-container" data-wc="theme"></span><span> and the spark that ignited the vision.</span>
+</div>
+
+<script>
+const wildcards = {
+  role: ['narrator', 'critic', 'poet'],
+  stage: ['Series A', 'seed', 'pre-seed'],
+  tone: ['cheerful', 'melancholy', 'fierce'],
+  theme: ['founding moment', 'pivot point', 'first failure']
+};
+
+// Number of visible items above and below center
+const VISIBLE_RADIUS = 2;
+
+document.querySelectorAll('.wc-container').forEach((container, wcIdx) => {
+  const name = container.dataset.wc;
+  const values = wildcards[name];
+  if (!values) return;
+
+  let centerIndex = 0;
+  const items = [];
+
+  // Create enough items to show the full visible window
+  // We display (2*VISIBLE_RADIUS + 1) items at a time
+  const displayCount = 2 * VISIBLE_RADIUS + 1;
+
+  for (let i = 0; i < displayCount; i++) {
+    const item = document.createElement('div');
+    item.className = 'wc-step-item';
+    items.push(item);
+    container.appendChild(item);
+
+    item.addEventListener('click', () => {
+      const offset = i - VISIBLE_RADIUS;
+      const valueIdx = ((centerIndex + offset) % values.length + values.length) % values.length;
+      centerIndex = valueIdx;
+      update();
+    });
+  }
+
+  function getValueAt(idx) {
+    return values[((idx % values.length) + values.length) % values.length];
+  }
+
+  function update() {
+    for (let i = 0; i < displayCount; i++) {
+      const offset = i - VISIBLE_RADIUS;
+      const valueIdx = centerIndex + offset;
+      items[i].textContent = getValueAt(valueIdx);
+
+      items[i].classList.remove('center', 'near', 'far', 'hidden');
+
+      const dist = Math.abs(offset);
+      if (dist === 0) {
+        items[i].classList.add('center');
+      } else if (dist === 1) {
+        items[i].classList.add('near');
+      } else {
+        items[i].classList.add('far');
+      }
+    }
+  }
+
+  update();
+});
+</script>
+</body>
+</html>

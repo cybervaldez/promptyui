@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>V1a: Continuous Scroll</title>
+<style>
+  :root {
+    --pu-bg-primary: #191919;
+    --pu-bg-secondary: #202020;
+    --pu-bg-tertiary: #2f2f2f;
+    --pu-text-primary: #ebebeb;
+    --pu-text-secondary: #999999;
+    --pu-text-muted: #7a7a7a;
+    --pu-accent: #529CCA;
+    --pu-accent-bg: rgba(82, 156, 202, 0.08);
+    --pu-accent-border: rgba(82, 156, 202, 0.25);
+    --pu-border: rgba(255, 255, 255, 0.06);
+    --pu-radius: 4px;
+    --pu-radius-sm: 3px;
+    --pu-font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --pu-font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--pu-bg-primary);
+    color: var(--pu-text-primary);
+    font-family: var(--pu-font-body);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 40px 20px;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 48px;
+    max-width: 600px;
+  }
+
+  .header h1 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--pu-accent);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 8px;
+  }
+
+  .header p {
+    font-size: 13px;
+    color: var(--pu-text-muted);
+    line-height: 1.6;
+  }
+
+  .prompt-block {
+    max-width: 700px;
+    width: 100%;
+    text-align: center;
+    font-size: 19px;
+    line-height: 1.7;
+    color: var(--pu-text-primary);
+    padding: 40px;
+    background: var(--pu-bg-secondary);
+    border: 1px solid var(--pu-border);
+    border-radius: 8px;
+  }
+
+  .wc {
+    position: relative;
+    display: inline-block;
+    color: var(--pu-accent);
+    font-family: var(--pu-font-mono);
+    font-size: 16px;
+    padding: 2px 8px;
+    border-radius: var(--pu-radius-sm);
+    background: var(--pu-accent-bg);
+    border: 1px solid transparent;
+    overflow: hidden;
+    height: 1.6em;
+    vertical-align: middle;
+    /* Gradient mask for top/bottom fade */
+    -webkit-mask-image: linear-gradient(to bottom,
+      transparent 0%,
+      rgba(0,0,0,0.3) 15%,
+      rgba(0,0,0,0.7) 30%,
+      black 45%,
+      black 55%,
+      rgba(0,0,0,0.7) 70%,
+      rgba(0,0,0,0.3) 85%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(to bottom,
+      transparent 0%,
+      rgba(0,0,0,0.3) 15%,
+      rgba(0,0,0,0.7) 30%,
+      black 45%,
+      black 55%,
+      rgba(0,0,0,0.7) 70%,
+      rgba(0,0,0,0.3) 85%,
+      transparent 100%
+    );
+  }
+
+  .wc-track {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* Animation applied via JS */
+  }
+
+  .wc-track-item {
+    white-space: nowrap;
+    font-family: var(--pu-font-mono);
+    font-size: 16px;
+    color: var(--pu-accent);
+    line-height: 1.6em;
+    height: 1.6em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>V1a: Continuous Scroll</h1>
+  <p>Always-on infinite vertical scroll. Values scroll upward through the wildcard slot like a slot machine reel that never stops. The center is fully visible; edges fade out via gradient mask.</p>
+</div>
+
+<div class="prompt-block">
+  <span>As a </span><span class="wc" data-wc="role"></span><span>, describe a </span><span class="wc" data-wc="stage"></span><span> startup in a </span><span class="wc" data-wc="tone"></span><span> tone. Focus on the founding moment and the spark that ignited the vision.</span>
+</div>
+
+<script>
+const wildcards = {
+  role: ['narrator', 'critic', 'poet'],
+  stage: ['Series A', 'seed', 'pre-seed'],
+  tone: ['cheerful', 'melancholy', 'fierce']
+};
+
+document.querySelectorAll('.wc').forEach((el, wcIdx) => {
+  const name = el.dataset.wc;
+  const values = wildcards[name];
+  if (!values) return;
+
+  const track = document.createElement('div');
+  track.className = 'wc-track';
+
+  // Duplicate values enough times for seamless loop
+  // We need: original set + one extra copy so we can reset seamlessly
+  const repeats = 3;
+  for (let r = 0; r < repeats; r++) {
+    values.forEach(val => {
+      const item = document.createElement('div');
+      item.className = 'wc-track-item';
+      item.textContent = val;
+      track.appendChild(item);
+    });
+  }
+
+  el.appendChild(track);
+
+  const itemHeight = parseFloat(getComputedStyle(el).height);
+  const singleSetHeight = values.length * itemHeight;
+  const scrollSpeed = 2500; // ms per value
+  const totalDuration = values.length * scrollSpeed; // one full set
+
+  // Start offset: center the first item
+  // We start from the middle set so we can scroll up and loop
+  track.style.transform = `translateY(-${singleSetHeight}px)`;
+
+  // CSS animation
+  const animName = `scroll-${name}`;
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes ${animName} {
+      from { transform: translateY(-${singleSetHeight}px); }
+      to   { transform: translateY(-${singleSetHeight * 2}px); }
+    }
+  `;
+  document.head.appendChild(style);
+
+  track.style.animation = `${animName} ${totalDuration}ms linear infinite`;
+
+  // Stagger start slightly per wildcard
+  track.style.animationDelay = `${wcIdx * 400}ms`;
+});
+</script>
+</body>
+</html>

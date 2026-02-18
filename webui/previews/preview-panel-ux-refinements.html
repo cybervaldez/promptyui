@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Right Panel: UX Refinements Preview</title>
+<style>
+:root {
+    --pu-bg-primary: #191919;
+    --pu-bg-secondary: #202020;
+    --pu-bg-tertiary: #2f2f2f;
+    --pu-bg-input: #252525;
+    --pu-bg-hover: rgba(255, 255, 255, 0.04);
+    --pu-bg-selected: rgba(255, 255, 255, 0.06);
+    --pu-text-primary: #ebebeb;
+    --pu-text-secondary: #999999;
+    --pu-text-muted: #7a7a7a;
+    --pu-accent: #529CCA;
+    --pu-accent-bg: rgba(82, 156, 202, 0.08);
+    --pu-accent-light: rgba(82, 156, 202, 0.12);
+    --pu-success: #4daa57;
+    --pu-success-bg: rgba(77, 170, 87, 0.12);
+    --pu-warning: #cb912f;
+    --pu-warning-bg: rgba(203, 145, 47, 0.1);
+    --pu-error: #e06c75;
+    --pu-error-bg: rgba(224, 108, 117, 0.1);
+    --pu-orange: #e8943a;
+    --pu-purple: #c678dd;
+    --pu-purple-bg: rgba(198, 120, 221, 0.1);
+    --pu-border: rgba(255, 255, 255, 0.06);
+    --pu-border-light: rgba(255, 255, 255, 0.09);
+    --pu-radius: 4px;
+    --pu-radius-sm: 3px;
+    --pu-font-body: 'Inter', -apple-system, sans-serif;
+    --pu-font-mono: 'JetBrains Mono', monospace;
+    --pu-space-xs: 4px;
+    --pu-space-sm: 8px;
+    --pu-space-md: 12px;
+    --pu-space-lg: 16px;
+    --pu-transition-fast: 120ms ease-out;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: var(--pu-font-body);
+    background: var(--pu-bg-primary);
+    color: var(--pu-text-primary);
+    display: flex;
+    justify-content: center;
+    padding: 40px 20px;
+    gap: 32px;
+    flex-wrap: wrap;
+}
+.preview-label {
+    position: fixed; top: 12px; left: 12px;
+    background: var(--pu-accent); color: #fff;
+    padding: 4px 12px; border-radius: 4px;
+    font-size: 12px; font-weight: 600; z-index: 99;
+}
+.change-legend {
+    position: fixed; top: 12px; right: 12px;
+    background: var(--pu-bg-tertiary);
+    padding: 8px 14px; border-radius: 6px;
+    font-size: 11px; z-index: 99;
+    display: flex; flex-direction: column; gap: 4px;
+    border: 1px solid var(--pu-border-light);
+}
+.change-legend-title {
+    font-weight: 600; color: var(--pu-text-primary);
+    margin-bottom: 2px; font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+}
+.change-legend-item {
+    display: flex; align-items: center; gap: 6px;
+    color: var(--pu-text-secondary);
+}
+.change-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.change-dot.high { background: #e06c75; }
+.change-dot.med { background: #cb912f; }
+.change-dot.low { background: #4daa57; }
+
+/* Panel container */
+.panel-col {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.panel-col-label {
+    font-size: 11px;
+    color: var(--pu-text-muted);
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 600;
+}
+.panel {
+    width: 320px;
+    background: var(--pu-bg-secondary);
+    display: flex;
+    flex-direction: column;
+    height: 82vh;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--pu-border);
+    flex-shrink: 0;
+}
+
+/* Callout annotations */
+.callout {
+    position: absolute;
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    white-space: nowrap;
+    pointer-events: none;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    z-index: 10;
+}
+.callout.high {
+    background: rgba(224, 108, 117, 0.15);
+    color: #e06c75;
+    border: 1px solid rgba(224, 108, 117, 0.3);
+}
+.callout.med {
+    background: rgba(203, 145, 47, 0.15);
+    color: #cb912f;
+    border: 1px solid rgba(203, 145, 47, 0.3);
+}
+.callout.low {
+    background: rgba(77, 170, 87, 0.15);
+    color: #4daa57;
+    border: 1px solid rgba(77, 170, 87, 0.3);
+}
+
+/* ===== SHARED PANEL STYLES ===== */
+
+/* Top bar */
+.top-bar {
+    display: flex;
+    align-items: center;
+    padding: 6px var(--pu-space-md);
+    border-bottom: 1px solid var(--pu-border);
+    background: var(--pu-bg-primary);
+    gap: 6px;
+    flex-shrink: 0;
+}
+.scope-chip {
+    font-family: var(--pu-font-mono);
+    font-size: 10px;
+    color: var(--pu-warning);
+    background: var(--pu-warning-bg);
+    padding: 2px 7px;
+    border-radius: var(--pu-radius-sm);
+    white-space: nowrap;
+}
+.top-sep {
+    width: 1px;
+    height: 14px;
+    background: var(--pu-border-light);
+}
+.op-selector {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    background: var(--pu-bg-tertiary);
+    padding: 2px 7px;
+    border-radius: var(--pu-radius-sm);
+    cursor: default;
+    white-space: nowrap;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0.5;
+}
+.op-selector .arrow { font-size: 8px; opacity: 0.6; }
+.top-spacer { flex: 1; }
+.top-stats {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    font-family: var(--pu-font-mono);
+    white-space: nowrap;
+}
+
+/* Wildcard stream */
+.wc-stream {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--pu-space-xs) var(--pu-space-sm);
+}
+
+/* Dividers */
+.wc-divider {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 4px 4px;
+}
+.wc-divider-line { flex: 1; height: 1px; background: var(--pu-border); }
+.wc-divider-label {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+/* Wildcard entries */
+.wc-entry {
+    padding: 5px 6px;
+    border-radius: var(--pu-radius);
+    margin-bottom: 1px;
+    transition: background var(--pu-transition-fast);
+}
+.wc-entry:hover { background: var(--pu-bg-hover); }
+.wc-entry-header {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 3px;
+}
+.wc-name {
+    font-family: var(--pu-font-mono);
+    font-size: 11px;
+    color: var(--pu-text-primary);
+    font-weight: 500;
+}
+.wc-src {
+    font-size: 7px;
+    padding: 1px 4px;
+    border-radius: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    font-weight: 600;
+}
+.wc-src.local { background: var(--pu-accent-bg); color: var(--pu-accent); }
+.wc-src.ext { background: var(--pu-warning-bg); color: var(--pu-warning); }
+.wc-src.override { background: var(--pu-success-bg); color: var(--pu-success); }
+.wc-path {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    margin-left: auto;
+    font-family: var(--pu-font-mono);
+    opacity: 0.7;
+}
+
+/* Value chips */
+.wc-values {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    align-items: center;
+}
+.wc-v {
+    font-size: 10px;
+    padding: 1px 6px;
+    background: var(--pu-bg-tertiary);
+    border-radius: 3px;
+    color: var(--pu-text-secondary);
+    cursor: pointer;
+    transition: all var(--pu-transition-fast);
+    white-space: nowrap;
+}
+.wc-v:hover {
+    background: var(--pu-accent-light);
+    color: var(--pu-text-primary);
+}
+.wc-v.active {
+    background: var(--pu-accent);
+    color: #fff;
+}
+
+/* Ops section */
+.ops-section {
+    border-top: 1px solid var(--pu-border);
+    background: var(--pu-bg-primary);
+    flex-shrink: 0;
+}
+.ops-nav {
+    display: flex;
+    align-items: center;
+    padding: 5px var(--pu-space-md);
+    gap: 4px;
+    border-bottom: 1px solid var(--pu-border);
+}
+.ops-nav-btn {
+    width: 22px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--pu-bg-tertiary);
+    border: none; border-radius: var(--pu-radius-sm);
+    color: var(--pu-text-secondary);
+    cursor: pointer; font-size: 13px;
+    transition: all var(--pu-transition-fast);
+}
+.ops-nav-btn:hover {
+    background: var(--pu-accent-light);
+    color: var(--pu-text-primary);
+}
+.ops-nav-label {
+    font-size: 11px;
+    font-family: var(--pu-font-mono);
+    color: var(--pu-text-primary);
+    padding: 0 4px;
+    min-width: 70px;
+    text-align: center;
+}
+.ops-nav-spacer { flex: 1; }
+.ops-nav-tags {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 140px;
+}
+.ops-nav-tags b { color: var(--pu-text-secondary); }
+
+/* Output */
+.ops-output {
+    padding: 6px var(--pu-space-md);
+    max-height: 80px;
+    overflow-y: auto;
+    font-size: 11px;
+    color: var(--pu-text-secondary);
+    line-height: 1.5;
+    border-bottom: 1px solid var(--pu-border);
+    background: var(--pu-bg-hover);
+}
+.ops-output em {
+    color: var(--pu-accent);
+    font-style: normal;
+    font-weight: 500;
+}
+
+/* Footer */
+.ops-footer {
+    padding: 6px var(--pu-space-md);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.ops-dims {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+.ops-dim {
+    font-size: 9px;
+    font-family: var(--pu-font-mono);
+    padding: 1px 2px;
+    color: var(--pu-text-muted);
+}
+.ops-x {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+}
+.ops-bottom-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.ops-total {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--pu-accent);
+}
+.ops-size {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+}
+.ops-export-btn {
+    margin-left: auto;
+    font-size: 10px;
+    padding: 3px 10px;
+    background: var(--pu-accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--pu-radius-sm);
+    cursor: pointer;
+    transition: all var(--pu-transition-fast);
+    font-family: var(--pu-font-body);
+}
+.ops-export-btn:hover { background: #6ab0d6; }
+
+/* ===== NEW: IMPROVEMENT-SPECIFIC STYLES ===== */
+
+/* #1 - "Variation X of Y" label */
+.ops-nav-label-new {
+    font-size: 11px;
+    font-family: var(--pu-font-mono);
+    color: var(--pu-text-primary);
+    padding: 0 4px;
+    text-align: center;
+    white-space: nowrap;
+}
+.ops-nav-label-new .variation-prefix {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    font-family: var(--pu-font-body);
+    font-weight: 400;
+    letter-spacing: 0.2px;
+}
+.ops-nav-label-new .variation-num {
+    font-weight: 600;
+    color: var(--pu-accent);
+}
+.ops-nav-label-new .variation-of {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    font-family: var(--pu-font-body);
+    font-weight: 400;
+}
+.ops-nav-label-new .variation-total {
+    font-weight: 500;
+    color: var(--pu-text-secondary);
+}
+
+/* #2 - Hidden op-selector (replaced by inline hint) */
+.ops-phase-hint {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    font-style: italic;
+    opacity: 0.6;
+    padding: 1px 0;
+    display: none; /* hidden by default, shown via JS when no operation */
+}
+
+/* #3 - Expandable output */
+.ops-output-expandable {
+    padding: 0;
+    font-size: 11px;
+    color: var(--pu-text-secondary);
+    line-height: 1.5;
+    border-bottom: 1px solid var(--pu-border);
+    background: var(--pu-bg-hover);
+    overflow: hidden;
+    transition: max-height 200ms ease-out;
+}
+.ops-output-expandable.collapsed {
+    max-height: 0;
+}
+.ops-output-expandable.expanded {
+    max-height: 200px;
+    overflow-y: auto;
+}
+.ops-output-expandable .ops-output-inner {
+    padding: 6px var(--pu-space-md);
+}
+.ops-output-expandable em {
+    color: var(--pu-accent);
+    font-style: normal;
+    font-weight: 500;
+}
+.ops-output-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px var(--pu-space-md);
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 1px solid var(--pu-border);
+    background: var(--pu-bg-primary);
+    transition: background var(--pu-transition-fast);
+}
+.ops-output-toggle:hover {
+    background: var(--pu-bg-hover);
+}
+.ops-output-toggle-label {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    font-weight: 500;
+}
+.ops-output-toggle-preview {
+    font-size: 10px;
+    color: var(--pu-text-secondary);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--pu-font-mono);
+}
+.ops-output-toggle-chevron {
+    font-size: 8px;
+    color: var(--pu-text-muted);
+    transition: transform 200ms ease-out;
+}
+.ops-output-toggle-chevron.open {
+    transform: rotate(180deg);
+}
+
+/* #4 - Block path badges */
+.wc-block-badge {
+    font-size: 7px;
+    padding: 0px 4px;
+    border-radius: 2px;
+    font-family: var(--pu-font-mono);
+    letter-spacing: 0.2px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--pu-text-muted);
+    border: 1px solid var(--pu-border);
+    white-space: nowrap;
+}
+.wc-block-badge.root {
+    color: var(--pu-text-muted);
+}
+.wc-block-badge.nested {
+    color: var(--pu-purple);
+    background: var(--pu-purple-bg);
+    border-color: rgba(198, 120, 221, 0.2);
+}
+
+/* #5 - Collapsible dividers */
+.wc-divider-collapsible {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 4px 4px;
+    cursor: pointer;
+    user-select: none;
+    transition: opacity var(--pu-transition-fast);
+}
+.wc-divider-collapsible:hover {
+    opacity: 0.8;
+}
+.wc-divider-chevron {
+    font-size: 8px;
+    color: var(--pu-text-muted);
+    transition: transform 150ms ease-out;
+    flex-shrink: 0;
+    width: 10px;
+    text-align: center;
+}
+.wc-divider-chevron.collapsed {
+    transform: rotate(-90deg);
+}
+.wc-divider-count {
+    font-size: 8px;
+    color: var(--pu-text-muted);
+    font-family: var(--pu-font-mono);
+    opacity: 0.7;
+}
+.wc-section-body {
+    overflow: hidden;
+    transition: max-height 200ms ease-out, opacity 150ms ease-out;
+}
+.wc-section-body.collapsed {
+    max-height: 0 !important;
+    opacity: 0;
+}
+.wc-section-body.expanded {
+    opacity: 1;
+}
+
+/* Highlight ring for changed areas */
+.highlight-ring {
+    position: relative;
+}
+.highlight-ring::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 4px;
+    pointer-events: none;
+    z-index: 5;
+}
+.highlight-ring.high::before { border: 1px dashed rgba(224, 108, 117, 0.4); }
+.highlight-ring.med::before { border: 1px dashed rgba(203, 145, 47, 0.4); }
+.highlight-ring.low::before { border: 1px dashed rgba(77, 170, 87, 0.4); }
+</style>
+</head>
+<body>
+<div class="preview-label">UX Refinements: Team Feedback</div>
+
+<div class="change-legend">
+    <div class="change-legend-title">Changes</div>
+    <div class="change-legend-item"><span class="change-dot high"></span> #1 "Variation X of Y" label</div>
+    <div class="change-legend-item"><span class="change-dot high"></span> #2 Hide disabled op-selector</div>
+    <div class="change-legend-item"><span class="change-dot med"></span> #3 Expandable output</div>
+    <div class="change-legend-item"><span class="change-dot med"></span> #4 Block-path badges</div>
+    <div class="change-legend-item"><span class="change-dot low"></span> #5 Collapsible dividers</div>
+</div>
+
+<!-- ============================================ -->
+<!-- PANEL A: CURRENT (for reference)             -->
+<!-- ============================================ -->
+<div class="panel-col">
+    <div class="panel-col-label">Current</div>
+    <div class="panel">
+        <div class="top-bar">
+            <span class="scope-chip">hiring/</span>
+            <span class="top-sep"></span>
+            <span class="op-selector">
+                No operation <span class="arrow">&#9662;</span>
+            </span>
+            <span class="top-spacer"></span>
+            <span class="top-stats">6 wc</span>
+        </div>
+
+        <div class="wc-stream">
+            <div class="wc-divider">
+                <span class="wc-divider-line"></span>
+                <span class="wc-divider-label">from extensions</span>
+                <span class="wc-divider-line"></span>
+            </div>
+
+            <div class="wc-entry">
+                <div class="wc-entry-header">
+                    <span class="wc-name">seniority</span>
+                    <span class="wc-src ext">ext</span>
+                    <span class="wc-path">hiring/roles</span>
+                </div>
+                <div class="wc-values">
+                    <span class="wc-v">Junior</span>
+                    <span class="wc-v active">Mid-level</span>
+                    <span class="wc-v">Senior</span>
+                    <span class="wc-v">Staff</span>
+                    <span class="wc-v">Principal</span>
+                </div>
+            </div>
+
+            <div class="wc-entry">
+                <div class="wc-entry-header">
+                    <span class="wc-name">deal_stage</span>
+                    <span class="wc-src ext">ext</span>
+                    <span class="wc-path">sales/personas</span>
+                </div>
+                <div class="wc-values">
+                    <span class="wc-v active">prospecting</span>
+                    <span class="wc-v">discovery</span>
+                    <span class="wc-v">evaluation</span>
+                    <span class="wc-v">negotiation</span>
+                    <span class="wc-v">closed-won</span>
+                </div>
+            </div>
+
+            <div class="wc-divider">
+                <span class="wc-divider-line"></span>
+                <span class="wc-divider-label">prompt-defined</span>
+                <span class="wc-divider-line"></span>
+            </div>
+
+            <div class="wc-entry">
+                <div class="wc-entry-header">
+                    <span class="wc-name">role</span>
+                    <span class="wc-src local">local</span>
+                </div>
+                <div class="wc-values">
+                    <span class="wc-v">Sr SW Eng</span>
+                    <span class="wc-v">PM</span>
+                    <span class="wc-v">DevOps</span>
+                    <span class="wc-v active">Frontend Dev</span>
+                    <span class="wc-v">Data Scientist</span>
+                </div>
+            </div>
+
+            <div class="wc-entry">
+                <div class="wc-entry-header">
+                    <span class="wc-name">mood</span>
+                    <span class="wc-src override">local &bull; overrides</span>
+                    <span class="wc-path">professional/tones</span>
+                </div>
+                <div class="wc-values">
+                    <span class="wc-v active">happy</span>
+                    <span class="wc-v">sad</span>
+                </div>
+            </div>
+
+            <div class="wc-entry">
+                <div class="wc-entry-header">
+                    <span class="wc-name">count</span>
+                    <span class="wc-src local">local</span>
+                </div>
+                <div class="wc-values">
+                    <span class="wc-v">3</span>
+                    <span class="wc-v active">5</span>
+                    <span class="wc-v">10</span>
+                </div>
+            </div>
+
+            <div class="wc-entry">
+                <div class="wc-entry-header">
+                    <span class="wc-name">approach</span>
+                    <span class="wc-src local">local</span>
+                </div>
+                <div class="wc-values">
+                    <span class="wc-v active">personalized</span>
+                    <span class="wc-v">automated</span>
+                    <span class="wc-v">hybrid</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="ops-section">
+            <div class="ops-nav">
+                <button class="ops-nav-btn">&lsaquo;</button>
+                <span class="ops-nav-label">47 / 1,800</span>
+                <button class="ops-nav-btn">&rsaquo;</button>
+                <button class="ops-nav-btn" title="Shuffle">&#8635;</button>
+                <span class="ops-nav-spacer"></span>
+                <span class="ops-nav-tags">role=<b>Frontend Dev</b>, count=5</span>
+            </div>
+            <div class="ops-output">
+                Write a job posting for a <em>Frontend Dev</em> position with a <em>happy</em> tone, targeting <em>personalized</em> approach through <em>Mid-level</em> seniority...
+            </div>
+            <div class="ops-footer">
+                <div class="ops-dims">
+                    <span class="ops-dim">seniority(5)</span>
+                    <span class="ops-x">&times;</span>
+                    <span class="ops-dim">deal_stage(5)</span>
+                    <span class="ops-x">&times;</span>
+                    <span class="ops-dim">role(5)</span>
+                    <span class="ops-x">&times;</span>
+                    <span class="ops-dim">mood(2)</span>
+                    <span class="ops-x">&times;</span>
+                    <span class="ops-dim">count(3)</span>
+                    <span class="ops-x">&times;</span>
+                    <span class="ops-dim">approach(3)</span>
+                </div>
+                <div class="ops-bottom-row">
+                    <span class="ops-total">1,800 compositions</span>
+                    <span class="ops-size">~414 KB</span>
+                    <button class="ops-export-btn">Export .txt</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- PANEL B: IMPROVED (all 5 changes)            -->
+<!-- ============================================ -->
+<div class="panel-col">
+    <div class="panel-col-label">Improved</div>
+    <div class="panel">
+        <!-- #2: Op-selector hidden, top bar simplified -->
+        <div class="top-bar">
+            <span class="scope-chip">hiring/</span>
+            <span class="top-spacer"></span>
+            <span class="top-stats">6 wc</span>
+        </div>
+
+        <div class="wc-stream">
+            <!-- #5: Collapsible ext divider -->
+            <div class="wc-divider-collapsible" data-section="ext" onclick="toggleSection('ext-b')">
+                <span class="wc-divider-chevron" id="chevron-ext-b">&#9660;</span>
+                <span class="wc-divider-line"></span>
+                <span class="wc-divider-label">from extensions</span>
+                <span class="wc-divider-count">2</span>
+                <span class="wc-divider-line"></span>
+            </div>
+
+            <div class="wc-section-body expanded" id="section-ext-b" style="max-height: 400px;">
+                <div class="wc-entry">
+                    <div class="wc-entry-header">
+                        <span class="wc-name">seniority</span>
+                        <span class="wc-src ext">ext</span>
+                        <!-- #4: Block-path badge -->
+                        <span class="wc-block-badge root">block 0</span>
+                        <span class="wc-path">hiring/roles</span>
+                    </div>
+                    <div class="wc-values">
+                        <span class="wc-v">Junior</span>
+                        <span class="wc-v active">Mid-level</span>
+                        <span class="wc-v">Senior</span>
+                        <span class="wc-v">Staff</span>
+                        <span class="wc-v">Principal</span>
+                    </div>
+                </div>
+
+                <div class="wc-entry">
+                    <div class="wc-entry-header">
+                        <span class="wc-name">deal_stage</span>
+                        <span class="wc-src ext">ext</span>
+                        <!-- #4: Block-path badge -->
+                        <span class="wc-block-badge root">block 0</span>
+                        <span class="wc-path">sales/personas</span>
+                    </div>
+                    <div class="wc-values">
+                        <span class="wc-v active">prospecting</span>
+                        <span class="wc-v">discovery</span>
+                        <span class="wc-v">evaluation</span>
+                        <span class="wc-v">negotiation</span>
+                        <span class="wc-v">closed-won</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- #5: Collapsible local divider -->
+            <div class="wc-divider-collapsible" data-section="local" onclick="toggleSection('local-b')">
+                <span class="wc-divider-chevron" id="chevron-local-b">&#9660;</span>
+                <span class="wc-divider-line"></span>
+                <span class="wc-divider-label">prompt-defined</span>
+                <span class="wc-divider-count">4</span>
+                <span class="wc-divider-line"></span>
+            </div>
+
+            <div class="wc-section-body expanded" id="section-local-b" style="max-height: 500px;">
+                <div class="wc-entry">
+                    <div class="wc-entry-header">
+                        <span class="wc-name">role</span>
+                        <span class="wc-src local">local</span>
+                        <!-- #4: Block-path badge -->
+                        <span class="wc-block-badge root">block 0</span>
+                    </div>
+                    <div class="wc-values">
+                        <span class="wc-v">Sr SW Eng</span>
+                        <span class="wc-v">PM</span>
+                        <span class="wc-v">DevOps</span>
+                        <span class="wc-v active">Frontend Dev</span>
+                        <span class="wc-v">Data Scientist</span>
+                    </div>
+                </div>
+
+                <div class="wc-entry">
+                    <div class="wc-entry-header">
+                        <span class="wc-name">mood</span>
+                        <span class="wc-src override">local &bull; overrides</span>
+                        <!-- #4: Block-path badge showing nested block -->
+                        <span class="wc-block-badge nested">block 0.1</span>
+                        <span class="wc-path">professional/tones</span>
+                    </div>
+                    <div class="wc-values">
+                        <span class="wc-v active">happy</span>
+                        <span class="wc-v">sad</span>
+                    </div>
+                </div>
+
+                <div class="wc-entry">
+                    <div class="wc-entry-header">
+                        <span class="wc-name">count</span>
+                        <span class="wc-src local">local</span>
+                        <span class="wc-block-badge root">block 0</span>
+                    </div>
+                    <div class="wc-values">
+                        <span class="wc-v">3</span>
+                        <span class="wc-v active">5</span>
+                        <span class="wc-v">10</span>
+                    </div>
+                </div>
+
+                <div class="wc-entry">
+                    <div class="wc-entry-header">
+                        <span class="wc-name">approach</span>
+                        <span class="wc-src local">local</span>
+                        <span class="wc-block-badge root">block 0</span>
+                    </div>
+                    <div class="wc-values">
+                        <span class="wc-v active">personalized</span>
+                        <span class="wc-v">automated</span>
+                        <span class="wc-v">hybrid</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="ops-section">
+            <div class="ops-nav">
+                <button class="ops-nav-btn">&lsaquo;</button>
+                <!-- #1: "Variation X of Y" label -->
+                <span class="ops-nav-label-new">
+                    <span class="variation-prefix">Variation </span><span class="variation-num">47</span>
+                    <span class="variation-of"> of </span><span class="variation-total">1,800</span>
+                </span>
+                <button class="ops-nav-btn">&rsaquo;</button>
+                <button class="ops-nav-btn" title="Shuffle">&#8635;</button>
+                <span class="ops-nav-spacer"></span>
+                <span class="ops-nav-tags">role=<b>Frontend Dev</b>, count=5</span>
+            </div>
+            <!-- #3: Expandable output toggle -->
+            <div class="ops-output-toggle" onclick="toggleOutput('output-b')">
+                <span class="ops-output-toggle-label">Output</span>
+                <span class="ops-output-toggle-preview" id="output-b-preview">Write a job posting for a Frontend Dev position...</span>
+                <span class="ops-output-toggle-chevron" id="output-b-chevron">&#9660;</span>
+            </div>
+            <div class="ops-output-expandable collapsed" id="output-b">
+                <div class="ops-output-inner">
+                    Write a job posting for a <em>Frontend Dev</em> position with a <em>happy</em> tone, targeting <em>personalized</em> approach through <em>Mid-level</em> seniority. Include details about our company culture that emphasizes collaboration and innovation. The posting should appeal to candidates at the <em>prospecting</em> stage of their career journey.
+                </div>
+            </div>
+            <div class="ops-footer">
+                <div class="ops-dims">
+                    <span class="ops-dim">seniority(5)</span>
+                    <span class="ops-x">&times;</span>
+                    <span class="ops-dim">deal_stage(5)</span>
+                    <span class="ops-x">&times;</span>
+                    <span class="ops-dim">role(5)</span>
+                    <span class="ops-x">&times;</span>
+                    <span class="ops-dim">mood(2)</span>
+                    <span class="ops-x">&times;</span>
+                    <span class="ops-dim">count(3)</span>
+                    <span class="ops-x">&times;</span>
+                    <span class="ops-dim">approach(3)</span>
+                </div>
+                <div class="ops-bottom-row">
+                    <span class="ops-total">1,800 compositions</span>
+                    <span class="ops-size">~414 KB</span>
+                    <button class="ops-export-btn">Export .txt (~414 KB)</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- PANEL C: IMPROVED with collapsed sections    -->
+<!-- ============================================ -->
+<div class="panel-col">
+    <div class="panel-col-label">Improved (collapsed)</div>
+    <div class="panel">
+        <div class="top-bar">
+            <span class="scope-chip">hiring/</span>
+            <span class="top-spacer"></span>
+            <span class="top-stats">6 wc</span>
+        </div>
+
+        <div class="wc-stream">
+            <!-- #5: Collapsed ext section -->
+            <div class="wc-divider-collapsible" onclick="toggleSection('ext-c')">
+                <span class="wc-divider-chevron collapsed" id="chevron-ext-c">&#9660;</span>
+                <span class="wc-divider-line"></span>
+                <span class="wc-divider-label">from extensions</span>
+                <span class="wc-divider-count">2</span>
+                <span class="wc-divider-line"></span>
+            </div>
+            <div class="wc-section-body collapsed" id="section-ext-c" style="max-height: 400px;">
+                <div class="wc-entry">
+                    <div class="wc-entry-header">
+                        <span class="wc-name">seniority</span>
+                        <span class="wc-src ext">ext</span>
+                        <span class="wc-block-badge root">block 0</span>
+                        <span class="wc-path">hiring/roles</span>
+                    </div>
+                    <div class="wc-values">
+                        <span class="wc-v">Junior</span>
+                        <span class="wc-v active">Mid-level</span>
+                        <span class="wc-v">Senior</span>
+                        <span class="wc-v">Staff</span>
+                        <span class="wc-v">Principal</span>
+                    </div>
+                </div>
+                <div class="wc-entry">
+                    <div class="wc-entry-header">
+                        <span class="wc-name">deal_stage</span>
+                        <span class="wc-src ext">ext</span>
+                        <span class="wc-block-badge root">block 0</span>
+                        <span class="wc-path">sales/personas</span>
+                    </div>
+                    <div class="wc-values">
+                        <span class="wc-v active">prospecting</span>
+                        <span class="wc-v">discovery</span>
+                        <span class="wc-v">evaluation</span>
+                        <span class="wc-v">negotiation</span>
+                        <span class="wc-v">closed-won</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- #5: Expanded local section (user focus) -->
+            <div class="wc-divider-collapsible" onclick="toggleSection('local-c')">
+                <span class="wc-divider-chevron" id="chevron-local-c">&#9660;</span>
+                <span class="wc-divider-line"></span>
+                <span class="wc-divider-label">prompt-defined</span>
+                <span class="wc-divider-count">4</span>
+                <span class="wc-divider-line"></span>
+            </div>
+            <div class="wc-section-body expanded" id="section-local-c" style="max-height: 500px;">
+                <div class="wc-entry">
+                    <div class="wc-entry-header">
+                        <span class="wc-name">role</span>
+                        <span class="wc-src local">local</span>
+                        <span class="wc-block-badge root">block 0</span>
+                    </div>
+                    <div class="wc-values">
+                        <span class="wc-v">Sr SW Eng</span>
+                        <span class="wc-v">PM</span>
+                        <span class="wc-v">DevOps</span>
+                        <span class="wc-v active">Frontend Dev</span>
+                        <span class="wc-v">Data Scientist</span>
+                    </div>
+                </div>
+
+                <div class="wc-entry">
+                    <div class="wc-entry-header">
+                        <span class="wc-name">mood</span>
+                        <span class="wc-src override">local &bull; overrides</span>
+                        <span class="wc-block-badge nested">block 0.1</span>
+                        <span class="wc-path">professional/tones</span>
+                    </div>
+                    <div class="wc-values">
+                        <span class="wc-v active">happy</span>
+                        <span class="wc-v">sad</span>
+                    </div>
+                </div>
+
+                <div class="wc-entry">
+                    <div class="wc-entry-header">
+                        <span class="wc-name">count</span>
+                        <span class="wc-src local">local</span>
+                        <span class="wc-block-badge root">block 0</span>
+                    </div>
+                    <div class="wc-values">
+                        <span class="wc-v">3</span>
+                        <span class="wc-v active">5</span>
+                        <span class="wc-v">10</span>
+                    </div>
+                </div>
+
+                <div class="wc-entry">
+                    <div class="wc-entry-header">
+                        <span class="wc-name">approach</span>
+                        <span class="wc-src local">local</span>
+                        <span class="wc-block-badge root">block 0</span>
+                    </div>
+                    <div class="wc-values">
+                        <span class="wc-v active">personalized</span>
+                        <span class="wc-v">automated</span>
+                        <span class="wc-v">hybrid</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="ops-section">
+            <div class="ops-nav">
+                <button class="ops-nav-btn">&lsaquo;</button>
+                <span class="ops-nav-label-new">
+                    <span class="variation-prefix">Variation </span><span class="variation-num">47</span>
+                    <span class="variation-of"> of </span><span class="variation-total">1,800</span>
+                </span>
+                <button class="ops-nav-btn">&rsaquo;</button>
+                <button class="ops-nav-btn" title="Shuffle">&#8635;</button>
+                <span class="ops-nav-spacer"></span>
+                <span class="ops-nav-tags">role=<b>Frontend Dev</b>, count=5</span>
+            </div>
+            <!-- #3: Expanded output state -->
+            <div class="ops-output-toggle" onclick="toggleOutput('output-c')">
+                <span class="ops-output-toggle-label">Output</span>
+                <span class="ops-output-toggle-preview" id="output-c-preview" style="display:none;"></span>
+                <span class="ops-output-toggle-chevron open" id="output-c-chevron">&#9660;</span>
+            </div>
+            <div class="ops-output-expandable expanded" id="output-c">
+                <div class="ops-output-inner">
+                    Write a job posting for a <em>Frontend Dev</em> position with a <em>happy</em> tone, targeting <em>personalized</em> approach through <em>Mid-level</em> seniority. Include details about our company culture that emphasizes collaboration and innovation. The posting should appeal to candidates at the <em>prospecting</em> stage of their career journey.
+                </div>
+            </div>
+            <div class="ops-footer">
+                <div class="ops-dims">
+                    <span class="ops-dim">seniority(5)</span>
+                    <span class="ops-x">&times;</span>
+                    <span class="ops-dim">deal_stage(5)</span>
+                    <span class="ops-x">&times;</span>
+                    <span class="ops-dim">role(5)</span>
+                    <span class="ops-x">&times;</span>
+                    <span class="ops-dim">mood(2)</span>
+                    <span class="ops-x">&times;</span>
+                    <span class="ops-dim">count(3)</span>
+                    <span class="ops-x">&times;</span>
+                    <span class="ops-dim">approach(3)</span>
+                </div>
+                <div class="ops-bottom-row">
+                    <span class="ops-total">1,800 compositions</span>
+                    <span class="ops-size">~414 KB</span>
+                    <button class="ops-export-btn">Export .txt (~414 KB)</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleSection(id) {
+    const section = document.getElementById('section-' + id);
+    const chevron = document.getElementById('chevron-' + id);
+    if (!section || !chevron) return;
+
+    const isCollapsed = section.classList.contains('collapsed');
+    if (isCollapsed) {
+        section.classList.remove('collapsed');
+        section.classList.add('expanded');
+        chevron.classList.remove('collapsed');
+    } else {
+        section.classList.add('collapsed');
+        section.classList.remove('expanded');
+        chevron.classList.add('collapsed');
+    }
+}
+
+function toggleOutput(id) {
+    const output = document.getElementById(id);
+    const chevron = document.getElementById(id + '-chevron');
+    const preview = document.getElementById(id + '-preview');
+    if (!output || !chevron) return;
+
+    const isCollapsed = output.classList.contains('collapsed');
+    if (isCollapsed) {
+        output.classList.remove('collapsed');
+        output.classList.add('expanded');
+        chevron.classList.add('open');
+        if (preview) preview.style.display = 'none';
+    } else {
+        output.classList.add('collapsed');
+        output.classList.remove('expanded');
+        chevron.classList.remove('open');
+        if (preview) preview.style.display = '';
+    }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Panel C: Accordion Sections</title>
+<style>
+:root {
+    --pu-bg-primary: #191919;
+    --pu-bg-secondary: #202020;
+    --pu-bg-tertiary: #2f2f2f;
+    --pu-bg-input: #252525;
+    --pu-bg-hover: rgba(255, 255, 255, 0.04);
+    --pu-bg-selected: rgba(255, 255, 255, 0.06);
+    --pu-text-primary: #ebebeb;
+    --pu-text-secondary: #999999;
+    --pu-text-muted: #7a7a7a;
+    --pu-accent: #529CCA;
+    --pu-accent-bg: rgba(82, 156, 202, 0.08);
+    --pu-accent-light: rgba(82, 156, 202, 0.12);
+    --pu-success: #4daa57;
+    --pu-success-bg: rgba(77, 170, 87, 0.12);
+    --pu-warning: #cb912f;
+    --pu-warning-bg: rgba(203, 145, 47, 0.1);
+    --pu-error: #e06c75;
+    --pu-orange: #e8943a;
+    --pu-border: rgba(255, 255, 255, 0.06);
+    --pu-border-light: rgba(255, 255, 255, 0.09);
+    --pu-radius: 4px;
+    --pu-radius-sm: 3px;
+    --pu-font-body: 'Inter', -apple-system, sans-serif;
+    --pu-font-mono: 'JetBrains Mono', monospace;
+    --pu-space-xs: 4px;
+    --pu-space-sm: 8px;
+    --pu-space-md: 12px;
+    --pu-space-lg: 16px;
+    --pu-space-xl: 24px;
+    --pu-transition-fast: 120ms ease-out;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: var(--pu-font-body);
+    background: var(--pu-bg-primary);
+    color: var(--pu-text-primary);
+    display: flex;
+    justify-content: center;
+    padding: 40px;
+}
+.preview-label {
+    position: fixed; top: 12px; left: 12px;
+    background: var(--pu-accent); color: #fff;
+    padding: 4px 12px; border-radius: 4px;
+    font-size: 12px; font-weight: 600; z-index: 99;
+}
+
+/* === PANEL C: Accordion Sections ===
+   Stacked collapsible sections: Scope, Prompt WC, Ext WC, Impact
+   Always-visible scope at top, everything else accordion.
+   Compact, no tabs, no search — just direct access. */
+
+.panel {
+    width: 320px;
+    background: var(--pu-bg-secondary);
+    display: flex;
+    flex-direction: column;
+    height: 85vh;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--pu-border);
+}
+
+/* Scope strip — always visible, not collapsible */
+.scope-strip {
+    display: flex;
+    align-items: center;
+    padding: 8px var(--pu-space-md);
+    background: var(--pu-bg-primary);
+    border-bottom: 1px solid var(--pu-border);
+    gap: 8px;
+}
+.scope-icon {
+    font-size: 12px;
+    color: var(--pu-warning);
+}
+.scope-path {
+    font-family: var(--pu-font-mono);
+    font-size: 11px;
+    color: var(--pu-warning);
+    background: var(--pu-warning-bg);
+    padding: 2px 8px;
+    border-radius: var(--pu-radius-sm);
+}
+.scope-change {
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    margin-left: auto;
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-color: rgba(122, 122, 122, 0.4);
+}
+.scope-change:hover {
+    color: var(--pu-text-secondary);
+}
+
+/* Scrollable accordion area */
+.accordion-scroll {
+    flex: 1;
+    overflow-y: auto;
+}
+
+/* Accordion section */
+.acc-section {
+    border-bottom: 1px solid var(--pu-border);
+}
+.acc-header {
+    display: flex;
+    align-items: center;
+    padding: 8px var(--pu-space-md);
+    cursor: pointer;
+    gap: 6px;
+    transition: background var(--pu-transition-fast);
+}
+.acc-header:hover {
+    background: var(--pu-bg-hover);
+}
+.acc-chevron {
+    font-size: 8px;
+    color: var(--pu-text-muted);
+    width: 10px;
+    transition: transform var(--pu-transition-fast);
+}
+.acc-section.open .acc-chevron {
+    transform: rotate(90deg);
+}
+.acc-title {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--pu-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.acc-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.acc-dot.local { background: var(--pu-accent); }
+.acc-dot.ext { background: var(--pu-warning); }
+.acc-count {
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    margin-left: auto;
+    font-family: var(--pu-font-mono);
+}
+.acc-body {
+    display: none;
+    padding: 0 var(--pu-space-md) var(--pu-space-sm);
+}
+.acc-section.open .acc-body {
+    display: block;
+}
+
+/* Wildcard rows inside accordion */
+.wc-row {
+    display: flex;
+    align-items: flex-start;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--pu-border);
+    gap: 8px;
+}
+.wc-row:last-child {
+    border-bottom: none;
+}
+.wc-row-left {
+    min-width: 70px;
+    flex-shrink: 0;
+}
+.wc-row-name {
+    font-family: var(--pu-font-mono);
+    font-size: 11px;
+    color: var(--pu-text-primary);
+}
+.wc-row-source {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    margin-top: 2px;
+}
+.wc-row-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    flex: 1;
+}
+.wc-chip {
+    font-size: 10px;
+    padding: 1px 6px;
+    background: var(--pu-bg-tertiary);
+    border-radius: 3px;
+    color: var(--pu-text-secondary);
+    cursor: pointer;
+    transition: all var(--pu-transition-fast);
+}
+.wc-chip:hover {
+    background: var(--pu-accent-light);
+    color: var(--pu-text-primary);
+}
+.wc-chip.active {
+    background: var(--pu-accent);
+    color: #fff;
+}
+.wc-override-note {
+    font-size: 9px;
+    color: var(--pu-success);
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    margin-top: 3px;
+}
+.wc-override-note::before {
+    content: '';
+    width: 4px; height: 4px;
+    background: var(--pu-success);
+    border-radius: 50%;
+}
+
+/* Extension tree (inside ext section) */
+.ext-tree-item {
+    padding: 4px 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+}
+.ext-tree-icon {
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    width: 14px;
+    text-align: center;
+}
+.ext-tree-name {
+    color: var(--pu-text-secondary);
+}
+.ext-tree-wc-count {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    margin-left: auto;
+    font-family: var(--pu-font-mono);
+}
+.ext-tree-item.nested {
+    padding-left: 20px;
+}
+
+/* Impact bar — always visible at bottom */
+.impact-bar {
+    border-top: 1px solid var(--pu-border);
+    padding: 8px var(--pu-space-md);
+    background: var(--pu-bg-hover);
+}
+.impact-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.impact-dims {
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    font-family: var(--pu-font-mono);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.impact-total {
+    font-size: 11px;
+    color: var(--pu-accent);
+    font-weight: 600;
+    white-space: nowrap;
+}
+.impact-detail {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    margin-top: 3px;
+}
+</style>
+</head>
+<body>
+<div class="preview-label">C: Accordion Sections</div>
+
+<div class="panel">
+    <!-- Always-visible scope strip -->
+    <div class="scope-strip">
+        <span class="scope-icon">&#128194;</span>
+        <span class="scope-path">hiring</span>
+        <span class="scope-change">change</span>
+    </div>
+
+    <div class="accordion-scroll">
+        <!-- Section 1: Prompt Wildcards (open) -->
+        <div class="acc-section open">
+            <div class="acc-header">
+                <span class="acc-chevron">&#9654;</span>
+                <span class="acc-dot local"></span>
+                <span class="acc-title">Prompt Wildcards</span>
+                <span class="acc-count">4</span>
+            </div>
+            <div class="acc-body">
+                <div class="wc-row">
+                    <div class="wc-row-left">
+                        <div class="wc-row-name">channel</div>
+                    </div>
+                    <div class="wc-row-chips">
+                        <span class="wc-chip active">inbound</span>
+                        <span class="wc-chip">outbound</span>
+                        <span class="wc-chip">referral</span>
+                        <span class="wc-chip">campus</span>
+                    </div>
+                </div>
+
+                <div class="wc-row">
+                    <div class="wc-row-left">
+                        <div class="wc-row-name">mood</div>
+                        <div class="wc-override-note">overrides ext</div>
+                    </div>
+                    <div class="wc-row-chips">
+                        <span class="wc-chip active">happy</span>
+                        <span class="wc-chip">sad</span>
+                    </div>
+                </div>
+
+                <div class="wc-row">
+                    <div class="wc-row-left">
+                        <div class="wc-row-name">count</div>
+                    </div>
+                    <div class="wc-row-chips">
+                        <span class="wc-chip">3</span>
+                        <span class="wc-chip active">5</span>
+                        <span class="wc-chip">10</span>
+                    </div>
+                </div>
+
+                <div class="wc-row">
+                    <div class="wc-row-left">
+                        <div class="wc-row-name">approach</div>
+                    </div>
+                    <div class="wc-row-chips">
+                        <span class="wc-chip active">personalized</span>
+                        <span class="wc-chip">automated</span>
+                        <span class="wc-chip">hybrid</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 2: Extension Wildcards (open) -->
+        <div class="acc-section open">
+            <div class="acc-header">
+                <span class="acc-chevron">&#9654;</span>
+                <span class="acc-dot ext"></span>
+                <span class="acc-title">Extension Wildcards</span>
+                <span class="acc-count">2</span>
+            </div>
+            <div class="acc-body">
+                <div class="wc-row">
+                    <div class="wc-row-left">
+                        <div class="wc-row-name">seniority</div>
+                        <div class="wc-row-source">hiring/roles</div>
+                    </div>
+                    <div class="wc-row-chips">
+                        <span class="wc-chip">Junior</span>
+                        <span class="wc-chip active">Mid-level</span>
+                        <span class="wc-chip">Senior</span>
+                        <span class="wc-chip">Staff</span>
+                        <span class="wc-chip">Principal</span>
+                    </div>
+                </div>
+
+                <div class="wc-row">
+                    <div class="wc-row-left">
+                        <div class="wc-row-name">deal_stage</div>
+                        <div class="wc-row-source">sales/personas</div>
+                    </div>
+                    <div class="wc-row-chips">
+                        <span class="wc-chip active">prospecting</span>
+                        <span class="wc-chip">discovery</span>
+                        <span class="wc-chip">evaluation</span>
+                        <span class="wc-chip">negotiation</span>
+                        <span class="wc-chip">closed-won</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 3: Extension Tree (collapsed) -->
+        <div class="acc-section">
+            <div class="acc-header">
+                <span class="acc-chevron">&#9654;</span>
+                <span class="acc-title">Extension Tree</span>
+                <span class="acc-count">hiring</span>
+            </div>
+            <div class="acc-body">
+                <div class="ext-tree-item">
+                    <span class="ext-tree-icon">&#128194;</span>
+                    <span class="ext-tree-name">hiring</span>
+                </div>
+                <div class="ext-tree-item nested">
+                    <span class="ext-tree-icon">&#128196;</span>
+                    <span class="ext-tree-name">roles</span>
+                    <span class="ext-tree-wc-count">5 wc</span>
+                </div>
+                <div class="ext-tree-item nested">
+                    <span class="ext-tree-icon">&#128196;</span>
+                    <span class="ext-tree-name">templates</span>
+                    <span class="ext-tree-wc-count">2 wc</span>
+                </div>
+                <div class="ext-tree-item">
+                    <span class="ext-tree-icon">&#128194;</span>
+                    <span class="ext-tree-name">sales</span>
+                </div>
+                <div class="ext-tree-item nested">
+                    <span class="ext-tree-icon">&#128196;</span>
+                    <span class="ext-tree-name">personas</span>
+                    <span class="ext-tree-wc-count">5 wc</span>
+                </div>
+                <div class="ext-tree-item">
+                    <span class="ext-tree-icon">&#128194;</span>
+                    <span class="ext-tree-name">professional</span>
+                </div>
+                <div class="ext-tree-item nested">
+                    <span class="ext-tree-icon">&#128196;</span>
+                    <span class="ext-tree-name">tones</span>
+                    <span class="ext-tree-wc-count">5 wc</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Always-visible impact bar -->
+    <div class="impact-bar">
+        <div class="impact-row">
+            <span class="impact-dims">4 &times; 2 &times; 3 &times; 3 &times; 5 &times; 5</span>
+            <span class="impact-total">1,800 compositions</span>
+        </div>
+        <div class="impact-detail">~414 KB &middot; 6 wildcards active</div>
+    </div>
+</div>
+</body>
+</html>

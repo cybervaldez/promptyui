@@ -81,7 +81,7 @@ from src.exceptions import ExtensionError, WildcardError
 
 
 
-def build_text_variations(items, ext_texts, ext_text_max, ext_wildcards_max, wildcard_lookup, current_level=0, default_leaf=False):
+def build_text_variations(items, ext_texts, ext_text_max, wildcards_max, wildcard_lookup, current_level=0, default_leaf=False):
     """
     Recursively build text variations from nested content/after structure.
     
@@ -119,10 +119,10 @@ def build_text_variations(items, ext_texts, ext_text_max, ext_wildcards_max, wil
                         values_map[wc_name] = [(f'__{wc_name}__', -1)]  # -1 = unresolved
                     else:
                         wc_values = wildcard_lookup[wc_name]
-                        if ext_wildcards_max > 0 and len(wc_values) > ext_wildcards_max:
-                            wc_values = wc_values[:ext_wildcards_max]
+                        if wildcards_max > 0 and len(wc_values) > wildcards_max:
+                            wc_values = wc_values[:wildcards_max]
                         values_map[wc_name] = [(v, i) for i, v in enumerate(wc_values)]
-                
+
                 lists_to_product = [values_map[wc_name] for wc_name in unique_wildcards]
                 
                 for combo in product(*lists_to_product):
@@ -168,8 +168,8 @@ def build_text_variations(items, ext_texts, ext_text_max, ext_wildcards_max, wil
                                 values_map[wc_name] = [(f'__{wc_name}__', -1)]
                             else:
                                 wc_values = wildcard_lookup[wc_name]
-                                if ext_wildcards_max > 0 and len(wc_values) > ext_wildcards_max:
-                                    wc_values = wc_values[:ext_wildcards_max]
+                                if wildcards_max > 0 and len(wc_values) > wildcards_max:
+                                    wc_values = wc_values[:wildcards_max]
                                 values_map[wc_name] = [(val, i) for i, val in enumerate(wc_values)]
                         
                         lists_to_product = [values_map[wc_name] for wc_name in unique_wildcards]
@@ -198,7 +198,7 @@ def build_text_variations(items, ext_texts, ext_text_max, ext_wildcards_max, wil
         if 'after' in item:
             # Pass all parameters to nested items
             suffixes = build_text_variations(
-                item['after'], ext_texts, ext_text_max, ext_wildcards_max, 
+                item['after'], ext_texts, ext_text_max, wildcards_max,
                 wildcard_lookup, current_level=item_level, default_leaf=default_leaf
             )
             
@@ -265,7 +265,7 @@ def build_text_variations(items, ext_texts, ext_text_max, ext_wildcards_max, wil
 
 
 def build_jobs(task_conf, lora_root, range_increment, prompts_delimiter, global_conf,
-               composition_id, ext_wildcards_max=0, ext_text_max=0, default_ext='defaults',
+               composition_id, wildcards_max=0, ext_text_max=0, default_ext='defaults',
                samplers_config=None, default_params=None, input_images=None):
     """
     Build the complete job list from job configuration.
@@ -280,7 +280,7 @@ def build_jobs(task_conf, lora_root, range_increment, prompts_delimiter, global_
         range_increment: Step size for LoRA strength ranges
         prompts_delimiter: String to join text components (e.g., ", ")
         global_conf: Global config dict with extensions and system settings
-        ext_wildcards_max: Default wildcard consumption mode (0=all, 1=random, N=sample)
+        wildcards_max: Default wildcard consumption mode (0=all, N=cap all wildcards at N values)
         ext_text_max: Default text consumption mode for extensions
         default_ext: Default extension namespace (e.g., "defaults", "fashion")
         samplers_config: Sampler configuration (None, string, or list)
@@ -588,8 +588,8 @@ def build_jobs(task_conf, lora_root, range_increment, prompts_delimiter, global_
                 expanded_list = []
                 for item in text_components[key]:
                     try:
-                        prompt_ext_wildcards_max = p_entry_copy.get('ext_wildcards_max', ext_wildcards_max)
-                        expanded_list.extend(process_text_variant(item, wildcard_lookup, default_mode=prompt_ext_wildcards_max))
+                        prompt_wildcards_max = p_entry_copy.get('wildcards_max', p_entry_copy.get('ext_wildcards_max', wildcards_max))
+                        expanded_list.extend(process_text_variant(item, wildcard_lookup, default_mode=prompt_wildcards_max))
                     except WildcardError as e:
                         print(f"   ❌ FATAL ERROR: Wildcard expansion failure for prompt '{p_entry_copy.get('id', 'unknown')}'.")
                         sys.exit(f"   Error: {e}")
@@ -654,9 +654,9 @@ def build_jobs(task_conf, lora_root, range_increment, prompts_delimiter, global_
                     ext_texts[ext_name] = text_values
                     print(f"   📝 Loaded ext_text '{ext_name}': {len(text_values)} values")
             
-            # Generate variations with ext_text_max and ext_wildcards_max
+            # Generate variations with ext_text_max and wildcards_max
             prompt_ext_text_max = p_entry_copy.get('ext_text_max', ext_text_max)
-            prompt_ext_wildcards_max = p_entry_copy.get('ext_wildcards_max', ext_wildcards_max)
+            prompt_wildcards_max = p_entry_copy.get('wildcards_max', p_entry_copy.get('ext_wildcards_max', wildcards_max))
             
             # Build wildcard lookup for expansion
             wildcard_lookup = {}
@@ -668,7 +668,7 @@ def build_jobs(task_conf, lora_root, range_increment, prompts_delimiter, global_
             variations = build_text_variations(
                 nested_text_items, ext_texts, 
                 ext_text_max=prompt_ext_text_max,
-                ext_wildcards_max=prompt_ext_wildcards_max,
+                wildcards_max=prompt_wildcards_max,
                 wildcard_lookup=wildcard_lookup,
                 default_leaf=prompt_default_leaf
             )

@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>V4b: Sequential Fill with Placeholders</title>
+<style>
+  :root {
+    --pu-bg-primary: #191919;
+    --pu-bg-secondary: #202020;
+    --pu-bg-tertiary: #2f2f2f;
+    --pu-text-primary: #ebebeb;
+    --pu-text-secondary: #999999;
+    --pu-text-muted: #7a7a7a;
+    --pu-accent: #529CCA;
+    --pu-accent-bg: rgba(82, 156, 202, 0.08);
+    --pu-accent-border: rgba(82, 156, 202, 0.25);
+    --pu-border: rgba(255, 255, 255, 0.06);
+    --pu-radius: 4px;
+    --pu-radius-sm: 3px;
+    --pu-font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --pu-font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--pu-bg-primary);
+    color: var(--pu-text-primary);
+    font-family: var(--pu-font-body);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 40px 20px;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 48px;
+    max-width: 600px;
+  }
+
+  .header h1 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--pu-accent);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 8px;
+  }
+
+  .header p {
+    font-size: 13px;
+    color: var(--pu-text-muted);
+    line-height: 1.6;
+  }
+
+  .prompt-container {
+    position: relative;
+    max-width: 700px;
+    width: 100%;
+  }
+
+  .prompt-block {
+    width: 100%;
+    text-align: center;
+    font-size: 19px;
+    line-height: 1.7;
+    color: var(--pu-text-primary);
+    padding: 40px;
+    background: var(--pu-bg-secondary);
+    border: 1px solid var(--pu-border);
+    border-radius: 8px;
+  }
+
+  .wc {
+    display: inline-block;
+    position: relative;
+    font-family: var(--pu-font-mono);
+    font-size: 17px;
+    color: var(--pu-accent);
+    background: var(--pu-accent-bg);
+    padding: 1px 2px 1px 8px;
+    border-radius: var(--pu-radius-sm);
+    min-width: 50px;
+    text-align: center;
+  }
+
+  .wc-text {
+    /* Holds the typed text */
+  }
+
+  .wc-placeholder {
+    color: var(--pu-text-muted);
+    opacity: 0.6;
+  }
+
+  .wc-placeholder.hidden {
+    display: none;
+  }
+
+  .wc-cursor {
+    display: none;
+    width: 2px;
+    height: 1.1em;
+    background: var(--pu-accent);
+    vertical-align: text-bottom;
+    margin-left: 1px;
+    animation: blink 0.6s steps(1) infinite;
+  }
+
+  .wc.active .wc-cursor {
+    display: inline-block;
+  }
+
+  .wc.settled .wc-text {
+    color: var(--pu-accent);
+  }
+
+  .wc.clickable {
+    cursor: text;
+  }
+
+  .wc.clickable:hover {
+    border-color: var(--pu-accent-border);
+    background: rgba(82, 156, 202, 0.12);
+  }
+
+  @keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+  }
+
+  .dice-btn {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--pu-text-muted);
+    background: none;
+    border: 1px solid transparent;
+    border-radius: var(--pu-radius);
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+  }
+
+  .dice-btn:hover {
+    color: var(--pu-text-primary);
+    border-color: var(--pu-border);
+  }
+
+  .dice-btn.disabled {
+    opacity: 0.3;
+    pointer-events: none;
+  }
+
+  .dice-btn svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>V4b: Sequential Fill with Placeholders</h1>
+  <p>Placeholders show first, then a cursor fills each wildcard in order. After all are filled the cursor stays on the last slot. Click the dice to randomly re-roll one wildcard.</p>
+</div>
+
+<div class="prompt-container">
+  <div class="prompt-block">
+    <span>As a </span><!--
+    --><span class="wc" data-wc="role"><span class="wc-placeholder">__role__</span><span class="wc-text"></span><span class="wc-cursor"></span></span><!--
+    --><span>, describe a </span><!--
+    --><span class="wc" data-wc="stage"><span class="wc-placeholder">__stage__</span><span class="wc-text"></span><span class="wc-cursor"></span></span><!--
+    --><span> startup in a </span><!--
+    --><span class="wc" data-wc="tone"><span class="wc-placeholder">__tone__</span><span class="wc-text"></span><span class="wc-cursor"></span></span><!--
+    --><span> tone. Focus on the </span><!--
+    --><span class="wc" data-wc="theme"><span class="wc-placeholder">__theme__</span><span class="wc-text"></span><span class="wc-cursor"></span></span><!--
+    --><span> and the spark that ignited the vision.</span>
+  </div>
+  <button class="dice-btn disabled" id="diceBtn" title="Re-roll a random wildcard">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15.5" cy="8.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="8.5" cy="15.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg>
+  </button>
+</div>
+
+<script>
+const wildcards = {
+  role: ['narrator', 'critic', 'poet'],
+  stage: ['Series A', 'seed', 'pre-seed'],
+  tone: ['cheerful', 'melancholy', 'fierce'],
+  theme: ['founding moment', 'pivot point', 'first failure']
+};
+
+const wcOrder = ['role', 'stage', 'tone', 'theme'];
+const wcEls = {};
+wcOrder.forEach(name => {
+  wcEls[name] = document.querySelector(`.wc[data-wc="${name}"]`);
+});
+
+// Lock min-width from placeholder text before any animation
+wcOrder.forEach(name => {
+  wcEls[name].style.minWidth = wcEls[name].offsetWidth + 'px';
+});
+
+const INTRO_SHOW = 1400;
+const typeSpeed = 70;
+const eraseSpeed = 40;
+const pauseAfterType = 600;
+
+// Track current value per wildcard
+const currentValues = {};
+let busy = false;
+let cursorTarget = null; // which wildcard the cursor is currently on
+let manualTarget = null; // set when user hovers a wildcard directly
+let manualTargetTimer = null;
+
+function setActive(name) {
+  wcOrder.forEach(n => {
+    wcEls[n].classList.remove('active');
+  });
+  if (name) {
+    wcEls[name].classList.add('active');
+    cursorTarget = name;
+  }
+}
+
+function setInteractive(enabled) {
+  wcOrder.forEach(n => {
+    wcEls[n].classList.toggle('clickable', enabled);
+  });
+}
+
+function showPlaceholder(name) {
+  wcEls[name].querySelector('.wc-placeholder').classList.remove('hidden');
+  wcEls[name].classList.remove('settled');
+}
+
+function hidePlaceholder(name) {
+  wcEls[name].querySelector('.wc-placeholder').classList.add('hidden');
+}
+
+function setText(name, text) {
+  wcEls[name].querySelector('.wc-text').textContent = text;
+}
+
+function typeValue(name, text, charIndex, callback) {
+  if (charIndex <= text.length) {
+    setText(name, text.slice(0, charIndex));
+    setTimeout(() => typeValue(name, text, charIndex + 1, callback), typeSpeed);
+  } else {
+    wcEls[name].classList.add('settled');
+    currentValues[name] = text;
+    callback();
+  }
+}
+
+function eraseValue(name, callback) {
+  const text = wcEls[name].querySelector('.wc-text').textContent;
+  wcEls[name].classList.remove('settled');
+  if (text.length > 0) {
+    setText(name, text.slice(0, -1));
+    setTimeout(() => eraseValue(name, callback), eraseSpeed);
+  } else {
+    currentValues[name] = null;
+    showPlaceholder(name);
+    callback();
+  }
+}
+
+function pickNewValue(name) {
+  const values = wildcards[name];
+  const current = currentValues[name];
+  const others = values.filter(v => v !== current);
+  return others.length > 0
+    ? others[Math.floor(Math.random() * others.length)]
+    : values[Math.floor(Math.random() * values.length)];
+}
+
+// Erase all wildcards from last to first, then type all from first to last
+function rerollAll() {
+  if (busy) return;
+
+  busy = true;
+  diceBtn.classList.add('disabled');
+  setInteractive(false);
+
+  // Pick new values for all wildcards upfront
+  const newValues = {};
+  wcOrder.forEach(name => {
+    newValues[name] = pickNewValue(name);
+  });
+
+  const reversed = [...wcOrder].reverse();
+
+  // Erase from last to first
+  function eraseNext(i) {
+    if (i >= reversed.length) {
+      // All erased, now type from first to last
+      setTimeout(() => typeNext(0), 200);
+      return;
+    }
+    const name = reversed[i];
+    setActive(name);
+    setTimeout(() => {
+      eraseValue(name, () => {
+        eraseNext(i + 1);
+      });
+    }, 100);
+  }
+
+  // Type from first to last
+  function typeNext(i) {
+    if (i >= wcOrder.length) {
+      const last = wcOrder[wcOrder.length - 1];
+      setActive(last);
+      busy = false;
+      diceBtn.classList.remove('disabled');
+      setInteractive(true);
+      return;
+    }
+    const name = wcOrder[i];
+    setActive(name);
+    hidePlaceholder(name);
+    typeValue(name, newValues[name], 0, () => {
+      typeNext(i + 1);
+    });
+  }
+
+  eraseNext(0);
+}
+
+// Intro: type through all wildcards as one continuous stream
+function introFill(wcIndex) {
+  if (wcIndex >= wcOrder.length) {
+    const last = wcOrder[wcOrder.length - 1];
+    setActive(last);
+    busy = false;
+    diceBtn.classList.remove('disabled');
+    setInteractive(true);
+    return;
+  }
+
+  const name = wcOrder[wcIndex];
+  const value = wildcards[name][0];
+  setActive(name);
+  hidePlaceholder(name);
+
+  typeValue(name, value, 0, () => {
+    introFill(wcIndex + 1);
+  });
+}
+
+const diceBtn = document.getElementById('diceBtn');
+
+// Dice hover: use manual target if recently hovered a wildcard
+diceBtn.addEventListener('mouseenter', () => {
+  if (busy) return;
+  clearTimeout(manualTargetTimer);
+  if (manualTarget && currentValues[manualTarget]) {
+    setActive(manualTarget);
+  }
+});
+
+// Dice click: erase all from end, retype all from start
+diceBtn.addEventListener('click', () => {
+  rerollAll();
+  manualTarget = null;
+});
+
+// Wildcard hover: move cursor there and mark as manual target
+wcOrder.forEach(name => {
+  wcEls[name].addEventListener('mouseenter', () => {
+    if (busy || !currentValues[name]) return;
+    clearTimeout(manualTargetTimer);
+    manualTarget = name;
+    setActive(name);
+  });
+
+  wcEls[name].addEventListener('mouseleave', () => {
+    manualTargetTimer = setTimeout(() => { manualTarget = null; }, 150);
+  });
+
+  // Wildcard click: reroll just this one
+  wcEls[name].addEventListener('click', () => {
+    if (busy || !currentValues[name]) return;
+    busy = true;
+    diceBtn.classList.add('disabled');
+    setInteractive(false);
+    const newValue = pickNewValue(name);
+    setActive(name);
+    setTimeout(() => {
+      eraseValue(name, () => {
+        hidePlaceholder(name);
+        setTimeout(() => {
+          typeValue(name, newValue, 0, () => {
+            setActive(name);
+            busy = false;
+            diceBtn.classList.remove('disabled');
+            setInteractive(true);
+          });
+        }, 200);
+      });
+    }, 100);
+  });
+});
+
+// Start: show placeholders for INTRO_SHOW, then begin typing
+busy = true;
+setTimeout(() => {
+  introFill(0);
+}, INTRO_SHOW);
+</script>
+</body>
+</html>

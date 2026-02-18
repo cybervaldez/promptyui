@@ -19,6 +19,7 @@ For the full development methodology, see [Cybervaldez Playbook](https://github.
 - **Extensible architecture** - Reusable data packs (personas, tones, roles) across domains
 - **Built for AI workflows** - CLI outputs designed for AI consumption and debugging
 - **E2E test suite included** - Verify behavior against the real system
+- **[Composition Model](docs/composition-model.md)** - How wildcards, ext_text, buckets, and operations work together
 
 ## Quick Start
 

@@ -13,6 +13,13 @@ set +e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/lib/test_utils.sh"
 
+# Output footer was removed — filter tree migrated to Build Composition panel.
+# This test is now obsolete.
+print_header "Filter Tree in Output Footer (SKIPPED)"
+log_skip "Output footer removed — filter tree migrated to Build Composition panel"
+print_summary
+exit 0
+
 PORT="8085"
 [[ "$1" == "--port" ]] && PORT="$2"
 [[ "$1" =~ ^[0-9]+$ ]] && PORT="$1"

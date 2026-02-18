@@ -362,45 +362,7 @@ sleep 0.3
 agent-browser eval 'PU.focus.exit()' 2>/dev/null
 sleep 1
 
-# ── Test 11: Main editor filter tree footer hidden when no filters ──
-
-log_test "OBJECTIVE: Main editor filter tree footer hidden when no active filters"
-
-agent-browser eval 'PU.focus.exit()' 2>/dev/null
-sleep 0.5
-agent-browser open "$BASE_URL/?job=hiring-templates&prompt=stress-test-prompt&composition=99" 2>/dev/null
-sleep 4
-
-FOOTER_HT=$(agent-browser eval 'var ft=document.querySelector("[data-testid=pu-output-footer] .pu-filter-tree-footer");ft?ft.offsetHeight:-1' 2>/dev/null)
-[ "$FOOTER_HT" = "0" ] \
-    && log_pass "Main editor filter footer 0px when no filters" \
-    || log_fail "Footer should be 0px, got: ${FOOTER_HT}px"
-
-FOOTER_CLS=$(agent-browser eval 'var ft=document.querySelector("[data-testid=pu-output-footer] .pu-filter-tree-footer");ft?ft.className:"none"' 2>/dev/null | tr -d '"')
-echo "$FOOTER_CLS" | grep -q "pu-hidden" \
-    && log_pass "Footer has pu-hidden class" \
-    || log_fail "Footer missing pu-hidden: $FOOTER_CLS"
-
-# ── Test 12: Main editor filter footer visible with active filters ──
-
-log_test "OBJECTIVE: Main editor filter tree footer visible with active filters"
-
-agent-browser eval 'var item=document.querySelector("[data-testid=pu-output-footer] [data-testid^=pu-filter-value-]");item&&item.click();true' 2>/dev/null
-sleep 0.5
-
-FOOTER_HT_ACT=$(agent-browser eval 'var ft=document.querySelector("[data-testid=pu-output-footer] .pu-filter-tree-footer");ft?ft.offsetHeight:-1' 2>/dev/null)
-if [ "$FOOTER_HT_ACT" -gt 0 ] 2>/dev/null; then
-    log_pass "Footer visible with active filter (${FOOTER_HT_ACT}px)"
-else
-    log_fail "Footer should be visible, got: ${FOOTER_HT_ACT}px"
-fi
-
-FOOTER_CLS_ACT=$(agent-browser eval 'var ft=document.querySelector("[data-testid=pu-output-footer] .pu-filter-tree-footer");ft?ft.className:"none"' 2>/dev/null | tr -d '"')
-echo "$FOOTER_CLS_ACT" | grep -qv "pu-hidden" \
-    && log_pass "Footer pu-hidden removed with active filter" \
-    || log_fail "Footer should not have pu-hidden: $FOOTER_CLS_ACT"
-
-# ── Test 13: No JS errors throughout ────────────────────────────────
+# ── Test 11: No JS errors throughout ────────────────────────────────
 
 log_test "OBJECTIVE: No JavaScript errors during wildcard popover operations"
 JS_ERRORS=$(agent-browser errors 2>/dev/null || echo "")

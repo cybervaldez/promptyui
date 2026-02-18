@@ -231,12 +231,14 @@ PU.preview = {
         }
         const extTextData = {};
         for (const extName of extTextNames) {
-            const cacheKey = `${extPrefix}/${extName}`;
+            // Avoid double-prefixing when extName already includes the ext prefix
+            const needsPrefix = extPrefix && !extName.startsWith(extPrefix + '/');
+            const cacheKey = needsPrefix ? `${extPrefix}/${extName}` : extName;
             if (PU.state.previewMode._extTextCache[cacheKey]) {
                 extTextData[extName] = PU.state.previewMode._extTextCache[cacheKey];
             } else {
                 try {
-                    const fullPath = extPrefix ? `${extPrefix}/${extName}` : extName;
+                    const fullPath = needsPrefix ? `${extPrefix}/${extName}` : extName;
                     const data = await PU.api.loadExtension(fullPath);
                     extTextData[extName] = data;
                     PU.state.previewMode._extTextCache[cacheKey] = data;
@@ -276,7 +278,7 @@ PU.preview = {
 
         // Step 4: Get odometer indices
         const extTextMax = PU.state.previewMode.extTextMax;
-        const wcMax = PU.state.previewMode.extWildcardsMax;
+        const wcMax = PU.state.previewMode.wildcardsMax;
 
         let extIdx, odometerIndices, bucketResult = null;
         if (wcMax > 0) {
@@ -468,7 +470,7 @@ PU.preview = {
         const dropdowns = [];
         const wcMatches = text.match(/__([a-zA-Z0-9_-]+)__/g) || [];
         const seen = new Set();
-        const wcMax = PU.state.previewMode.extWildcardsMax;
+        const wcMax = PU.state.previewMode.wildcardsMax;
 
         const uniqueNames = [];
         wcMatches.forEach(match => {
@@ -599,18 +601,20 @@ PU.preview = {
 
         PU.state.previewMode.extTextMax = val;
         await PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
+        PU.rightPanel.render();
         PU.actions.updateUrl();
     },
 
     /**
-     * Update ext_wildcards_max and re-render
+     * Update wildcards_max and re-render
      */
-    async updateExtWildcardsMax(newVal) {
+    async updateWildcardsMax(newVal) {
         const val = parseInt(newVal, 10);
         if (isNaN(val) || val < 0) return;
 
-        PU.state.previewMode.extWildcardsMax = val;
+        PU.state.previewMode.wildcardsMax = val;
         await PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
+        PU.rightPanel.render();
         PU.actions.updateUrl();
     },
 
@@ -654,6 +658,165 @@ PU.preview = {
             total *= Math.max(1, wildcardCounts[name] || 1);
         }
         return total;
+    },
+
+    /**
+     * Compute effective total compositions respecting bucketing.
+     * When wcMax > 0 or extTextMax > 1, dimensions are ceil-divided into buckets.
+     * @param {number} extTextCount - Raw ext_text value count
+     * @param {Object} wildcardCounts - Dict of {wildcardName: rawCount}
+     * @param {number} extTextMax - Bucket size for ext_text (default 1 = no bucketing)
+     * @param {number} wcMax - Bucket size for wildcards (0 = no bucketing)
+     * @returns {number} Effective total (bucketed if applicable)
+     */
+    computeEffectiveTotal(extTextCount, wildcardCounts, extTextMax, wcMax) {
+        extTextMax = Math.max(1, extTextMax || 1);
+        wcMax = wcMax || 0;
+
+        if (wcMax <= 0 && extTextMax <= 1) {
+            return PU.preview.computeTotalCompositions(extTextCount, wildcardCounts);
+        }
+
+        // Bucketed: ceil-divide each dimension
+        let total = Math.max(1, Math.ceil((extTextCount || 1) / extTextMax));
+        for (const name of Object.keys(wildcardCounts)) {
+            const raw = Math.max(1, wildcardCounts[name] || 1);
+            total *= wcMax > 0 ? Math.max(1, Math.ceil(raw / wcMax)) : raw;
+        }
+        return total;
+    },
+
+    /**
+     * Count filtered compositions analytically.
+     * For each wildcard, multiply the number of selected values (or full count if no filter).
+     * @param {Object} wildcardCounts - { wcName: count }
+     * @param {Object} selectedValues - { wcName: Set(allowedValues) } — empty = all selected
+     * @param {number} extTextCount - Number of ext_text values
+     * @returns {number} Filtered total
+     */
+    countFilteredCompositions(wildcardCounts, selectedValues, extTextCount) {
+        const extTextMax = PU.state.previewMode.extTextMax || 1;
+        const wcMax = PU.state.previewMode.wildcardsMax || 0;
+        const total = PU.preview.computeEffectiveTotal(extTextCount, wildcardCounts, extTextMax, wcMax);
+
+        if (!selectedValues || Object.keys(selectedValues).length === 0) {
+            return total;
+        }
+
+        if (wcMax <= 0 && extTextMax <= 1) {
+            // Non-bucketed: analytical product of selected counts
+            let filtered = Math.max(1, extTextCount || 1);
+            for (const [name, count] of Object.entries(wildcardCounts)) {
+                const selected = selectedValues[name];
+                const effectiveCount = selected ? selected.size : count;
+                filtered *= Math.max(1, effectiveCount);
+            }
+            return filtered;
+        }
+
+        // Bucketed: iterate all compositions (total is small in bucketed mode)
+        let count = 0;
+        for (let i = 0; i < total; i++) {
+            if (PU.preview.compositionPassesFilter(i, extTextCount, wildcardCounts, selectedValues)) {
+                count++;
+            }
+        }
+        return count;
+    },
+
+    /**
+     * Check if a composition passes the multi-select filter.
+     * Bucket-aware: uses bucketCompositionToIndices when wcMax > 0 to check
+     * the actual displayed value per composition.
+     * @param {number} compId - Composition ID
+     * @param {number} extTextCount - Number of ext_text values
+     * @param {Object} wildcardCounts - { wcName: count }
+     * @param {Object} selectedValues - { wcName: Set(allowedValues) }
+     * @returns {boolean} True if composition matches all filter constraints
+     */
+    compositionPassesFilter(compId, extTextCount, wildcardCounts, selectedValues) {
+        if (!selectedValues || Object.keys(selectedValues).length === 0) return true;
+
+        const wcMax = PU.state.previewMode.wildcardsMax || 0;
+        const extTextMax = PU.state.previewMode.extTextMax || 1;
+        const fullLookup = PU.preview.getFullWildcardLookup();
+
+        let wcIndices;
+        if (wcMax > 0) {
+            const br = PU.preview.bucketCompositionToIndices(compId, extTextCount, extTextMax, wildcardCounts, wcMax);
+            wcIndices = br.wcValueIndices;
+        } else {
+            [, wcIndices] = PU.preview.compositionToIndices(compId, extTextCount, wildcardCounts);
+        }
+
+        for (const [wcName, filterSet] of Object.entries(selectedValues)) {
+            const allValues = fullLookup[wcName];
+            if (!allValues) continue;
+            const idx = wcIndices[wcName];
+            if (idx === undefined) continue;
+            const value = allValues[idx % allValues.length];
+            if (!filterSet.has(value)) return false;
+        }
+        return true;
+    },
+
+    /**
+     * Clear stale block-level overrides whose values fall outside the current bucket range.
+     * Called after composition changes (navigate/shuffle) to keep editor consistent.
+     */
+    clearStaleBlockOverrides() {
+        const wcMax = PU.state.previewMode.wildcardsMax;
+        if (wcMax <= 0) return;
+
+        const fullLookup = PU.preview.getFullWildcardLookup();
+        const wildcardCounts = {};
+        for (const [name, vals] of Object.entries(fullLookup)) {
+            wildcardCounts[name] = vals.length;
+        }
+        const extTextCount = PU.state.previewMode.extTextCount || 1;
+        const extTextMax = PU.state.previewMode.extTextMax || 1;
+        const compositionId = PU.state.previewMode.compositionId;
+
+        const br = PU.preview.bucketCompositionToIndices(compositionId, extTextCount, extTextMax, wildcardCounts, wcMax);
+
+        for (const [blockPath, overrides] of Object.entries(PU.state.previewMode.selectedWildcards)) {
+            for (const [wcName, pinnedValue] of Object.entries(overrides)) {
+                const allValues = fullLookup[wcName];
+                if (!allValues || allValues.length <= wcMax) continue;
+                const bucketIdx = br.wcBucketIndices[wcName] || 0;
+                const bucketStart = bucketIdx * wcMax;
+                const bucketEnd = Math.min(bucketStart + wcMax, allValues.length);
+                const bucketValues = allValues.slice(bucketStart, bucketEnd);
+                if (!bucketValues.includes(pinnedValue)) {
+                    delete overrides[wcName];
+                }
+            }
+            if (Object.keys(overrides).length === 0) {
+                delete PU.state.previewMode.selectedWildcards[blockPath];
+            }
+        }
+    },
+
+    /**
+     * Get the full wildcard lookup merging prompt + extension wildcards.
+     * Uses cached extension data from _extTextCache (populated by buildBlockResolutions).
+     * @returns {Object} Dict of {wildcardName: [value1, value2, ...]}
+     */
+    getFullWildcardLookup() {
+        const lookup = PU.helpers.getWildcardLookup();
+        const cache = PU.state.previewMode._extTextCache || {};
+
+        for (const cacheKey of Object.keys(cache)) {
+            const data = cache[cacheKey];
+            if (data && data.wildcards) {
+                for (const wc of data.wildcards) {
+                    if (wc.name && wc.text && !lookup[wc.name]) {
+                        lookup[wc.name] = Array.isArray(wc.text) ? wc.text : [wc.text];
+                    }
+                }
+            }
+        }
+        return lookup;
     },
 
     /**

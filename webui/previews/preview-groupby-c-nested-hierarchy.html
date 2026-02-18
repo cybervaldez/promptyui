@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Option C: Nested Hierarchy Tree (No Split)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --pu-bg-primary: #191919;
+    --pu-bg-secondary: #202020;
+    --pu-bg-tertiary: #2f2f2f;
+    --pu-bg-hover: rgba(255, 255, 255, 0.04);
+    --pu-bg-selected: rgba(255, 255, 255, 0.06);
+    --pu-bg-elevated: #252525;
+    --pu-bg-input: #252525;
+    --pu-text-primary: #ebebeb;
+    --pu-text-secondary: #999999;
+    --pu-text-muted: #7a7a7a;
+    --pu-accent: #529CCA;
+    --pu-accent-bg: rgba(82, 156, 202, 0.08);
+    --pu-accent-light: rgba(82, 156, 202, 0.12);
+    --pu-accent-border: rgba(82, 156, 202, 0.25);
+    --pu-accent-muted: rgba(82, 156, 202, 0.5);
+    --pu-success: #4daa57;
+    --pu-success-bg: rgba(77, 170, 87, 0.12);
+    --pu-warning: #cb912f;
+    --pu-warning-bg: rgba(203, 145, 47, 0.1);
+    --pu-border: rgba(255, 255, 255, 0.06);
+    --pu-border-light: rgba(255, 255, 255, 0.09);
+    --pu-radius: 4px;
+    --pu-radius-sm: 3px;
+    --pu-radius-lg: 6px;
+    --pu-radius-full: 9999px;
+    --pu-font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --pu-font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+    --pu-font-size-2xs: 10px;
+    --pu-font-size-xs: 11px;
+    --pu-font-size-sm: 12px;
+    --pu-font-size-md: 13px;
+    --pu-font-size-base: 14px;
+    --pu-space-xs: 4px;
+    --pu-space-sm: 8px;
+    --pu-space-md: 12px;
+    --pu-space-lg: 16px;
+    --pu-space-xl: 24px;
+    --pu-transition-fast: 120ms ease-out;
+    --pu-transition-normal: 200ms ease-out;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--pu-bg-primary);
+    color: var(--pu-text-primary);
+    font-family: var(--pu-font-body);
+    padding: 24px;
+  }
+
+  .preview-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--pu-accent);
+    margin-bottom: 4px;
+  }
+  .preview-desc {
+    font-size: 12px;
+    color: var(--pu-text-muted);
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+
+  /* === Output footer container === */
+  .pu-output-footer {
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius-lg);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    max-height: 560px;
+  }
+
+  .pu-output-footer-header {
+    display: flex;
+    align-items: center;
+    gap: var(--pu-space-sm);
+    padding: var(--pu-space-sm) var(--pu-space-lg);
+    background: var(--pu-bg-secondary);
+    user-select: none;
+    flex-shrink: 0;
+  }
+  .pu-output-footer-title {
+    font-size: var(--pu-font-size-xs);
+    font-weight: 500;
+    color: var(--pu-text-muted);
+    text-transform: uppercase;
+  }
+  .pu-output-footer-count {
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-muted);
+    background: var(--pu-bg-primary);
+    padding: 1px 6px;
+    border-radius: var(--pu-radius-full);
+  }
+  .header-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: var(--pu-space-sm);
+  }
+  .pu-btn-sm {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px var(--pu-space-sm);
+    background: var(--pu-bg-hover);
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius);
+    color: var(--pu-text-secondary);
+    font-family: var(--pu-font-body);
+    font-size: var(--pu-font-size-2xs);
+    cursor: pointer;
+    transition: all var(--pu-transition-fast);
+  }
+  .pu-btn-sm:hover {
+    background: var(--pu-bg-selected);
+    border-color: var(--pu-border-light);
+    color: var(--pu-text-primary);
+  }
+  .pu-btn-sm.active {
+    background: var(--pu-accent-bg);
+    border-color: var(--pu-accent-border);
+    color: var(--pu-accent);
+  }
+
+  /* Dimension selector row */
+  .dim-selector {
+    display: flex;
+    align-items: center;
+    gap: var(--pu-space-sm);
+    padding: 0 var(--pu-space-sm);
+  }
+  .dim-selector-label {
+    font-size: var(--pu-font-size-2xs);
+    color: var(--pu-text-muted);
+    white-space: nowrap;
+  }
+
+  /* === Output body (no split — full-width tree) === */
+  .pu-output-footer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--pu-space-sm) var(--pu-space-md);
+    min-height: 0;
+  }
+
+  /* Tree node (level 1 = primary dimension) */
+  .tree-node {
+    margin-bottom: 2px;
+  }
+
+  .tree-node-header {
+    display: flex;
+    align-items: center;
+    gap: var(--pu-space-xs);
+    padding: var(--pu-space-xs) var(--pu-space-sm);
+    border-radius: var(--pu-radius);
+    cursor: pointer;
+    user-select: none;
+    transition: background var(--pu-transition-fast);
+  }
+  .tree-node-header:hover {
+    background: var(--pu-bg-hover);
+  }
+
+  .tree-chevron {
+    font-size: var(--pu-font-size-2xs);
+    color: var(--pu-text-muted);
+    transition: transform var(--pu-transition-normal);
+    display: inline-block;
+    width: 12px;
+    text-align: center;
+  }
+  .tree-chevron.expanded {
+    transform: rotate(90deg);
+  }
+
+  .tree-dim-name {
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-muted);
+    text-transform: uppercase;
+  }
+  .tree-dim-eq {
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-muted);
+    opacity: 0.5;
+  }
+  .tree-dim-value {
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-accent);
+    font-weight: 500;
+  }
+  .tree-dim-count {
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-muted);
+    margin-left: auto;
+  }
+
+  /* Level 1 header — slightly larger */
+  .tree-node.level-0 > .tree-node-header {
+    background: var(--pu-bg-secondary);
+    margin-bottom: var(--pu-space-xs);
+  }
+  .tree-node.level-0 > .tree-node-header:hover {
+    background: var(--pu-bg-hover);
+  }
+
+  /* Nesting */
+  .tree-node-children {
+    padding-left: var(--pu-space-lg);
+  }
+  .tree-node-children.collapsed {
+    display: none;
+  }
+
+  /* Level 2 header — smaller, subtler */
+  .tree-node.level-1 > .tree-node-header {
+    padding: 2px var(--pu-space-sm);
+  }
+  .tree-node.level-1 > .tree-node-header .tree-dim-name {
+    font-size: var(--pu-font-size-2xs);
+    color: var(--pu-text-muted);
+    opacity: 0.7;
+  }
+
+  /* Output items */
+  .output-item {
+    background: var(--pu-bg-hover);
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius);
+    padding: var(--pu-space-sm) var(--pu-space-md);
+    margin-bottom: var(--pu-space-xs);
+  }
+  .output-item-label {
+    font-family: var(--pu-font-mono);
+    font-size: var(--pu-font-size-2xs);
+    color: var(--pu-text-muted);
+    display: block;
+    margin-bottom: 2px;
+  }
+  .output-item-text {
+    font-size: var(--pu-font-size-sm);
+    color: var(--pu-text-primary);
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .label-wc-name { color: var(--pu-text-muted); }
+  .label-wc-eq { color: var(--pu-text-muted); opacity: 0.5; }
+  .label-wc-val { color: var(--pu-accent); }
+  .label-wc-sep { color: var(--pu-text-muted); opacity: 0.3; margin: 0 3px; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+</style>
+</head>
+<body>
+  <div class="preview-title">Option C: Nested Hierarchy Tree (No Split)</div>
+  <div class="preview-desc">
+    No side panel. The output list itself is a nested tree.
+    Primary dimension (top-level grouping) selected via buttons in the header.
+    Sub-grouping automatically nests by the remaining dimensions.
+    Collapse/expand at each level.
+  </div>
+
+  <div class="pu-output-footer">
+    <div class="pu-output-footer-header">
+      <span class="pu-output-footer-title">Resolved Output</span>
+      <span class="pu-output-footer-count">27</span>
+      <div class="dim-selector" id="dim-selector"></div>
+      <div class="header-right">
+        <button class="pu-btn-sm">&#8210;</button>
+        <button class="pu-btn-sm">Copy All</button>
+      </div>
+    </div>
+    <div class="pu-output-footer-body" id="output-body"></div>
+  </div>
+
+<script>
+const WILDCARDS = {
+  Stage:  ['Series A', 'seed', 'x'],
+  Tone:   ['cheerful', 'melancholy', 'fierce'],
+  Role:   ['narrator', 'critic', 'poet']
+};
+const DIM_NAMES = Object.keys(WILDCARDS);
+
+const PROMPT_TEMPLATE = (stage, tone, role) =>
+  `As a ${role}, describe a ${stage} startup in a ${tone} tone. Focus on the founding moment and the spark that ignited the vision.`;
+
+const outputs = [];
+for (const stage of WILDCARDS.Stage) {
+  for (const tone of WILDCARDS.Tone) {
+    for (const role of WILDCARDS.Role) {
+      outputs.push({
+        dims: { Stage: stage, Tone: tone, Role: role },
+        text: PROMPT_TEMPLATE(stage, tone, role)
+      });
+    }
+  }
+}
+
+let primaryDim = 'Stage';
+// Track collapsed state per path (e.g. "Stage=Series A" or "Stage=Series A/Tone=cheerful")
+const collapsedPaths = new Set();
+
+function buildDimSelector() {
+  const sel = document.getElementById('dim-selector');
+  let html = '<span class="dim-selector-label">by:</span>';
+  for (const dim of DIM_NAMES) {
+    html += `<button class="pu-btn-sm ${dim === primaryDim ? 'active' : ''}"
+                     onclick="setPrimary('${dim}')">${dim}</button>`;
+  }
+  sel.innerHTML = html;
+}
+
+function setPrimary(dim) {
+  primaryDim = dim;
+  collapsedPaths.clear();
+  render();
+}
+
+function togglePath(path) {
+  if (collapsedPaths.has(path)) {
+    collapsedPaths.delete(path);
+  } else {
+    collapsedPaths.add(path);
+  }
+  render();
+}
+
+function getDimOrder() {
+  // Primary dim first, then remaining in original order
+  return [primaryDim, ...DIM_NAMES.filter(d => d !== primaryDim)];
+}
+
+function groupBy(items, dim) {
+  const groups = {};
+  for (const val of WILDCARDS[dim]) {
+    groups[val] = items.filter(o => o.dims[dim] === val);
+  }
+  return groups;
+}
+
+function renderTree(items, dimOrder, level, pathPrefix) {
+  if (dimOrder.length === 0) {
+    // Leaf: render output items
+    let html = '';
+    for (const o of items) {
+      // Show only remaining dims as label (none left at this point)
+      html += `<div class="output-item">
+        <div class="output-item-text">${o.text}</div>
+      </div>`;
+    }
+    return html;
+  }
+
+  const dim = dimOrder[0];
+  const remaining = dimOrder.slice(1);
+  const groups = groupBy(items, dim);
+  let html = '';
+
+  for (const [val, groupItems] of Object.entries(groups)) {
+    const path = pathPrefix ? `${pathPrefix}/${dim}=${val}` : `${dim}=${val}`;
+    const isCollapsed = collapsedPaths.has(path);
+
+    html += `<div class="tree-node level-${level}">
+      <div class="tree-node-header" onclick="togglePath('${path}')">
+        <span class="tree-chevron ${isCollapsed ? '' : 'expanded'}">&#9654;</span>
+        <span class="tree-dim-name">${dim}</span>
+        <span class="tree-dim-eq">=</span>
+        <span class="tree-dim-value">${val}</span>
+        <span class="tree-dim-count">(${groupItems.length})</span>
+      </div>
+      <div class="tree-node-children ${isCollapsed ? 'collapsed' : ''}">`;
+
+    if (remaining.length > 0) {
+      html += renderTree(groupItems, remaining, level + 1, path);
+    } else {
+      // Last dimension — render items directly
+      for (const o of groupItems) {
+        html += `<div class="output-item">
+          <div class="output-item-text">${o.text}</div>
+        </div>`;
+      }
+    }
+
+    html += '</div></div>';
+  }
+  return html;
+}
+
+function render() {
+  buildDimSelector();
+  const body = document.getElementById('output-body');
+  const dimOrder = getDimOrder();
+  body.innerHTML = renderTree(outputs, dimOrder, 0, '');
+}
+
+render();
+</script>
+</body>
+</html>

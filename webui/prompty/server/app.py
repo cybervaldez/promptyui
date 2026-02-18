@@ -78,7 +78,7 @@ class PUHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         """Handle POST requests."""
-        from .api import preview, export
+        from .api import preview, export, extensions
 
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
@@ -94,6 +94,8 @@ class PUHandler(http.server.SimpleHTTPRequestHandler):
             export.handle_validate(self, params)
         elif path == '/api/pu/export':
             export.handle_export(self, params)
+        elif path == '/api/pu/extension/save':
+            extensions.handle_extension_save(self, params)
         else:
             self.send_json({'error': 'Not found'}, 404)
 

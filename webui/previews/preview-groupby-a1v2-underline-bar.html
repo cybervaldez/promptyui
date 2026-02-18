@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A1-V2: Underline Bar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --pu-bg-primary: #191919; --pu-bg-secondary: #202020; --pu-bg-tertiary: #2f2f2f;
+    --pu-bg-hover: rgba(255, 255, 255, 0.04); --pu-bg-selected: rgba(255, 255, 255, 0.06); --pu-bg-elevated: #252525;
+    --pu-text-primary: #ebebeb; --pu-text-secondary: #999999; --pu-text-muted: #7a7a7a;
+    --pu-accent: #529CCA; --pu-accent-bg: rgba(82, 156, 202, 0.08); --pu-accent-light: rgba(82, 156, 202, 0.12);
+    --pu-accent-border: rgba(82, 156, 202, 0.25); --pu-accent-muted: rgba(82, 156, 202, 0.5);
+    --pu-border: rgba(255, 255, 255, 0.06); --pu-border-light: rgba(255, 255, 255, 0.09);
+    --pu-radius: 4px; --pu-radius-sm: 3px; --pu-radius-lg: 6px; --pu-radius-full: 9999px;
+    --pu-font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --pu-font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+    --pu-font-size-2xs: 10px; --pu-font-size-xs: 11px; --pu-font-size-sm: 12px; --pu-font-size-md: 13px; --pu-font-size-base: 14px;
+    --pu-space-xs: 4px; --pu-space-sm: 8px; --pu-space-md: 12px; --pu-space-lg: 16px; --pu-space-xl: 24px;
+    --pu-transition-fast: 120ms ease-out; --pu-transition-normal: 200ms ease-out;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--pu-bg-primary); color: var(--pu-text-primary); font-family: var(--pu-font-body); padding: 24px; }
+  .preview-title { font-size: 14px; font-weight: 600; color: var(--pu-accent); margin-bottom: 4px; }
+  .preview-desc { font-size: 12px; color: var(--pu-text-muted); margin-bottom: 20px; line-height: 1.5; }
+
+  .pu-output-footer { border: 1px solid var(--pu-border); border-radius: var(--pu-radius-lg); display: flex; flex-direction: column; overflow: hidden; max-height: 500px; }
+  .pu-output-footer-header { display: flex; align-items: center; gap: var(--pu-space-sm); padding: var(--pu-space-sm) var(--pu-space-lg); background: var(--pu-bg-secondary); flex-shrink: 0; }
+  .pu-output-footer-title { font-size: var(--pu-font-size-xs); font-weight: 500; color: var(--pu-text-muted); text-transform: uppercase; }
+  .pu-output-footer-count { font-size: var(--pu-font-size-xs); color: var(--pu-text-muted); background: var(--pu-bg-primary); padding: 1px 6px; border-radius: var(--pu-radius-full); }
+  .header-right { margin-left: auto; display: flex; align-items: center; gap: var(--pu-space-sm); }
+  .pu-btn-sm { display: inline-flex; align-items: center; padding: 2px var(--pu-space-sm); background: var(--pu-bg-hover); border: 1px solid var(--pu-border); border-radius: var(--pu-radius); color: var(--pu-text-secondary); font-family: var(--pu-font-body); font-size: var(--pu-font-size-2xs); cursor: pointer; transition: all var(--pu-transition-fast); }
+  .pu-btn-sm:hover { background: var(--pu-bg-selected); border-color: var(--pu-border-light); color: var(--pu-text-primary); }
+  .filter-active-count { font-size: var(--pu-font-size-2xs); color: var(--pu-accent); background: var(--pu-accent-bg); padding: 1px 5px; border-radius: var(--pu-radius-full); }
+
+  .pu-output-footer-body { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+
+  .filter-tree { width: 172px; flex-shrink: 0; border-right: 1px solid var(--pu-border); background: var(--pu-bg-secondary); display: flex; flex-direction: column; }
+  .filter-tree-scroll { flex: 1; overflow-y: auto; padding: var(--pu-space-sm) 0; }
+  .filter-tree-footer { flex-shrink: 0; padding: var(--pu-space-sm); border-top: 1px solid var(--pu-border); }
+  .reset-btn {
+    display: flex; align-items: center; justify-content: center; gap: 4px; width: 100%; padding: 4px 0;
+    background: var(--pu-bg-hover); border: 1px solid var(--pu-border); border-radius: var(--pu-radius);
+    color: var(--pu-text-muted); font-family: var(--pu-font-body); font-size: var(--pu-font-size-2xs);
+    cursor: pointer; transition: all var(--pu-transition-fast); text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .reset-btn:hover { background: var(--pu-bg-selected); border-color: var(--pu-border-light); color: var(--pu-text-primary); }
+  .reset-btn.hidden { display: none; }
+  .reset-btn svg { width: 10px; height: 10px; }
+
+  .filter-dim { margin-bottom: var(--pu-space-md); }
+  .filter-dim-header { display: flex; align-items: center; gap: var(--pu-space-xs); padding: var(--pu-space-xs) var(--pu-space-md); font-size: var(--pu-font-size-2xs); font-weight: 600; color: var(--pu-text-muted); text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; user-select: none; }
+  .filter-dim-header:hover { color: var(--pu-text-secondary); }
+  .filter-dim-chevron { font-size: 8px; transition: transform var(--pu-transition-normal); display: inline-block; }
+  .filter-dim-chevron.collapsed { transform: rotate(-90deg); }
+  .filter-dim-values { overflow: hidden; padding: 0 var(--pu-space-sm); }
+  .filter-dim-values.collapsed { max-height: 0 !important; }
+
+  /* V2: Underline bar — bar sits below the text row as a thin underline */
+  .filter-value {
+    padding: 4px var(--pu-space-sm) 0; margin-bottom: 4px;
+    border-radius: var(--pu-radius-sm); cursor: pointer; user-select: none;
+    transition: all var(--pu-transition-fast);
+  }
+  .filter-value:hover { background: var(--pu-bg-hover); }
+  .filter-value.active { background: var(--pu-accent-bg); }
+
+  .filter-value-row {
+    display: flex; align-items: center; gap: 5px;
+  }
+
+  .filter-check {
+    width: 10px; height: 10px; flex-shrink: 0;
+    border: 1px solid var(--pu-border-light); border-radius: var(--pu-radius-full);
+    display: flex; align-items: center; justify-content: center;
+    transition: all var(--pu-transition-fast); font-size: 7px; color: transparent;
+  }
+  .filter-value.active .filter-check {
+    border-color: var(--pu-accent); background: var(--pu-accent); color: var(--pu-bg-primary);
+  }
+
+  .filter-value-name {
+    font-size: var(--pu-font-size-xs); color: var(--pu-text-secondary);
+    flex: 1; transition: color var(--pu-transition-fast);
+  }
+  .filter-value.active .filter-value-name { color: var(--pu-accent); font-weight: 500; }
+
+  .filter-value-count {
+    font-size: var(--pu-font-size-2xs); font-family: var(--pu-font-mono);
+    color: var(--pu-text-muted); min-width: 14px; text-align: right;
+  }
+  .filter-value.active .filter-value-count { color: var(--pu-accent); }
+
+  /* Thin underline bar below the text */
+  .filter-value-bar-track {
+    height: 2px; margin-top: 3px;
+    background: rgba(255,255,255,0.03); border-radius: 1px; overflow: hidden;
+  }
+  .filter-value-bar-fill {
+    height: 100%; background: rgba(255,255,255,0.08); border-radius: 1px;
+    transition: width var(--pu-transition-normal), background var(--pu-transition-normal);
+  }
+  .filter-value.active .filter-value-bar-fill { background: var(--pu-accent-muted); }
+  .filter-value-bar-fill.zero { background: transparent; }
+
+  .output-list { flex: 1; overflow-y: auto; padding: var(--pu-space-sm) var(--pu-space-md); min-width: 0; }
+  .output-item { background: var(--pu-bg-hover); border: 1px solid var(--pu-border); border-radius: var(--pu-radius); padding: var(--pu-space-sm) var(--pu-space-md); margin-bottom: var(--pu-space-xs); }
+  .output-item.hidden { display: none; }
+  .output-item-label { font-family: var(--pu-font-mono); font-size: var(--pu-font-size-2xs); color: var(--pu-text-muted); display: block; margin-bottom: 2px; }
+  .output-item-text { font-size: var(--pu-font-size-sm); color: var(--pu-text-primary); line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+  .label-wc-name { color: var(--pu-text-muted); } .label-wc-eq { color: var(--pu-text-muted); opacity: 0.5; }
+  .label-wc-val { color: var(--pu-accent); } .label-wc-sep { color: var(--pu-text-muted); opacity: 0.3; margin: 0 3px; }
+  ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+</style>
+</head>
+<body>
+  <div class="preview-title">A1-V2: Underline Bar</div>
+  <div class="preview-desc">
+    Bar sits beneath each value row as a 2px underline spanning the full width.
+    Circular checkmark indicator (radio-style). Separates text from data viz into two visual layers.
+  </div>
+
+  <div class="pu-output-footer">
+    <div class="pu-output-footer-header">
+      <span class="pu-output-footer-title">Resolved Output</span>
+      <span class="pu-output-footer-count" id="count-badge">27</span>
+      <span class="filter-active-count" id="filter-badge" style="display:none"></span>
+      <div class="header-right"><button class="pu-btn-sm">&#8210;</button><button class="pu-btn-sm">Copy All</button></div>
+    </div>
+    <div class="pu-output-footer-body">
+      <div class="filter-tree">
+        <div class="filter-tree-scroll" id="filter-tree"></div>
+        <div class="filter-tree-footer">
+          <button class="reset-btn hidden" id="reset-btn" onclick="resetFilters()">
+            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 1l10 10M11 1L1 11"/></svg>
+            RESET
+          </button>
+        </div>
+      </div>
+      <div class="output-list" id="output-list"></div>
+    </div>
+  </div>
+
+<script>
+const WILDCARDS={Stage:['Series A','seed','x'],Tone:['cheerful','melancholy','fierce'],Role:['narrator','critic','poet']};
+const T=(s,t,r)=>`As a ${r}, describe a ${s} startup in a ${t} tone. Focus on the founding moment and the spark that ignited the vision.`;
+const outputs=[];for(const s of WILDCARDS.Stage)for(const t of WILDCARDS.Tone)for(const r of WILDCARDS.Role)outputs.push({dims:{Stage:s,Tone:t,Role:r},text:T(s,t,r)});
+const af={};for(const d of Object.keys(WILDCARDS))af[d]=new Set();const col={};
+function cm(dim,val){return outputs.filter(o=>{for(const[d,set]of Object.entries(af)){if(d===dim){if(o.dims[d]!==val)return false}else{if(set.size>0&&!set.has(o.dims[d]))return false}}return true}).length}
+function vis(o){for(const[d,set]of Object.entries(af))if(set.size>0&&!set.has(o.dims[d]))return false;return true}
+function buildTree(){
+  const tree=document.getElementById('filter-tree');let html='';
+  for(const[dim,values]of Object.entries(WILDCARDS)){
+    const ic=col[dim]||false;
+    html+=`<div class="filter-dim"><div class="filter-dim-header" onclick="toggleDim('${dim}')"><span class="filter-dim-chevron ${ic?'collapsed':''}">&#9654;</span>${dim}</div><div class="filter-dim-values ${ic?'collapsed':''}" style="max-height:300px">`;
+    const counts=values.map(v=>cm(dim,v));const mx=Math.max(...counts,1);
+    values.forEach((val,i)=>{
+      const act=af[dim].has(val),c=counts[i],pct=Math.round((c/mx)*100);
+      html+=`<div class="filter-value ${act?'active':''}" onclick="toggleFilter('${dim}','${val}')"><div class="filter-value-row"><span class="filter-check">${act?'&#10003;':''}</span><span class="filter-value-name">${val}</span><span class="filter-value-count">${c}</span></div><div class="filter-value-bar-track"><div class="filter-value-bar-fill ${c===0?'zero':''}" style="width:${pct}%"></div></div></div>`;
+    });
+    html+='</div></div>';
+  }
+  tree.innerHTML=html;
+  document.getElementById('reset-btn').classList.toggle('hidden',!Object.values(af).some(s=>s.size>0));
+}
+function toggleDim(d){col[d]=!col[d];buildTree()}
+function toggleFilter(d,v){af[d].has(v)?af[d].delete(v):af[d].add(v);render()}
+function resetFilters(){for(const d of Object.keys(WILDCARDS))af[d].clear();render()}
+function buildOutputList(){
+  const list=document.getElementById('output-list');let html='',vc=0;
+  for(const o of outputs){const v=vis(o);if(v)vc++;const l=Object.entries(o.dims).map(([k,v])=>`<span class="label-wc-name">${k}</span><span class="label-wc-eq">=</span><span class="label-wc-val">${v}</span>`).join('<span class="label-wc-sep">|</span>');html+=`<div class="output-item ${v?'':'hidden'}"><span class="output-item-label">${l}</span><div class="output-item-text">${o.text}</div></div>`}
+  list.innerHTML=html;const hf=Object.values(af).some(s=>s.size>0);
+  document.getElementById('count-badge').textContent=hf?`${vc} / 27`:'27';
+  const fb=document.getElementById('filter-badge');if(hf){const n=Object.values(af).reduce((s,set)=>s+set.size,0);fb.textContent=`${n} filter${n>1?'s':''}`;fb.style.display=''}else{fb.style.display='none'}
+}
+function render(){buildTree();buildOutputList()}
+render();
+</script>
+</body>
+</html>

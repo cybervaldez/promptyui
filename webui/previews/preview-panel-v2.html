@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Right Panel v2: Buckets + Operations</title>
+<style>
+:root {
+    --pu-bg-primary: #191919;
+    --pu-bg-secondary: #202020;
+    --pu-bg-tertiary: #2f2f2f;
+    --pu-bg-input: #252525;
+    --pu-bg-hover: rgba(255, 255, 255, 0.04);
+    --pu-bg-selected: rgba(255, 255, 255, 0.06);
+    --pu-text-primary: #ebebeb;
+    --pu-text-secondary: #999999;
+    --pu-text-muted: #7a7a7a;
+    --pu-accent: #529CCA;
+    --pu-accent-bg: rgba(82, 156, 202, 0.08);
+    --pu-accent-light: rgba(82, 156, 202, 0.12);
+    --pu-success: #4daa57;
+    --pu-success-bg: rgba(77, 170, 87, 0.12);
+    --pu-warning: #cb912f;
+    --pu-warning-bg: rgba(203, 145, 47, 0.1);
+    --pu-error: #e06c75;
+    --pu-error-bg: rgba(224, 108, 117, 0.1);
+    --pu-orange: #e8943a;
+    --pu-purple: #c678dd;
+    --pu-purple-bg: rgba(198, 120, 221, 0.1);
+    --pu-border: rgba(255, 255, 255, 0.06);
+    --pu-border-light: rgba(255, 255, 255, 0.09);
+    --pu-radius: 4px;
+    --pu-radius-sm: 3px;
+    --pu-font-body: 'Inter', -apple-system, sans-serif;
+    --pu-font-mono: 'JetBrains Mono', monospace;
+    --pu-space-xs: 4px;
+    --pu-space-sm: 8px;
+    --pu-space-md: 12px;
+    --pu-space-lg: 16px;
+    --pu-transition-fast: 120ms ease-out;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: var(--pu-font-body);
+    background: var(--pu-bg-primary);
+    color: var(--pu-text-primary);
+    display: flex;
+    justify-content: center;
+    padding: 40px 20px;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+.preview-label {
+    position: fixed; top: 12px; left: 12px;
+    background: var(--pu-accent); color: #fff;
+    padding: 4px 12px; border-radius: 4px;
+    font-size: 12px; font-weight: 600; z-index: 99;
+}
+.version-label {
+    position: fixed; top: 12px; left: 240px;
+    background: var(--pu-success); color: #fff;
+    padding: 4px 8px; border-radius: 4px;
+    font-size: 10px; font-weight: 600; z-index: 99;
+}
+
+/* === PANEL === */
+.panel {
+    width: 320px;
+    background: var(--pu-bg-secondary);
+    display: flex;
+    flex-direction: column;
+    height: 85vh;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--pu-border);
+    flex-shrink: 0;
+}
+.panel-label {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 6px 12px 2px;
+    background: var(--pu-bg-primary);
+}
+
+/* Top bar: scope + operation selector */
+.top-bar {
+    display: flex;
+    align-items: center;
+    padding: 6px var(--pu-space-md);
+    border-bottom: 1px solid var(--pu-border);
+    background: var(--pu-bg-primary);
+    gap: 6px;
+    flex-shrink: 0;
+}
+.scope-chip {
+    font-family: var(--pu-font-mono);
+    font-size: 10px;
+    color: var(--pu-warning);
+    background: var(--pu-warning-bg);
+    padding: 2px 7px;
+    border-radius: var(--pu-radius-sm);
+    white-space: nowrap;
+}
+.top-sep {
+    width: 1px;
+    height: 14px;
+    background: var(--pu-border-light);
+}
+.op-selector {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: var(--pu-purple);
+    background: var(--pu-purple-bg);
+    padding: 2px 7px;
+    border-radius: var(--pu-radius-sm);
+    cursor: pointer;
+    white-space: nowrap;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.op-selector .arrow { font-size: 8px; opacity: 0.6; }
+.op-selector.none {
+    color: var(--pu-text-muted);
+    background: var(--pu-bg-tertiary);
+}
+.top-spacer { flex: 1; }
+.top-stats {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    font-family: var(--pu-font-mono);
+    white-space: nowrap;
+}
+
+/* === WILDCARD STREAM (scrollable) === */
+.wc-stream {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--pu-space-xs) var(--pu-space-sm);
+}
+
+/* Thin divider between ext and local */
+.wc-divider {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 4px 4px;
+}
+.wc-divider-line { flex: 1; height: 1px; background: var(--pu-border); }
+.wc-divider-label {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+/* Each wildcard entry */
+.wc-entry {
+    padding: 5px 6px;
+    border-radius: var(--pu-radius);
+    margin-bottom: 1px;
+    transition: background var(--pu-transition-fast);
+}
+.wc-entry:hover { background: var(--pu-bg-hover); }
+
+.wc-entry-header {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 3px;
+}
+.wc-name {
+    font-family: var(--pu-font-mono);
+    font-size: 11px;
+    color: var(--pu-text-primary);
+    font-weight: 500;
+}
+/* Override asterisk on wildcard name */
+.wc-name .wc-override-mark {
+    color: var(--pu-success);
+    cursor: help;
+}
+.wc-path {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    margin-left: auto;
+    font-family: var(--pu-font-mono);
+    opacity: 0.7;
+}
+
+/* Value chips */
+.wc-values {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    align-items: center;
+}
+.wc-v {
+    font-size: 10px;
+    padding: 1px 6px;
+    background: var(--pu-bg-tertiary);
+    border-radius: 3px;
+    color: var(--pu-text-secondary);
+    cursor: pointer;
+    transition: all var(--pu-transition-fast);
+    white-space: nowrap;
+    border: 1px solid transparent;
+}
+.wc-v:hover {
+    background: var(--pu-accent-light);
+    color: var(--pu-text-primary);
+}
+.wc-v.active {
+    background: var(--pu-accent);
+    color: #fff;
+}
+
+/* Bucket window frame */
+.wc-window-frame {
+    border: 1.5px solid var(--pu-accent);
+    border-radius: 4px;
+    padding: 3px 4px;
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    align-items: center;
+    margin-bottom: 2px;
+}
+/* Out-of-window chips: dashed border, muted */
+.wc-v.out-window {
+    opacity: 0.4;
+    border: 1px dashed var(--pu-border-light);
+}
+.wc-v.out-window:hover {
+    opacity: 0.75;
+}
+
+/* Replaced value chip: purple with asterisk */
+.wc-v.replaced-val {
+    background: var(--pu-purple-bg);
+    color: var(--pu-purple);
+    font-weight: 500;
+    cursor: pointer;
+}
+.wc-v.replaced-val:hover {
+    background: rgba(198, 120, 221, 0.18);
+    color: #d9a0ef;
+}
+.wc-v.replaced-val.active {
+    background: var(--pu-purple);
+    color: #fff;
+}
+.wc-v.replaced-val .asterisk {
+    font-size: 8px;
+    vertical-align: super;
+    margin-left: 1px;
+    opacity: 0.7;
+}
+
+/* Unmatched operation warning */
+.wc-unmatched {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 9px;
+    color: var(--pu-error);
+    padding: 3px 6px;
+    margin-top: 2px;
+    background: var(--pu-error-bg);
+    border-radius: var(--pu-radius-sm);
+}
+.wc-unmatched-icon { font-size: 10px; }
+
+/* === OPERATIONS SECTION (bottom, fixed) === */
+.ops-section {
+    border-top: 1px solid var(--pu-border);
+    background: var(--pu-bg-primary);
+    flex-shrink: 0;
+}
+
+/* Composition navigator */
+.ops-nav {
+    display: flex;
+    align-items: center;
+    padding: 5px var(--pu-space-md);
+    gap: 4px;
+    border-bottom: 1px solid var(--pu-border);
+}
+.ops-nav-btn {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--pu-bg-tertiary);
+    border: none;
+    border-radius: var(--pu-radius-sm);
+    color: var(--pu-text-secondary);
+    cursor: pointer;
+    font-size: 13px;
+    transition: all var(--pu-transition-fast);
+}
+.ops-nav-btn:hover {
+    background: var(--pu-accent-light);
+    color: var(--pu-text-primary);
+}
+.ops-nav-label {
+    font-size: 11px;
+    font-family: var(--pu-font-mono);
+    color: var(--pu-text-primary);
+    padding: 0 4px;
+    min-width: 70px;
+    text-align: center;
+}
+.ops-nav-spacer { flex: 1; }
+.ops-nav-tags {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 140px;
+}
+
+/* Inline window hint in nav label */
+.ops-nav-window {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    font-weight: 400;
+    margin-left: 2px;
+}
+
+/* Resolved output preview */
+.ops-output {
+    padding: 6px var(--pu-space-md);
+    max-height: 80px;
+    overflow-y: auto;
+    font-size: 11px;
+    color: var(--pu-text-secondary);
+    line-height: 1.5;
+    border-bottom: 1px solid var(--pu-border);
+    background: var(--pu-bg-hover);
+}
+.ops-output em {
+    color: var(--pu-accent);
+    font-style: normal;
+    font-weight: 500;
+}
+.ops-output .replaced-text {
+    color: var(--pu-purple);
+    font-weight: 500;
+}
+
+/* Dims + export */
+.ops-footer {
+    padding: 6px var(--pu-space-md);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.ops-dims {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+.ops-dim {
+    font-size: 9px;
+    font-family: var(--pu-font-mono);
+    padding: 1px 2px;
+    color: var(--pu-text-muted);
+}
+.ops-dim .dim-bucket {
+    color: var(--pu-accent);
+    font-weight: 500;
+}
+.ops-dim .dim-sep {
+    color: var(--pu-text-muted);
+    opacity: 0.5;
+}
+.ops-x {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+}
+.ops-bottom-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.ops-total {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--pu-accent);
+}
+.ops-total-detail {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    font-weight: 400;
+}
+.ops-size {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+}
+.ops-export-btn {
+    margin-left: auto;
+    font-size: 10px;
+    padding: 3px 10px;
+    background: var(--pu-accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--pu-radius-sm);
+    cursor: pointer;
+    transition: all var(--pu-transition-fast);
+    font-family: var(--pu-font-body);
+}
+.ops-export-btn:hover {
+    background: #6ab0d6;
+}
+.ops-export-btn .variant-label {
+    font-size: 8px;
+    opacity: 0.8;
+    margin-left: 4px;
+}
+
+/* === RIGHT-CLICK REPLACEMENT POPOVER === */
+.replace-popover {
+    position: absolute;
+    background: var(--pu-bg-secondary);
+    border: 1px solid var(--pu-border-light);
+    border-radius: 6px;
+    padding: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    width: 200px;
+    z-index: 100;
+}
+.replace-popover-header {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 6px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--pu-border);
+}
+.replace-popover-original {
+    font-family: var(--pu-font-mono);
+    font-size: 11px;
+    color: var(--pu-text-primary);
+    background: var(--pu-bg-tertiary);
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+.replace-popover-arrow {
+    font-size: 10px;
+    color: var(--pu-purple);
+}
+.replace-popover-input {
+    width: 100%;
+    padding: 5px 8px;
+    background: var(--pu-bg-input);
+    border: 1px solid var(--pu-border-light);
+    border-radius: var(--pu-radius-sm);
+    color: var(--pu-text-primary);
+    font-family: var(--pu-font-mono);
+    font-size: 11px;
+    outline: none;
+    margin-bottom: 6px;
+}
+.replace-popover-input:focus {
+    border-color: var(--pu-purple);
+    box-shadow: 0 0 0 1px rgba(198, 120, 221, 0.2);
+}
+.replace-popover-input::placeholder {
+    color: var(--pu-text-muted);
+    font-style: italic;
+}
+.replace-popover-actions {
+    display: flex;
+    gap: 4px;
+    justify-content: flex-end;
+}
+.replace-popover-btn {
+    font-size: 10px;
+    padding: 3px 10px;
+    border: none;
+    border-radius: var(--pu-radius-sm);
+    cursor: pointer;
+    font-family: var(--pu-font-body);
+    transition: all var(--pu-transition-fast);
+}
+.replace-popover-btn.cancel {
+    background: var(--pu-bg-tertiary);
+    color: var(--pu-text-secondary);
+}
+.replace-popover-btn.cancel:hover {
+    background: var(--pu-bg-selected);
+}
+.replace-popover-btn.apply {
+    background: var(--pu-purple);
+    color: #fff;
+}
+.replace-popover-btn.apply:hover {
+    background: #d09ae8;
+}
+.replace-popover-hint {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    margin-bottom: 6px;
+}
+.replace-popover-remove {
+    font-size: 9px;
+    color: var(--pu-error);
+    cursor: pointer;
+    text-align: center;
+    padding-top: 6px;
+    border-top: 1px solid var(--pu-border);
+    margin-top: 4px;
+}
+.replace-popover-remove:hover {
+    color: #f08090;
+}
+
+/* Chip context-menu highlight */
+.wc-v.context-target {
+    outline: 1px solid var(--pu-purple);
+    outline-offset: 1px;
+}
+
+/* === CHANGELOG CALLOUT === */
+.changelog {
+    position: fixed;
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+    background: var(--pu-bg-secondary);
+    border: 1px solid var(--pu-border-light);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    max-width: 600px;
+    z-index: 99;
+}
+.changelog b { color: var(--pu-accent); font-weight: 600; }
+.changelog ul { margin: 4px 0 0 16px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="preview-label">Final: Buckets + Operations</div>
+<div class="version-label">v2.3 &mdash; shared/local labels</div>
+
+<!-- ============================================ -->
+<!-- PANEL 1: english-to-japan active + bucketing -->
+<!-- ============================================ -->
+<div class="panel">
+    <div class="panel-label">State 1: english-to-japan + bucket frame</div>
+    <div class="top-bar">
+        <span class="scope-chip">hiring/</span>
+        <span class="top-sep"></span>
+        <span class="op-selector">
+            english-to-japan <span class="arrow">&#9662;</span>
+        </span>
+        <span class="top-spacer"></span>
+        <span class="top-stats">6 wc</span>
+    </div>
+
+    <div class="wc-stream">
+        <!-- EXT WILDCARDS -->
+        <div class="wc-divider">
+            <span class="wc-divider-line"></span>
+            <span class="wc-divider-label">shared</span>
+            <span class="wc-divider-line"></span>
+        </div>
+
+        <!-- audience: 4 values from professional/tones, wcMax=3, window 1 -->
+        <!-- Operation maps: board→取締役会, investors→投資家 -->
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">audience</span>
+                <span class="wc-path">professional/tones</span>
+            </div>
+            <div class="wc-values">
+                <div class="wc-window-frame">
+                    <span class="wc-v replaced-val active" title="replaces &quot;board&quot;">取締役会<span class="asterisk">*</span></span>
+                    <span class="wc-v replaced-val" title="replaces &quot;investors&quot;">投資家<span class="asterisk">*</span></span>
+                    <span class="wc-v">team leads</span>
+                </div>
+                <span class="wc-v out-window">all-hands</span>
+            </div>
+        </div>
+
+        <!-- seniority: 5 values from hiring/roles, wcMax=3, window 2 -->
+        <!-- No operation mappings for seniority -->
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">seniority</span>
+                <span class="wc-path">hiring/roles</span>
+            </div>
+            <div class="wc-values">
+                <div class="wc-window-frame">
+                    <span class="wc-v active">Staff</span>
+                    <span class="wc-v">Principal</span>
+                </div>
+                <span class="wc-v out-window">Junior</span>
+                <span class="wc-v out-window">Mid-level</span>
+                <span class="wc-v out-window">Senior</span>
+            </div>
+        </div>
+
+        <!-- LOCAL WILDCARDS -->
+        <div class="wc-divider">
+            <span class="wc-divider-line"></span>
+            <span class="wc-divider-label">local</span>
+            <span class="wc-divider-line"></span>
+        </div>
+
+        <!-- tone: 5 values, wcMax=3, window 1 -->
+        <!-- Operation maps: formal→丁寧, casual→カジュアル, urgent→緊急 -->
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">tone</span>
+            </div>
+            <div class="wc-values">
+                <div class="wc-window-frame">
+                    <span class="wc-v replaced-val active" title="replaces &quot;formal&quot;">丁寧<span class="asterisk">*</span></span>
+                    <span class="wc-v replaced-val" title="replaces &quot;casual&quot;">カジュアル<span class="asterisk">*</span></span>
+                    <span class="wc-v replaced-val" title="replaces &quot;urgent&quot;">緊急<span class="asterisk">*</span></span>
+                </div>
+                <span class="wc-v out-window">professional</span>
+                <span class="wc-v out-window">empathetic</span>
+            </div>
+        </div>
+
+        <!-- channel: 4 values, wcMax=3, window 1 -->
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">channel</span>
+            </div>
+            <div class="wc-values">
+                <div class="wc-window-frame">
+                    <span class="wc-v active">inbound</span>
+                    <span class="wc-v">outbound</span>
+                    <span class="wc-v">referral</span>
+                </div>
+                <span class="wc-v out-window">campus</span>
+            </div>
+        </div>
+
+        <!-- format: 3 values, fits in window — no bucketing needed -->
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">format</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v active">memo</span>
+                <span class="wc-v">email</span>
+                <span class="wc-v">report</span>
+            </div>
+        </div>
+
+        <!-- count: 3 values, fits in window -->
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">count</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v">2</span>
+                <span class="wc-v active">3</span>
+                <span class="wc-v">5</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- OPERATIONS SECTION -->
+    <div class="ops-section">
+        <div class="ops-nav">
+            <button class="ops-nav-btn">&lsaquo;</button>
+            <span class="ops-nav-label">47 / 324 <span class="ops-nav-window">(window 4/8)</span></span>
+            <button class="ops-nav-btn">&rsaquo;</button>
+            <button class="ops-nav-btn" title="Shuffle">&#8635;</button>
+            <span class="ops-nav-spacer"></span>
+            <span class="ops-nav-tags">tone=<b>丁寧</b>, aud=取締役会</span>
+        </div>
+        <div class="ops-output">
+            Write a <span class="replaced-text">丁寧</span> recruiting <em>memo</em> targeting <span class="replaced-text">取締役会</span> for <em>Staff</em>-level positions via <em>inbound</em> channels, include <em>3</em> examples
+        </div>
+        <div class="ops-footer">
+            <div class="ops-dims">
+                <span class="ops-dim"><span class="dim-bucket">2</span><span class="dim-sep">/</span>4 aud</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim"><span class="dim-bucket">2</span><span class="dim-sep">/</span>5 sen</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim"><span class="dim-bucket">2</span><span class="dim-sep">/</span>5 tone</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim"><span class="dim-bucket">2</span><span class="dim-sep">/</span>4 ch</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim">1 fmt</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim">1 cnt</span>
+            </div>
+            <div class="ops-bottom-row">
+                <span class="ops-total">16 buckets <span class="ops-total-detail">&middot; 1,800 total</span></span>
+                <span class="ops-size">~415 KB</span>
+                <button class="ops-export-btn">Export<span class="variant-label">&middot; english-to-japan</span></button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- PANEL 2: No operation + bucketing            -->
+<!-- ============================================ -->
+<div class="panel">
+    <div class="panel-label">State 2: No variant + bucket frame</div>
+    <div class="top-bar">
+        <span class="scope-chip">hiring/</span>
+        <span class="top-sep"></span>
+        <span class="op-selector none">
+            None <span class="arrow">&#9662;</span>
+        </span>
+        <span class="top-spacer"></span>
+        <span class="top-stats">6 wc</span>
+    </div>
+
+    <div class="wc-stream">
+        <div class="wc-divider">
+            <span class="wc-divider-line"></span>
+            <span class="wc-divider-label">shared</span>
+            <span class="wc-divider-line"></span>
+        </div>
+
+        <!-- audience: raw English values, window 1 -->
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">audience</span>
+                <span class="wc-path">professional/tones</span>
+            </div>
+            <div class="wc-values">
+                <div class="wc-window-frame">
+                    <span class="wc-v active">board</span>
+                    <span class="wc-v">investors</span>
+                    <span class="wc-v">team leads</span>
+                </div>
+                <span class="wc-v out-window">all-hands</span>
+            </div>
+        </div>
+
+        <!-- seniority: window 1 -->
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">seniority</span>
+                <span class="wc-path">hiring/roles</span>
+            </div>
+            <div class="wc-values">
+                <div class="wc-window-frame">
+                    <span class="wc-v">Junior</span>
+                    <span class="wc-v active">Mid-level</span>
+                    <span class="wc-v">Senior</span>
+                </div>
+                <span class="wc-v out-window">Staff</span>
+                <span class="wc-v out-window">Principal</span>
+            </div>
+        </div>
+
+        <div class="wc-divider">
+            <span class="wc-divider-line"></span>
+            <span class="wc-divider-label">local</span>
+            <span class="wc-divider-line"></span>
+        </div>
+
+        <!-- tone: raw English values, window 1 -->
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">tone</span>
+            </div>
+            <div class="wc-values">
+                <div class="wc-window-frame">
+                    <span class="wc-v active">formal</span>
+                    <span class="wc-v">casual</span>
+                    <span class="wc-v">urgent</span>
+                </div>
+                <span class="wc-v out-window">professional</span>
+                <span class="wc-v out-window">empathetic</span>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">channel</span>
+            </div>
+            <div class="wc-values">
+                <div class="wc-window-frame">
+                    <span class="wc-v active">inbound</span>
+                    <span class="wc-v">outbound</span>
+                    <span class="wc-v">referral</span>
+                </div>
+                <span class="wc-v out-window">campus</span>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">format</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v active">memo</span>
+                <span class="wc-v">email</span>
+                <span class="wc-v">report</span>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">count</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v">2</span>
+                <span class="wc-v active">3</span>
+                <span class="wc-v">5</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="ops-section">
+        <div class="ops-nav">
+            <button class="ops-nav-btn">&lsaquo;</button>
+            <span class="ops-nav-label">12 / 486 <span class="ops-nav-window">(window 1/16)</span></span>
+            <button class="ops-nav-btn">&rsaquo;</button>
+            <button class="ops-nav-btn" title="Shuffle">&#8635;</button>
+            <span class="ops-nav-spacer"></span>
+            <span class="ops-nav-tags">tone=<b>formal</b>, aud=board</span>
+        </div>
+        <div class="ops-output">
+            Write a <em>formal</em> recruiting <em>memo</em> targeting <em>board</em> for <em>Mid-level</em> positions via <em>inbound</em> channels, include <em>3</em> examples
+        </div>
+        <div class="ops-footer">
+            <div class="ops-dims">
+                <span class="ops-dim"><span class="dim-bucket">2</span><span class="dim-sep">/</span>4 aud</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim"><span class="dim-bucket">2</span><span class="dim-sep">/</span>5 sen</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim"><span class="dim-bucket">2</span><span class="dim-sep">/</span>5 tone</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim"><span class="dim-bucket">2</span><span class="dim-sep">/</span>4 ch</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim">1 fmt</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim">1 cnt</span>
+            </div>
+            <div class="ops-bottom-row">
+                <span class="ops-total">16 buckets <span class="ops-total-detail">&middot; 1,800 total</span></span>
+                <span class="ops-size">~415 KB</span>
+                <button class="ops-export-btn">Export .txt</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- PANEL 3: Unmatched operation rules           -->
+<!-- Smaller prompt, no bucketing (all ≤ wcMax)   -->
+<!-- ============================================ -->
+<div class="panel">
+    <div class="panel-label">State 3: Unmatched operation rules</div>
+    <div class="top-bar">
+        <span class="scope-chip">hiring/</span>
+        <span class="top-sep"></span>
+        <span class="op-selector">
+            english-to-japan <span class="arrow">&#9662;</span>
+        </span>
+        <span class="top-spacer"></span>
+        <span class="top-stats">3 wc</span>
+    </div>
+
+    <div class="wc-stream">
+        <div class="wc-divider">
+            <span class="wc-divider-line"></span>
+            <span class="wc-divider-label">local</span>
+            <span class="wc-divider-line"></span>
+        </div>
+
+        <!-- tone: 3 values, all replaced — plus unmatched "diplomatic" rule -->
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">tone</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v replaced-val active" title="replaces &quot;formal&quot;">丁寧<span class="asterisk">*</span></span>
+                <span class="wc-v replaced-val" title="replaces &quot;casual&quot;">カジュアル<span class="asterisk">*</span></span>
+                <span class="wc-v replaced-val" title="replaces &quot;urgent&quot;">緊急<span class="asterisk">*</span></span>
+            </div>
+            <div class="wc-unmatched">
+                <span class="wc-unmatched-icon">&#9888;</span>
+                "diplomatic" &rarr; 外交的 (no match in prompt)
+            </div>
+        </div>
+
+        <!-- audience: 2 values, both replaced — plus unmatched "shareholders" rule -->
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">audience</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v replaced-val active" title="replaces &quot;board&quot;">取締役会<span class="asterisk">*</span></span>
+                <span class="wc-v replaced-val" title="replaces &quot;investors&quot;">投資家<span class="asterisk">*</span></span>
+            </div>
+            <div class="wc-unmatched">
+                <span class="wc-unmatched-icon">&#9888;</span>
+                "shareholders" &rarr; 株主 (no match in prompt)
+            </div>
+        </div>
+
+        <!-- format: no operation mappings -->
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">format</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v active">memo</span>
+                <span class="wc-v">email</span>
+                <span class="wc-v">report</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="ops-section">
+        <div class="ops-nav">
+            <button class="ops-nav-btn">&lsaquo;</button>
+            <span class="ops-nav-label">3 / 18</span>
+            <button class="ops-nav-btn">&rsaquo;</button>
+            <button class="ops-nav-btn" title="Shuffle">&#8635;</button>
+            <span class="ops-nav-spacer"></span>
+            <span class="ops-nav-tags">tone=<b>丁寧</b>, aud=取締役会</span>
+        </div>
+        <div class="ops-output">
+            Write a <span class="replaced-text">丁寧</span> recruiting <em>memo</em> targeting <span class="replaced-text">取締役会</span>
+        </div>
+        <div class="ops-footer">
+            <div class="ops-dims">
+                <span class="ops-dim">tone(3)</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim">audience(2)</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim">format(3)</span>
+            </div>
+            <div class="ops-bottom-row">
+                <span class="ops-total">18 compositions</span>
+                <span class="ops-size">~4.1 KB</span>
+                <button class="ops-export-btn">Export<span class="variant-label">&middot; english-to-japan</span></button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- PANEL 4: Right-click unreplaced chip         -->
+<!-- User right-clicks "team leads" to add        -->
+<!-- a Japanese translation to the operation      -->
+<!-- ============================================ -->
+<div class="panel" style="position: relative;">
+    <div class="panel-label">State 4: Adding replacement (right-click)</div>
+    <div class="top-bar">
+        <span class="scope-chip">hiring/</span>
+        <span class="top-sep"></span>
+        <span class="op-selector">
+            english-to-japan <span class="arrow">&#9662;</span>
+        </span>
+        <span class="top-spacer"></span>
+        <span class="top-stats">6 wc</span>
+    </div>
+
+    <div class="wc-stream">
+        <div class="wc-divider">
+            <span class="wc-divider-line"></span>
+            <span class="wc-divider-label">shared</span>
+            <span class="wc-divider-line"></span>
+        </div>
+
+        <!-- User right-clicks "team leads" to add a Japanese replacement -->
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">audience</span>
+                <span class="wc-path">professional/tones</span>
+            </div>
+            <div class="wc-values">
+                <div class="wc-window-frame">
+                    <span class="wc-v replaced-val active" title="replaces &quot;board&quot;">取締役会<span class="asterisk">*</span></span>
+                    <span class="wc-v replaced-val" title="replaces &quot;investors&quot;">投資家<span class="asterisk">*</span></span>
+                    <span class="wc-v context-target">team leads</span>
+                </div>
+                <span class="wc-v out-window">all-hands</span>
+            </div>
+        </div>
+
+        <!-- Popover for adding replacement -->
+        <div class="replace-popover" style="position: absolute; top: 118px; left: 120px;">
+            <div class="replace-popover-header">
+                <span class="replace-popover-original">team leads</span>
+                <span class="replace-popover-arrow">&rarr;</span>
+            </div>
+            <div class="replace-popover-hint">Replace with (in active operation):</div>
+            <input class="replace-popover-input" type="text" placeholder="e.g. チームリーダー" value="チームリーダー" autofocus>
+            <div class="replace-popover-actions">
+                <button class="replace-popover-btn cancel">Cancel</button>
+                <button class="replace-popover-btn apply">Apply</button>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">seniority</span>
+                <span class="wc-path">hiring/roles</span>
+            </div>
+            <div class="wc-values">
+                <div class="wc-window-frame">
+                    <span class="wc-v">Junior</span>
+                    <span class="wc-v active">Mid-level</span>
+                    <span class="wc-v">Senior</span>
+                </div>
+                <span class="wc-v out-window">Staff</span>
+                <span class="wc-v out-window">Principal</span>
+            </div>
+        </div>
+
+        <div class="wc-divider">
+            <span class="wc-divider-line"></span>
+            <span class="wc-divider-label">local</span>
+            <span class="wc-divider-line"></span>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">tone</span>
+            </div>
+            <div class="wc-values">
+                <div class="wc-window-frame">
+                    <span class="wc-v replaced-val active" title="replaces &quot;formal&quot;">丁寧<span class="asterisk">*</span></span>
+                    <span class="wc-v replaced-val" title="replaces &quot;casual&quot;">カジュアル<span class="asterisk">*</span></span>
+                    <span class="wc-v replaced-val" title="replaces &quot;urgent&quot;">緊急<span class="asterisk">*</span></span>
+                </div>
+                <span class="wc-v out-window">professional</span>
+                <span class="wc-v out-window">empathetic</span>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">channel</span>
+            </div>
+            <div class="wc-values">
+                <div class="wc-window-frame">
+                    <span class="wc-v active">inbound</span>
+                    <span class="wc-v">outbound</span>
+                    <span class="wc-v">referral</span>
+                </div>
+                <span class="wc-v out-window">campus</span>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">format</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v active">memo</span>
+                <span class="wc-v">email</span>
+                <span class="wc-v">report</span>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">count</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v">2</span>
+                <span class="wc-v active">3</span>
+                <span class="wc-v">5</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="ops-section">
+        <div class="ops-nav">
+            <button class="ops-nav-btn">&lsaquo;</button>
+            <span class="ops-nav-label">12 / 486 <span class="ops-nav-window">(window 1/16)</span></span>
+            <button class="ops-nav-btn">&rsaquo;</button>
+            <button class="ops-nav-btn" title="Shuffle">&#8635;</button>
+            <span class="ops-nav-spacer"></span>
+            <span class="ops-nav-tags">tone=<b>丁寧</b>, aud=取締役会</span>
+        </div>
+        <div class="ops-output">
+            Write a <span class="replaced-text">丁寧</span> recruiting <em>memo</em> targeting <span class="replaced-text">取締役会</span> for <em>Mid-level</em> positions via <em>inbound</em> channels, include <em>3</em> examples
+        </div>
+        <div class="ops-footer">
+            <div class="ops-dims">
+                <span class="ops-dim"><span class="dim-bucket">2</span><span class="dim-sep">/</span>4 aud</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim"><span class="dim-bucket">2</span><span class="dim-sep">/</span>5 sen</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim"><span class="dim-bucket">2</span><span class="dim-sep">/</span>5 tone</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim"><span class="dim-bucket">2</span><span class="dim-sep">/</span>4 ch</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim">1 fmt</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim">1 cnt</span>
+            </div>
+            <div class="ops-bottom-row">
+                <span class="ops-total">16 buckets <span class="ops-total-detail">&middot; 1,800 total</span></span>
+                <span class="ops-size">~415 KB</span>
+                <button class="ops-export-btn">Export<span class="variant-label">&middot; english-to-japan</span></button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- PANEL 5: Editing existing replacement        -->
+<!-- Right-click on 丁寧* chip opens edit popover -->
+<!-- ============================================ -->
+<div class="panel" style="position: relative;">
+    <div class="panel-label">State 5: Editing replacement (right-click *)</div>
+    <div class="top-bar">
+        <span class="scope-chip">hiring/</span>
+        <span class="top-sep"></span>
+        <span class="op-selector">
+            english-to-japan <span class="arrow">&#9662;</span>
+        </span>
+        <span class="top-spacer"></span>
+        <span class="top-stats">6 wc</span>
+    </div>
+
+    <div class="wc-stream">
+        <div class="wc-divider">
+            <span class="wc-divider-line"></span>
+            <span class="wc-divider-label">shared</span>
+            <span class="wc-divider-line"></span>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">audience</span>
+                <span class="wc-path">professional/tones</span>
+            </div>
+            <div class="wc-values">
+                <div class="wc-window-frame">
+                    <span class="wc-v replaced-val active" title="replaces &quot;board&quot;">取締役会<span class="asterisk">*</span></span>
+                    <span class="wc-v replaced-val" title="replaces &quot;investors&quot;">投資家<span class="asterisk">*</span></span>
+                    <span class="wc-v">team leads</span>
+                </div>
+                <span class="wc-v out-window">all-hands</span>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">seniority</span>
+                <span class="wc-path">hiring/roles</span>
+            </div>
+            <div class="wc-values">
+                <div class="wc-window-frame">
+                    <span class="wc-v active">Staff</span>
+                    <span class="wc-v">Principal</span>
+                </div>
+                <span class="wc-v out-window">Junior</span>
+                <span class="wc-v out-window">Mid-level</span>
+                <span class="wc-v out-window">Senior</span>
+            </div>
+        </div>
+
+        <div class="wc-divider">
+            <span class="wc-divider-line"></span>
+            <span class="wc-divider-label">local</span>
+            <span class="wc-divider-line"></span>
+        </div>
+
+        <!-- tone: user right-clicks 丁寧* to edit the replacement -->
+        <div class="wc-entry" style="position: relative;">
+            <div class="wc-entry-header">
+                <span class="wc-name">tone</span>
+            </div>
+            <div class="wc-values">
+                <div class="wc-window-frame">
+                    <span class="wc-v replaced-val active context-target" title="replaces &quot;formal&quot;">丁寧<span class="asterisk">*</span></span>
+                    <span class="wc-v replaced-val" title="replaces &quot;casual&quot;">カジュアル<span class="asterisk">*</span></span>
+                    <span class="wc-v replaced-val" title="replaces &quot;urgent&quot;">緊急<span class="asterisk">*</span></span>
+                </div>
+                <span class="wc-v out-window">professional</span>
+                <span class="wc-v out-window">empathetic</span>
+            </div>
+
+            <!-- Edit popover: shows original → current, with edit + remove -->
+            <div class="replace-popover" style="position: absolute; top: 44px; left: 20px;">
+                <div class="replace-popover-header">
+                    <span class="replace-popover-original">formal</span>
+                    <span class="replace-popover-arrow">&rarr;</span>
+                </div>
+                <div class="replace-popover-hint">Edit replacement value:</div>
+                <input class="replace-popover-input" type="text" value="丁寧">
+                <div class="replace-popover-actions">
+                    <button class="replace-popover-btn cancel">Cancel</button>
+                    <button class="replace-popover-btn apply">Update</button>
+                </div>
+                <div class="replace-popover-remove">Remove this replacement</div>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">channel</span>
+            </div>
+            <div class="wc-values">
+                <div class="wc-window-frame">
+                    <span class="wc-v active">inbound</span>
+                    <span class="wc-v">outbound</span>
+                    <span class="wc-v">referral</span>
+                </div>
+                <span class="wc-v out-window">campus</span>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">format</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v active">memo</span>
+                <span class="wc-v">email</span>
+                <span class="wc-v">report</span>
+            </div>
+        </div>
+
+        <div class="wc-entry">
+            <div class="wc-entry-header">
+                <span class="wc-name">count</span>
+            </div>
+            <div class="wc-values">
+                <span class="wc-v">2</span>
+                <span class="wc-v active">3</span>
+                <span class="wc-v">5</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="ops-section">
+        <div class="ops-nav">
+            <button class="ops-nav-btn">&lsaquo;</button>
+            <span class="ops-nav-label">47 / 324 <span class="ops-nav-window">(window 4/8)</span></span>
+            <button class="ops-nav-btn">&rsaquo;</button>
+            <button class="ops-nav-btn" title="Shuffle">&#8635;</button>
+            <span class="ops-nav-spacer"></span>
+            <span class="ops-nav-tags">tone=<b>丁寧</b>, aud=取締役会</span>
+        </div>
+        <div class="ops-output">
+            Write a <span class="replaced-text">丁寧</span> recruiting <em>memo</em> targeting <span class="replaced-text">取締役会</span> for <em>Staff</em>-level positions via <em>inbound</em> channels, include <em>3</em> examples
+        </div>
+        <div class="ops-footer">
+            <div class="ops-dims">
+                <span class="ops-dim"><span class="dim-bucket">2</span><span class="dim-sep">/</span>4 aud</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim"><span class="dim-bucket">2</span><span class="dim-sep">/</span>5 sen</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim"><span class="dim-bucket">2</span><span class="dim-sep">/</span>5 tone</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim"><span class="dim-bucket">2</span><span class="dim-sep">/</span>4 ch</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim">1 fmt</span>
+                <span class="ops-x">&times;</span>
+                <span class="ops-dim">1 cnt</span>
+            </div>
+            <div class="ops-bottom-row">
+                <span class="ops-total">16 buckets <span class="ops-total-detail">&middot; 1,800 total</span></span>
+                <span class="ops-size">~415 KB</span>
+                <button class="ops-export-btn">Export<span class="variant-label">&middot; english-to-japan</span></button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CHANGELOG -->
+<div class="changelog">
+    <b>v2.3 changes:</b>
+    <ul>
+        <li><b>Terminology update</b> &mdash; "from extensions" &rarr; <code>shared</code>, "prompt-defined" &rarr; <code>local</code>, "No operation" &rarr; <code>None</code>. Plain language, zero jargon.</li>
+        <li><b>english-to-japan example</b> &mdash; All panels use the canonical localization operation. Japanese replacement chips (丁寧, 取締役会, 投資家) make the variant effect immediately visible.</li>
+        <li><b>Multi-wildcard operation</b> &mdash; Maps across both <code>tone</code> and <code>audience</code>, demonstrating cross-dimension transforms.</li>
+        <li><b>Unmatched rules</b> &mdash; Panel 3: "diplomatic &rarr; 外交的 (no match)" and "shareholders &rarr; 株主 (no match)" warnings.</li>
+        <li><b>Popover interactions</b> &mdash; Panel 4: right-click unreplaced chip to add mapping. Panel 5: right-click asterisk chip to edit/remove mapping.</li>
+    </ul>
+</div>
+
+</body>
+</html>

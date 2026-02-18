@@ -195,3 +195,51 @@ def handle_extension_get(handler, ext_path, params):
         handler.send_json({
             "error": str(e)
         }, 500)
+
+
+def handle_extension_save(handler, params):
+    """
+    POST /api/pu/extension/save
+
+    Save extension data to a YAML file in ext/ folder.
+
+    Body: { "path": "folder/name", "data": { "text": [...], "wildcards": [...] } }
+    """
+    ext_path = params.get('path', '')
+    ext_data = params.get('data', {})
+
+    if not ext_path:
+        handler.send_json({"error": "path required"}, 400)
+        return
+
+    if not ext_data:
+        handler.send_json({"error": "data required"}, 400)
+        return
+
+    # Sanitize path - only allow alphanumeric, hyphens, underscores, slashes
+    if not re.match(r'^[a-zA-Z0-9_\-/]+$', ext_path):
+        handler.send_json({"error": "Invalid path characters"}, 400)
+        return
+
+    project_root = get_project_root()
+
+    if not ext_path.endswith('.yaml'):
+        ext_path = ext_path + '.yaml'
+
+    ext_file = project_root / "ext" / ext_path
+
+    # Ensure parent directory exists
+    ext_file.parent.mkdir(parents=True, exist_ok=True)
+
+    # Check for overwrite
+    if ext_file.exists():
+        handler.send_json({"error": f"Extension already exists: {ext_path}"}, 409)
+        return
+
+    try:
+        with open(ext_file, 'w') as f:
+            yaml.dump(ext_data, f, default_flow_style=False, allow_unicode=True)
+
+        handler.send_json({"success": True, "path": ext_path})
+    except Exception as e:
+        handler.send_json({"error": str(e)}, 500)

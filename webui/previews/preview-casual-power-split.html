@@ -1,0 +1,1359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Casual Sidebar + Power User Extension Modal</title>
+<style>
+:root {
+    --pu-bg-primary: #191919;
+    --pu-bg-secondary: #202020;
+    --pu-bg-tertiary: #2f2f2f;
+    --pu-bg-input: #252525;
+    --pu-bg-hover: rgba(255, 255, 255, 0.04);
+    --pu-bg-selected: rgba(255, 255, 255, 0.06);
+    --pu-bg-elevated: #282828;
+    --pu-text-primary: #ebebeb;
+    --pu-text-secondary: #999999;
+    --pu-text-muted: #7a7a7a;
+    --pu-accent: #529CCA;
+    --pu-accent-bg: rgba(82, 156, 202, 0.08);
+    --pu-accent-light: rgba(82, 156, 202, 0.12);
+    --pu-success: #4daa57;
+    --pu-success-bg: rgba(77, 170, 87, 0.12);
+    --pu-warning: #cb912f;
+    --pu-warning-bg: rgba(203, 145, 47, 0.1);
+    --pu-error: #e06c75;
+    --pu-error-bg: rgba(224, 108, 117, 0.1);
+    --pu-orange: #e8943a;
+    --pu-purple: #c678dd;
+    --pu-purple-bg: rgba(198, 120, 221, 0.1);
+    --pu-border: rgba(255, 255, 255, 0.06);
+    --pu-border-light: rgba(255, 255, 255, 0.09);
+    --pu-radius: 4px;
+    --pu-radius-sm: 3px;
+    --pu-radius-lg: 8px;
+    --pu-font-body: 'Inter', -apple-system, sans-serif;
+    --pu-font-mono: 'JetBrains Mono', monospace;
+    --pu-space-xs: 4px;
+    --pu-space-sm: 8px;
+    --pu-space-md: 12px;
+    --pu-space-lg: 16px;
+    --pu-transition-fast: 120ms ease-out;
+    --pu-shadow-lg: 0 8px 32px rgba(0,0,0,0.4);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: var(--pu-font-body);
+    background: #141414;
+    color: var(--pu-text-primary);
+    min-height: 100vh;
+}
+
+/* === LAYOUT === */
+.preview-layout {
+    display: flex;
+    height: 100vh;
+}
+.mock-editor {
+    flex: 1;
+    background: var(--pu-bg-primary);
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--pu-border);
+}
+.mock-editor-header {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--pu-border);
+    font-size: 12px;
+    color: var(--pu-text-muted);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.mock-editor-body {
+    flex: 1;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--pu-text-muted);
+    font-size: 13px;
+    font-style: italic;
+}
+
+/* === SIDEBAR (Casual) === */
+.sidebar {
+    width: 300px;
+    background: var(--pu-bg-secondary);
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid var(--pu-border);
+    flex-shrink: 0;
+}
+
+/* Top bar */
+.top-bar {
+    padding: 6px 12px;
+    background: var(--pu-bg-primary);
+    border-bottom: 1px solid var(--pu-border);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+.scope-chip {
+    font-family: var(--pu-font-mono);
+    font-size: 10px;
+    color: var(--pu-warning);
+    background: var(--pu-warning-bg);
+    padding: 2px 7px;
+    border-radius: var(--pu-radius-sm);
+    cursor: pointer;
+    transition: all var(--pu-transition-fast);
+    position: relative;
+}
+.scope-chip:hover {
+    background: rgba(203, 145, 47, 0.2);
+    outline: 1px solid rgba(203, 145, 47, 0.3);
+}
+.scope-chip .click-hint {
+    display: none;
+    position: absolute;
+    bottom: -22px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 8px;
+    color: var(--pu-text-muted);
+    white-space: nowrap;
+    background: var(--pu-bg-tertiary);
+    padding: 2px 6px;
+    border-radius: 3px;
+    border: 1px solid var(--pu-border);
+}
+.scope-chip:hover .click-hint { display: block; }
+.top-spacer { flex: 1; }
+.top-stats {
+    font-family: var(--pu-font-mono);
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    white-space: nowrap;
+}
+
+/* Wildcard stream */
+.wc-stream {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--pu-space-xs) var(--pu-space-sm);
+}
+
+/* Dividers */
+.wc-divider {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 4px 4px;
+    cursor: pointer;
+    user-select: none;
+}
+.wc-divider:hover { opacity: 0.9; }
+.wc-divider-chevron {
+    font-size: 8px;
+    color: var(--pu-text-muted);
+    transition: transform var(--pu-transition-fast);
+    width: 8px;
+    text-align: center;
+}
+.wc-divider-chevron.collapsed { transform: rotate(-90deg); }
+.wc-divider-line {
+    flex: 1;
+    height: 1px;
+    background: var(--pu-border-light);
+}
+.wc-divider-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--pu-text-muted);
+    white-space: nowrap;
+}
+.wc-divider-count {
+    font-family: var(--pu-font-mono);
+    font-size: 8px;
+    color: var(--pu-text-muted);
+    opacity: 0.7;
+}
+
+/* Section collapse */
+.wc-section { transition: opacity 200ms ease-out; }
+.wc-section.collapsed {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+}
+
+/* Wildcard entries */
+.wc-entry {
+    padding: 5px 6px;
+    border-radius: var(--pu-radius);
+    margin-bottom: 1px;
+}
+.wc-entry:hover { background: var(--pu-bg-hover); }
+.wc-entry-header {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 3px;
+}
+.wc-name {
+    font-family: var(--pu-font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--pu-text-primary);
+}
+.wc-src {
+    font-size: 7px;
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    padding: 1px 4px;
+    border-radius: 2px;
+}
+.wc-src.ext { color: var(--pu-warning); background: var(--pu-warning-bg); }
+.wc-src.local { color: var(--pu-accent); background: var(--pu-accent-bg); }
+.wc-src.override { color: var(--pu-success); background: var(--pu-success-bg); }
+.wc-block-badge {
+    font-family: var(--pu-font-mono);
+    font-size: 7px;
+    padding: 0 4px;
+    border: 1px solid var(--pu-border);
+    border-radius: 2px;
+    background: rgba(255,255,255,0.04);
+    color: var(--pu-text-muted);
+}
+.wc-block-badge.nested {
+    color: var(--pu-purple);
+    background: var(--pu-purple-bg);
+    border-color: rgba(198,120,221,0.2);
+}
+.wc-path {
+    font-size: 8px;
+    color: var(--pu-text-muted);
+    margin-left: auto;
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.wc-values {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+}
+.wc-v {
+    font-size: 10px;
+    padding: 1px 6px;
+    background: var(--pu-bg-tertiary);
+    border-radius: var(--pu-radius-sm);
+    color: var(--pu-text-secondary);
+    cursor: pointer;
+    transition: all var(--pu-transition-fast);
+}
+.wc-v:hover {
+    background: var(--pu-accent-light);
+    color: var(--pu-text-primary);
+}
+.wc-v.active {
+    background: var(--pu-accent);
+    color: #fff;
+}
+.wc-v.pinned {
+    background: var(--pu-accent);
+    color: #fff;
+    outline: 2px solid var(--pu-accent);
+    outline-offset: 1px;
+    position: relative;
+}
+.wc-v.pinned::after {
+    content: '';
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    width: 6px;
+    height: 6px;
+    background: var(--pu-orange);
+    border-radius: 50%;
+}
+
+/* Ops section */
+.ops-section {
+    border-top: 1px solid var(--pu-border);
+    background: var(--pu-bg-primary);
+    flex-shrink: 0;
+}
+.ops-nav {
+    display: flex;
+    align-items: center;
+    padding: 6px 12px;
+    gap: 6px;
+}
+.ops-nav-btn {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--pu-bg-tertiary);
+    border: none;
+    border-radius: var(--pu-radius-sm);
+    color: var(--pu-text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+}
+.ops-nav-btn:hover {
+    background: var(--pu-accent-light);
+    color: var(--pu-text-primary);
+}
+.ops-nav-label {
+    flex: 1;
+    text-align: center;
+    font-family: var(--pu-font-mono);
+    white-space: nowrap;
+}
+.var-prefix, .var-of {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    font-family: var(--pu-font-body);
+    font-weight: 400;
+}
+.var-num {
+    font-size: 11px;
+    color: var(--pu-accent);
+    font-weight: 600;
+}
+.var-total {
+    font-size: 11px;
+    color: var(--pu-text-secondary);
+    font-weight: 500;
+}
+.ops-nav-tags {
+    display: flex;
+    gap: 4px;
+    padding: 2px 12px 4px;
+}
+.ops-nav-tag {
+    font-size: 9px;
+    font-family: var(--pu-font-mono);
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: var(--pu-bg-tertiary);
+    color: var(--pu-text-muted);
+}
+
+/* Output toggle */
+.ops-output-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 12px;
+    border-bottom: 1px solid var(--pu-border);
+    cursor: pointer;
+    background: var(--pu-bg-primary);
+}
+.ops-output-toggle:hover { background: var(--pu-bg-hover); }
+.ops-output-toggle-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    color: var(--pu-text-muted);
+    font-weight: 500;
+}
+.ops-output-chevron {
+    font-size: 8px;
+    color: var(--pu-text-muted);
+    transition: transform 200ms ease-out;
+}
+.ops-output-chevron.open { transform: rotate(180deg); }
+.ops-output-preview {
+    font-family: var(--pu-font-mono);
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: right;
+}
+.ops-output-body {
+    font-family: var(--pu-font-mono);
+    font-size: 11px;
+    color: var(--pu-text-secondary);
+    line-height: 1.5;
+    padding: 6px 12px;
+    background: var(--pu-bg-hover);
+    border-bottom: 1px solid var(--pu-border);
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 200ms ease-out;
+}
+.ops-output-body.expanded {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+/* Footer */
+.ops-footer {
+    padding: 6px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.ops-dims {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+.ops-dim {
+    font-family: var(--pu-font-mono);
+    font-size: 9px;
+    padding: 1px 2px;
+    color: var(--pu-text-muted);
+}
+.ops-dim::after {
+    content: ' ×';
+    color: var(--pu-text-muted);
+    opacity: 0.5;
+}
+.ops-dim:last-child::after { content: ''; }
+.ops-bottom-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+.ops-total {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--pu-accent);
+}
+.ops-size {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+}
+.ops-spacer { flex: 1; }
+.ops-export-btn {
+    background: var(--pu-accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--pu-radius-sm);
+    font-size: 10px;
+    padding: 3px 10px;
+    cursor: pointer;
+}
+.ops-export-btn:hover { background: #6ab0d6; }
+
+/* === MODAL (Power User) === */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(2px);
+}
+.modal-overlay.visible {
+    display: flex;
+}
+.modal {
+    width: 680px;
+    max-height: 80vh;
+    background: var(--pu-bg-elevated);
+    border: 1px solid var(--pu-border-light);
+    border-radius: var(--pu-radius-lg);
+    box-shadow: var(--pu-shadow-lg);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: modalIn 200ms ease-out;
+}
+@keyframes modalIn {
+    from { opacity: 0; transform: scale(0.96) translateY(8px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Modal header */
+.modal-header {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--pu-border);
+    gap: 10px;
+}
+.modal-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--pu-text-primary);
+}
+.modal-scope {
+    font-family: var(--pu-font-mono);
+    font-size: 10px;
+    color: var(--pu-warning);
+    background: var(--pu-warning-bg);
+    padding: 2px 7px;
+    border-radius: var(--pu-radius-sm);
+}
+.modal-spacer { flex: 1; }
+.modal-close {
+    background: none;
+    border: none;
+    color: var(--pu-text-muted);
+    font-size: 18px;
+    cursor: pointer;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--pu-radius);
+}
+.modal-close:hover {
+    background: var(--pu-bg-hover);
+    color: var(--pu-text-primary);
+}
+
+/* Modal search */
+.modal-search {
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--pu-border);
+}
+.modal-search input {
+    width: 100%;
+    padding: 6px 10px;
+    background: var(--pu-bg-input);
+    border: 1px solid transparent;
+    border-radius: var(--pu-radius);
+    color: var(--pu-text-primary);
+    font-family: var(--pu-font-mono);
+    font-size: 12px;
+    outline: none;
+}
+.modal-search input:focus {
+    border-color: var(--pu-accent);
+}
+.modal-search input::placeholder {
+    color: var(--pu-text-muted);
+}
+
+/* Modal tabs */
+.modal-tabs {
+    display: flex;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--pu-border);
+    gap: 0;
+}
+.modal-tab {
+    padding: 8px 14px;
+    font-size: 11px;
+    color: var(--pu-text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all var(--pu-transition-fast);
+}
+.modal-tab:hover { color: var(--pu-text-secondary); }
+.modal-tab.active {
+    color: var(--pu-accent);
+    border-bottom-color: var(--pu-accent);
+}
+.modal-tab-count {
+    font-family: var(--pu-font-mono);
+    font-size: 9px;
+    margin-left: 4px;
+    opacity: 0.6;
+}
+
+/* Modal body */
+.modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+}
+
+/* Extension tree */
+.ext-tree-folder {
+    user-select: none;
+}
+.ext-tree-folder-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+    border-radius: var(--pu-radius);
+}
+.ext-tree-folder-header:hover {
+    background: var(--pu-bg-hover);
+}
+.ext-tree-chevron {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    width: 12px;
+    text-align: center;
+    transition: transform var(--pu-transition-fast);
+}
+.ext-tree-chevron.open { transform: rotate(90deg); }
+.ext-tree-icon {
+    font-size: 12px;
+    width: 16px;
+    text-align: center;
+}
+.ext-tree-name {
+    font-size: 12px;
+    color: var(--pu-text-primary);
+}
+.ext-tree-meta {
+    margin-left: auto;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+.ext-tree-badge {
+    font-family: var(--pu-font-mono);
+    font-size: 8px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: var(--pu-bg-tertiary);
+}
+.ext-tree-badge.wc { color: var(--pu-accent); }
+.ext-tree-badge.txt { color: var(--pu-warning); }
+.ext-tree-children {
+    padding-left: 20px;
+}
+.ext-tree-children.hidden { display: none; }
+
+/* File items */
+.ext-tree-file {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+    border-radius: var(--pu-radius);
+}
+.ext-tree-file:hover {
+    background: var(--pu-bg-selected);
+}
+.ext-tree-file.selected {
+    background: var(--pu-accent-light);
+    outline: 1px solid rgba(82,156,202,0.3);
+}
+
+/* File detail (right side of modal when file selected) */
+.modal-detail {
+    display: none;
+    border-top: 1px solid var(--pu-border);
+    padding: 12px 16px;
+    max-height: 200px;
+    overflow-y: auto;
+    background: var(--pu-bg-primary);
+}
+.modal-detail.visible { display: block; }
+.modal-detail-title {
+    font-family: var(--pu-font-mono);
+    font-size: 11px;
+    color: var(--pu-accent);
+    margin-bottom: 8px;
+}
+.modal-detail-wc {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--pu-border);
+}
+.modal-detail-wc:last-child { border-bottom: none; }
+.modal-detail-wc-name {
+    font-family: var(--pu-font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--pu-text-primary);
+    min-width: 80px;
+}
+.modal-detail-wc-values {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    flex: 1;
+}
+.modal-detail-wc-val {
+    font-size: 10px;
+    padding: 1px 6px;
+    background: var(--pu-bg-tertiary);
+    border-radius: var(--pu-radius-sm);
+    color: var(--pu-text-secondary);
+}
+.modal-detail-wc-count {
+    font-family: var(--pu-font-mono);
+    font-size: 9px;
+    color: var(--pu-text-muted);
+}
+.modal-detail-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+.modal-detail-btn {
+    font-size: 10px;
+    padding: 4px 12px;
+    border-radius: var(--pu-radius-sm);
+    border: none;
+    cursor: pointer;
+    transition: all var(--pu-transition-fast);
+}
+.modal-detail-btn.primary {
+    background: var(--pu-accent);
+    color: #fff;
+}
+.modal-detail-btn.primary:hover { background: #6ab0d6; }
+.modal-detail-btn.secondary {
+    background: var(--pu-bg-tertiary);
+    color: var(--pu-text-secondary);
+    border: 1px solid var(--pu-border);
+}
+.modal-detail-btn.secondary:hover {
+    background: var(--pu-bg-hover);
+    color: var(--pu-text-primary);
+}
+
+/* Wildcard inventory tab */
+.wc-inventory-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: var(--pu-radius);
+}
+.wc-inventory-item:hover { background: var(--pu-bg-hover); }
+.wc-inventory-name {
+    font-family: var(--pu-font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--pu-text-primary);
+    min-width: 100px;
+}
+.wc-inventory-source {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.wc-inventory-count {
+    font-family: var(--pu-font-mono);
+    font-size: 9px;
+    padding: 1px 5px;
+    background: var(--pu-bg-tertiary);
+    border-radius: 3px;
+    color: var(--pu-text-muted);
+}
+.wc-inventory-copy {
+    background: none;
+    border: none;
+    color: var(--pu-text-muted);
+    cursor: pointer;
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+.wc-inventory-copy:hover {
+    background: var(--pu-accent-light);
+    color: var(--pu-accent);
+}
+
+/* Tooltip label */
+.label {
+    position: fixed;
+    padding: 6px 14px;
+    background: var(--pu-bg-tertiary);
+    border: 1px solid var(--pu-border-light);
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    z-index: 99;
+}
+.label-sidebar {
+    top: 12px;
+    left: 12px;
+    color: var(--pu-accent);
+}
+.label-modal {
+    top: 12px;
+    left: 180px;
+    color: var(--pu-warning);
+}
+.label-hint {
+    position: fixed;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--pu-bg-tertiary);
+    border: 1px solid var(--pu-border-light);
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 11px;
+    color: var(--pu-text-secondary);
+    z-index: 99;
+    display: flex;
+    gap: 20px;
+}
+.label-hint kbd {
+    background: var(--pu-bg-primary);
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: var(--pu-font-mono);
+    font-size: 10px;
+    border: 1px solid var(--pu-border);
+}
+
+/* Connection arrow */
+.connection-arrow {
+    position: fixed;
+    z-index: 100;
+    pointer-events: none;
+}
+</style>
+</head>
+<body>
+
+<div class="label label-sidebar">Casual View (sidebar)</div>
+<div class="label label-modal">Power User View (modal)</div>
+<div class="label-hint">
+    <span>Click <kbd>hiring</kbd> scope chip to open modal</span>
+    <span>Click a file in the tree to see details</span>
+    <span>Try the tabs: Tree / Wildcards</span>
+</div>
+
+<!-- ===== MAIN LAYOUT ===== -->
+<div class="preview-layout">
+
+    <!-- Mock editor area -->
+    <div class="mock-editor">
+        <div class="mock-editor-header">
+            <span style="font-weight:600; color:var(--pu-text-primary);">editor</span>
+            <span>hiring-templates / ext-sourcing-strategy</span>
+        </div>
+        <div class="mock-editor-body">
+            Editor content area — prompt blocks go here
+        </div>
+    </div>
+
+    <!-- ===== RIGHT SIDEBAR (Casual) ===== -->
+    <aside class="sidebar" data-testid="pu-right-panel">
+
+        <!-- Top bar -->
+        <div class="top-bar">
+            <span class="scope-chip" data-testid="pu-rp-scope-chip" onclick="openModal()">
+                hiring
+                <span class="click-hint">click to browse extensions</span>
+            </span>
+            <span class="top-spacer"></span>
+            <span class="top-stats" data-testid="pu-rp-top-stats">6 wc</span>
+        </div>
+
+        <!-- Wildcard stream -->
+        <div class="wc-stream" data-testid="pu-rp-wc-stream">
+
+            <!-- Ext divider -->
+            <div class="wc-divider" onclick="toggleSection('ext')">
+                <span class="wc-divider-chevron" id="ext-chevron">▼</span>
+                <span class="wc-divider-line"></span>
+                <span class="wc-divider-label">from extensions</span>
+                <span class="wc-divider-count">4</span>
+            </div>
+
+            <div class="wc-section" id="ext-section">
+                <!-- role -->
+                <div class="wc-entry" data-testid="pu-rp-wc-entry-role">
+                    <div class="wc-entry-header">
+                        <span class="wc-name">role</span>
+                        <span class="wc-src override">override</span>
+                        <span class="wc-block-badge">block 0</span>
+                        <span class="wc-path">hiring/roles</span>
+                    </div>
+                    <div class="wc-values">
+                        <span class="wc-v active">Backend Engineer</span>
+                        <span class="wc-v">Frontend Engineer</span>
+                        <span class="wc-v">DevOps Engineer</span>
+                        <span class="wc-v">ML Engineer</span>
+                        <span class="wc-v">Product Manager</span>
+                    </div>
+                </div>
+
+                <!-- team_size -->
+                <div class="wc-entry" data-testid="pu-rp-wc-entry-team_size">
+                    <div class="wc-entry-header">
+                        <span class="wc-name">team_size</span>
+                        <span class="wc-src ext">ext</span>
+                        <span class="wc-block-badge nested">block 0.1</span>
+                        <span class="wc-path">hiring/teams</span>
+                    </div>
+                    <div class="wc-values">
+                        <span class="wc-v active">small (3-5)</span>
+                        <span class="wc-v">medium (6-12)</span>
+                        <span class="wc-v">large (13-25)</span>
+                    </div>
+                </div>
+
+                <!-- seniority -->
+                <div class="wc-entry" data-testid="pu-rp-wc-entry-seniority">
+                    <div class="wc-entry-header">
+                        <span class="wc-name">seniority</span>
+                        <span class="wc-src ext">ext</span>
+                        <span class="wc-block-badge">block 0</span>
+                        <span class="wc-path">hiring/levels</span>
+                    </div>
+                    <div class="wc-values">
+                        <span class="wc-v pinned">Senior</span>
+                        <span class="wc-v">Mid-level</span>
+                        <span class="wc-v">Junior</span>
+                        <span class="wc-v">Staff</span>
+                    </div>
+                </div>
+
+                <!-- location -->
+                <div class="wc-entry" data-testid="pu-rp-wc-entry-location">
+                    <div class="wc-entry-header">
+                        <span class="wc-name">location</span>
+                        <span class="wc-src ext">ext</span>
+                        <span class="wc-block-badge">block 0</span>
+                        <span class="wc-path">hiring/geo</span>
+                    </div>
+                    <div class="wc-values">
+                        <span class="wc-v active">Remote</span>
+                        <span class="wc-v">San Francisco</span>
+                        <span class="wc-v">New York</span>
+                        <span class="wc-v">London</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Local divider -->
+            <div class="wc-divider" onclick="toggleSection('local')">
+                <span class="wc-divider-chevron" id="local-chevron">▼</span>
+                <span class="wc-divider-line"></span>
+                <span class="wc-divider-label">prompt-defined</span>
+                <span class="wc-divider-count">2</span>
+            </div>
+
+            <div class="wc-section" id="local-section">
+                <!-- tone -->
+                <div class="wc-entry" data-testid="pu-rp-wc-entry-tone">
+                    <div class="wc-entry-header">
+                        <span class="wc-name">tone</span>
+                        <span class="wc-src local">local</span>
+                        <span class="wc-block-badge">block 1</span>
+                    </div>
+                    <div class="wc-values">
+                        <span class="wc-v active">Professional</span>
+                        <span class="wc-v">Casual</span>
+                        <span class="wc-v">Enthusiastic</span>
+                    </div>
+                </div>
+
+                <!-- focus_area -->
+                <div class="wc-entry" data-testid="pu-rp-wc-entry-focus_area">
+                    <div class="wc-entry-header">
+                        <span class="wc-name">focus_area</span>
+                        <span class="wc-src local">local</span>
+                        <span class="wc-block-badge">block 1</span>
+                    </div>
+                    <div class="wc-values">
+                        <span class="wc-v active">Culture</span>
+                        <span class="wc-v">Growth</span>
+                        <span class="wc-v">Benefits</span>
+                        <span class="wc-v">Tech Stack</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ops section -->
+        <div class="ops-section" data-testid="pu-rp-ops-section">
+            <div class="ops-nav">
+                <button class="ops-nav-btn" data-testid="pu-rp-nav-prev">◀</button>
+                <span class="ops-nav-label" data-testid="pu-rp-nav-label">
+                    <span class="var-prefix">Variation </span><span class="var-num">47</span>
+                    <span class="var-of"> of </span><span class="var-total">1,800</span>
+                </span>
+                <button class="ops-nav-btn" data-testid="pu-rp-nav-shuffle">⟳</button>
+                <button class="ops-nav-btn" data-testid="pu-rp-nav-next">▶</button>
+            </div>
+            <div class="ops-nav-tags" data-testid="pu-rp-nav-tags">
+                <span class="ops-nav-tag">Backend Engineer</span>
+                <span class="ops-nav-tag">small (3-5)</span>
+                <span class="ops-nav-tag" style="color:var(--pu-orange)">Senior ⊙</span>
+                <span class="ops-nav-tag">Remote</span>
+            </div>
+            <div class="ops-output-toggle" onclick="toggleOutput()">
+                <span class="ops-output-toggle-label">Output</span>
+                <span class="ops-output-chevron" id="output-chevron">▼</span>
+                <span class="ops-output-preview" id="output-preview">We're looking for a Senior Backend Engineer to...</span>
+            </div>
+            <div class="ops-output-body" id="output-body">
+                We're looking for a Senior Backend Engineer to join our small (3-5) remote team. The ideal candidate brings deep experience in distributed systems and cloud infrastructure. Our culture emphasizes professional communication and continuous learning. If you're passionate about Culture and want to make an impact at a growing company, we'd love to hear from you.
+            </div>
+            <div class="ops-footer">
+                <div class="ops-dims">
+                    <span class="ops-dim">role: 5</span>
+                    <span class="ops-dim">team_size: 3</span>
+                    <span class="ops-dim">seniority: 4</span>
+                    <span class="ops-dim">location: 4</span>
+                    <span class="ops-dim">tone: 3</span>
+                    <span class="ops-dim">focus_area: 4</span>
+                </div>
+                <div class="ops-bottom-row">
+                    <span class="ops-total" data-testid="pu-rp-ops-total">1,800 variations</span>
+                    <span class="ops-size" data-testid="pu-rp-ops-size">~486 KB</span>
+                    <span class="ops-spacer"></span>
+                    <button class="ops-export-btn" data-testid="pu-rp-export-btn">Export .txt</button>
+                </div>
+            </div>
+        </div>
+    </aside>
+</div>
+
+<!-- ===== EXTENSION MODAL (Power User) ===== -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+    <div class="modal" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <span class="modal-title">Extension Browser</span>
+            <span class="modal-scope">hiring</span>
+            <span class="modal-spacer"></span>
+            <button class="modal-close" onclick="closeModalDirect()">&times;</button>
+        </div>
+        <div class="modal-search">
+            <input type="text" placeholder="Search extensions, wildcards..." oninput="filterTree(this.value)">
+        </div>
+        <div class="modal-tabs">
+            <div class="modal-tab active" onclick="switchTab('tree', this)">
+                Tree<span class="modal-tab-count">12 files</span>
+            </div>
+            <div class="modal-tab" onclick="switchTab('wildcards', this)">
+                Wildcards<span class="modal-tab-count">14 names</span>
+            </div>
+        </div>
+
+        <!-- Tree Tab -->
+        <div class="modal-body" id="tab-tree">
+            <!-- roles folder -->
+            <div class="ext-tree-folder">
+                <div class="ext-tree-folder-header" onclick="toggleFolder(this)">
+                    <span class="ext-tree-chevron open">▶</span>
+                    <span class="ext-tree-icon">📁</span>
+                    <span class="ext-tree-name">roles</span>
+                    <span class="ext-tree-meta">
+                        <span class="ext-tree-badge wc">5 wc</span>
+                        <span class="ext-tree-badge txt">2 txt</span>
+                    </span>
+                </div>
+                <div class="ext-tree-children">
+                    <div class="ext-tree-file selected" onclick="selectFile(this, 'roles/engineering.yml')">
+                        <span style="width:12px"></span>
+                        <span class="ext-tree-icon">📄</span>
+                        <span class="ext-tree-name">engineering.yml</span>
+                        <span class="ext-tree-meta">
+                            <span class="ext-tree-badge wc">3 wc</span>
+                            <span class="ext-tree-badge txt">1 txt</span>
+                        </span>
+                    </div>
+                    <div class="ext-tree-file" onclick="selectFile(this, 'roles/management.yml')">
+                        <span style="width:12px"></span>
+                        <span class="ext-tree-icon">📄</span>
+                        <span class="ext-tree-name">management.yml</span>
+                        <span class="ext-tree-meta">
+                            <span class="ext-tree-badge wc">2 wc</span>
+                        </span>
+                    </div>
+                    <div class="ext-tree-file" onclick="selectFile(this, 'roles/design.yml')">
+                        <span style="width:12px"></span>
+                        <span class="ext-tree-icon">📄</span>
+                        <span class="ext-tree-name">design.yml</span>
+                        <span class="ext-tree-meta">
+                            <span class="ext-tree-badge wc">2 wc</span>
+                            <span class="ext-tree-badge txt">1 txt</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- teams folder -->
+            <div class="ext-tree-folder">
+                <div class="ext-tree-folder-header" onclick="toggleFolder(this)">
+                    <span class="ext-tree-chevron open">▶</span>
+                    <span class="ext-tree-icon">📁</span>
+                    <span class="ext-tree-name">teams</span>
+                    <span class="ext-tree-meta">
+                        <span class="ext-tree-badge wc">3 wc</span>
+                    </span>
+                </div>
+                <div class="ext-tree-children">
+                    <div class="ext-tree-file" onclick="selectFile(this, 'teams/structure.yml')">
+                        <span style="width:12px"></span>
+                        <span class="ext-tree-icon">📄</span>
+                        <span class="ext-tree-name">structure.yml</span>
+                        <span class="ext-tree-meta">
+                            <span class="ext-tree-badge wc">3 wc</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- levels folder -->
+            <div class="ext-tree-folder">
+                <div class="ext-tree-folder-header" onclick="toggleFolder(this)">
+                    <span class="ext-tree-chevron open">▶</span>
+                    <span class="ext-tree-icon">📁</span>
+                    <span class="ext-tree-name">levels</span>
+                    <span class="ext-tree-meta">
+                        <span class="ext-tree-badge wc">2 wc</span>
+                    </span>
+                </div>
+                <div class="ext-tree-children">
+                    <div class="ext-tree-file" onclick="selectFile(this, 'levels/seniority.yml')">
+                        <span style="width:12px"></span>
+                        <span class="ext-tree-icon">📄</span>
+                        <span class="ext-tree-name">seniority.yml</span>
+                        <span class="ext-tree-meta">
+                            <span class="ext-tree-badge wc">2 wc</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- geo folder -->
+            <div class="ext-tree-folder">
+                <div class="ext-tree-folder-header" onclick="toggleFolder(this)">
+                    <span class="ext-tree-chevron open">▶</span>
+                    <span class="ext-tree-icon">📁</span>
+                    <span class="ext-tree-name">geo</span>
+                    <span class="ext-tree-meta">
+                        <span class="ext-tree-badge wc">2 wc</span>
+                        <span class="ext-tree-badge txt">3 txt</span>
+                    </span>
+                </div>
+                <div class="ext-tree-children">
+                    <div class="ext-tree-file" onclick="selectFile(this, 'geo/locations.yml')">
+                        <span style="width:12px"></span>
+                        <span class="ext-tree-icon">📄</span>
+                        <span class="ext-tree-name">locations.yml</span>
+                        <span class="ext-tree-meta">
+                            <span class="ext-tree-badge wc">2 wc</span>
+                            <span class="ext-tree-badge txt">3 txt</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- benefits folder -->
+            <div class="ext-tree-folder">
+                <div class="ext-tree-folder-header" onclick="toggleFolder(this)">
+                    <span class="ext-tree-chevron">▶</span>
+                    <span class="ext-tree-icon">📁</span>
+                    <span class="ext-tree-name">benefits</span>
+                    <span class="ext-tree-meta">
+                        <span class="ext-tree-badge txt">4 txt</span>
+                    </span>
+                </div>
+                <div class="ext-tree-children hidden">
+                    <div class="ext-tree-file" onclick="selectFile(this, 'benefits/perks.yml')">
+                        <span style="width:12px"></span>
+                        <span class="ext-tree-icon">📄</span>
+                        <span class="ext-tree-name">perks.yml</span>
+                        <span class="ext-tree-meta">
+                            <span class="ext-tree-badge txt">4 txt</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Wildcards Tab -->
+        <div class="modal-body" id="tab-wildcards" style="display:none">
+            <div class="wc-inventory-item">
+                <span class="wc-inventory-name">role</span>
+                <span class="wc-inventory-source">hiring/roles/engineering.yml</span>
+                <span class="wc-inventory-count">5 values</span>
+                <button class="wc-inventory-copy" title="Copy __role__">📋</button>
+            </div>
+            <div class="wc-inventory-item">
+                <span class="wc-inventory-name">team_size</span>
+                <span class="wc-inventory-source">hiring/teams/structure.yml</span>
+                <span class="wc-inventory-count">3 values</span>
+                <button class="wc-inventory-copy" title="Copy __team_size__">📋</button>
+            </div>
+            <div class="wc-inventory-item">
+                <span class="wc-inventory-name">seniority</span>
+                <span class="wc-inventory-source">hiring/levels/seniority.yml</span>
+                <span class="wc-inventory-count">4 values</span>
+                <button class="wc-inventory-copy" title="Copy __seniority__">📋</button>
+            </div>
+            <div class="wc-inventory-item">
+                <span class="wc-inventory-name">location</span>
+                <span class="wc-inventory-source">hiring/geo/locations.yml</span>
+                <span class="wc-inventory-count">4 values</span>
+                <button class="wc-inventory-copy" title="Copy __location__">📋</button>
+            </div>
+            <div class="wc-inventory-item">
+                <span class="wc-inventory-name">timezone</span>
+                <span class="wc-inventory-source">hiring/geo/locations.yml</span>
+                <span class="wc-inventory-count">6 values</span>
+                <button class="wc-inventory-copy" title="Copy __timezone__">📋</button>
+            </div>
+            <div class="wc-inventory-item">
+                <span class="wc-inventory-name">department</span>
+                <span class="wc-inventory-source">hiring/roles/management.yml</span>
+                <span class="wc-inventory-count">4 values</span>
+                <button class="wc-inventory-copy" title="Copy __department__">📋</button>
+            </div>
+            <div class="wc-inventory-item">
+                <span class="wc-inventory-name">experience_years</span>
+                <span class="wc-inventory-source">hiring/levels/seniority.yml</span>
+                <span class="wc-inventory-count">5 values</span>
+                <button class="wc-inventory-copy" title="Copy __experience_years__">📋</button>
+            </div>
+            <div class="wc-inventory-item">
+                <span class="wc-inventory-name">design_tool</span>
+                <span class="wc-inventory-source">hiring/roles/design.yml</span>
+                <span class="wc-inventory-count">3 values</span>
+                <button class="wc-inventory-copy" title="Copy __design_tool__">📋</button>
+            </div>
+            <div class="wc-inventory-item">
+                <span class="wc-inventory-name">design_specialty</span>
+                <span class="wc-inventory-source">hiring/roles/design.yml</span>
+                <span class="wc-inventory-count">4 values</span>
+                <button class="wc-inventory-copy" title="Copy __design_specialty__">📋</button>
+            </div>
+        </div>
+
+        <!-- Detail panel (shown when file selected in tree) -->
+        <div class="modal-detail visible" id="modal-detail">
+            <div class="modal-detail-title">hiring/roles/engineering.yml</div>
+            <div class="modal-detail-wc">
+                <span class="modal-detail-wc-name">role</span>
+                <div class="modal-detail-wc-values">
+                    <span class="modal-detail-wc-val">Backend Engineer</span>
+                    <span class="modal-detail-wc-val">Frontend Engineer</span>
+                    <span class="modal-detail-wc-val">DevOps Engineer</span>
+                    <span class="modal-detail-wc-val">ML Engineer</span>
+                    <span class="modal-detail-wc-val">Product Manager</span>
+                </div>
+                <span class="modal-detail-wc-count">5</span>
+            </div>
+            <div class="modal-detail-wc">
+                <span class="modal-detail-wc-name">stack</span>
+                <div class="modal-detail-wc-values">
+                    <span class="modal-detail-wc-val">Python/Django</span>
+                    <span class="modal-detail-wc-val">Node/Express</span>
+                    <span class="modal-detail-wc-val">Go/gRPC</span>
+                </div>
+                <span class="modal-detail-wc-count">3</span>
+            </div>
+            <div class="modal-detail-wc">
+                <span class="modal-detail-wc-name">framework</span>
+                <div class="modal-detail-wc-values">
+                    <span class="modal-detail-wc-val">React</span>
+                    <span class="modal-detail-wc-val">Vue</span>
+                    <span class="modal-detail-wc-val">Angular</span>
+                </div>
+                <span class="modal-detail-wc-count">3</span>
+            </div>
+            <div class="modal-detail-actions">
+                <button class="modal-detail-btn primary">Copy __role__</button>
+                <button class="modal-detail-btn secondary">View YAML</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// === SIDEBAR INTERACTIONS ===
+function toggleSection(key) {
+    const section = document.getElementById(key + '-section');
+    const chevron = document.getElementById(key + '-chevron');
+    section.classList.toggle('collapsed');
+    chevron.classList.toggle('collapsed');
+}
+
+function toggleOutput() {
+    const body = document.getElementById('output-body');
+    const chevron = document.getElementById('output-chevron');
+    const preview = document.getElementById('output-preview');
+    body.classList.toggle('expanded');
+    chevron.classList.toggle('open');
+    preview.style.display = body.classList.contains('expanded') ? 'none' : '';
+}
+
+// === MODAL INTERACTIONS ===
+function openModal() {
+    document.getElementById('modal-overlay').classList.add('visible');
+}
+
+function closeModal(e) {
+    if (e.target === e.currentTarget) {
+        document.getElementById('modal-overlay').classList.remove('visible');
+    }
+}
+
+function closeModalDirect() {
+    document.getElementById('modal-overlay').classList.remove('visible');
+}
+
+function toggleFolder(header) {
+    const chevron = header.querySelector('.ext-tree-chevron');
+    const children = header.nextElementSibling;
+    chevron.classList.toggle('open');
+    children.classList.toggle('hidden');
+}
+
+function selectFile(el, path) {
+    document.querySelectorAll('.ext-tree-file').forEach(f => f.classList.remove('selected'));
+    el.classList.add('selected');
+    const detail = document.getElementById('modal-detail');
+    detail.classList.add('visible');
+    detail.querySelector('.modal-detail-title').textContent = 'hiring/' + path;
+}
+
+function switchTab(tab, el) {
+    document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('tab-tree').style.display = tab === 'tree' ? '' : 'none';
+    document.getElementById('tab-wildcards').style.display = tab === 'wildcards' ? '' : 'none';
+    document.getElementById('modal-detail').style.display = tab === 'tree' ? '' : 'none';
+}
+
+function filterTree(query) {
+    // Simple visual feedback - in real impl would filter tree items
+    const items = document.querySelectorAll('.ext-tree-file, .ext-tree-folder');
+    items.forEach(item => {
+        const text = item.textContent.toLowerCase();
+        if (!query || text.includes(query.toLowerCase())) {
+            item.style.opacity = '1';
+        } else {
+            item.style.opacity = '0.3';
+        }
+    });
+}
+
+// Chip click interactions
+document.querySelectorAll('.wc-v').forEach(chip => {
+    chip.addEventListener('click', function() {
+        const values = this.parentElement;
+        values.querySelectorAll('.wc-v').forEach(c => {
+            c.classList.remove('active', 'pinned');
+        });
+        this.classList.add('pinned');
+    });
+});
+</script>
+
+</body>
+</html>

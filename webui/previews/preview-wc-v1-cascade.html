@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>V1: Vertical Cascade (Spread)</title>
+<style>
+  :root {
+    --pu-bg-primary: #191919;
+    --pu-bg-secondary: #202020;
+    --pu-bg-tertiary: #2f2f2f;
+    --pu-text-primary: #ebebeb;
+    --pu-text-secondary: #999999;
+    --pu-text-muted: #7a7a7a;
+    --pu-accent: #529CCA;
+    --pu-accent-bg: rgba(82, 156, 202, 0.08);
+    --pu-accent-border: rgba(82, 156, 202, 0.25);
+    --pu-border: rgba(255, 255, 255, 0.06);
+    --pu-radius: 4px;
+    --pu-radius-sm: 3px;
+    --pu-font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --pu-font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--pu-bg-primary);
+    color: var(--pu-text-primary);
+    font-family: var(--pu-font-body);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 40px 20px;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 48px;
+    max-width: 600px;
+  }
+
+  .header h1 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--pu-accent);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 8px;
+  }
+
+  .header p {
+    font-size: 13px;
+    color: var(--pu-text-muted);
+    line-height: 1.6;
+  }
+
+  .prompt-block {
+    max-width: 700px;
+    width: 100%;
+    text-align: center;
+    font-size: 19px;
+    line-height: 1.7;
+    color: var(--pu-text-primary);
+    padding: 40px;
+    background: var(--pu-bg-secondary);
+    border: 1px solid var(--pu-border);
+    border-radius: 8px;
+  }
+
+  .wc {
+    position: relative;
+    display: inline-block;
+    cursor: pointer;
+    color: var(--pu-accent);
+    font-family: var(--pu-font-mono);
+    font-size: 16px;
+    padding: 2px 8px;
+    border-radius: var(--pu-radius-sm);
+    background: var(--pu-accent-bg);
+    border: 1px solid transparent;
+    transition: border-color 0.2s, background 0.2s;
+  }
+
+  .wc:hover {
+    border-color: var(--pu-accent-border);
+    background: rgba(82, 156, 202, 0.12);
+  }
+
+  .wc-cascade {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .wc-cascade-item {
+    white-space: nowrap;
+    font-family: var(--pu-font-mono);
+    font-size: 14px;
+    color: var(--pu-accent);
+    padding: 3px 10px;
+    border-radius: var(--pu-radius-sm);
+    background: rgba(82, 156, 202, 0.06);
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: opacity 0.3s ease, max-height 0.3s ease, transform 0.3s ease;
+    transform: scale(0.9);
+  }
+
+  .wc:hover .wc-cascade-item {
+    max-height: 30px;
+    transform: scale(1);
+  }
+
+  .wc-cascade-item.gap {
+    height: 4px;
+    min-height: 4px;
+    padding: 0;
+    background: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>V1: Vertical Cascade</h1>
+  <p>Hover over a wildcard to see all values expand vertically above and below. Values closer to center are more opaque; edges fade out. Like a frozen slot machine reel.</p>
+</div>
+
+<div class="prompt-block">
+  <span>As a </span><span class="wc" data-wc="role">__role__</span><span>, describe a </span><span class="wc" data-wc="stage">__stage__</span><span> startup in a </span><span class="wc" data-wc="tone">__tone__</span><span> tone. Focus on the </span><span class="wc" data-wc="theme">__theme__</span><span> and the spark that ignited the vision.</span>
+</div>
+
+<script>
+const wildcards = {
+  role: ['narrator', 'critic', 'poet'],
+  stage: ['Series A', 'seed', 'pre-seed'],
+  tone: ['cheerful', 'melancholy', 'fierce'],
+  theme: ['founding moment', 'pivot point', 'first failure']
+};
+
+document.querySelectorAll('.wc').forEach(el => {
+  const name = el.dataset.wc;
+  const values = wildcards[name];
+  if (!values) return;
+
+  // Build cascade: values above (reversed) + gap + values below
+  const aboveCascade = document.createElement('div');
+  aboveCascade.className = 'wc-cascade';
+  aboveCascade.style.bottom = '100%';
+  aboveCascade.style.marginBottom = '4px';
+
+  const belowCascade = document.createElement('div');
+  belowCascade.className = 'wc-cascade';
+  belowCascade.style.top = '100%';
+  belowCascade.style.marginTop = '4px';
+
+  // Above: reversed values (furthest at top)
+  const aboveItems = [...values].reverse();
+  aboveItems.forEach((val, i) => {
+    const item = document.createElement('div');
+    item.className = 'wc-cascade-item';
+    item.textContent = val;
+    // Opacity: closest to center = highest
+    const distFromCenter = aboveItems.length - 1 - i; // 0 = closest
+    const opacityLevels = [1, 0.6, 0.3, 0.15];
+    item.dataset.targetOpacity = opacityLevels[Math.min(distFromCenter, opacityLevels.length - 1)];
+    item.style.transitionDelay = `${(aboveItems.length - 1 - i) * 60}ms`;
+    aboveCascade.appendChild(item);
+  });
+
+  // Below: normal order
+  values.forEach((val, i) => {
+    const item = document.createElement('div');
+    item.className = 'wc-cascade-item';
+    item.textContent = val;
+    const opacityLevels = [1, 0.6, 0.3, 0.15];
+    item.dataset.targetOpacity = opacityLevels[Math.min(i, opacityLevels.length - 1)];
+    item.style.transitionDelay = `${i * 60}ms`;
+    belowCascade.appendChild(item);
+  });
+
+  el.appendChild(aboveCascade);
+  el.appendChild(belowCascade);
+
+  el.addEventListener('mouseenter', () => {
+    el.querySelectorAll('.wc-cascade-item').forEach(item => {
+      item.style.opacity = item.dataset.targetOpacity;
+      item.style.maxHeight = '30px';
+      item.style.transform = 'scale(1)';
+    });
+  });
+
+  el.addEventListener('mouseleave', () => {
+    el.querySelectorAll('.wc-cascade-item').forEach(item => {
+      item.style.opacity = '0';
+      item.style.maxHeight = '0';
+      item.style.transform = 'scale(0.9)';
+      // Reverse the stagger
+      const currentDelay = parseFloat(item.style.transitionDelay);
+      const maxDelay = (values.length - 1) * 60;
+      item.style.transitionDelay = `${maxDelay - currentDelay}ms`;
+    });
+    // Reset delays after collapse
+    setTimeout(() => {
+      aboveCascade.querySelectorAll('.wc-cascade-item').forEach((item, i) => {
+        item.style.transitionDelay = `${(aboveItems.length - 1 - i) * 60}ms`;
+      });
+      belowCascade.querySelectorAll('.wc-cascade-item').forEach((item, i) => {
+        item.style.transitionDelay = `${i * 60}ms`;
+      });
+    }, 400);
+  });
+});
+</script>
+</body>
+</html>

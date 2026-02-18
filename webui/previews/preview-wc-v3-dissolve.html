@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>V3: Breathing Dissolve</title>
+<style>
+  :root {
+    --pu-bg-primary: #191919;
+    --pu-bg-secondary: #202020;
+    --pu-bg-tertiary: #2f2f2f;
+    --pu-text-primary: #ebebeb;
+    --pu-text-secondary: #999999;
+    --pu-text-muted: #7a7a7a;
+    --pu-accent: #529CCA;
+    --pu-accent-bg: rgba(82, 156, 202, 0.08);
+    --pu-accent-border: rgba(82, 156, 202, 0.25);
+    --pu-border: rgba(255, 255, 255, 0.06);
+    --pu-radius: 4px;
+    --pu-radius-sm: 3px;
+    --pu-font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --pu-font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--pu-bg-primary);
+    color: var(--pu-text-primary);
+    font-family: var(--pu-font-body);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 40px 20px;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 48px;
+    max-width: 600px;
+  }
+
+  .header h1 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--pu-accent);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 8px;
+  }
+
+  .header p {
+    font-size: 13px;
+    color: var(--pu-text-muted);
+    line-height: 1.6;
+  }
+
+  .prompt-block {
+    max-width: 700px;
+    width: 100%;
+    text-align: center;
+    font-size: 19px;
+    line-height: 1.7;
+    color: var(--pu-text-primary);
+    padding: 40px;
+    background: var(--pu-bg-secondary);
+    border: 1px solid var(--pu-border);
+    border-radius: 8px;
+  }
+
+  .wc {
+    display: inline-block;
+    position: relative;
+    vertical-align: baseline;
+  }
+
+  .wc-sup {
+    position: absolute;
+    top: -0.9em;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 9px;
+    font-family: var(--pu-font-mono);
+    color: var(--pu-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    white-space: nowrap;
+    opacity: 0.6;
+  }
+
+  .wc-value {
+    display: inline-block;
+    color: var(--pu-accent);
+    font-family: var(--pu-font-mono);
+    font-size: 17px;
+    padding: 1px 6px;
+    border-radius: var(--pu-radius-sm);
+    background: var(--pu-accent-bg);
+    transition: opacity 0.8s ease-in-out;
+    min-width: 70px;
+    text-align: center;
+  }
+
+  .wc-value.fading {
+    opacity: 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>V3: Breathing Dissolve</h1>
+  <p>Values smoothly crossfade on a slow loop. No spatial movement -- just the text fading out, changing, and fading back in. A gentle "breathing" rhythm. Wildcard name shown as a subtle superscript label.</p>
+</div>
+
+<div class="prompt-block">
+  <span>As a </span><!--
+  --><span class="wc" data-wc="role"><span class="wc-sup">role</span><span class="wc-value"></span></span><!--
+  --><span>, describe a </span><!--
+  --><span class="wc" data-wc="stage"><span class="wc-sup">stage</span><span class="wc-value"></span></span><!--
+  --><span> startup in a </span><!--
+  --><span class="wc" data-wc="tone"><span class="wc-sup">tone</span><span class="wc-value"></span></span><!--
+  --><span> tone. Focus on the founding moment and the spark that ignited the vision.</span>
+</div>
+
+<script>
+const wildcards = {
+  role: ['narrator', 'critic', 'poet'],
+  stage: ['Series A', 'seed', 'pre-seed'],
+  tone: ['cheerful', 'melancholy', 'fierce']
+};
+
+document.querySelectorAll('.wc').forEach((el, wcIndex) => {
+  const name = el.dataset.wc;
+  const values = wildcards[name];
+  if (!values) return;
+
+  const valueEl = el.querySelector('.wc-value');
+  let currentIndex = 0;
+
+  // Set initial value
+  valueEl.textContent = values[0];
+
+  function breathe() {
+    // Fade out
+    valueEl.classList.add('fading');
+
+    setTimeout(() => {
+      // Swap text while invisible
+      currentIndex = (currentIndex + 1) % values.length;
+      valueEl.textContent = values[currentIndex];
+
+      // Fade in
+      valueEl.classList.remove('fading');
+    }, 800); // Match the CSS transition duration
+  }
+
+  // Stagger each wildcard + use different cycle rates for organic feel
+  const cycleDuration = 3000 + wcIndex * 400;
+  setTimeout(() => {
+    setInterval(breathe, cycleDuration);
+  }, wcIndex * 1000);
+});
+</script>
+</body>
+</html>

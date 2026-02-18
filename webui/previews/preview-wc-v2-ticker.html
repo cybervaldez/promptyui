@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>V2: Ticker (Auto-Cycling)</title>
+<style>
+  :root {
+    --pu-bg-primary: #191919;
+    --pu-bg-secondary: #202020;
+    --pu-bg-tertiary: #2f2f2f;
+    --pu-text-primary: #ebebeb;
+    --pu-text-secondary: #999999;
+    --pu-text-muted: #7a7a7a;
+    --pu-accent: #529CCA;
+    --pu-accent-bg: rgba(82, 156, 202, 0.08);
+    --pu-accent-border: rgba(82, 156, 202, 0.25);
+    --pu-border: rgba(255, 255, 255, 0.06);
+    --pu-radius: 4px;
+    --pu-radius-sm: 3px;
+    --pu-font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --pu-font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--pu-bg-primary);
+    color: var(--pu-text-primary);
+    font-family: var(--pu-font-body);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 40px 20px;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 48px;
+    max-width: 600px;
+  }
+
+  .header h1 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--pu-accent);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 8px;
+  }
+
+  .header p {
+    font-size: 13px;
+    color: var(--pu-text-muted);
+    line-height: 1.6;
+  }
+
+  .prompt-block {
+    max-width: 700px;
+    width: 100%;
+    text-align: center;
+    font-size: 19px;
+    line-height: 1.7;
+    color: var(--pu-text-primary);
+    padding: 40px;
+    background: var(--pu-bg-secondary);
+    border: 1px solid var(--pu-border);
+    border-radius: 8px;
+  }
+
+  .wc {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    vertical-align: middle;
+    position: relative;
+  }
+
+  .wc-label {
+    font-size: 9px;
+    font-family: var(--pu-font-mono);
+    color: var(--pu-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 2px;
+  }
+
+  .wc-ticker {
+    display: inline-block;
+    position: relative;
+    overflow: hidden;
+    height: 1.4em;
+    vertical-align: middle;
+    min-width: 80px;
+    text-align: center;
+    background: var(--pu-accent-bg);
+    border: 1px solid var(--pu-accent-border);
+    border-radius: var(--pu-radius-sm);
+    padding: 0 10px;
+  }
+
+  .wc-ticker-track {
+    position: relative;
+    transition: transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  .wc-ticker-value {
+    display: block;
+    height: 1.4em;
+    line-height: 1.4em;
+    color: var(--pu-accent);
+    font-family: var(--pu-font-mono);
+    font-size: 16px;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>V2: Ticker (Auto-Cycling)</h1>
+  <p>Wildcards continuously cycle through values with a smooth vertical slide-up animation. Each value slides up and out while the next slides in from below. Always running, no hover needed.</p>
+</div>
+
+<div class="prompt-block">
+  <span>As a </span><!--
+  --><span class="wc" data-wc="role"><span class="wc-label">role</span><span class="wc-ticker"><span class="wc-ticker-track"></span></span></span><!--
+  --><span>, describe a </span><!--
+  --><span class="wc" data-wc="stage"><span class="wc-label">stage</span><span class="wc-ticker"><span class="wc-ticker-track"></span></span></span><!--
+  --><span> startup in a </span><!--
+  --><span class="wc" data-wc="tone"><span class="wc-label">tone</span><span class="wc-ticker"><span class="wc-ticker-track"></span></span></span><!--
+  --><span> tone. Focus on the founding moment and the spark that ignited the vision.</span>
+</div>
+
+<script>
+const wildcards = {
+  role: ['narrator', 'critic', 'poet'],
+  stage: ['Series A', 'seed', 'pre-seed'],
+  tone: ['cheerful', 'melancholy', 'fierce']
+};
+
+document.querySelectorAll('.wc').forEach((el, wcIndex) => {
+  const name = el.dataset.wc;
+  const values = wildcards[name];
+  if (!values) return;
+
+  const track = el.querySelector('.wc-ticker-track');
+
+  // Add values + duplicate first for seamless loop
+  [...values, values[0]].forEach(val => {
+    const span = document.createElement('span');
+    span.className = 'wc-ticker-value';
+    span.textContent = val;
+    track.appendChild(span);
+  });
+
+  let currentIndex = 0;
+  const itemHeight = 1.4; // em units
+
+  function tick() {
+    currentIndex++;
+    track.style.transform = `translateY(-${currentIndex * itemHeight}em)`;
+
+    if (currentIndex >= values.length) {
+      // After transition ends, snap back to start
+      setTimeout(() => {
+        track.style.transition = 'none';
+        currentIndex = 0;
+        track.style.transform = `translateY(0)`;
+        // Force reflow
+        track.offsetHeight;
+        track.style.transition = 'transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+      }, 650);
+    }
+  }
+
+  // Stagger each wildcard's start
+  setTimeout(() => {
+    setInterval(tick, 2500);
+  }, wcIndex * 800);
+});
+</script>
+</body>
+</html>

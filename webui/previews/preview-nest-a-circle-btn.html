@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Option A: Extend + Circle to All Blocks</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg-primary: #191919;
+    --bg-secondary: #202020;
+    --bg-tertiary: #2f2f2f;
+    --bg-hover: rgba(255,255,255,0.04);
+    --text-primary: #ebebeb;
+    --text-secondary: #999;
+    --text-muted: #7a7a7a;
+    --accent: #529CCA;
+    --accent-bg: rgba(82,156,202,0.08);
+    --warning: #cb912f;
+    --warning-bg: rgba(203,145,47,0.1);
+    --border: rgba(255,255,255,0.06);
+    --border-light: rgba(255,255,255,0.09);
+    --radius: 4px;
+    --radius-sm: 3px;
+    --font-body: 'Inter', -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+    --transition-fast: 120ms ease-out;
+  }
+  body {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.5;
+    padding: 40px;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 20px; font-weight: 600; margin-bottom: 8px; color: var(--text-primary); }
+  .subtitle { color: var(--text-muted); font-size: 13px; margin-bottom: 32px; }
+  .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 16px; font-weight: 600; }
+  .section { margin-bottom: 48px; }
+
+  /* Block styles */
+  .block {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-secondary);
+    margin-bottom: 2px;
+    position: relative;
+  }
+  .block-body { position: relative; }
+  .block-content {
+    padding: 8px 16px;
+    font-size: 14px;
+    color: var(--text-primary);
+    position: relative;
+  }
+  .block-text { display: inline; }
+  .wildcard {
+    color: var(--accent);
+    text-decoration: underline dotted;
+    text-underline-offset: 3px;
+  }
+
+  /* Inline actions (dice) — opacity 0 by default */
+  .inline-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: 6px;
+    vertical-align: middle;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+  }
+  .block:hover .inline-actions { opacity: 0.5; }
+  .block:hover .inline-actions:hover { opacity: 1; }
+
+  .inline-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px; height: 20px;
+    background: none; border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: var(--radius);
+  }
+  .inline-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
+  .inline-btn svg { width: 12px; height: 12px; }
+
+  /* Right-edge actions (animated mode) */
+  .right-edge {
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    width: 36px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+  }
+  .block:hover .right-edge { opacity: 0.5; }
+  .block:hover .right-edge:hover { opacity: 1; }
+
+  /* Connector */
+  .connector {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: 8px;
+    font-size: 12px;
+    color: var(--text-muted);
+    opacity: 0.35;
+    vertical-align: middle;
+  }
+  .connector-line {
+    display: inline-block;
+    width: 12px; height: 2px;
+    background: currentColor;
+    border-radius: 1px;
+    vertical-align: middle;
+  }
+  .connector-arrow { font-size: 11px; line-height: 1; }
+
+  /* Children container */
+  .children { padding-left: 16px; }
+  .child-block {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: transparent;
+    margin-bottom: 2px;
+    position: relative;
+  }
+  .child-block .block-content {
+    padding: 8px 12px 4px;
+  }
+
+  /* Path divider (animated mode) */
+  .path-divider {
+    display: flex;
+    align-items: center;
+    height: 18px;
+    margin: 0 4px;
+  }
+  .path-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border-light);
+    margin-left: 6px;
+  }
+  .path-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    opacity: 0.5;
+    background: var(--bg-secondary);
+    padding: 1px 6px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+  }
+  .path-label .arrow { color: var(--text-muted); margin-right: 2px; }
+
+  /* Inline path hint (compact mode) */
+  .path-hint {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    background: var(--bg-secondary);
+    padding: 1px 5px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    margin-right: 6px;
+    vertical-align: middle;
+    opacity: 0.6;
+  }
+
+  /* =============================================
+     OPTION A: + Circle button at bottom of block
+     ============================================= */
+  .nest-action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 0 4px;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+  }
+  .block:hover > .nest-action,
+  .child-block:hover > .nest-action { opacity: 1; }
+
+  .nest-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: transparent;
+    border: 1px solid var(--border-light);
+    color: var(--text-muted);
+    font-size: 18px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    padding: 0;
+    line-height: 1;
+  }
+  .nest-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--bg-primary);
+  }
+
+  /* Highlight for demo */
+  .highlight-box {
+    border: 1px dashed var(--accent);
+    border-radius: 6px;
+    padding: 4px;
+    margin: 8px 0;
+    position: relative;
+  }
+  .highlight-label {
+    position: absolute;
+    top: -10px;
+    left: 12px;
+    font-size: 10px;
+    color: var(--accent);
+    background: var(--bg-primary);
+    padding: 0 6px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* Compact section */
+  .compact .block-content {
+    padding: 6px 16px;
+    font-size: 14px;
+  }
+  .compact .child-block .block-content {
+    padding: 6px 12px;
+  }
+
+  /* Mode label */
+  .mode-label {
+    display: inline-block;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--bg-primary);
+    background: var(--text-muted);
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<h1>Option A: Extend + Circle to All Blocks</h1>
+<p class="subtitle">Same <code>+</code> circle button already used on root blocks — now shown on ALL blocks (including children). Simplest change: one line of JS.</p>
+
+<div class="section">
+  <div class="mode-label">Animated Mode (Typewriter / Stack / Reel)</div>
+
+  <!-- Root block WITH children -->
+  <div class="block" style="margin-bottom: 2px;">
+    <div class="block-body">
+      <div class="block-content" style="padding-right: 44px;">
+        <span class="block-text">Write a <span class="wildcard">one-pager</span> culture document for a <span class="wildcard">early-stage</span> <span class="wildcard">fintech</span> company</span>
+        <span class="inline-actions" style="opacity: 0.5;">
+          <button class="inline-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></button>
+        </span>
+        <span class="connector" style="opacity: 0.35;">
+          <span class="connector-line"></span>
+          <span class="connector-arrow">&#9662;</span>
+        </span>
+        <div class="right-edge" style="opacity: 0.5;">
+          <button class="inline-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button class="inline-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Children -->
+    <div class="children">
+      <!-- Child WITH children (has connector) -->
+      <div class="child-block" style="margin-bottom: 2px;">
+        <div class="path-divider">
+          <span class="path-label"><span class="arrow">&#8627;</span> 0.0</span>
+        </div>
+        <div class="block-body">
+          <div class="block-content" style="padding-right: 36px;">
+            <span class="block-text">Emphasize <span class="wildcard">craftsmanship</span> as a core value</span>
+            <span class="connector" style="opacity: 0.35;">
+              <span class="connector-line"></span>
+              <span class="connector-arrow">&#9662;</span>
+            </span>
+            <div class="right-edge" style="opacity: 0.5;">
+              <button class="inline-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+            </div>
+          </div>
+        </div>
+        <div class="children">
+          <div class="child-block">
+            <div class="path-divider">
+              <span class="path-label"><span class="arrow">&#8627;</span> 0.0.0</span>
+            </div>
+            <div class="block-body">
+              <div class="block-content" style="padding-right: 36px;">
+                <span class="block-text">Give a <span class="wildcard">practical</span> example of how a <span class="wildcard">PM</span> would embody this daily</span>
+                <div class="right-edge" style="opacity: 0.5;">
+                  <button class="inline-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                </div>
+              </div>
+            </div>
+            <!-- THIS IS THE KEY: + circle on a LEAF child block -->
+            <div class="highlight-box">
+              <span class="highlight-label">NEW: + on leaf child</span>
+              <div class="nest-action" style="opacity: 1;">
+                <button class="nest-btn">+</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- + on child that has children too -->
+        <div class="nest-action" style="opacity: 1;">
+          <button class="nest-btn">+</button>
+        </div>
+      </div>
+
+      <!-- Child WITHOUT children (leaf) -->
+      <div class="child-block">
+        <div class="path-divider">
+          <span class="path-label"><span class="arrow">&#8627;</span> 0.1</span>
+        </div>
+        <div class="block-body">
+          <div class="block-content" style="padding-right: 36px;">
+            <span class="block-text">Emphasize <span class="wildcard">ownership</span> as a core value</span>
+            <div class="right-edge" style="opacity: 0.5;">
+              <button class="inline-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+            </div>
+          </div>
+        </div>
+        <!-- THIS IS THE KEY: + circle on another LEAF child -->
+        <div class="highlight-box">
+          <span class="highlight-label">NEW: + on leaf child</span>
+          <div class="nest-action" style="opacity: 1;">
+            <button class="nest-btn">+</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Root nest button -->
+    <div class="nest-action" style="opacity: 1;">
+      <button class="nest-btn">+</button>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="mode-label">Compact Mode</div>
+
+  <!-- Root block WITH children -->
+  <div class="block compact" style="margin-bottom: 2px;">
+    <div class="block-body">
+      <div class="block-content">
+        <span class="block-text">Write a <span class="wildcard">one-pager</span> culture document for a <span class="wildcard">early-stage</span> <span class="wildcard">fintech</span> company</span>
+        <span class="inline-actions" style="opacity: 0.5;">
+          <button class="inline-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button class="inline-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg></button>
+        </span>
+        <span class="connector" style="opacity: 0.35;">
+          <span class="connector-line"></span>
+          <span class="connector-arrow">&#9662;</span>
+        </span>
+      </div>
+    </div>
+    <div class="children">
+      <div class="child-block" style="margin-bottom: 2px;">
+        <div class="block-body">
+          <div class="block-content">
+            <span class="path-hint"><span class="arrow">&#8627;</span> 0.0</span>
+            <span class="block-text">Emphasize <span class="wildcard">craftsmanship</span> as a core value</span>
+            <span class="inline-actions" style="opacity: 0.5;">
+              <button class="inline-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+              <button class="inline-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg></button>
+            </span>
+          </div>
+        </div>
+        <!-- LEAF child with + circle -->
+        <div class="highlight-box">
+          <span class="highlight-label">NEW: + on leaf child</span>
+          <div class="nest-action" style="opacity: 1;">
+            <button class="nest-btn">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="child-block">
+        <div class="block-body">
+          <div class="block-content">
+            <span class="path-hint"><span class="arrow">&#8627;</span> 0.1</span>
+            <span class="block-text">Emphasize <span class="wildcard">ownership</span> as a core value</span>
+            <span class="inline-actions" style="opacity: 0.5;">
+              <button class="inline-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+              <button class="inline-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg></button>
+            </span>
+          </div>
+        </div>
+        <div class="highlight-box">
+          <span class="highlight-label">NEW: + on leaf child</span>
+          <div class="nest-action" style="opacity: 1;">
+            <button class="nest-btn">+</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="nest-action" style="opacity: 1;">
+      <button class="nest-btn">+</button>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 32px; padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius); font-size: 13px; color: var(--text-secondary);">
+  <strong style="color: var(--text-primary);">Pros:</strong> Zero new CSS. One-line JS change (remove <code>!isChild</code> guard). Consistent pattern everywhere.<br>
+  <strong style="color: var(--text-primary);">Cons:</strong> The <code>+</code> circle is disconnected from the text flow. Takes vertical space below every block.
+</div>
+
+</body>
+</html>

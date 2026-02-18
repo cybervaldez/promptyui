@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Option C: Badge Button [+ nest]</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg-primary: #191919;
+    --bg-secondary: #202020;
+    --bg-tertiary: #2f2f2f;
+    --bg-hover: rgba(255,255,255,0.04);
+    --text-primary: #ebebeb;
+    --text-secondary: #999;
+    --text-muted: #7a7a7a;
+    --accent: #529CCA;
+    --accent-bg: rgba(82,156,202,0.08);
+    --warning: #cb912f;
+    --warning-bg: rgba(203,145,47,0.1);
+    --border: rgba(255,255,255,0.06);
+    --border-light: rgba(255,255,255,0.09);
+    --radius: 4px;
+    --radius-sm: 3px;
+    --font-body: 'Inter', -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+    --transition-fast: 120ms ease-out;
+  }
+  body {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.5;
+    padding: 40px;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
+  .subtitle { color: var(--text-muted); font-size: 13px; margin-bottom: 32px; }
+  .section { margin-bottom: 48px; }
+
+  .block {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-secondary);
+    margin-bottom: 2px;
+  }
+  .block-body { position: relative; }
+  .block-content {
+    padding: 8px 16px;
+    font-size: 14px;
+    position: relative;
+  }
+  .block-text { display: inline; }
+  .wildcard {
+    color: var(--accent);
+    text-decoration: underline dotted;
+    text-underline-offset: 3px;
+  }
+
+  .inline-actions {
+    display: inline-flex; align-items: center; gap: 2px;
+    margin-left: 6px; vertical-align: middle;
+    opacity: 0; transition: opacity var(--transition-fast);
+  }
+  .block:hover .inline-actions { opacity: 0.5; }
+  .inline-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 20px; height: 20px;
+    background: none; border: none;
+    color: var(--text-muted); cursor: pointer; border-radius: var(--radius);
+  }
+  .inline-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
+  .inline-btn svg { width: 12px; height: 12px; }
+
+  .right-edge {
+    position: absolute; top: 0; right: 0; bottom: 0; width: 36px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    opacity: 0; transition: opacity var(--transition-fast);
+  }
+  .block:hover .right-edge { opacity: 0.5; }
+
+  .connector {
+    display: inline-flex; align-items: center; gap: 3px;
+    margin-left: 8px; font-size: 12px;
+    color: var(--text-muted); opacity: 0.35; vertical-align: middle;
+  }
+  .connector-line {
+    display: inline-block; width: 12px; height: 2px;
+    background: currentColor; border-radius: 1px; vertical-align: middle;
+  }
+  .connector-arrow { font-size: 11px; line-height: 1; }
+
+  .children { padding-left: 16px; }
+  .child-block {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: transparent;
+    margin-bottom: 2px;
+  }
+  .child-block .block-content { padding: 8px 12px 4px; }
+
+  .path-divider {
+    display: flex; align-items: center; height: 18px; margin: 0 4px;
+  }
+  .path-divider::after {
+    content: ''; flex: 1; height: 1px;
+    background: var(--border-light); margin-left: 6px;
+  }
+  .path-label {
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--text-muted); opacity: 0.5;
+    background: var(--bg-secondary); padding: 1px 6px;
+    border-radius: var(--radius-sm); border: 1px solid var(--border);
+  }
+  .path-hint {
+    display: inline-block; font-family: var(--font-mono); font-size: 10px;
+    color: var(--text-muted); background: var(--bg-secondary);
+    padding: 1px 5px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); margin-right: 6px;
+    vertical-align: middle; opacity: 0.6;
+  }
+
+  /* =============================================
+     OPTION C: Badge button matching path badge style
+     ============================================= */
+  .nest-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: 8px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    background: var(--bg-secondary);
+    padding: 1px 6px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    vertical-align: middle;
+    opacity: 0;
+    transition: opacity var(--transition-fast), background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+    cursor: pointer;
+  }
+  .block:hover .nest-badge,
+  .child-block:hover .nest-badge { opacity: 0.5; }
+  .nest-badge:hover {
+    opacity: 1 !important;
+    color: var(--accent) !important;
+    background: var(--accent-bg) !important;
+    border-color: rgba(82,156,202,0.25) !important;
+  }
+
+  .nest-badge .plus {
+    font-weight: 700;
+    font-size: 11px;
+  }
+
+  .highlight-box { display: inline; position: relative; }
+  .highlight-ring {
+    position: absolute;
+    top: -6px; left: -6px; right: -6px; bottom: -6px;
+    border: 1px dashed var(--accent);
+    border-radius: 6px;
+    pointer-events: none;
+  }
+  .highlight-label-float {
+    position: absolute;
+    top: -18px; left: 0;
+    font-size: 10px; color: var(--accent);
+    background: var(--bg-primary); padding: 0 4px;
+    font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+    white-space: nowrap;
+  }
+
+  .mode-label {
+    display: inline-block; font-size: 10px; font-family: var(--font-mono);
+    color: var(--bg-primary); background: var(--text-muted);
+    padding: 2px 8px; border-radius: var(--radius-sm);
+    margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;
+  }
+
+  .nest-action {
+    display: flex; align-items: center; justify-content: center;
+    padding: 2px 0 4px; opacity: 0; transition: opacity var(--transition-fast);
+  }
+  .block:hover > .nest-action { opacity: 1; }
+  .nest-btn {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: transparent; border: 1px solid var(--border-light);
+    color: var(--text-muted); font-size: 18px; font-weight: 500;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all var(--transition-fast);
+  }
+  .nest-btn:hover { border-color: var(--accent); color: var(--accent); }
+</style>
+</head>
+<body>
+
+<h1>Option C: Badge Button [+ nest]</h1>
+<p class="subtitle">Matches existing path badge styling (<code>.pu-path-label</code> / <code>.pu-child-path-hint</code>). Shows <code>+ nest</code> as an inline badge. Hover turns accent blue. Most informative but visually heavier.</p>
+
+<div class="section">
+  <div class="mode-label">Animated Mode (Typewriter / Stack / Reel)</div>
+
+  <div class="block" style="margin-bottom: 2px;">
+    <div class="block-body">
+      <div class="block-content" style="padding-right: 44px;">
+        <span class="block-text">Write a <span class="wildcard">one-pager</span> culture document for a <span class="wildcard">early-stage</span> <span class="wildcard">fintech</span> company</span>
+        <span class="inline-actions" style="opacity: 0.5;">
+          <button class="inline-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></button>
+        </span>
+        <span class="connector" style="opacity: 0.35;">
+          <span class="connector-line"></span>
+          <span class="connector-arrow">&#9662;</span>
+        </span>
+        <div class="right-edge" style="opacity: 0.5;">
+          <button class="inline-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button class="inline-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="children">
+      <div class="child-block" style="margin-bottom: 2px;">
+        <div class="path-divider">
+          <span class="path-label"><span class="arrow">&#8627;</span> 0.0</span>
+        </div>
+        <div class="block-body">
+          <div class="block-content" style="padding-right: 36px;">
+            <span class="block-text">Emphasize <span class="wildcard">craftsmanship</span> as a core value</span>
+            <span class="connector" style="opacity: 0.35;">
+              <span class="connector-line"></span>
+              <span class="connector-arrow">&#9662;</span>
+            </span>
+            <div class="right-edge" style="opacity: 0.5;">
+              <button class="inline-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+            </div>
+          </div>
+        </div>
+        <div class="children">
+          <!-- Grandchild LEAF — shows [+ nest] badge -->
+          <div class="child-block">
+            <div class="path-divider">
+              <span class="path-label"><span class="arrow">&#8627;</span> 0.0.0</span>
+            </div>
+            <div class="block-body">
+              <div class="block-content" style="padding-right: 36px;">
+                <span class="block-text">Give a <span class="wildcard">practical</span> example of how a <span class="wildcard">PM</span> would embody this daily</span>
+                <span style="position: relative; display: inline;">
+                  <span class="highlight-ring" style="top: -4px; bottom: -4px; left: -4px; right: -4px;"></span>
+                  <span class="highlight-label-float" style="top: -20px;">NEW: badge button</span>
+                  <button class="nest-badge" style="opacity: 0.5;">
+                    <span class="plus">+</span> nest
+                  </button>
+                </span>
+                <div class="right-edge" style="opacity: 0.5;">
+                  <button class="inline-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Child LEAF — shows [+ nest] badge -->
+      <div class="child-block">
+        <div class="path-divider">
+          <span class="path-label"><span class="arrow">&#8627;</span> 0.1</span>
+        </div>
+        <div class="block-body">
+          <div class="block-content" style="padding-right: 36px;">
+            <span class="block-text">Emphasize <span class="wildcard">ownership</span> as a core value</span>
+            <span style="position: relative; display: inline;">
+              <span class="highlight-ring" style="top: -4px; bottom: -4px; left: -4px; right: -4px;"></span>
+              <span class="highlight-label-float" style="top: -20px;">NEW: badge button</span>
+              <button class="nest-badge" style="opacity: 0.5;">
+                <span class="plus">+</span> nest
+              </button>
+            </span>
+            <div class="right-edge" style="opacity: 0.5;">
+              <button class="inline-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nest-action" style="opacity: 1;">
+      <button class="nest-btn">+</button>
+    </div>
+  </div>
+</div>
+
+<!-- Hover states -->
+<div class="section">
+  <div class="mode-label">Hover State Demo</div>
+  <div class="block">
+    <div class="block-body">
+      <div class="block-content">
+        <span class="block-text">Leaf block text</span>
+        <button class="nest-badge" style="opacity: 0.5;">
+          <span class="plus">+</span> nest
+        </button>
+        <span style="color: var(--text-muted); font-size: 12px; margin-left: 16px;">&#8592; default (muted badge)</span>
+      </div>
+    </div>
+  </div>
+  <div style="height: 8px;"></div>
+  <div class="block">
+    <div class="block-body">
+      <div class="block-content">
+        <span class="block-text">Leaf block text</span>
+        <button class="nest-badge" style="opacity: 1; color: var(--accent); background: var(--accent-bg); border-color: rgba(82,156,202,0.25);">
+          <span class="plus">+</span> nest
+        </button>
+        <span style="color: var(--accent); font-size: 12px; margin-left: 16px;">&#8592; hovered (accent blue badge)</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="mode-label">Compact Mode</div>
+
+  <div class="block compact" style="margin-bottom: 2px;">
+    <div class="block-body">
+      <div class="block-content" style="padding: 6px 16px;">
+        <span class="block-text">Write a <span class="wildcard">one-pager</span> culture document for a <span class="wildcard">early-stage</span> <span class="wildcard">fintech</span> company</span>
+        <span class="inline-actions" style="opacity: 0.5;">
+          <button class="inline-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button class="inline-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg></button>
+        </span>
+        <span class="connector" style="opacity: 0.35;">
+          <span class="connector-line"></span>
+          <span class="connector-arrow">&#9662;</span>
+        </span>
+      </div>
+    </div>
+    <div class="children">
+      <div class="child-block" style="margin-bottom: 2px;">
+        <div class="block-body">
+          <div class="block-content" style="padding: 6px 12px;">
+            <span class="path-hint">&#8627; 0.0</span>
+            <span class="block-text">Emphasize <span class="wildcard">craftsmanship</span> as a core value</span>
+            <span class="inline-actions" style="opacity: 0.5;">
+              <button class="inline-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+              <button class="inline-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg></button>
+            </span>
+            <span style="position: relative; display: inline;">
+              <span class="highlight-ring" style="top: -4px; bottom: -4px; left: -4px; right: -4px;"></span>
+              <span class="highlight-label-float" style="top: -20px;">NEW</span>
+              <button class="nest-badge" style="opacity: 0.5;">
+                <span class="plus">+</span> nest
+              </button>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="child-block">
+        <div class="block-body">
+          <div class="block-content" style="padding: 6px 12px;">
+            <span class="path-hint">&#8627; 0.1</span>
+            <span class="block-text">Emphasize <span class="wildcard">ownership</span> as a core value</span>
+            <span class="inline-actions" style="opacity: 0.5;">
+              <button class="inline-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+              <button class="inline-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg></button>
+            </span>
+            <span style="position: relative; display: inline;">
+              <span class="highlight-ring" style="top: -4px; bottom: -4px; left: -4px; right: -4px;"></span>
+              <span class="highlight-label-float" style="top: -20px;">NEW</span>
+              <button class="nest-badge" style="opacity: 0.5;">
+                <span class="plus">+</span> nest
+              </button>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="nest-action" style="opacity: 1;">
+      <button class="nest-btn">+</button>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 32px; padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius); font-size: 13px; color: var(--text-secondary);">
+  <strong style="color: var(--text-primary);">Pros:</strong> Matches existing path badge aesthetic. Labeled action ("nest") — most discoverable. Familiar mono-font badge look.<br>
+  <strong style="color: var(--text-primary);">Cons:</strong> Visually heavier than the connector line approach. "nest" text may feel redundant once learned. Adds more inline clutter alongside dice/pencil/delete.
+</div>
+
+</body>
+</html>

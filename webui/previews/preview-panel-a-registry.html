@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Panel A: Wildcard Registry</title>
+<style>
+/* PromptyUI design tokens (matched from app) */
+:root {
+    --pu-bg-primary: #191919;
+    --pu-bg-secondary: #202020;
+    --pu-bg-tertiary: #2f2f2f;
+    --pu-bg-input: #252525;
+    --pu-bg-hover: rgba(255, 255, 255, 0.04);
+    --pu-bg-selected: rgba(255, 255, 255, 0.06);
+    --pu-bg-elevated: #252525;
+    --pu-text-primary: #ebebeb;
+    --pu-text-secondary: #999999;
+    --pu-text-muted: #7a7a7a;
+    --pu-accent: #529CCA;
+    --pu-accent-bg: rgba(82, 156, 202, 0.08);
+    --pu-accent-light: rgba(82, 156, 202, 0.12);
+    --pu-success: #4daa57;
+    --pu-success-bg: rgba(77, 170, 87, 0.12);
+    --pu-warning: #cb912f;
+    --pu-warning-bg: rgba(203, 145, 47, 0.1);
+    --pu-error: #e06c75;
+    --pu-orange: #e8943a;
+    --pu-border: rgba(255, 255, 255, 0.06);
+    --pu-border-light: rgba(255, 255, 255, 0.09);
+    --pu-radius: 4px;
+    --pu-radius-sm: 3px;
+    --pu-radius-lg: 6px;
+    --pu-font-body: 'Inter', -apple-system, sans-serif;
+    --pu-font-mono: 'JetBrains Mono', monospace;
+    --pu-space-xs: 4px;
+    --pu-space-sm: 8px;
+    --pu-space-md: 12px;
+    --pu-space-lg: 16px;
+    --pu-space-xl: 24px;
+    --pu-transition-fast: 120ms ease-out;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: var(--pu-font-body);
+    background: var(--pu-bg-primary);
+    color: var(--pu-text-primary);
+    display: flex;
+    justify-content: center;
+    padding: 40px;
+}
+.preview-label {
+    position: fixed; top: 12px; left: 12px;
+    background: var(--pu-accent); color: #fff;
+    padding: 4px 12px; border-radius: 4px;
+    font-size: 12px; font-weight: 600; z-index: 99;
+}
+
+/* === PANEL A: Wildcard Registry === */
+/* Flat list of all wildcards, grouped by source. No nesting.
+   Each wildcard is an expandable row showing values.
+   Source shown as a subtle badge. */
+
+.panel {
+    width: 320px;
+    background: var(--pu-bg-secondary);
+    display: flex;
+    flex-direction: column;
+    height: 85vh;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--pu-border);
+}
+
+.panel-header {
+    display: flex;
+    align-items: center;
+    padding: 10px var(--pu-space-md);
+    background: var(--pu-bg-hover);
+    border-bottom: 1px solid var(--pu-border);
+    gap: 8px;
+}
+.panel-title {
+    font-size: 11px;
+    font-weight: 400;
+    text-transform: uppercase;
+    color: var(--pu-text-muted);
+    letter-spacing: 0.5px;
+}
+.panel-count {
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    background: var(--pu-bg-tertiary);
+    padding: 1px 6px;
+    border-radius: 9px;
+    margin-left: auto;
+}
+
+/* Search */
+.panel-search {
+    padding: var(--pu-space-sm);
+    border-bottom: 1px solid var(--pu-border);
+}
+.panel-search input {
+    width: 100%;
+    padding: 6px 10px;
+    background: var(--pu-bg-input);
+    border: 1px solid transparent;
+    border-radius: var(--pu-radius);
+    color: var(--pu-text-primary);
+    font-family: var(--pu-font-body);
+    font-size: 12px;
+}
+.panel-search input:focus {
+    outline: none;
+    border-color: var(--pu-accent);
+}
+
+/* Wildcard list */
+.wc-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--pu-space-sm);
+}
+
+.wc-item {
+    margin-bottom: 2px;
+    border-radius: var(--pu-radius);
+    overflow: hidden;
+}
+.wc-item-header {
+    display: flex;
+    align-items: center;
+    padding: 6px 8px;
+    cursor: pointer;
+    border-radius: var(--pu-radius);
+    transition: background var(--pu-transition-fast);
+    gap: 6px;
+}
+.wc-item-header:hover {
+    background: var(--pu-bg-hover);
+}
+.wc-item.expanded .wc-item-header {
+    background: var(--pu-bg-selected);
+}
+.wc-chevron {
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    width: 12px;
+    transition: transform var(--pu-transition-fast);
+}
+.wc-item.expanded .wc-chevron {
+    transform: rotate(90deg);
+}
+
+.wc-name {
+    font-family: var(--pu-font-mono);
+    font-size: 12px;
+    color: var(--pu-text-primary);
+}
+.wc-badge {
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.wc-badge.local {
+    background: var(--pu-accent-bg);
+    color: var(--pu-accent);
+}
+.wc-badge.ext {
+    background: var(--pu-warning-bg);
+    color: var(--pu-warning);
+}
+.wc-badge.override {
+    background: var(--pu-success-bg);
+    color: var(--pu-success);
+    position: relative;
+}
+.wc-count {
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    margin-left: auto;
+}
+.wc-item-body {
+    display: none;
+    padding: 4px 8px 8px 26px;
+}
+.wc-item.expanded .wc-item-body {
+    display: block;
+}
+.wc-values {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+.wc-val {
+    font-size: 11px;
+    padding: 2px 8px;
+    background: var(--pu-bg-tertiary);
+    border-radius: var(--pu-radius-sm);
+    color: var(--pu-text-secondary);
+    cursor: pointer;
+    transition: all var(--pu-transition-fast);
+}
+.wc-val:hover {
+    background: var(--pu-accent-light);
+    color: var(--pu-text-primary);
+}
+.wc-val.active {
+    background: var(--pu-accent);
+    color: #fff;
+}
+.wc-ext-source {
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    margin-top: 6px;
+    font-style: italic;
+}
+
+/* Impact section */
+.impact-section {
+    border-top: 1px solid var(--pu-border);
+    padding: var(--pu-space-md);
+    background: var(--pu-bg-hover);
+}
+.impact-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: var(--pu-text-muted);
+    margin-bottom: 6px;
+    letter-spacing: 0.5px;
+}
+.impact-dims {
+    font-size: 11px;
+    color: var(--pu-text-secondary);
+    margin-bottom: 4px;
+    font-family: var(--pu-font-mono);
+}
+.impact-total {
+    font-size: 13px;
+    color: var(--pu-text-primary);
+}
+.impact-total strong {
+    color: var(--pu-accent);
+}
+</style>
+</head>
+<body>
+<div class="preview-label">A: Wildcard Registry</div>
+
+<div class="panel">
+    <div class="panel-header">
+        <span class="panel-title">Wildcards</span>
+        <span class="panel-count">6 active</span>
+    </div>
+
+    <div class="panel-search">
+        <input type="text" placeholder="Search wildcards...">
+    </div>
+
+    <div class="wc-list">
+        <!-- Local wildcard -->
+        <div class="wc-item expanded">
+            <div class="wc-item-header">
+                <span class="wc-chevron">&#9654;</span>
+                <span class="wc-name">channel</span>
+                <span class="wc-badge local">local</span>
+                <span class="wc-count">4 values</span>
+            </div>
+            <div class="wc-item-body">
+                <div class="wc-values">
+                    <span class="wc-val active">inbound</span>
+                    <span class="wc-val">outbound</span>
+                    <span class="wc-val">referral</span>
+                    <span class="wc-val">campus</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Local with override indicator -->
+        <div class="wc-item">
+            <div class="wc-item-header">
+                <span class="wc-chevron">&#9654;</span>
+                <span class="wc-name">mood</span>
+                <span class="wc-badge override">local &bull; overrides ext</span>
+                <span class="wc-count">2 / 5</span>
+            </div>
+            <div class="wc-item-body">
+                <div class="wc-values">
+                    <span class="wc-val">happy</span>
+                    <span class="wc-val active">sad</span>
+                </div>
+                <div class="wc-ext-source">ext has 5 values (professional/tones)</div>
+            </div>
+        </div>
+
+        <!-- Extension wildcard -->
+        <div class="wc-item expanded">
+            <div class="wc-item-header">
+                <span class="wc-chevron">&#9654;</span>
+                <span class="wc-name">seniority</span>
+                <span class="wc-badge ext">ext</span>
+                <span class="wc-count">5 values</span>
+            </div>
+            <div class="wc-item-body">
+                <div class="wc-values">
+                    <span class="wc-val">Junior</span>
+                    <span class="wc-val active">Mid-level</span>
+                    <span class="wc-val">Senior</span>
+                    <span class="wc-val">Staff</span>
+                    <span class="wc-val">Principal</span>
+                </div>
+                <div class="wc-ext-source">from hiring/roles</div>
+            </div>
+        </div>
+
+        <div class="wc-item">
+            <div class="wc-item-header">
+                <span class="wc-chevron">&#9654;</span>
+                <span class="wc-name">count</span>
+                <span class="wc-badge local">local</span>
+                <span class="wc-count">3 values</span>
+            </div>
+        </div>
+
+        <div class="wc-item">
+            <div class="wc-item-header">
+                <span class="wc-chevron">&#9654;</span>
+                <span class="wc-name">approach</span>
+                <span class="wc-badge local">local</span>
+                <span class="wc-count">3 values</span>
+            </div>
+        </div>
+
+        <div class="wc-item">
+            <div class="wc-item-header">
+                <span class="wc-chevron">&#9654;</span>
+                <span class="wc-name">deal_stage</span>
+                <span class="wc-badge ext">ext</span>
+                <span class="wc-count">5 values</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="impact-section">
+        <div class="impact-label">Composition Impact</div>
+        <div class="impact-dims">channel(4) &times; mood(2) &times; seniority(5) &times; count(3) &times; approach(3)</div>
+        <div class="impact-total">Total: <strong>360</strong> compositions &middot; ~82 KB</div>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>V4: Typewriter Cycle</title>
+<style>
+  :root {
+    --pu-bg-primary: #191919;
+    --pu-bg-secondary: #202020;
+    --pu-bg-tertiary: #2f2f2f;
+    --pu-text-primary: #ebebeb;
+    --pu-text-secondary: #999999;
+    --pu-text-muted: #7a7a7a;
+    --pu-accent: #529CCA;
+    --pu-accent-bg: rgba(82, 156, 202, 0.08);
+    --pu-accent-border: rgba(82, 156, 202, 0.25);
+    --pu-border: rgba(255, 255, 255, 0.06);
+    --pu-radius: 4px;
+    --pu-radius-sm: 3px;
+    --pu-font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --pu-font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--pu-bg-primary);
+    color: var(--pu-text-primary);
+    font-family: var(--pu-font-body);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 40px 20px;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 48px;
+    max-width: 600px;
+  }
+
+  .header h1 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--pu-accent);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 8px;
+  }
+
+  .header p {
+    font-size: 13px;
+    color: var(--pu-text-muted);
+    line-height: 1.6;
+  }
+
+  .prompt-block {
+    max-width: 700px;
+    width: 100%;
+    text-align: center;
+    font-size: 19px;
+    line-height: 1.7;
+    color: var(--pu-text-primary);
+    padding: 40px;
+    background: var(--pu-bg-secondary);
+    border: 1px solid var(--pu-border);
+    border-radius: 8px;
+  }
+
+  .wc {
+    display: inline-block;
+    position: relative;
+    font-family: var(--pu-font-mono);
+    font-size: 17px;
+    color: var(--pu-accent);
+    background: var(--pu-accent-bg);
+    padding: 1px 2px 1px 8px;
+    border-radius: var(--pu-radius-sm);
+    min-width: 50px;
+    text-align: left;
+  }
+
+  .wc-text {
+    /* Holds the typed text */
+  }
+
+  .wc-cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1.1em;
+    background: var(--pu-accent);
+    vertical-align: text-bottom;
+    margin-left: 1px;
+    animation: blink 0.6s steps(1) infinite;
+  }
+
+  @keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>V4: Typewriter Cycle</h1>
+  <p>Each wildcard types out its current value character by character, pauses, then erases and types the next. Blinking cursor at the end. Typing and erasing at slightly different speeds for personality.</p>
+</div>
+
+<div class="prompt-block">
+  <span>As a </span><!--
+  --><span class="wc" data-wc="role"><span class="wc-text"></span><span class="wc-cursor"></span></span><!--
+  --><span>, describe a </span><!--
+  --><span class="wc" data-wc="stage"><span class="wc-text"></span><span class="wc-cursor"></span></span><!--
+  --><span> startup in a </span><!--
+  --><span class="wc" data-wc="tone"><span class="wc-text"></span><span class="wc-cursor"></span></span><!--
+  --><span> tone. Focus on the founding moment and the spark that ignited the vision.</span>
+</div>
+
+<script>
+const wildcards = {
+  role: ['narrator', 'critic', 'poet'],
+  stage: ['Series A', 'seed', 'pre-seed'],
+  tone: ['cheerful', 'melancholy', 'fierce']
+};
+
+function typewriterCycle(el, values, startDelay) {
+  const textEl = el.querySelector('.wc-text');
+  let valueIndex = 0;
+  const typeSpeed = 70;   // ms per character (typing)
+  const eraseSpeed = 40;  // ms per character (erasing) — faster
+  const pauseAfterType = 1800;
+  const pauseAfterErase = 300;
+
+  function typeValue(text, charIndex) {
+    if (charIndex <= text.length) {
+      textEl.textContent = text.slice(0, charIndex);
+      setTimeout(() => typeValue(text, charIndex + 1), typeSpeed);
+    } else {
+      // Pause, then erase
+      setTimeout(() => eraseValue(text, text.length), pauseAfterType);
+    }
+  }
+
+  function eraseValue(text, charIndex) {
+    if (charIndex >= 0) {
+      textEl.textContent = text.slice(0, charIndex);
+      setTimeout(() => eraseValue(text, charIndex - 1), eraseSpeed);
+    } else {
+      // Move to next value
+      valueIndex = (valueIndex + 1) % values.length;
+      setTimeout(() => typeValue(values[valueIndex], 0), pauseAfterErase);
+    }
+  }
+
+  setTimeout(() => {
+    typeValue(values[0], 0);
+  }, startDelay);
+}
+
+document.querySelectorAll('.wc').forEach((el, i) => {
+  const name = el.dataset.wc;
+  const values = wildcards[name];
+  if (!values) return;
+  typewriterCycle(el, values, i * 500);
+});
+</script>
+</body>
+</html>

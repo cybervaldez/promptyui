@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Option A2: Filter Tree with Checkbox Chips</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --pu-bg-primary: #191919;
+    --pu-bg-secondary: #202020;
+    --pu-bg-tertiary: #2f2f2f;
+    --pu-bg-hover: rgba(255, 255, 255, 0.04);
+    --pu-bg-selected: rgba(255, 255, 255, 0.06);
+    --pu-bg-elevated: #252525;
+    --pu-text-primary: #ebebeb;
+    --pu-text-secondary: #999999;
+    --pu-text-muted: #7a7a7a;
+    --pu-accent: #529CCA;
+    --pu-accent-bg: rgba(82, 156, 202, 0.08);
+    --pu-accent-light: rgba(82, 156, 202, 0.12);
+    --pu-accent-border: rgba(82, 156, 202, 0.25);
+    --pu-accent-muted: rgba(82, 156, 202, 0.5);
+    --pu-border: rgba(255, 255, 255, 0.06);
+    --pu-border-light: rgba(255, 255, 255, 0.09);
+    --pu-radius: 4px;
+    --pu-radius-sm: 3px;
+    --pu-radius-lg: 6px;
+    --pu-radius-full: 9999px;
+    --pu-font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --pu-font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+    --pu-font-size-2xs: 10px;
+    --pu-font-size-xs: 11px;
+    --pu-font-size-sm: 12px;
+    --pu-font-size-md: 13px;
+    --pu-font-size-base: 14px;
+    --pu-space-xs: 4px;
+    --pu-space-sm: 8px;
+    --pu-space-md: 12px;
+    --pu-space-lg: 16px;
+    --pu-space-xl: 24px;
+    --pu-transition-fast: 120ms ease-out;
+    --pu-transition-normal: 200ms ease-out;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--pu-bg-primary);
+    color: var(--pu-text-primary);
+    font-family: var(--pu-font-body);
+    padding: 24px;
+  }
+
+  .preview-title { font-size: 14px; font-weight: 600; color: var(--pu-accent); margin-bottom: 4px; }
+  .preview-desc { font-size: 12px; color: var(--pu-text-muted); margin-bottom: 20px; line-height: 1.5; }
+
+  .pu-output-footer {
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius-lg);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    max-height: 500px;
+  }
+  .pu-output-footer-header {
+    display: flex;
+    align-items: center;
+    gap: var(--pu-space-sm);
+    padding: var(--pu-space-sm) var(--pu-space-lg);
+    background: var(--pu-bg-secondary);
+    flex-shrink: 0;
+  }
+  .pu-output-footer-title { font-size: var(--pu-font-size-xs); font-weight: 500; color: var(--pu-text-muted); text-transform: uppercase; }
+  .pu-output-footer-count { font-size: var(--pu-font-size-xs); color: var(--pu-text-muted); background: var(--pu-bg-primary); padding: 1px 6px; border-radius: var(--pu-radius-full); }
+  .header-right { margin-left: auto; display: flex; align-items: center; gap: var(--pu-space-sm); }
+  .pu-btn-sm {
+    display: inline-flex; align-items: center; padding: 2px var(--pu-space-sm);
+    background: var(--pu-bg-hover); border: 1px solid var(--pu-border); border-radius: var(--pu-radius);
+    color: var(--pu-text-secondary); font-family: var(--pu-font-body); font-size: var(--pu-font-size-2xs);
+    cursor: pointer; transition: all var(--pu-transition-fast);
+  }
+  .pu-btn-sm:hover { background: var(--pu-bg-selected); border-color: var(--pu-border-light); color: var(--pu-text-primary); }
+  .filter-active-count { font-size: var(--pu-font-size-2xs); color: var(--pu-accent); background: var(--pu-accent-bg); padding: 1px 5px; border-radius: var(--pu-radius-full); }
+
+  .pu-output-footer-body { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+
+  /* --- Left tree panel --- */
+  .filter-tree {
+    width: 174px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--pu-border);
+    overflow-y: auto;
+    padding: var(--pu-space-sm) 0;
+    background: var(--pu-bg-secondary);
+  }
+
+  .filter-tree-reset {
+    display: block;
+    padding: var(--pu-space-xs) var(--pu-space-md);
+    font-size: var(--pu-font-size-2xs);
+    color: var(--pu-accent);
+    cursor: pointer;
+    background: none; border: none;
+    font-family: var(--pu-font-body);
+    text-align: left;
+    margin-bottom: var(--pu-space-xs);
+    transition: color var(--pu-transition-fast);
+  }
+  .filter-tree-reset:hover { color: var(--pu-text-primary); }
+  .filter-tree-reset.hidden { visibility: hidden; }
+
+  .filter-dim {
+    margin-bottom: var(--pu-space-md);
+  }
+
+  .filter-dim-header {
+    display: flex;
+    align-items: center;
+    gap: var(--pu-space-xs);
+    padding: var(--pu-space-xs) var(--pu-space-md);
+    font-size: var(--pu-font-size-2xs);
+    font-weight: 600;
+    color: var(--pu-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    user-select: none;
+  }
+  .filter-dim-header:hover { color: var(--pu-text-secondary); }
+
+  .filter-dim-chevron {
+    font-size: 8px;
+    transition: transform var(--pu-transition-normal);
+    display: inline-block;
+  }
+  .filter-dim-chevron.collapsed { transform: rotate(-90deg); }
+
+  .filter-dim-values {
+    overflow: hidden;
+    transition: max-height var(--pu-transition-normal);
+    padding: 2px var(--pu-space-sm) 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .filter-dim-values.collapsed { max-height: 0 !important; padding-top: 0; }
+
+  /* --- Chip-style filter values --- */
+  .filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 3px 8px;
+    border-radius: var(--pu-radius-full);
+    border: 1px solid var(--pu-border-light);
+    background: transparent;
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-secondary);
+    cursor: pointer;
+    user-select: none;
+    transition: all var(--pu-transition-fast);
+    white-space: nowrap;
+  }
+  .filter-chip:hover {
+    border-color: var(--pu-accent-border);
+    color: var(--pu-text-primary);
+    background: var(--pu-bg-hover);
+  }
+  .filter-chip.active {
+    border-color: var(--pu-accent-border);
+    background: var(--pu-accent-bg);
+    color: var(--pu-accent);
+  }
+
+  .filter-chip-check {
+    font-size: 9px;
+    line-height: 1;
+    opacity: 0;
+    width: 0;
+    overflow: hidden;
+    transition: all var(--pu-transition-fast);
+  }
+  .filter-chip.active .filter-chip-check {
+    opacity: 1;
+    width: 10px;
+  }
+
+  .filter-chip-count {
+    font-size: var(--pu-font-size-2xs);
+    font-family: var(--pu-font-mono);
+    color: var(--pu-text-muted);
+    transition: color var(--pu-transition-fast);
+  }
+  .filter-chip.active .filter-chip-count {
+    color: var(--pu-accent-muted);
+  }
+
+  /* Zero state */
+  .filter-chip.zero {
+    opacity: 0.35;
+    pointer-events: none;
+  }
+
+  /* --- Right output list --- */
+  .output-list { flex: 1; overflow-y: auto; padding: var(--pu-space-sm) var(--pu-space-md); min-width: 0; }
+  .output-item {
+    background: var(--pu-bg-hover); border: 1px solid var(--pu-border); border-radius: var(--pu-radius);
+    padding: var(--pu-space-sm) var(--pu-space-md); margin-bottom: var(--pu-space-xs);
+  }
+  .output-item.hidden { display: none; }
+  .output-item-label { font-family: var(--pu-font-mono); font-size: var(--pu-font-size-2xs); color: var(--pu-text-muted); display: block; margin-bottom: 2px; }
+  .output-item-text { font-size: var(--pu-font-size-sm); color: var(--pu-text-primary); line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+  .label-wc-name { color: var(--pu-text-muted); }
+  .label-wc-eq { color: var(--pu-text-muted); opacity: 0.5; }
+  .label-wc-val { color: var(--pu-accent); }
+  .label-wc-sep { color: var(--pu-text-muted); opacity: 0.3; margin: 0 3px; }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+</style>
+</head>
+<body>
+  <div class="preview-title">A2: Filter Tree with Checkbox Chips</div>
+  <div class="preview-desc">
+    Filter values displayed as compact pill/chips that wrap horizontally within each dimension.
+    Active chips gain a checkmark icon and accent styling. Chips with zero matches fade out.
+    More compact than a vertical list — good when dimensions have many values.
+  </div>
+
+  <div class="pu-output-footer">
+    <div class="pu-output-footer-header">
+      <span class="pu-output-footer-title">Resolved Output</span>
+      <span class="pu-output-footer-count" id="count-badge">27</span>
+      <span class="filter-active-count" id="filter-badge" style="display:none"></span>
+      <div class="header-right">
+        <button class="pu-btn-sm">&#8210;</button>
+        <button class="pu-btn-sm">Copy All</button>
+      </div>
+    </div>
+    <div class="pu-output-footer-body">
+      <div class="filter-tree" id="filter-tree"></div>
+      <div class="output-list" id="output-list"></div>
+    </div>
+  </div>
+
+<script>
+const WILDCARDS = {
+  Stage: ['Series A', 'seed', 'x'],
+  Tone:  ['cheerful', 'melancholy', 'fierce'],
+  Role:  ['narrator', 'critic', 'poet']
+};
+
+const PROMPT_TEMPLATE = (stage, tone, role) =>
+  `As a ${role}, describe a ${stage} startup in a ${tone} tone. Focus on the founding moment and the spark that ignited the vision.`;
+
+const outputs = [];
+for (const stage of WILDCARDS.Stage)
+  for (const tone of WILDCARDS.Tone)
+    for (const role of WILDCARDS.Role)
+      outputs.push({ dims: { Stage: stage, Tone: tone, Role: role }, text: PROMPT_TEMPLATE(stage, tone, role) });
+
+const activeFilters = {};
+for (const dim of Object.keys(WILDCARDS)) activeFilters[dim] = new Set();
+const collapsed = {};
+
+function countMatches(dim, val) {
+  return outputs.filter(o => {
+    for (const [d, set] of Object.entries(activeFilters)) {
+      if (d === dim) { if (o.dims[d] !== val) return false; }
+      else { if (set.size > 0 && !set.has(o.dims[d])) return false; }
+    }
+    return true;
+  }).length;
+}
+
+function isVisible(o) {
+  for (const [dim, set] of Object.entries(activeFilters))
+    if (set.size > 0 && !set.has(o.dims[dim])) return false;
+  return true;
+}
+
+function buildTree() {
+  const tree = document.getElementById('filter-tree');
+  const hasFilters = Object.values(activeFilters).some(s => s.size > 0);
+  let html = `<button class="filter-tree-reset ${hasFilters ? '' : 'hidden'}" onclick="resetFilters()">Show All</button>`;
+
+  for (const [dim, values] of Object.entries(WILDCARDS)) {
+    const isCollapsed = collapsed[dim] || false;
+    html += `<div class="filter-dim">
+      <div class="filter-dim-header" onclick="toggleDim('${dim}')">
+        <span class="filter-dim-chevron ${isCollapsed ? 'collapsed' : ''}">&#9654;</span>
+        ${dim}
+      </div>
+      <div class="filter-dim-values ${isCollapsed ? 'collapsed' : ''}" style="max-height:200px">`;
+
+    for (const val of values) {
+      const isActive = activeFilters[dim].has(val);
+      const count = countMatches(dim, val);
+      const isZero = count === 0 && !isActive;
+      html += `<div class="filter-chip ${isActive ? 'active' : ''} ${isZero ? 'zero' : ''}"
+                    onclick="toggleFilter('${dim}', '${val}')">
+        <span class="filter-chip-check">&#10003;</span>
+        ${val}
+        <span class="filter-chip-count">${count}</span>
+      </div>`;
+    }
+    html += '</div></div>';
+  }
+  tree.innerHTML = html;
+}
+
+function toggleDim(dim) { collapsed[dim] = !collapsed[dim]; buildTree(); }
+function toggleFilter(dim, val) {
+  activeFilters[dim].has(val) ? activeFilters[dim].delete(val) : activeFilters[dim].add(val);
+  render();
+}
+function resetFilters() { for (const d of Object.keys(WILDCARDS)) activeFilters[d].clear(); render(); }
+
+function buildOutputList() {
+  const list = document.getElementById('output-list');
+  let html = '', visibleCount = 0;
+  for (const o of outputs) {
+    const visible = isVisible(o);
+    if (visible) visibleCount++;
+    const label = Object.entries(o.dims).map(([k,v]) =>
+      `<span class="label-wc-name">${k}</span><span class="label-wc-eq">=</span><span class="label-wc-val">${v}</span>`
+    ).join('<span class="label-wc-sep">|</span>');
+    html += `<div class="output-item ${visible ? '' : 'hidden'}">
+      <span class="output-item-label">${label}</span>
+      <div class="output-item-text">${o.text}</div>
+    </div>`;
+  }
+  list.innerHTML = html;
+  const hasFilters = Object.values(activeFilters).some(s => s.size > 0);
+  document.getElementById('count-badge').textContent = hasFilters ? `${visibleCount} / 27` : '27';
+  const fb = document.getElementById('filter-badge');
+  if (hasFilters) {
+    const n = Object.values(activeFilters).reduce((s,set) => s + set.size, 0);
+    fb.textContent = `${n} filter${n > 1 ? 's' : ''}`; fb.style.display = '';
+  } else { fb.style.display = 'none'; }
+}
+
+function render() { buildTree(); buildOutputList(); }
+render();
+</script>
+</body>
+</html>

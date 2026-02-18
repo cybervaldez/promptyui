@@ -19,7 +19,7 @@ PU.actions = {
         PU.actions.parseUrlParams();
 
         // Load extensions first (needed for dropdown population)
-        await PU.inspector.init();
+        await PU.rightPanel.init();
 
         // Then load jobs (which may select a job and populate dropdowns)
         await PU.sidebar.init();
@@ -95,7 +95,8 @@ PU.actions = {
         if (wcMax) {
             const wcMaxVal = parseInt(wcMax, 10);
             if (!isNaN(wcMaxVal) && wcMaxVal >= 0) {
-                PU.state.previewMode.extWildcardsMax = wcMaxVal;
+                PU.state.previewMode.wildcardsMax = wcMaxVal;
+                PU.state.previewMode._wcMaxFromUrl = true;
             }
         }
 
@@ -110,7 +111,7 @@ PU.actions = {
         // Set visualizer from URL if provided
         if (viz && ['compact', 'typewriter', 'reel', 'stack', 'ticker'].includes(viz)) {
             PU.state.previewMode.visualizer = viz;
-            const vizSelect = document.querySelector('[data-testid="pu-odometer-visualizer"]');
+            const vizSelect = document.querySelector('[data-testid="pu-editor-visualizer"]');
             if (vizSelect) vizSelect.value = viz;
         }
 
@@ -144,8 +145,8 @@ PU.actions = {
         }
         if (PU.state.activePromptId) {
             params.set('composition', PU.state.previewMode.compositionId);
-            if (PU.state.previewMode.extWildcardsMax > 0) {
-                params.set('wc_max', PU.state.previewMode.extWildcardsMax);
+            if (PU.state.previewMode.wildcardsMax > 0) {
+                params.set('wc_max', PU.state.previewMode.wildcardsMax);
             }
             if (PU.state.previewMode.extTextMax !== 1) {
                 params.set('ext_text', PU.state.previewMode.extTextMax);
@@ -205,13 +206,8 @@ PU.actions = {
     // Extension Actions (Right Inspector Only)
     // ============================================
 
-    filterInspectorExtensions(value) {
-        PU.state.ui.inspectorExtensionFilter = value;
-        PU.inspector.renderExtensionsTree();
-    },
-
     selectExtension(path) {
-        PU.inspector.selectExtFile(path);
+        // Placeholder for extension selection if needed
     },
 
     // ============================================
@@ -271,8 +267,17 @@ PU.actions = {
         PU.actions.updateHeader();
         PU.sidebar.renderJobs();
 
+        // Apply prompt-level wildcards_max on initial load (unless URL explicitly set wc_max)
+        if (PU.state.activePromptId && !PU.state.previewMode._wcMaxFromUrl) {
+            const p = PU.helpers.getActivePrompt();
+            const j = PU.state.jobs[jobId];
+            PU.state.previewMode.wildcardsMax = p?.wildcards_max ?? j?.defaults?.wildcards_max ?? 0;
+        }
+        delete PU.state.previewMode._wcMaxFromUrl;
+
         if (PU.state.activePromptId) {
             await PU.editor.showPrompt(jobId, PU.state.activePromptId);
+            PU.rightPanel.render();
         }
 
         if (updateUrl) {
@@ -293,6 +298,11 @@ PU.actions = {
         PU.state.activePromptId = promptId;
         PU.state.selectedBlockPath = null;
 
+        // Apply prompt-level wildcards_max (or fall back to job defaults)
+        const activePrompt = PU.helpers.getActivePrompt();
+        const activeJob = PU.helpers.getActiveJob();
+        PU.state.previewMode.wildcardsMax = activePrompt?.wildcards_max ?? activeJob?.defaults?.wildcards_max ?? 0;
+
         // Invalidate autocomplete cache on prompt switch
         PU.state.autocompleteCache.loaded = false;
         PU.state.autocompleteCache.extWildcardNames = [];
@@ -301,7 +311,7 @@ PU.actions = {
         PU.sidebar.updateActiveStates();
         PU.actions.updateHeader();
         await PU.editor.showPrompt(jobId, promptId);
-        PU.inspector.showOverview();
+        PU.rightPanel.render();
 
         PU.actions.updateUrl();
         PU.helpers.saveUIState();
@@ -372,18 +382,8 @@ PU.actions = {
             block.classList.add('selected');
         }
 
-        // Update inspector
-        const prompt = PU.helpers.getActivePrompt();
-        if (prompt) {
-            const blockData = PU.blocks.findBlockByPath(prompt.text || [], path);
-            if (blockData && 'content' in blockData) {
-                const wildcards = PU.blocks.detectWildcards(blockData.content);
-                PU.inspector.updateWildcardsContext(wildcards, prompt.wildcards || []);
-            } else if (blockData && 'ext_text' in blockData) {
-                // Show ext_text context
-                PU.inspector.selectExtFile(`${prompt.ext || 'defaults'}/${blockData.ext_text}`);
-            }
-        }
+        // Update right panel
+        PU.rightPanel.render();
     },
 
     toggleBlock(path) {
@@ -439,74 +439,6 @@ PU.actions = {
         PU.export.confirm();
     },
 
-    // ============================================
-    // Output Footer Actions
-    // ============================================
-
-    cycleOutputLabelMode() {
-        const modes = ['none', 'hybrid', 'inline'];
-        const current = PU.state.ui.outputLabelMode || 'none';
-        const next = modes[(modes.indexOf(current) + 1) % modes.length];
-        PU.state.ui.outputLabelMode = next;
-        PU.helpers.saveUIState();
-        PU.editor.applyOutputLabelMode();
-    },
-
-    toggleOutputFooter() {
-        const footer = document.querySelector('[data-testid="pu-output-footer"]');
-        if (!footer) return;
-        footer.classList.toggle('collapsed');
-        PU.state.ui.outputFooterCollapsed = footer.classList.contains('collapsed');
-        PU.helpers.saveUIState();
-    },
-
-    async loadMoreOutputs() {
-        const textItems = PU.editor._footerTextItems;
-        const resolutions = PU.editor._footerResolutions;
-        if (!textItems || !resolutions) return;
-
-        const gen = ++PU.editor._footerGeneration;
-        const { outputs, total } = await PU.preview.buildMultiCompositionOutputs(textItems, resolutions, 50);
-        if (gen !== PU.editor._footerGeneration) return;
-
-        PU.editor._renderFooterBody(outputs, total);
-    },
-
-    toggleOutputFilter(dim, val) {
-        const af = PU.state.ui.outputFilters;
-        if (!af[dim]) af[dim] = new Set();
-        if (af[dim].has(val)) {
-            af[dim].delete(val);
-            if (af[dim].size === 0) delete af[dim];
-        } else {
-            af[dim].add(val);
-        }
-        // Re-render with cached outputs
-        const cachedOutputs = PU.editor._footerCurrentOutputs;
-        const cachedTotal = PU.editor._footerCurrentTotal;
-        if (cachedOutputs) {
-            PU.editor._renderFooterBody(cachedOutputs, cachedTotal);
-        }
-    },
-
-    resetOutputFilters() {
-        PU.state.ui.outputFilters = {};
-        const cachedOutputs = PU.editor._footerCurrentOutputs;
-        const cachedTotal = PU.editor._footerCurrentTotal;
-        if (cachedOutputs) {
-            PU.editor._renderFooterBody(cachedOutputs, cachedTotal);
-        }
-    },
-
-    toggleFilterDim(dim) {
-        PU.state.ui.outputFilterCollapsed[dim] = !PU.state.ui.outputFilterCollapsed[dim];
-        // Re-render filter tree only
-        const cachedOutputs = PU.editor._footerCurrentOutputs;
-        if (cachedOutputs) {
-            PU.editor._renderFilterTree(cachedOutputs);
-        }
-    },
-
     /**
      * Show inline "Copied to Clipboard" feedback on a copy button, then revert.
      */
@@ -523,25 +455,6 @@ PU.actions = {
             btn._copiedTimer = null;
             btn._originalCopyHTML = null;
         }, 2000);
-    },
-
-    async copyOutputFooter() {
-        const btn = document.querySelector('[data-testid="pu-output-footer-copy"]');
-        const items = document.querySelectorAll('[data-testid="pu-output-list"] .pu-output-item-text');
-        if (items.length === 0) {
-            PU.actions.showToast('No output to copy', 'error');
-            return;
-        }
-
-        const texts = Array.from(items).map(el => el.textContent);
-        const combined = texts.join('\n\n---\n\n');
-
-        try {
-            await navigator.clipboard.writeText(combined);
-        } catch (e) {
-            console.error('Failed to copy output footer:', e);
-        }
-        PU.actions._showCopiedFeedback(btn);
     },
 
     // ============================================
@@ -634,12 +547,32 @@ document.addEventListener('click', (e) => {
     if (PU.state.extPickerCallback && !e.target.closest('.pu-ext-picker-popup') && !e.target.closest('.pu-add-menu')) {
         PU.inspector.closeExtPicker();
     }
+
+    // Close theme swap dropdown when clicking outside
+    if (PU.state.themes.swapDropdown.visible &&
+        !e.target.closest('#pu-theme-swap-dropdown') &&
+        !e.target.closest('.pu-theme-label')) {
+        PU.themes.closeSwapDropdown();
+    }
+
+    // Close theme context menu when clicking outside
+    if (PU.state.themes.contextMenu.visible &&
+        !e.target.closest('#pu-theme-context-menu') &&
+        !e.target.closest('.block-more')) {
+        PU.themes.closeContextMenu();
+    }
 });
 
 // Handle escape key
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-        if (PU.quill._autocompleteOpen) {
+        if (PU.state.themes.swapDropdown.visible) {
+            PU.themes.closeSwapDropdown();
+        } else if (PU.state.themes.contextMenu.visible) {
+            PU.themes.closeContextMenu();
+        } else if (PU.state.themes.saveModal.visible) {
+            PU.themes.closeSaveModal();
+        } else if (PU.quill._autocompleteOpen) {
             PU.quill.closeAutocomplete();
         } else if (PU.state.focusMode && PU.state.focusMode.active) {
             PU.focus.exit();

@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Option A: Per-Segment Tooltip</title>
+<style>
+  :root {
+    --pu-bg-primary: #191919;
+    --pu-bg-secondary: #202020;
+    --pu-bg-hover: rgba(255, 255, 255, 0.04);
+    --pu-text-primary: #ebebeb;
+    --pu-text-secondary: #999999;
+    --pu-text-muted: #7a7a7a;
+    --pu-accent: #529CCA;
+    --pu-accent-muted: rgba(82, 156, 202, 0.5);
+    --pu-border: rgba(255, 255, 255, 0.06);
+    --pu-radius: 4px;
+    --pu-radius-full: 9999px;
+    --pu-font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --pu-font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+    --pu-font-size-2xs: 10px;
+    --pu-font-size-xs: 11px;
+    --pu-font-size-sm: 12px;
+    --pu-space-xs: 4px;
+    --pu-space-sm: 8px;
+    --pu-space-md: 12px;
+    --pu-space-lg: 16px;
+    --pu-transition-fast: 120ms ease-out;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--pu-bg-primary);
+    color: var(--pu-text-primary);
+    font-family: var(--pu-font-body);
+    padding: 24px;
+  }
+
+  .preview-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--pu-accent);
+    margin-bottom: 4px;
+  }
+  .preview-desc {
+    font-size: 12px;
+    color: var(--pu-text-muted);
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+
+  /* === Output footer (matches real styles) === */
+  .pu-output-footer {
+    border-top: 1px solid var(--pu-border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .pu-output-footer-header {
+    display: flex;
+    align-items: center;
+    gap: var(--pu-space-sm);
+    padding: var(--pu-space-sm) var(--pu-space-lg);
+    background: var(--pu-bg-secondary);
+    cursor: pointer;
+    user-select: none;
+  }
+  .pu-output-footer-title {
+    font-size: var(--pu-font-size-xs);
+    font-weight: 500;
+    color: var(--pu-text-muted);
+    text-transform: uppercase;
+  }
+  .pu-output-footer-count {
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-muted);
+    background: var(--pu-bg-primary);
+    padding: 1px 6px;
+    border-radius: var(--pu-radius-full);
+  }
+  .pu-output-footer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--pu-space-sm) var(--pu-space-lg);
+  }
+  .pu-output-item {
+    background: var(--pu-bg-hover);
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius);
+    padding: var(--pu-space-sm) var(--pu-space-md);
+    margin-bottom: var(--pu-space-sm);
+  }
+  .pu-output-item-label {
+    font-family: var(--pu-font-mono);
+    font-size: var(--pu-font-size-2xs);
+    color: var(--pu-text-muted);
+    display: block;
+    margin-bottom: var(--pu-space-xs);
+  }
+  .pu-output-item-text {
+    font-size: var(--pu-font-size-sm);
+    color: var(--pu-text-primary);
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .pu-output-item-help {
+    font-size: var(--pu-font-size-2xs);
+    color: var(--pu-text-muted);
+    cursor: help;
+    margin-left: var(--pu-space-xs);
+  }
+
+  /* === Option A: Per-segment tooltip === */
+  .pu-label-segment {
+    cursor: help;
+    padding: 1px 2px;
+    border-radius: 2px;
+    transition: background var(--pu-transition-fast), color var(--pu-transition-fast);
+    position: relative;
+  }
+  .pu-label-segment:hover {
+    background: rgba(82, 156, 202, 0.15);
+    color: var(--pu-accent);
+  }
+  .pu-label-dot {
+    color: var(--pu-text-muted);
+    opacity: 0.4;
+  }
+</style>
+</head>
+<body>
+  <div class="preview-title">Option A: Per-Segment Tooltip</div>
+  <div class="preview-desc">
+    Each number in the label is a separate hoverable span.<br>
+    Hover any number to see <code>wildcardName: actualValue</code>.<br>
+    The <code>?</code> icon shows the full mapping for all dimensions.
+  </div>
+
+  <div class="pu-output-footer">
+    <div class="pu-output-footer-header">
+      <span class="pu-output-footer-title">Outputs</span>
+      <span class="pu-output-footer-count">(6 of 24 total)</span>
+    </div>
+    <div class="pu-output-footer-body">
+
+      <div class="pu-output-item">
+        <span class="pu-output-item-label">
+          <span class="pu-label-segment" title="mood: cheerful">0</span><span class="pu-label-dot">.</span><span class="pu-label-segment" title="pose: standing">0</span><span class="pu-label-dot">.</span><span class="pu-label-segment" title="role: wizard">0</span>
+          <span class="pu-output-item-help" style="display:inline" title="mood=cheerful, pose=standing, role=wizard">?</span>
+        </span>
+        <div class="pu-output-item-text">a cheerful wizard standing in a mystical forest, dramatic lighting</div>
+      </div>
+
+      <div class="pu-output-item">
+        <span class="pu-output-item-label">
+          <span class="pu-label-segment" title="mood: melancholy">1</span><span class="pu-label-dot">.</span><span class="pu-label-segment" title="pose: standing">0</span><span class="pu-label-dot">.</span><span class="pu-label-segment" title="role: wizard">0</span>
+          <span class="pu-output-item-help" style="display:inline" title="mood=melancholy, pose=standing, role=wizard">?</span>
+        </span>
+        <div class="pu-output-item-text">a melancholy wizard standing in a mystical forest, dramatic lighting</div>
+      </div>
+
+      <div class="pu-output-item">
+        <span class="pu-output-item-label">
+          <span class="pu-label-segment" title="mood: cheerful">0</span><span class="pu-label-dot">.</span><span class="pu-label-segment" title="pose: sitting">1</span><span class="pu-label-dot">.</span><span class="pu-label-segment" title="role: wizard">0</span>
+          <span class="pu-output-item-help" style="display:inline" title="mood=cheerful, pose=sitting, role=wizard">?</span>
+        </span>
+        <div class="pu-output-item-text">a cheerful wizard sitting in a mystical forest, dramatic lighting</div>
+      </div>
+
+      <div class="pu-output-item">
+        <span class="pu-output-item-label">
+          <span class="pu-label-segment" title="mood: cheerful">0</span><span class="pu-label-dot">.</span><span class="pu-label-segment" title="pose: standing">0</span><span class="pu-label-dot">.</span><span class="pu-label-segment" title="role: knight">1</span>
+          <span class="pu-output-item-help" style="display:inline" title="mood=cheerful, pose=standing, role=knight">?</span>
+        </span>
+        <div class="pu-output-item-text">a cheerful knight standing in a mystical forest, dramatic lighting</div>
+      </div>
+
+      <div class="pu-output-item">
+        <span class="pu-output-item-label">
+          <span class="pu-label-segment" title="mood: melancholy">1</span><span class="pu-label-dot">.</span><span class="pu-label-segment" title="pose: sitting">1</span><span class="pu-label-dot">.</span><span class="pu-label-segment" title="role: knight">1</span>
+          <span class="pu-output-item-help" style="display:inline" title="mood=melancholy, pose=sitting, role=knight">?</span>
+        </span>
+        <div class="pu-output-item-text">a melancholy knight sitting in a mystical forest, dramatic lighting</div>
+      </div>
+
+      <div class="pu-output-item">
+        <span class="pu-output-item-label">
+          <span class="pu-label-segment" title="mood: fierce">2</span><span class="pu-label-dot">.</span><span class="pu-label-segment" title="pose: kneeling">2</span><span class="pu-label-dot">.</span><span class="pu-label-segment" title="role: rogue">2</span>
+          <span class="pu-output-item-help" style="display:inline" title="mood=fierce, pose=kneeling, role=rogue">?</span>
+        </span>
+        <div class="pu-output-item-text">a fierce rogue kneeling in a mystical forest, dramatic lighting</div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

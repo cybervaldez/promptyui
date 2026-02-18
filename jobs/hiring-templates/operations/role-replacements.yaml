@@ -1,0 +1,12 @@
+# Variant Configuration
+wildcards:
+  - name: "role"
+    replace:
+      - text: "Frontend Developer"
+        with: "UI Designer"
+      - text: "Data Scientist"
+        with: "Data Analyst"
+  - name: "count"
+    replace:
+      - text: "3"
+        with: "1"
