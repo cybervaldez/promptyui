@@ -3,3 +3,8 @@ __pycache__/
 *.pyc
 .env
 tests/e2e-runs/
+--path
+*.txt
+!README.txt
+jobs/*/session.yaml
+webui/previews/
