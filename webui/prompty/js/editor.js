@@ -12,8 +12,10 @@ PU.editor = {
     async showPrompt(jobId, promptId) {
         const emptyState = document.querySelector('[data-testid="pu-editor-empty"]');
         const content = document.querySelector('[data-testid="pu-editor-content"]');
+        const noPrompts = document.querySelector('[data-testid="pu-editor-no-prompts"]');
 
         if (emptyState) emptyState.style.display = 'none';
+        if (noPrompts) noPrompts.style.display = 'none';
         if (content) content.style.display = 'flex';
 
         // Update prompt title
@@ -34,14 +36,29 @@ PU.editor = {
     },
 
     /**
-     * Show empty state
+     * Show empty state (no job selected)
      */
     showEmptyState() {
         const emptyState = document.querySelector('[data-testid="pu-editor-empty"]');
         const content = document.querySelector('[data-testid="pu-editor-content"]');
+        const noPrompts = document.querySelector('[data-testid="pu-editor-no-prompts"]');
 
         if (emptyState) emptyState.style.display = 'flex';
         if (content) content.style.display = 'none';
+        if (noPrompts) noPrompts.style.display = 'none';
+    },
+
+    /**
+     * Show no-prompts state (job selected but 0 prompts)
+     */
+    showNoPromptsState() {
+        const emptyState = document.querySelector('[data-testid="pu-editor-empty"]');
+        const content = document.querySelector('[data-testid="pu-editor-content"]');
+        const noPrompts = document.querySelector('[data-testid="pu-editor-no-prompts"]');
+
+        if (emptyState) emptyState.style.display = 'none';
+        if (content) content.style.display = 'none';
+        if (noPrompts) noPrompts.style.display = 'flex';
     },
 
     /**
@@ -53,10 +70,22 @@ PU.editor = {
 
         const defaults = job.defaults || {};
 
-        // Update ext dropdown
-        const extSelect = document.querySelector('[data-testid="pu-defaults-ext"]');
-        if (extSelect) {
-            PU.editor.populateExtDropdown(extSelect, defaults.ext || 'defaults');
+        // Check if extensions exist
+        const tree = PU.state.globalExtensions.tree;
+        const hasExtensions = tree && Object.keys(tree).filter(k => k !== '_files').length > 0;
+
+        // Toggle ext row vs "no extensions" message
+        const extRow = document.querySelector('[data-testid="pu-defaults-ext-row"]');
+        const noExtMsg = document.querySelector('[data-testid="pu-defaults-no-ext"]');
+        if (extRow) extRow.style.display = hasExtensions ? '' : 'none';
+        if (noExtMsg) noExtMsg.style.display = hasExtensions ? 'none' : '';
+
+        // Update ext dropdown only when extensions exist
+        if (hasExtensions) {
+            const extSelect = document.querySelector('[data-testid="pu-defaults-ext"]');
+            if (extSelect) {
+                PU.editor.populateExtDropdown(extSelect, defaults.ext || 'defaults');
+            }
         }
     },
 

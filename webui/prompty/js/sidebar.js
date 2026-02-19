@@ -98,6 +98,18 @@ PU.sidebar = {
                     }
                 }
 
+                // Add Prompt ghost button
+                html += `
+                    <div class="pu-tree-children">
+                        <div class="pu-tree-item pu-tree-item-ghost"
+                             data-testid="pu-add-prompt-${jobId}"
+                             onclick="event.stopPropagation(); PU.actions.createNewPrompt('${jobId}')">
+                            <span class="pu-tree-toggle" style="visibility: hidden;">&#9654;</span>
+                            <span class="pu-tree-label pu-tree-label-ghost">+ Prompt</span>
+                        </div>
+                    </div>
+                `;
+
                 // LoRAs
                 const loras = jobData.loras || [];
                 if (loras.length > 0) {

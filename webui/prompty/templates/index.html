@@ -72,6 +72,17 @@
                     </div>
                 </div>
 
+                <!-- No Prompts State (job selected but 0 prompts) -->
+                <div class="pu-editor-no-prompts" data-testid="pu-editor-no-prompts" style="display: none;">
+                    <div style="opacity: 0.3; font-size: 48px; margin-bottom: var(--pu-space-lg);">&#128196;</div>
+                    <h3>No prompts yet</h3>
+                    <p>Add your first prompt to start building.</p>
+                    <button class="pu-btn pu-btn-ghost" data-testid="pu-add-first-prompt-btn"
+                            onclick="PU.actions.createNewPrompt(PU.state.activeJobId)">
+                        + Add Prompt
+                    </button>
+                </div>
+
                 <!-- Prompt Editor (hidden until job selected) -->
                 <div class="pu-editor-content" data-testid="pu-editor-content" style="display: none;">
                     <!-- Defaults Toolbar -->
@@ -83,11 +94,14 @@
                         </div>
                         <div class="pu-defaults-form" data-testid="pu-defaults-form">
                             <div class="pu-defaults-form-inner">
-                                <div class="pu-defaults-row">
+                                <div class="pu-defaults-row" data-testid="pu-defaults-ext-row">
                                     <label>ext:</label>
                                     <select data-testid="pu-defaults-ext" onchange="PU.actions.updateDefaults('ext', this.value)">
                                         <option value="">Loading...</option>
                                     </select>
+                                </div>
+                                <div class="pu-defaults-no-ext" data-testid="pu-defaults-no-ext" style="display: none;">
+                                    <span style="font-style: italic; font-size: var(--pu-font-size-xs); color: var(--pu-text-muted); padding: var(--pu-space-xs) 0;">No extension themes installed</span>
                                 </div>
                             </div>
                         </div>
@@ -151,6 +165,9 @@
 
                 <!-- Replacement popover (hidden by default, positioned absolutely) -->
                 <div class="pu-rp-replace-popover" data-testid="pu-rp-replace-popover" style="display: none;"></div>
+
+                <!-- Push-to-theme popover (hidden by default, positioned absolutely) -->
+                <div class="pu-rp-push-popover" data-testid="pu-rp-push-popover" style="display: none;"></div>
 
                 <!-- Compositions section (fixed bottom) -->
                 <div class="pu-rp-ops-section" data-testid="pu-rp-ops-section">
@@ -374,6 +391,22 @@
             </div>
         </div>
 
+        <!-- Move to Theme Modal -->
+        <div class="pu-modal-overlay" data-testid="pu-move-to-theme-modal" style="display: none;">
+            <div class="pu-modal" data-testid="pu-mtt-modal">
+                <div class="pu-modal-header">
+                    <h2>Move to Theme</h2>
+                    <button class="pu-modal-close" data-testid="pu-mtt-close-btn" onclick="PU.moveToTheme.close()">&times;</button>
+                </div>
+                <div class="pu-modal-body" data-testid="pu-mtt-body">
+                </div>
+                <div class="pu-modal-footer">
+                    <button class="pu-btn" data-testid="pu-mtt-cancel-btn" onclick="PU.moveToTheme.close()">Cancel</button>
+                    <button class="pu-btn pu-btn-primary" data-testid="pu-mtt-confirm-btn" onclick="PU.moveToTheme.confirm()">Move</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Toast Container -->
         <div class="pu-toast-container" data-testid="pu-toast-container"></div>
     </div>
@@ -391,6 +424,7 @@
     <script src="js/wildcard-popover.js"></script>
     <script src="js/build-composition.js"></script>
     <script src="js/themes.js"></script>
+    <script src="js/move-to-theme.js"></script>
     <script src="js/export.js"></script>
     <script src="js/main.js"></script>
 </body>

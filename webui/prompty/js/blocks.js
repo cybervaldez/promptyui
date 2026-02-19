@@ -110,11 +110,12 @@ PU.blocks = {
     },
 
     /**
-     * Render right-edge actions (pencil always; delete only for root blocks)
+     * Render right-edge actions (pencil always; delete only for root blocks; move for eligible content blocks)
      */
-    _renderRightEdgeActions(path, pathId, isChild = false) {
+    _renderRightEdgeActions(path, pathId, isChild = false, canMove = false) {
+        const moveBtn = canMove ? `<button class="pu-inline-action pu-inline-move" data-testid="pu-block-move-btn-${pathId}" tabindex="-1" onclick="event.stopPropagation(); PU.moveToTheme.open('${path}')" title="Move block to reusable theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></button>` : '';
         const deleteBtn = isChild ? '' : `<button class="pu-inline-action pu-inline-delete" data-testid="pu-block-delete-btn-${pathId}" tabindex="-1" onclick="event.stopPropagation(); PU.actions.deleteBlock('${path}')" title="Delete block"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>`;
-        return `<div class="pu-right-edge-actions"><button class="pu-inline-action pu-inline-edit" data-testid="pu-block-edit-btn-${pathId}" tabindex="-1" onclick="event.stopPropagation(); PU.actions.selectBlock('${path}'); PU.focus.enter('${path}')" title="Edit block"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>${deleteBtn}</div>`;
+        return `<div class="pu-right-edge-actions">${moveBtn}<button class="pu-inline-action pu-inline-edit" data-testid="pu-block-edit-btn-${pathId}" tabindex="-1" onclick="event.stopPropagation(); PU.actions.selectBlock('${path}'); PU.focus.enter('${path}')" title="Edit block"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>${deleteBtn}</div>`;
     },
 
     /**
@@ -140,7 +141,8 @@ PU.blocks = {
             : '';
 
         // Right-edge actions (animated modes only) — inside content div for proper centering
-        const rightEdge = (viz !== 'compact') ? PU.blocks._renderRightEdgeActions(path, pathId, isChild) : '';
+        const canMove = !hasChildren; // Content blocks without children can be moved to theme
+        const rightEdge = (viz !== 'compact') ? PU.blocks._renderRightEdgeActions(path, pathId, isChild, canMove) : '';
 
         if (resolution) {
             return `

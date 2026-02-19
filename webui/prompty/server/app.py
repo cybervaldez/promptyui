@@ -94,7 +94,7 @@ class PUHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         """Handle POST requests."""
-        from .api import preview, export, extensions, operations, session
+        from .api import preview, export, extensions, operations, session, move_to_theme
 
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
@@ -124,6 +124,10 @@ class PUHandler(http.server.SimpleHTTPRequestHandler):
             export.handle_export(self, params)
         elif path == '/api/pu/extension/save':
             extensions.handle_extension_save(self, params)
+        elif path == '/api/pu/extension/push-wildcards':
+            extensions.handle_extension_push_wildcards(self, params)
+        elif path == '/api/pu/move-to-theme':
+            move_to_theme.handle_move_to_theme(self, params)
         else:
             self.send_json({'error': 'Not found'}, 404)
 

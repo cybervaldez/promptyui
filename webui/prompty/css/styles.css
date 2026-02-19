@@ -213,6 +213,20 @@ body {
     font-size: var(--pu-font-size-base);
 }
 
+.pu-btn-ghost {
+    border: 1px dashed var(--pu-border-light);
+    background: transparent;
+    color: var(--pu-text-muted);
+    cursor: pointer;
+    transition: all var(--pu-transition-fast);
+}
+
+.pu-btn-ghost:hover {
+    border-color: var(--pu-accent-muted);
+    color: var(--pu-accent);
+    background: var(--pu-accent-bg);
+}
+
 /* ============================================
    Main Layout (3-Panel)
    ============================================ */
@@ -391,6 +405,22 @@ body {
     padding-left: var(--pu-space-lg);
 }
 
+/* Sidebar ghost items */
+.pu-tree-item-ghost {
+    opacity: 0.5;
+}
+.pu-tree-item-ghost:hover {
+    opacity: 1;
+}
+.pu-tree-item-ghost:hover .pu-tree-label-ghost {
+    color: var(--pu-accent);
+}
+.pu-tree-label-ghost {
+    color: var(--pu-text-muted);
+    font-style: italic;
+    font-size: var(--pu-font-size-xs);
+}
+
 /* Nested levels */
 .pu-tree-children .pu-tree-item {
     padding-left: var(--pu-space-sm);
@@ -461,6 +491,26 @@ body {
 .pu-editor-empty-actions {
     display: flex;
     gap: var(--pu-space-md);
+}
+
+/* No prompts state (job selected, 0 prompts) */
+.pu-editor-no-prompts {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    text-align: center;
+    color: var(--pu-text-secondary);
+}
+.pu-editor-no-prompts h3 {
+    margin: 0 0 var(--pu-space-sm);
+    color: var(--pu-text-primary);
+    font-weight: 500;
+}
+.pu-editor-no-prompts p {
+    margin: 0 0 var(--pu-space-lg);
+    font-size: var(--pu-font-size-sm);
 }
 
 .pu-editor-content {
@@ -1715,6 +1765,27 @@ body {
     opacity: 0.7;
 }
 
+/* Clickable push trigger on overlap ⚠ icon */
+.pu-rp-push-trigger {
+    cursor: pointer;
+    transition: opacity var(--pu-transition-fast), color var(--pu-transition-fast);
+}
+.pu-rp-push-trigger:hover {
+    opacity: 1;
+    color: var(--pu-orange);
+}
+
+/* Dirty indicator: local differs from theme */
+.pu-rp-push-dirty {
+    opacity: 1;
+    color: var(--pu-orange);
+    animation: pu-push-pulse 2s ease-in-out infinite;
+}
+@keyframes pu-push-pulse {
+    0%, 100% { opacity: 0.8; }
+    50% { opacity: 1; }
+}
+
 /* Focused entry container accent */
 .pu-rp-wc-entry.pu-wc-entry-focused {
     background: rgba(203, 145, 47, 0.06);
@@ -2260,6 +2331,14 @@ body {
     line-height: 1.6;
 }
 
+/* Empty wildcard stream message (used in editor renderBlocks) */
+.pu-rp-wc-empty {
+    font-size: var(--pu-font-size-sm);
+    color: var(--pu-text-secondary);
+    padding: 12px;
+    text-align: center;
+}
+
 /* Top bar: scope + variant selector + wc count */
 .pu-rp-top-bar {
     display: flex;
@@ -2679,6 +2758,127 @@ body {
     color: #f08090;
 }
 
+/* Push-to-theme popover */
+.pu-rp-push-popover {
+    position: absolute;
+    background: var(--pu-bg-secondary);
+    border: 1px solid var(--pu-border-light);
+    border-radius: var(--pu-radius);
+    padding: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    width: 260px;
+    z-index: 200;
+}
+.pu-rp-push-header {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--pu-text-primary);
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--pu-border);
+}
+.pu-rp-push-theme-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--pu-border);
+}
+.pu-rp-push-theme-row:last-of-type {
+    border-bottom: none;
+}
+.pu-rp-push-theme-row input[type="checkbox"] {
+    margin-top: 2px;
+    accent-color: var(--pu-accent);
+}
+.pu-rp-push-theme-info {
+    flex: 1;
+    min-width: 0;
+}
+.pu-rp-push-theme-path {
+    font-family: var(--pu-font-mono);
+    font-size: 10px;
+    color: var(--pu-text-secondary);
+    word-break: break-all;
+}
+.pu-rp-push-diff-summary {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    margin-top: 2px;
+}
+.pu-rp-push-diff-summary .push-added-count {
+    color: var(--pu-success);
+}
+.pu-rp-push-diff-summary .push-removed-count {
+    color: var(--pu-error);
+}
+.pu-rp-push-diff-summary .push-identical {
+    color: var(--pu-text-muted);
+    font-style: italic;
+}
+.pu-rp-push-diff {
+    margin-top: 4px;
+    padding: 4px 6px;
+    background: var(--pu-bg-tertiary);
+    border-radius: 3px;
+    font-size: 9px;
+    font-family: var(--pu-font-mono);
+    max-height: 120px;
+    overflow-y: auto;
+}
+.pu-rp-push-diff-toggle {
+    font-size: 9px;
+    color: var(--pu-accent);
+    cursor: pointer;
+    margin-top: 2px;
+    display: inline-block;
+}
+.pu-rp-push-diff-toggle:hover {
+    text-decoration: underline;
+}
+.pu-rp-push-added {
+    color: var(--pu-success);
+}
+.pu-rp-push-removed {
+    color: var(--pu-error);
+    text-decoration: line-through;
+}
+.pu-rp-push-actions {
+    display: flex;
+    gap: 4px;
+    justify-content: flex-end;
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px solid var(--pu-border);
+}
+.pu-rp-push-btn {
+    font-size: 10px;
+    padding: 4px 12px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: var(--pu-font-body);
+    transition: all var(--pu-transition-fast);
+}
+.pu-rp-push-btn.cancel {
+    background: var(--pu-bg-tertiary);
+    color: var(--pu-text-secondary);
+}
+.pu-rp-push-btn.cancel:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+.pu-rp-push-btn.push {
+    background: var(--pu-accent);
+    color: #fff;
+}
+.pu-rp-push-btn.push:hover {
+    filter: brightness(1.15);
+}
+.pu-rp-push-btn.push:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* Export button variant label */
 .pu-rp-ops-export-btn .variant-label {
     font-size: 8px;
@@ -2977,6 +3177,196 @@ body {
 
 @keyframes pu-spin {
     to { transform: rotate(360deg); }
+}
+
+/* ============================================
+   Move to Theme Modal
+   ============================================ */
+
+/* Section labels */
+.pu-mtt-section-label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: var(--pu-font-size-sm);
+    color: var(--pu-text-secondary);
+    font-weight: 500;
+}
+
+/* Block preview */
+.pu-mtt-preview {
+    margin-bottom: var(--pu-space-lg);
+    padding: var(--pu-space-md);
+    background: var(--pu-bg-tertiary);
+    border-radius: var(--pu-radius);
+    font-size: var(--pu-font-size-sm);
+    color: var(--pu-text-secondary);
+    line-height: 1.6;
+    position: relative;
+}
+
+.pu-mtt-preview .pu-wc-highlight {
+    color: var(--pu-accent);
+    font-weight: 500;
+}
+
+.pu-mtt-block-index {
+    position: absolute;
+    bottom: 6px;
+    right: 8px;
+    font-size: var(--pu-font-size-2xs);
+    color: var(--pu-text-muted);
+    font-family: var(--pu-font-mono);
+}
+
+/* Theme name input */
+.pu-mtt-input-group {
+    margin-bottom: var(--pu-space-lg);
+}
+
+.pu-mtt-input-group input[type="text"] {
+    display: block;
+    width: 100%;
+    margin-top: 4px;
+    padding: 6px 8px;
+    background: var(--pu-bg-input);
+    border: 1px solid var(--pu-border-light);
+    border-radius: var(--pu-radius);
+    color: var(--pu-text-primary);
+    font-size: var(--pu-font-size-sm);
+    font-family: var(--pu-font-mono);
+}
+
+.pu-mtt-input-group input[type="text"]:focus {
+    outline: none;
+    border-color: var(--pu-accent);
+    box-shadow: 0 0 0 2px var(--pu-accent-bg);
+}
+
+.pu-mtt-path-hint {
+    margin-top: 4px;
+    font-size: var(--pu-font-size-2xs);
+    color: var(--pu-text-muted);
+    font-family: var(--pu-font-mono);
+}
+
+/* Scope radios */
+.pu-mtt-scope {
+    display: flex;
+    flex-direction: column;
+    gap: var(--pu-space-sm);
+    margin-bottom: var(--pu-space-lg);
+}
+
+.pu-mtt-scope .pu-radio {
+    padding: var(--pu-space-sm) var(--pu-space-md);
+    border-radius: var(--pu-radius);
+    transition: background var(--pu-transition-fast);
+}
+
+.pu-mtt-scope .pu-radio:hover {
+    background: var(--pu-bg-hover);
+}
+
+.pu-mtt-scope .scope-path {
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-muted);
+    font-family: var(--pu-font-mono);
+    margin-left: 4px;
+}
+
+/* Wildcard section */
+.pu-mtt-wildcards {
+    margin-bottom: var(--pu-space-sm);
+}
+
+.pu-mtt-wc-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--pu-space-sm);
+    cursor: pointer;
+    padding: var(--pu-space-sm) 0;
+    font-size: var(--pu-font-size-sm);
+    color: var(--pu-text-secondary);
+    user-select: none;
+}
+
+.pu-mtt-wc-toggle:hover {
+    color: var(--pu-text-primary);
+}
+
+.pu-mtt-chevron {
+    font-size: 10px;
+    transition: transform var(--pu-transition-fast);
+    display: inline-block;
+}
+
+.pu-mtt-chevron.expanded {
+    transform: rotate(90deg);
+}
+
+.pu-mtt-wc-summary {
+    font-family: var(--pu-font-mono);
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-muted);
+    margin-left: auto;
+}
+
+.pu-mtt-wc-list {
+    padding-left: 4px;
+    margin-top: var(--pu-space-xs);
+}
+
+.pu-mtt-wc-item {
+    display: flex;
+    align-items: center;
+    gap: var(--pu-space-sm);
+    padding: 5px 0;
+    font-size: var(--pu-font-size-sm);
+}
+
+.pu-mtt-wc-item input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
+    accent-color: var(--pu-accent);
+    width: 13px;
+    height: 13px;
+}
+
+.pu-mtt-wc-item label {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.pu-mtt-wc-name {
+    font-family: var(--pu-font-mono);
+    color: var(--pu-text-primary);
+}
+
+.pu-mtt-wc-count {
+    color: var(--pu-text-muted);
+    font-size: var(--pu-font-size-xs);
+}
+
+.pu-mtt-wc-shared {
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-warning);
+    margin-left: 4px;
+}
+
+/* Move trigger button (right-edge) */
+.pu-inline-action.pu-inline-move {
+    color: var(--pu-text-muted);
+}
+
+.pu-inline-action.pu-inline-move:hover {
+    color: var(--pu-accent);
+}
+
+/* Move-to-theme modal width override */
+[data-testid="pu-move-to-theme-modal"] .pu-modal {
+    width: 560px;
 }
 
 /* ============================================
@@ -3944,6 +4334,11 @@ body.pu-focus-active {
 /* Hide header in counter state — only the counter line shows */
 .pu-focus-output.pu-focus-output-state-counter .pu-output-footer-header {
     display: none;
+}
+
+/* Empty state — no resolved outputs */
+.pu-focus-output.pu-focus-output-state-empty .pu-output-footer-header {
+    opacity: 0.5;
 }
 
 

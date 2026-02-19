@@ -58,7 +58,10 @@ PU.state = {
         blockPath: null,         // e.g. "0", "0.1"
         quillInstance: null,     // Transient Quill (not in PU.quill.instances)
         enterTimestamp: 0,       // Debounce guard
-        pendingPath: null        // URL-restored path, consumed after render
+        pendingPath: null,       // URL-restored path, consumed after render
+        draft: false,            // True when editing a not-yet-materialized block
+        draftMaterialized: false, // True after first keystroke materializes the draft
+        draftParentPath: null    // Parent path for nested draft blocks
     },
 
     // Build Composition panel state
@@ -94,7 +97,9 @@ PU.state = {
         swapDropdown: { visible: false, path: null, currentTheme: null },
         diffPopover: { visible: false, targetTheme: null, diffData: null },
         contextMenu: { visible: false, path: null, isTheme: false },
-        saveModal: { visible: false, blockPath: null }
+        saveModal: { visible: false, blockPath: null },
+        moveToThemeModal: { visible: false, blockPath: null, blockIndex: null },
+        pushToThemePopover: { visible: false, wildcardName: null }
     },
 
     // Preview/resolution state (odometer + wildcard selections)

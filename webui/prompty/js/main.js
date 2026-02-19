@@ -251,6 +251,11 @@ PU.actions = {
             }
         }
 
+        // Clear transient preview state on job switch
+        PU.state.previewMode.lockedValues = {};
+        PU.state.previewMode.focusedWildcards = [];
+        PU.state.previewMode.selectedWildcards = {};
+
         // Update UI
         PU.actions.updateHeader();
         PU.sidebar.renderJobs();
@@ -273,6 +278,9 @@ PU.actions = {
         if (PU.state.activePromptId) {
             await PU.editor.showPrompt(jobId, PU.state.activePromptId);
             PU.rightPanel.render();
+        } else {
+            // No prompts in this job — show no-prompts CTA
+            PU.editor.showNoPromptsState();
         }
 
         if (updateUrl) {
@@ -298,8 +306,13 @@ PU.actions = {
         const activeJob = PU.helpers.getActiveJob();
         PU.state.previewMode.wildcardsMax = activePrompt?.wildcards_max ?? activeJob?.defaults?.wildcards_max ?? 0;
 
-        // Clear locked values on prompt change
+        // Clear transient preview state on prompt change
         PU.state.previewMode.lockedValues = {};
+        PU.state.previewMode.focusedWildcards = [];
+        PU.state.previewMode.selectedWildcards = {};
+
+        // Hide focus banner if visible (stale bulb focus from previous prompt)
+        PU.rightPanel._removeFocus();
 
         // Invalidate autocomplete cache on prompt switch
         PU.state.autocompleteCache.loaded = false;
@@ -364,6 +377,52 @@ PU.actions = {
         PU.actions.selectJob(jobId);
 
         PU.actions.showToast(`Created new job '${jobId}'`, 'success');
+    },
+
+    async createNewPrompt(jobId) {
+        if (!jobId) jobId = PU.state.activeJobId;
+        if (!jobId) return;
+
+        const job = PU.state.jobs[jobId];
+        if (!job) return;
+
+        const promptId = prompt('Enter prompt name:');
+        if (!promptId) return;
+
+        // Validate prompt name (letters, numbers, hyphens, underscores)
+        if (!/^[a-zA-Z0-9-_]+$/.test(promptId)) {
+            PU.actions.showToast('Prompt name can only contain letters, numbers, hyphens, and underscores', 'error');
+            return;
+        }
+
+        // Check for duplicates
+        const prompts = job.prompts || [];
+        if (prompts.some(p => (typeof p === 'string' ? p : p.id) === promptId)) {
+            PU.actions.showToast('Prompt already exists in this job', 'error');
+            return;
+        }
+
+        // Create new prompt skeleton
+        const newPrompt = { id: promptId, text: [], wildcards: [] };
+
+        // Ensure modified job exists
+        if (!PU.state.modifiedJobs[jobId]) {
+            PU.state.modifiedJobs[jobId] = PU.helpers.deepClone(PU.state.jobs[jobId]);
+        }
+
+        // Add to both original and modified state
+        job.prompts.push(newPrompt);
+        PU.state.modifiedJobs[jobId].prompts.push(PU.helpers.deepClone(newPrompt));
+
+        // Select the new prompt (renders editor + right panel)
+        await PU.actions.selectPrompt(jobId, promptId);
+
+        // Update sidebar to show the new prompt
+        PU.sidebar.renderJobs();
+
+        // Open focus overlay in draft mode for the first block
+        // (toast suppressed — overlay opening is sufficient confirmation)
+        PU.editor.addBlock('content');
     },
 
     // ============================================
@@ -562,6 +621,12 @@ document.addEventListener('click', (e) => {
         !e.target.closest('.block-more')) {
         PU.themes.closeContextMenu();
     }
+
+    // Close move-to-theme modal on overlay click
+    if (PU.state.themes.moveToThemeModal.visible &&
+        e.target.matches('[data-testid="pu-move-to-theme-modal"]')) {
+        PU.moveToTheme.close();
+    }
 });
 
 // Handle escape key
@@ -571,6 +636,8 @@ document.addEventListener('keydown', (e) => {
             PU.themes.closeSwapDropdown();
         } else if (PU.state.themes.contextMenu.visible) {
             PU.themes.closeContextMenu();
+        } else if (PU.state.themes.moveToThemeModal.visible) {
+            PU.moveToTheme.close();
         } else if (PU.state.themes.saveModal.visible) {
             PU.themes.closeSaveModal();
         } else if (PU.quill._autocompleteOpen) {

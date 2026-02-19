@@ -24,11 +24,20 @@ PU.rightPanel = {
             if (!e.target.closest('.pu-rp-replace-popover') && !e.target.closest('.pu-rp-wc-v')) {
                 PU.rightPanel.hideReplacePopover();
             }
+            // Close push-to-theme popover
+            if (!e.target.closest('.pu-rp-push-popover') && !e.target.closest('.pu-rp-push-trigger')) {
+                PU.rightPanel.hidePushPopover();
+            }
         });
 
-        // Escape key: clear focus first, then locks (power-user shortcut)
+        // Escape key: close popovers first, then clear focus, then locks
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && !(e.target && e.target.closest && e.target.closest('input, textarea, [contenteditable]'))) {
+                // Priority 0: close push popover if visible
+                if (PU.state.themes.pushToThemePopover.visible) {
+                    PU.rightPanel.hidePushPopover();
+                    return;
+                }
                 // Priority 1: clear wildcard focus
                 if (PU.state.previewMode.focusedWildcards.length > 0) {
                     PU.rightPanel.clearFocus();
@@ -332,6 +341,15 @@ PU.rightPanel = {
                 e.stopPropagation();
                 const wcName = icon.dataset.wcName;
                 if (wcName) PU.rightPanel.toggleFocus(wcName);
+            });
+        });
+
+        // Push-to-theme trigger click → show push popover
+        container.querySelectorAll('.pu-rp-push-trigger').forEach(icon => {
+            icon.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const wcName = icon.dataset.wcName;
+                if (wcName) PU.rightPanel.showPushPopover(icon, wcName);
             });
         });
 
@@ -649,10 +667,17 @@ PU.rightPanel = {
         }
 
         // Overlap warning: wildcard exists in both local and theme/ext sources
+        // Clickable — opens push-to-theme popover
         let overlapWarning = '';
         if (wc.source === 'override') {
+            const dirtyInfo = PU.rightPanel._getWildcardDirtyInfo(name);
+            const isDirty = dirtyInfo && dirtyInfo.themes.some(t => t.added.length > 0 || t.removed.length > 0);
+            const dirtyClass = isDirty ? ' pu-rp-push-dirty' : '';
             const themePath = PU.rightPanel._buildThemeSourceMap()[name] || PU.rightPanel._getExtWildcardPath(name);
-            overlapWarning = `<span class="pu-rp-wc-overlap-warn" title="Also defined in ${esc(themePath)} — local values used in preview, build may merge both">&#9888;</span>`;
+            overlapWarning = `<span class="pu-rp-wc-overlap-warn pu-rp-push-trigger${dirtyClass}"
+                data-testid="pu-rp-push-trigger-${safeName}"
+                data-wc-name="${safeName}"
+                title="${isDirty ? 'Local values differ from theme — click to push' : 'Also defined in ' + esc(themePath) + ' — click to push local values'}">&#9888;</span>`;
         }
 
         const wrappedIdx = values.length > 0 ? activeIdx % values.length : 0;
@@ -719,7 +744,12 @@ PU.rightPanel = {
         }
 
         const isFocused = PU.state.previewMode.focusedWildcards.includes(name);
-        const focusIcon = `<span class="pu-wc-focus-icon${isFocused ? ' active' : ''}" data-testid="pu-wc-focus-${safeName}" data-wc-name="${safeName}" title="${isFocused ? 'Remove from focus' : 'Illuminate: show blocks using this wildcard'}">&#128161;</span>`;
+        // Only show bulb icon when 2+ text blocks (focus is meaningless with 1 block)
+        const promptData = PU.helpers.getActivePrompt();
+        const textBlockCount = (promptData && Array.isArray(promptData.text)) ? promptData.text.length : 0;
+        const focusIcon = textBlockCount >= 2
+            ? `<span class="pu-wc-focus-icon${isFocused ? ' active' : ''}" data-testid="pu-wc-focus-${safeName}" data-wc-name="${safeName}" title="${isFocused ? 'Remove from focus' : 'Illuminate: show blocks using this wildcard'}">&#128161;</span>`
+            : '';
 
         return `<div class="pu-rp-wc-entry${isFocused ? ' pu-wc-entry-focused' : ''}" data-testid="pu-rp-wc-entry-${safeName}" data-wc-name="${safeName}">
             <div class="pu-rp-wc-entry-header">
@@ -751,6 +781,13 @@ PU.rightPanel = {
         }
 
         const { wcNames, wildcardCounts, extTextCount, total } = PU.buildComposition._getCompositionParams();
+
+        // Gap 5: Hide entirely when no wildcards exist
+        if (wcNames.length === 0 && extTextCount <= 1) {
+            container.innerHTML = '';
+            return;
+        }
+
         const lockedValues = PU.state.previewMode.lockedValues || {};
 
         // Composition count: product of locked value counts (or 1 per wildcard if unlocked)
@@ -885,12 +922,14 @@ PU.rightPanel = {
             const session = await PU.api.loadSession(jobId);
             const promptSession = (session.prompts && session.prompts[promptId]) || null;
 
+            // Always clean up URL flag, regardless of session existence
+            delete PU.state.previewMode._compositionFromUrl;
+
             if (promptSession) {
                 // Hydrate state from session (URL params take precedence on initial load)
-                if (typeof promptSession.composition === 'number' && !PU.state.previewMode._compositionFromUrl) {
+                if (typeof promptSession.composition === 'number') {
                     PU.state.previewMode.compositionId = promptSession.composition;
                 }
-                delete PU.state.previewMode._compositionFromUrl;
                 if (promptSession.locked_values && typeof promptSession.locked_values === 'object') {
                     PU.state.previewMode.lockedValues = promptSession.locked_values;
                 }
@@ -1280,6 +1319,197 @@ PU.rightPanel = {
 
         PU.rightPanel.hideReplacePopover();
         PU.rightPanel.render();
+    },
+
+    // ============================================
+    // Push to Theme (wildcard sync)
+    // ============================================
+
+    /**
+     * Get dirty info for an override wildcard: local vs theme diff.
+     * Returns { name, localValues, themes: [{path, themeValues, added, removed, unchanged}] }
+     */
+    _getWildcardDirtyInfo(name) {
+        const prompt = PU.helpers.getActivePrompt();
+        const localWc = (prompt && prompt.wildcards || []).find(w => w.name === name);
+        if (!localWc) return null;
+        const localValues = new Set(Array.isArray(localWc.text) ? localWc.text : [localWc.text]);
+
+        const cache = PU.state.previewMode._extTextCache || {};
+        const themes = [];
+
+        for (const [cachePath, data] of Object.entries(cache)) {
+            if (!data || !data.wildcards) continue;
+            const themeWc = data.wildcards.find(w => w.name === name);
+            if (!themeWc) continue;
+            const themeValues = new Set(Array.isArray(themeWc.text) ? themeWc.text : [themeWc.text]);
+            const added = [...localValues].filter(v => !themeValues.has(v));
+            const removed = [...themeValues].filter(v => !localValues.has(v));
+            const unchanged = [...localValues].filter(v => themeValues.has(v));
+            themes.push({ path: cachePath, themeValues: [...themeValues], added, removed, unchanged });
+        }
+
+        return { name, localValues: [...localValues], themes };
+    },
+
+    /**
+     * Show the push-to-theme popover for an override wildcard.
+     */
+    showPushPopover(triggerEl, wcName) {
+        const popover = document.querySelector('[data-testid="pu-rp-push-popover"]');
+        if (!popover) return;
+
+        const dirtyInfo = PU.rightPanel._getWildcardDirtyInfo(wcName);
+        if (!dirtyInfo || dirtyInfo.themes.length === 0) {
+            PU.actions.showToast('No theme targets found for this wildcard', 'error');
+            return;
+        }
+
+        const esc = PU.blocks.escapeHtml;
+
+        // Build theme rows
+        let themesHtml = '';
+        for (let i = 0; i < dirtyInfo.themes.length; i++) {
+            const t = dirtyInfo.themes[i];
+            const isDirty = t.added.length > 0 || t.removed.length > 0;
+            const diffId = `pu-rp-push-diff-${i}`;
+
+            let summaryHtml;
+            if (isDirty) {
+                const parts = [];
+                if (t.added.length > 0) parts.push(`<span class="push-added-count">+${t.added.length} added</span>`);
+                if (t.removed.length > 0) parts.push(`<span class="push-removed-count">-${t.removed.length} removed</span>`);
+                summaryHtml = parts.join(', ');
+            } else {
+                summaryHtml = '<span class="push-identical">identical</span>';
+            }
+
+            let diffHtml = '';
+            if (isDirty) {
+                const diffLines = [];
+                for (const v of t.added) diffLines.push(`<div class="pu-rp-push-added">+ ${esc(v)}</div>`);
+                for (const v of t.removed) diffLines.push(`<div class="pu-rp-push-removed">- ${esc(v)}</div>`);
+                diffHtml = `
+                    <span class="pu-rp-push-diff-toggle" data-testid="pu-rp-push-diff-toggle-${i}"
+                          onclick="document.getElementById('${diffId}').style.display = document.getElementById('${diffId}').style.display === 'none' ? 'block' : 'none'">show diff</span>
+                    <div class="pu-rp-push-diff" id="${diffId}" style="display: none;">${diffLines.join('')}</div>`;
+            }
+
+            themesHtml += `
+                <div class="pu-rp-push-theme-row" data-testid="pu-rp-push-theme-row-${i}">
+                    <input type="checkbox" ${isDirty ? 'checked' : ''} data-theme-path="${esc(t.path)}" data-testid="pu-rp-push-check-${i}">
+                    <div class="pu-rp-push-theme-info">
+                        <div class="pu-rp-push-theme-path">${esc(t.path)}</div>
+                        <div class="pu-rp-push-diff-summary">${summaryHtml}</div>
+                        ${diffHtml}
+                    </div>
+                </div>`;
+        }
+
+        const html = `
+            <div class="pu-rp-push-header" data-testid="pu-rp-push-header">Push __${esc(wcName)}__ to theme</div>
+            ${themesHtml}
+            <div class="pu-rp-push-actions">
+                <button class="pu-rp-push-btn cancel" data-testid="pu-rp-push-cancel"
+                        onclick="PU.rightPanel.hidePushPopover()">Cancel</button>
+                <button class="pu-rp-push-btn push" data-testid="pu-rp-push-confirm"
+                        onclick="PU.rightPanel.executePush('${esc(wcName)}')">Push</button>
+            </div>`;
+
+        popover.innerHTML = html;
+
+        // Position popover near the trigger icon
+        const stream = document.querySelector('[data-testid="pu-rp-wc-stream"]');
+        if (stream) {
+            const streamRect = stream.getBoundingClientRect();
+            const triggerRect = triggerEl.getBoundingClientRect();
+            popover.style.top = (triggerRect.bottom - streamRect.top + stream.scrollTop + 4) + 'px';
+            popover.style.left = Math.max(4, triggerRect.left - streamRect.left) + 'px';
+        }
+
+        popover.style.display = 'block';
+        PU.state.themes.pushToThemePopover = { visible: true, wildcardName: wcName };
+    },
+
+    /**
+     * Hide the push-to-theme popover.
+     */
+    hidePushPopover() {
+        const popover = document.querySelector('[data-testid="pu-rp-push-popover"]');
+        if (popover) popover.style.display = 'none';
+        PU.state.themes.pushToThemePopover = { visible: false, wildcardName: null };
+    },
+
+    /**
+     * Execute push: send local wildcard values to each checked theme.
+     */
+    async executePush(wcName) {
+        const popover = document.querySelector('[data-testid="pu-rp-push-popover"]');
+        if (!popover) return;
+
+        // Gather checked themes
+        const checkedThemes = [];
+        popover.querySelectorAll('input[type="checkbox"]:checked').forEach(cb => {
+            const path = cb.dataset.themePath;
+            if (path) checkedThemes.push(path);
+        });
+
+        if (checkedThemes.length === 0) {
+            PU.actions.showToast('No themes selected', 'error');
+            return;
+        }
+
+        // Get local values
+        const prompt = PU.helpers.getActivePrompt();
+        const localWc = (prompt && prompt.wildcards || []).find(w => w.name === wcName);
+        if (!localWc) {
+            PU.actions.showToast('Wildcard not found locally', 'error');
+            return;
+        }
+        const values = Array.isArray(localWc.text) ? localWc.text : [localWc.text];
+
+        // Disable push button during request
+        const pushBtn = popover.querySelector('[data-testid="pu-rp-push-confirm"]');
+        if (pushBtn) pushBtn.disabled = true;
+
+        let successCount = 0;
+        let totalAdded = 0;
+        let totalRemoved = 0;
+
+        for (const themePath of checkedThemes) {
+            try {
+                const result = await PU.api.post('/api/pu/extension/push-wildcards', {
+                    path: themePath,
+                    wildcard_name: wcName,
+                    values: values
+                });
+                if (result.success) {
+                    successCount++;
+                    totalAdded += (result.added || []).length;
+                    totalRemoved += (result.removed || []).length;
+                    // Bust ext text cache for this theme
+                    delete PU.state.previewMode._extTextCache[themePath];
+                }
+            } catch (e) {
+                console.warn('Push failed for', themePath, e);
+                PU.actions.showToast(`Failed to push to ${themePath}`, 'error');
+            }
+        }
+
+        PU.rightPanel.hidePushPopover();
+
+        if (successCount > 0) {
+            const parts = [];
+            if (totalAdded > 0) parts.push(`+${totalAdded} added`);
+            if (totalRemoved > 0) parts.push(`-${totalRemoved} removed`);
+            const diffSummary = parts.length > 0 ? ` (${parts.join(', ')})` : ' (identical)';
+            PU.actions.showToast(`Pushed __${wcName}__ to ${successCount} theme(s)${diffSummary}`, 'success');
+
+            // Re-render to reflect updated dirty state
+            PU.rightPanel.render();
+            // Re-render blocks (ext cache was busted, will reload)
+            PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
+        }
     },
 
     // ============================================

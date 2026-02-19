@@ -3,8 +3,9 @@ Extensions API Handlers
 
 Endpoints for browsing and retrieving extension files.
 
-GET /api/pu/extensions - List extensions tree from ext/ folder
-GET /api/pu/extension/{path} - Get extension file content
+GET  /api/pu/extensions - List extensions tree from ext/ folder
+GET  /api/pu/extension/{path} - Get extension file content
+POST /api/pu/extension/push-wildcards - Push local wildcard values to theme
 """
 
 import re
@@ -243,3 +244,123 @@ def handle_extension_save(handler, params):
         handler.send_json({"success": True, "path": ext_path})
     except Exception as e:
         handler.send_json({"error": str(e)}, 500)
+
+
+def handle_extension_push_wildcards(handler, params):
+    """
+    POST /api/pu/extension/push-wildcards
+
+    Surgically merge local wildcard values into an existing theme file.
+    Replaces the wildcard's text array with the provided values.
+
+    Body: {
+        "path": "hiring/roles",
+        "wildcard_name": "seniority",
+        "values": ["junior", "mid", "senior", "staff", "principal"]
+    }
+
+    Response: {
+        "success": true,
+        "path": "hiring/roles",
+        "wildcard_name": "seniority",
+        "previous_values": ["junior", "mid", "senior", "lead", "principal"],
+        "new_values": ["junior", "mid", "senior", "staff", "principal"],
+        "added": ["staff"],
+        "removed": ["lead"]
+    }
+    """
+    ext_path = params.get('path', '')
+    wildcard_name = params.get('wildcard_name', '')
+    new_values = params.get('values', [])
+
+    if not ext_path:
+        handler.send_json({"error": "path required"}, 400)
+        return
+
+    if not wildcard_name:
+        handler.send_json({"error": "wildcard_name required"}, 400)
+        return
+
+    if not isinstance(new_values, list) or len(new_values) == 0:
+        handler.send_json({"error": "values must be a non-empty list"}, 400)
+        return
+
+    # Sanitize path
+    if not re.match(r'^[a-zA-Z0-9_\-/]+$', ext_path):
+        handler.send_json({"error": "Invalid path characters"}, 400)
+        return
+
+    project_root = get_project_root()
+
+    if not ext_path.endswith('.yaml'):
+        file_path = ext_path + '.yaml'
+    else:
+        file_path = ext_path
+
+    ext_file = project_root / "ext" / file_path
+
+    if not ext_file.exists():
+        handler.send_json({"error": f"Extension not found: {ext_path}"}, 404)
+        return
+
+    # Read existing theme
+    try:
+        with open(ext_file, 'r') as f:
+            data = yaml.safe_load(f)
+    except yaml.YAMLError as e:
+        handler.send_json({"error": f"Failed to parse theme: {e}"}, 500)
+        return
+
+    if not data:
+        handler.send_json({"error": "Theme file is empty"}, 400)
+        return
+
+    # Find wildcard by name
+    wildcards = data.get('wildcards', [])
+    if not isinstance(wildcards, list):
+        handler.send_json({"error": "Theme has no wildcards list"}, 400)
+        return
+
+    target_wc = None
+    for wc in wildcards:
+        if isinstance(wc, dict) and wc.get('name') == wildcard_name:
+            target_wc = wc
+            break
+
+    if target_wc is None:
+        handler.send_json({
+            "error": f"Wildcard '{wildcard_name}' not found in theme"
+        }, 404)
+        return
+
+    # Compute diff
+    previous_values = target_wc.get('text', [])
+    if not isinstance(previous_values, list):
+        previous_values = [previous_values] if previous_values else []
+
+    prev_set = set(previous_values)
+    new_set = set(new_values)
+    added = [v for v in new_values if v not in prev_set]
+    removed = [v for v in previous_values if v not in new_set]
+
+    # Replace values
+    target_wc['text'] = new_values
+
+    # Write back
+    try:
+        with open(ext_file, 'w') as f:
+            yaml.dump(data, f, default_flow_style=False,
+                      allow_unicode=True, sort_keys=False)
+    except Exception as e:
+        handler.send_json({"error": f"Failed to write theme: {e}"}, 500)
+        return
+
+    handler.send_json({
+        "success": True,
+        "path": ext_path,
+        "wildcard_name": wildcard_name,
+        "previous_values": previous_values,
+        "new_values": new_values,
+        "added": added,
+        "removed": removed
+    })
