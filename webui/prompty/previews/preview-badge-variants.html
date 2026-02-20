@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Badge Variants — Pick One</title>
+<style>
+:root {
+    --bg-deep:     #0a0a0a;
+    --bg-surface:  #161b22;
+    --bg-elevated: #1c2128;
+    --text-primary:   #e6edf3;
+    --text-secondary: #8b949e;
+    --text-muted:     #484f58;
+    --accent-amber: #ff6b35;
+    --reel-label:   #e8943a;
+    --reel-value:   #529CCA;
+    --reel-bg:      rgba(82, 156, 202, 0.08);
+    --font-mono: 'Courier New', Courier, monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: var(--font-mono);
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    padding: 3rem 2rem;
+}
+
+h1 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 0.4rem;
+}
+.subtitle {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 3rem;
+}
+
+/* ── Gallery grid ── */
+.gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
+}
+
+.variant-card {
+    background: var(--bg-elevated);
+    border: 1px solid rgba(72, 79, 88, 0.35);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.variant-label {
+    padding: 0.7rem 1.1rem 0.5rem;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    border-bottom: 1px solid rgba(72, 79, 88, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+.variant-label strong {
+    color: var(--reel-label);
+    font-size: 0.75rem;
+}
+
+/* Preview area — matches the real demo-editor-area */
+.preview-area {
+    background: var(--bg-surface);
+    padding: 1.4rem 1.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+/* ── Shared editor line ── */
+.editor-line {
+    font-size: 1rem;
+    line-height: 2.6em;
+    white-space: nowrap;
+    color: var(--text-secondary);
+}
+
+/* ── Base chip ── */
+.chip {
+    display: inline-block;
+    position: relative;
+    vertical-align: middle;
+    padding: 0 8px;
+    border-radius: 4px;
+    background: var(--reel-bg);
+    height: 1.6em;
+    line-height: 1.6em;
+    overflow: visible;
+    min-width: 6ch;
+    text-align: center;
+}
+.chip-label {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    text-align: center;
+    color: var(--reel-label);
+    font-size: inherit;
+    line-height: 1.6em;
+    pointer-events: none;
+    transform: translateY(-1.3em) scale(0.55);
+    transform-origin: center center;
+    white-space: nowrap;
+}
+.chip-value {
+    color: var(--reel-value);
+}
+
+/* ═══════════════════════════════════════
+   VARIANT A — Filled (current)
+   ═══════════════════════════════════════ */
+.badge-filled {
+    position: absolute;
+    top: -0.55em;
+    right: -0.65em;
+    min-width: 1.3em;
+    height: 1.3em;
+    border-radius: 9999px;
+    background: var(--accent-amber);
+    color: var(--bg-deep);
+    font-size: 0.5em;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.3em;
+    line-height: 1;
+    pointer-events: none;
+    z-index: 3;
+}
+
+/* ═══════════════════════════════════════
+   VARIANT B — Cut-out (container bg)
+   Badge bg = container bg, amber ring
+   ═══════════════════════════════════════ */
+.badge-cutout {
+    position: absolute;
+    top: -0.55em;
+    right: -0.65em;
+    min-width: 1.3em;
+    height: 1.3em;
+    border-radius: 9999px;
+    background: var(--bg-surface);
+    color: var(--accent-amber);
+    font-size: 0.5em;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.3em;
+    line-height: 1;
+    pointer-events: none;
+    z-index: 3;
+    box-shadow: 0 0 0 1.5px var(--accent-amber);
+}
+
+/* ═══════════════════════════════════════
+   VARIANT C — Cut-out borderless
+   Pure negative space, no ring
+   ═══════════════════════════════════════ */
+.badge-cutout-bare {
+    position: absolute;
+    top: -0.55em;
+    right: -0.65em;
+    min-width: 1.3em;
+    height: 1.3em;
+    border-radius: 9999px;
+    background: var(--bg-surface);
+    color: var(--reel-label);
+    font-size: 0.5em;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.3em;
+    line-height: 1;
+    pointer-events: none;
+    z-index: 3;
+}
+
+/* ═══════════════════════════════════════
+   VARIANT D — Cut-out deep bg
+   Uses --bg-deep (#0a0a0a), more punchy
+   ═══════════════════════════════════════ */
+.badge-cutout-deep {
+    position: absolute;
+    top: -0.55em;
+    right: -0.65em;
+    min-width: 1.3em;
+    height: 1.3em;
+    border-radius: 9999px;
+    background: var(--bg-deep);
+    color: var(--accent-amber);
+    font-size: 0.5em;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.3em;
+    line-height: 1;
+    pointer-events: none;
+    z-index: 3;
+    box-shadow: 0 0 0 1px rgba(255, 107, 53, 0.25);
+}
+
+/* ═══════════════════════════════════════
+   VARIANT E — Outline only
+   Transparent, amber border + text
+   ═══════════════════════════════════════ */
+.badge-outline {
+    position: absolute;
+    top: -0.55em;
+    right: -0.65em;
+    min-width: 1.3em;
+    height: 1.3em;
+    border-radius: 9999px;
+    background: transparent;
+    color: var(--accent-amber);
+    font-size: 0.5em;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.3em;
+    line-height: 1;
+    pointer-events: none;
+    z-index: 3;
+    border: 1px solid var(--accent-amber);
+}
+
+/* ═══════════════════════════════════════
+   VARIANT F — Chip-toned (muted, blends)
+   Same chip bg, amber text, subtle ring
+   ═══════════════════════════════════════ */
+.badge-toned {
+    position: absolute;
+    top: -0.55em;
+    right: -0.65em;
+    min-width: 1.3em;
+    height: 1.3em;
+    border-radius: 9999px;
+    background: rgba(82, 156, 202, 0.15);
+    color: var(--reel-value);
+    font-size: 0.5em;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.3em;
+    line-height: 1;
+    pointer-events: none;
+    z-index: 3;
+    box-shadow: 0 0 0 1px rgba(82, 156, 202, 0.25);
+}
+
+/* ═══════════════════════════════════════
+   VARIANT G — Superscript (no circle)
+   Inline count inside chip, small + muted
+   ═══════════════════════════════════════ */
+.chip-count-inline {
+    font-size: 0.6em;
+    color: var(--reel-label);
+    opacity: 0.7;
+    vertical-align: super;
+    margin-left: 1px;
+}
+
+/* ═══════════════════════════════════════
+   VARIANT H — Corner tab
+   Square-ish tab clipped to chip corner
+   ═══════════════════════════════════════ */
+.badge-tab {
+    position: absolute;
+    top: -0.45em;
+    right: -0.5em;
+    min-width: 1.2em;
+    height: 1.2em;
+    border-radius: 2px 4px 2px 4px;
+    background: var(--accent-amber);
+    color: var(--bg-deep);
+    font-size: 0.48em;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.25em;
+    line-height: 1;
+    pointer-events: none;
+    z-index: 3;
+}
+
+/* ═══════════════════════════════════════
+   VARIANT I — Cut-out, larger offset
+   More dramatic overlap into chip body
+   ═══════════════════════════════════════ */
+.badge-cutout-overlap {
+    position: absolute;
+    top: -0.45em;
+    right: -0.5em;
+    min-width: 1.5em;
+    height: 1.5em;
+    border-radius: 9999px;
+    background: var(--bg-surface);
+    color: var(--accent-amber);
+    font-size: 0.52em;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.3em;
+    line-height: 1;
+    pointer-events: none;
+    z-index: 3;
+    box-shadow: 0 0 0 1.5px var(--accent-amber), inset 0 0 0 0.5px rgba(255,107,53,0.1);
+}
+</style>
+</head>
+<body>
+
+<h1>Badge Variants</h1>
+<p class="subtitle">All shown in the real container background (#161b22) · click "this one" to pick</p>
+
+<div class="gallery">
+
+  <!-- ── A: Filled (current) ── -->
+  <div class="variant-card">
+    <div class="variant-label"><strong>A</strong> Filled — current</div>
+    <div class="preview-area">
+      <div class="editor-line">
+        A cabin in the forest,&nbsp;
+        <span class="chip">
+          <span class="chip-label">season</span>
+          <span class="chip-value">autumn</span>
+          <span class="badge-filled">+4</span>
+        </span>
+        ,&nbsp;
+        <span class="chip">
+          <span class="chip-label">style</span>
+          <span class="chip-value">watercolor</span>
+          <span class="badge-filled">+4</span>
+        </span>
+      </div>
+      <div class="editor-line" style="padding-left:2ch">
+        └── with&nbsp;
+        <span class="chip">
+          <span class="chip-label">detail</span>
+          <span class="chip-value">high</span>
+          <span class="badge-filled">+3</span>
+        </span>
+        &nbsp;level of detail
+      </div>
+    </div>
+  </div>
+
+  <!-- ── B: Cut-out with amber ring ── -->
+  <div class="variant-card">
+    <div class="variant-label"><strong>B</strong> Cut-out — container bg + amber ring</div>
+    <div class="preview-area">
+      <div class="editor-line">
+        A cabin in the forest,&nbsp;
+        <span class="chip">
+          <span class="chip-label">season</span>
+          <span class="chip-value">autumn</span>
+          <span class="badge-cutout">+4</span>
+        </span>
+        ,&nbsp;
+        <span class="chip">
+          <span class="chip-label">style</span>
+          <span class="chip-value">watercolor</span>
+          <span class="badge-cutout">+4</span>
+        </span>
+      </div>
+      <div class="editor-line" style="padding-left:2ch">
+        └── with&nbsp;
+        <span class="chip">
+          <span class="chip-label">detail</span>
+          <span class="chip-value">high</span>
+          <span class="badge-cutout">+3</span>
+        </span>
+        &nbsp;level of detail
+      </div>
+    </div>
+  </div>
+
+  <!-- ── C: Cut-out borderless ── -->
+  <div class="variant-card">
+    <div class="variant-label"><strong>C</strong> Cut-out — borderless, pure negative space</div>
+    <div class="preview-area">
+      <div class="editor-line">
+        A cabin in the forest,&nbsp;
+        <span class="chip">
+          <span class="chip-label">season</span>
+          <span class="chip-value">autumn</span>
+          <span class="badge-cutout-bare">+4</span>
+        </span>
+        ,&nbsp;
+        <span class="chip">
+          <span class="chip-label">style</span>
+          <span class="chip-value">watercolor</span>
+          <span class="badge-cutout-bare">+4</span>
+        </span>
+      </div>
+      <div class="editor-line" style="padding-left:2ch">
+        └── with&nbsp;
+        <span class="chip">
+          <span class="chip-label">detail</span>
+          <span class="chip-value">high</span>
+          <span class="badge-cutout-bare">+3</span>
+        </span>
+        &nbsp;level of detail
+      </div>
+    </div>
+  </div>
+
+  <!-- ── D: Cut-out deep bg ── -->
+  <div class="variant-card">
+    <div class="variant-label"><strong>D</strong> Cut-out — deep bg (#0a0a0a), more contrast</div>
+    <div class="preview-area">
+      <div class="editor-line">
+        A cabin in the forest,&nbsp;
+        <span class="chip">
+          <span class="chip-label">season</span>
+          <span class="chip-value">autumn</span>
+          <span class="badge-cutout-deep">+4</span>
+        </span>
+        ,&nbsp;
+        <span class="chip">
+          <span class="chip-label">style</span>
+          <span class="chip-value">watercolor</span>
+          <span class="badge-cutout-deep">+4</span>
+        </span>
+      </div>
+      <div class="editor-line" style="padding-left:2ch">
+        └── with&nbsp;
+        <span class="chip">
+          <span class="chip-label">detail</span>
+          <span class="chip-value">high</span>
+          <span class="badge-cutout-deep">+3</span>
+        </span>
+        &nbsp;level of detail
+      </div>
+    </div>
+  </div>
+
+  <!-- ── E: Outline ── -->
+  <div class="variant-card">
+    <div class="variant-label"><strong>E</strong> Outline — transparent fill, amber border</div>
+    <div class="preview-area">
+      <div class="editor-line">
+        A cabin in the forest,&nbsp;
+        <span class="chip">
+          <span class="chip-label">season</span>
+          <span class="chip-value">autumn</span>
+          <span class="badge-outline">+4</span>
+        </span>
+        ,&nbsp;
+        <span class="chip">
+          <span class="chip-label">style</span>
+          <span class="chip-value">watercolor</span>
+          <span class="badge-outline">+4</span>
+        </span>
+      </div>
+      <div class="editor-line" style="padding-left:2ch">
+        └── with&nbsp;
+        <span class="chip">
+          <span class="chip-label">detail</span>
+          <span class="chip-value">high</span>
+          <span class="badge-outline">+3</span>
+        </span>
+        &nbsp;level of detail
+      </div>
+    </div>
+  </div>
+
+  <!-- ── F: Chip-toned ── -->
+  <div class="variant-card">
+    <div class="variant-label"><strong>F</strong> Toned — matches chip palette, blends in</div>
+    <div class="preview-area">
+      <div class="editor-line">
+        A cabin in the forest,&nbsp;
+        <span class="chip">
+          <span class="chip-label">season</span>
+          <span class="chip-value">autumn</span>
+          <span class="badge-toned">+4</span>
+        </span>
+        ,&nbsp;
+        <span class="chip">
+          <span class="chip-label">style</span>
+          <span class="chip-value">watercolor</span>
+          <span class="badge-toned">+4</span>
+        </span>
+      </div>
+      <div class="editor-line" style="padding-left:2ch">
+        └── with&nbsp;
+        <span class="chip">
+          <span class="chip-label">detail</span>
+          <span class="chip-value">high</span>
+          <span class="badge-toned">+3</span>
+        </span>
+        &nbsp;level of detail
+      </div>
+    </div>
+  </div>
+
+  <!-- ── G: Superscript inline ── -->
+  <div class="variant-card">
+    <div class="variant-label"><strong>G</strong> Inline — no circle, superscript inside chip</div>
+    <div class="preview-area">
+      <div class="editor-line">
+        A cabin in the forest,&nbsp;
+        <span class="chip" style="min-width:7.5ch">
+          <span class="chip-label">season</span>
+          <span class="chip-value">autumn<span class="chip-count-inline">+4</span></span>
+        </span>
+        ,&nbsp;
+        <span class="chip" style="min-width:9ch">
+          <span class="chip-label">style</span>
+          <span class="chip-value">watercolor<span class="chip-count-inline">+4</span></span>
+        </span>
+      </div>
+      <div class="editor-line" style="padding-left:2ch">
+        └── with&nbsp;
+        <span class="chip" style="min-width:5.5ch">
+          <span class="chip-label">detail</span>
+          <span class="chip-value">high<span class="chip-count-inline">+3</span></span>
+        </span>
+        &nbsp;level of detail
+      </div>
+    </div>
+  </div>
+
+  <!-- ── H: Corner tab ── -->
+  <div class="variant-card">
+    <div class="variant-label"><strong>H</strong> Tab — square-rounded corner tag</div>
+    <div class="preview-area">
+      <div class="editor-line">
+        A cabin in the forest,&nbsp;
+        <span class="chip">
+          <span class="chip-label">season</span>
+          <span class="chip-value">autumn</span>
+          <span class="badge-tab">+4</span>
+        </span>
+        ,&nbsp;
+        <span class="chip">
+          <span class="chip-label">style</span>
+          <span class="chip-value">watercolor</span>
+          <span class="badge-tab">+4</span>
+        </span>
+      </div>
+      <div class="editor-line" style="padding-left:2ch">
+        └── with&nbsp;
+        <span class="chip">
+          <span class="chip-label">detail</span>
+          <span class="chip-value">high</span>
+          <span class="badge-tab">+3</span>
+        </span>
+        &nbsp;level of detail
+      </div>
+    </div>
+  </div>
+
+  <!-- ── I: Cut-out large overlap ── -->
+  <div class="variant-card">
+    <div class="variant-label"><strong>I</strong> Cut-out large — bigger bite, double ring</div>
+    <div class="preview-area">
+      <div class="editor-line">
+        A cabin in the forest,&nbsp;
+        <span class="chip">
+          <span class="chip-label">season</span>
+          <span class="chip-value">autumn</span>
+          <span class="badge-cutout-overlap">+4</span>
+        </span>
+        ,&nbsp;
+        <span class="chip">
+          <span class="chip-label">style</span>
+          <span class="chip-value">watercolor</span>
+          <span class="badge-cutout-overlap">+4</span>
+        </span>
+      </div>
+      <div class="editor-line" style="padding-left:2ch">
+        └── with&nbsp;
+        <span class="chip">
+          <span class="chip-label">detail</span>
+          <span class="chip-value">high</span>
+          <span class="badge-cutout-overlap">+3</span>
+        </span>
+        &nbsp;level of detail
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

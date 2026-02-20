@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Icon Library Comparison — Keyboard & Interaction Icons</title>
+
+<!-- === Icon Library CDNs === -->
+<!-- Lucide (SVG-based, JS) -->
+<script src="https://unpkg.com/lucide@0.344.0/dist/umd/lucide.min.js"></script>
+
+<!-- Phosphor (font-based, multi-weight) -->
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/light/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/thin/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+
+<!-- Tabler Icons (font-based, outline) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.3.0/dist/tabler-icons.min.css">
+
+<!-- Bootstrap Icons (font-based) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+<style>
+/* ─── Reset & Dark Theme ─── */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg-deep: #0a0a0a;
+  --bg-surface: #161b22;
+  --bg-card: #1c2129;
+  --bg-hover: #21262d;
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
+  --text-muted: #484f58;
+  --font-mono: 'Courier New', monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --accent: #58a6ff;
+  --accent-dim: #388bfd40;
+  --border: #30363d;
+  --border-light: #3d444d;
+}
+body {
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  padding: 2rem 2.5rem;
+  line-height: 1.6;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+/* ─── Typography ─── */
+h1 { font-size: 1.4rem; font-weight: 600; margin-bottom: 0.3rem; }
+h2 {
+  font-size: 1rem; color: var(--text-secondary); font-weight: 600;
+  margin: 2.5rem 0 1rem; padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+h3 {
+  font-size: 0.75rem; color: var(--text-muted); font-weight: 500;
+  text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem;
+}
+.subtitle { color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.25rem; }
+.note { color: var(--text-muted); font-size: 0.75rem; margin-bottom: 2rem; }
+code { font-family: var(--font-mono); font-size: 0.85em; color: var(--accent); }
+
+/* ─── Library Card ─── */
+.lib-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.25rem;
+}
+.lib-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 1rem;
+}
+.lib-name { font-size: 1rem; font-weight: 600; }
+.lib-meta {
+  font-size: 0.7rem; color: var(--text-muted);
+  display: flex; gap: 1rem; align-items: center;
+}
+.lib-meta .tag {
+  background: var(--accent-dim); color: var(--accent);
+  padding: 1px 6px; border-radius: 3px; font-size: 0.65rem;
+}
+
+/* ─── Icon Display Row ─── */
+.icon-row {
+  display: flex; align-items: flex-start; gap: 1.5rem;
+  margin-bottom: 0.75rem; flex-wrap: wrap;
+}
+.icon-cell {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 0.3rem; min-width: 56px;
+}
+.icon-cell .label {
+  font-size: 0.6rem; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.icon-cell .icon-wrap {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 28px; color: var(--text-secondary);
+}
+
+/* ─── Size Variants ─── */
+.size-row { display: flex; gap: 2.5rem; margin: 0.75rem 0; flex-wrap: wrap; }
+.size-group { display: flex; flex-direction: column; gap: 0.4rem; }
+.size-label { font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; }
+.size-icons {
+  display: flex; align-items: center; gap: 0.75rem;
+  color: var(--text-secondary);
+}
+
+/* ─── Weight Variants ─── */
+.weight-row {
+  display: flex; gap: 2rem; margin: 0.4rem 0; align-items: center; flex-wrap: wrap;
+}
+.weight-label {
+  font-size: 0.65rem; color: var(--text-muted); min-width: 55px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.weight-icons {
+  display: flex; gap: 1rem; align-items: center;
+  color: var(--text-secondary); font-size: 20px;
+}
+
+/* ─── KBD Styles ─── */
+.kbd-section { display: flex; gap: 1rem; flex-wrap: wrap; }
+.kbd-approach {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 6px; padding: 1rem; flex: 1; min-width: 210px;
+}
+.kbd-approach-name {
+  font-size: 0.75rem; color: var(--accent); margin-bottom: 0.6rem;
+  font-weight: 600;
+}
+.kbd-keys { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
+
+/* KBD Approach 1: Minimal Outline */
+.kbd-min {
+  font-family: var(--font-mono); font-size: 0.8em;
+  padding: 2px 6px; border: 1px solid var(--text-muted);
+  border-radius: 3px; color: var(--text-secondary);
+  display: inline-flex; align-items: center; gap: 3px; line-height: 1.4;
+}
+
+/* KBD Approach 2: 3D Keycap */
+.kbd-3d {
+  font-family: var(--font-mono); font-size: 0.8em;
+  padding: 2px 6px; border: 1px solid var(--text-muted);
+  border-bottom: 3px solid var(--text-muted);
+  border-radius: 4px; background: var(--bg-card);
+  color: var(--text-secondary); display: inline-flex; align-items: center;
+  gap: 3px; line-height: 1.4;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.04), inset 0 1px 0 rgba(255,255,255,0.03);
+}
+
+/* KBD Approach 3: Ghost Pill */
+.kbd-pill {
+  font-family: var(--font-mono); font-size: 0.75em;
+  padding: 2px 8px; border-radius: 10px;
+  background: rgba(255,255,255,0.06);
+  color: var(--text-secondary); display: inline-flex; align-items: center;
+  gap: 3px; line-height: 1.4;
+}
+
+/* KBD Approach 4: Tag */
+.kbd-tag {
+  font-family: var(--font-mono); font-size: 0.68em;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  padding: 2px 5px; background: rgba(255,255,255,0.08);
+  color: var(--text-muted); border-radius: 2px;
+  display: inline-flex; align-items: center; gap: 3px; line-height: 1.4;
+}
+
+/* ─── Context Previews ─── */
+.context-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;
+}
+@media (max-width: 700px) { .context-grid { grid-template-columns: 1fr; } }
+.context-preview {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 6px; padding: 0.75rem 1rem;
+  font-size: 0.82rem; color: var(--text-secondary);
+  display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;
+  line-height: 1.8;
+}
+.context-preview .combo-tag {
+  font-size: 0.58rem; color: var(--text-muted);
+  background: rgba(255,255,255,0.04); padding: 1px 5px;
+  border-radius: 2px; margin-right: 0.4rem; white-space: nowrap;
+  display: block; width: 100%; margin-bottom: 0.25rem;
+}
+.context-preview .plus { color: var(--text-muted); font-size: 0.8em; }
+
+/* ─── Lucide SVG sizing ─── */
+.lucide-14 svg { width: 14px; height: 14px; }
+.lucide-18 svg { width: 18px; height: 18px; }
+.lucide-24 svg { width: 24px; height: 24px; }
+.lucide-inline svg { width: 1em; height: 1em; vertical-align: -0.15em; display: inline-block; }
+
+/* ─── Divider ─── */
+hr.div { border: none; border-top: 1px solid var(--border); margin: 1rem 0; }
+
+/* ─── Metadata Table ─── */
+.meta-table {
+  width: 100%; border-collapse: collapse; font-size: 0.78rem;
+  margin-top: 0.75rem;
+}
+.meta-table th {
+  text-align: left; color: var(--text-muted); font-weight: 500;
+  font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border);
+}
+.meta-table td {
+  padding: 0.5rem 0.75rem; color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+}
+.meta-table tr:last-child td { border-bottom: none; }
+.meta-table .name-cell { color: var(--text-primary); font-weight: 500; }
+.star { color: #e3b341; }
+
+/* ─── Verdict Badges ─── */
+.verdict {
+  display: inline-block; padding: 2px 8px; border-radius: 3px;
+  font-size: 0.65rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.verdict-best { background: #23863640; color: #3fb950; }
+.verdict-good { background: #58a6ff20; color: #58a6ff; }
+.verdict-ok { background: #d2992220; color: #d29922; }
+.verdict-limited { background: #f8514920; color: #f85149; }
+
+/* ─── Tap/Touch Section ─── */
+.touch-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;
+  margin: 1rem 0;
+}
+@media (max-width: 600px) { .touch-grid { grid-template-columns: repeat(2, 1fr); } }
+.touch-cell {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 6px; padding: 1rem; text-align: center;
+}
+.touch-cell .lib { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.5rem; }
+.touch-cell .icons {
+  display: flex; justify-content: center; gap: 1rem;
+  font-size: 24px; color: var(--text-secondary);
+  margin-bottom: 0.3rem;
+}
+.touch-cell .names {
+  font-size: 0.6rem; color: var(--text-muted);
+  display: flex; justify-content: center; gap: 0.75rem;
+}
+
+/* no-icon placeholder */
+.na { color: var(--text-muted); font-style: italic; font-size: 0.7em; }
+
+/* loading overlay */
+#loading {
+  position: fixed; inset: 0; background: var(--bg-deep);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 999; color: var(--text-muted); font-size: 0.9rem;
+  transition: opacity 0.3s ease;
+}
+#loading.hidden { opacity: 0; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<div id="loading">Loading icon libraries...</div>
+
+<h1>Icon Library Comparison</h1>
+<p class="subtitle">Keyboard shortcuts, click &amp; tap interaction icons — dark theme, minimalist outline</p>
+<p class="note">App theme: <code>--bg-deep: #0a0a0a</code> &middot; <code>--text-secondary: #8b949e</code> &middot; <code>--font-mono: Courier New</code></p>
+
+
+<!-- ══════════════════════════════════════════════ -->
+<h2>Part A &mdash; Keyboard Key (<code>&lt;kbd&gt;</code>) Styling</h2>
+<p style="color:var(--text-muted);font-size:0.78rem;margin-bottom:1rem;">
+  Icon libraries don't provide key-cap glyphs. Keys are always CSS-styled <code>&lt;kbd&gt;</code> elements. Pick a style:
+</p>
+
+<div class="kbd-section">
+  <div class="kbd-approach">
+    <div class="kbd-approach-name">1. Minimal Outline</div>
+    <div class="kbd-keys">
+      <span class="kbd-min">Ctrl</span>
+      <span class="kbd-min">Enter</span>
+      <span class="kbd-min">Shift</span>
+      <span class="kbd-min">Tab</span>
+      <span class="kbd-min">Esc</span>
+    </div>
+  </div>
+
+  <div class="kbd-approach">
+    <div class="kbd-approach-name">2. 3D Keycap (kbd.css)</div>
+    <div class="kbd-keys">
+      <span class="kbd-3d">Ctrl</span>
+      <span class="kbd-3d">Enter</span>
+      <span class="kbd-3d">Shift</span>
+      <span class="kbd-3d">Tab</span>
+      <span class="kbd-3d">Esc</span>
+    </div>
+  </div>
+
+  <div class="kbd-approach">
+    <div class="kbd-approach-name">3. Ghost Pill</div>
+    <div class="kbd-keys">
+      <span class="kbd-pill">Ctrl</span>
+      <span class="kbd-pill">Enter</span>
+      <span class="kbd-pill">Shift</span>
+      <span class="kbd-pill">Tab</span>
+      <span class="kbd-pill">Esc</span>
+    </div>
+  </div>
+
+  <div class="kbd-approach">
+    <div class="kbd-approach-name">4. Uppercase Tag</div>
+    <div class="kbd-keys">
+      <span class="kbd-tag">Ctrl</span>
+      <span class="kbd-tag">Enter</span>
+      <span class="kbd-tag">Shift</span>
+      <span class="kbd-tag">Tab</span>
+      <span class="kbd-tag">Esc</span>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════ -->
+<h2>Part B &mdash; Icon Libraries: Interaction Icons</h2>
+
+
+<!-- ── Lucide ── -->
+<div class="lib-card">
+  <div class="lib-header">
+    <span class="lib-name">Lucide</span>
+    <span class="lib-meta">
+      <span><span class="star">★</span> 21.2k</span>
+      <span>~8kb (tree-shakeable)</span>
+      <span class="tag">SVG / JS</span>
+    </span>
+  </div>
+
+  <h3>Icons</h3>
+  <div class="icon-row">
+    <div class="icon-cell">
+      <div class="icon-wrap lucide-24"><i data-lucide="corner-down-left"></i></div>
+      <span class="label">Enter</span>
+    </div>
+    <div class="icon-cell">
+      <div class="icon-wrap lucide-24"><i data-lucide="mouse-pointer-click"></i></div>
+      <span class="label">Click</span>
+    </div>
+    <div class="icon-cell">
+      <div class="icon-wrap lucide-24"><i data-lucide="hand"></i></div>
+      <span class="label">Hand</span>
+    </div>
+    <div class="icon-cell">
+      <div class="icon-wrap lucide-24"><i data-lucide="pointer"></i></div>
+      <span class="label">Pointer</span>
+    </div>
+    <div class="icon-cell">
+      <div class="icon-wrap lucide-24"><i data-lucide="mouse"></i></div>
+      <span class="label">Mouse</span>
+    </div>
+    <div class="icon-cell">
+      <div class="icon-wrap lucide-24"><i data-lucide="keyboard"></i></div>
+      <span class="label">Keyboard</span>
+    </div>
+    <div class="icon-cell">
+      <div class="icon-wrap lucide-24"><i data-lucide="touchpad"></i></div>
+      <span class="label">Touchpad</span>
+    </div>
+  </div>
+
+  <hr class="div">
+  <h3>Sizes</h3>
+  <div class="size-row">
+    <div class="size-group">
+      <span class="size-label">14px</span>
+      <div class="size-icons lucide-14">
+        <i data-lucide="corner-down-left"></i>
+        <i data-lucide="mouse-pointer-click"></i>
+        <i data-lucide="hand"></i>
+        <i data-lucide="pointer"></i>
+      </div>
+    </div>
+    <div class="size-group">
+      <span class="size-label">18px</span>
+      <div class="size-icons lucide-18">
+        <i data-lucide="corner-down-left"></i>
+        <i data-lucide="mouse-pointer-click"></i>
+        <i data-lucide="hand"></i>
+        <i data-lucide="pointer"></i>
+      </div>
+    </div>
+    <div class="size-group">
+      <span class="size-label">24px</span>
+      <div class="size-icons lucide-24">
+        <i data-lucide="corner-down-left"></i>
+        <i data-lucide="mouse-pointer-click"></i>
+        <i data-lucide="hand"></i>
+        <i data-lucide="pointer"></i>
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+  <h3>Stroke Width Variants</h3>
+  <div id="lucide-stroke-variants"></div>
+
+  <hr class="div">
+  <h3>Notes</h3>
+  <p style="font-size:0.75rem;color:var(--text-muted);">
+    SVG-based — renders at any size without blur. Stroke width adjustable via JS/attribute.
+    No dedicated <em>hand-tap</em> icon. <code>hand</code> + <code>pointer</code> are the closest for touch.
+    Single weight (outline). Stroke width 1–3 adjustable.
+  </p>
+  <span class="verdict verdict-good">Good</span>
+  <span style="font-size:0.7rem;color:var(--text-muted);margin-left:0.5rem;">Great icons, missing tap gesture</span>
+</div>
+
+
+<!-- ── Phosphor ── -->
+<div class="lib-card">
+  <div class="lib-header">
+    <span class="lib-name">Phosphor</span>
+    <span class="lib-meta">
+      <span><span class="star">★</span> 6.2k</span>
+      <span>~50kb (per weight)</span>
+      <span class="tag">Font / CSS</span>
+    </span>
+  </div>
+
+  <h3>Icons (Regular)</h3>
+  <div class="icon-row" style="font-size:24px;">
+    <div class="icon-cell">
+      <div class="icon-wrap"><i class="ph ph-arrow-bend-down-left"></i></div>
+      <span class="label">Enter</span>
+    </div>
+    <div class="icon-cell">
+      <div class="icon-wrap"><i class="ph ph-cursor-click"></i></div>
+      <span class="label">Click</span>
+    </div>
+    <div class="icon-cell">
+      <div class="icon-wrap"><i class="ph ph-hand-tap"></i></div>
+      <span class="label">Tap</span>
+    </div>
+    <div class="icon-cell">
+      <div class="icon-wrap"><i class="ph ph-hand-pointing"></i></div>
+      <span class="label">Point</span>
+    </div>
+    <div class="icon-cell">
+      <div class="icon-wrap"><i class="ph ph-mouse-simple"></i></div>
+      <span class="label">Mouse</span>
+    </div>
+    <div class="icon-cell">
+      <div class="icon-wrap"><i class="ph ph-keyboard"></i></div>
+      <span class="label">Keyboard</span>
+    </div>
+    <div class="icon-cell">
+      <div class="icon-wrap"><i class="ph ph-hand-swipe-right"></i></div>
+      <span class="label">Swipe</span>
+    </div>
+    <div class="icon-cell">
+      <div class="icon-wrap"><i class="ph ph-hand-grabbing"></i></div>
+      <span class="label">Grab</span>
+    </div>
+  </div>
+
+  <hr class="div">
+  <h3>Weight Variants (same icons, different thickness)</h3>
+  <div class="weight-row">
+    <span class="weight-label">Thin</span>
+    <div class="weight-icons">
+      <i class="ph-thin ph-arrow-bend-down-left"></i>
+      <i class="ph-thin ph-cursor-click"></i>
+      <i class="ph-thin ph-hand-tap"></i>
+      <i class="ph-thin ph-hand-pointing"></i>
+      <i class="ph-thin ph-mouse-simple"></i>
+    </div>
+  </div>
+  <div class="weight-row">
+    <span class="weight-label">Light</span>
+    <div class="weight-icons">
+      <i class="ph-light ph-arrow-bend-down-left"></i>
+      <i class="ph-light ph-cursor-click"></i>
+      <i class="ph-light ph-hand-tap"></i>
+      <i class="ph-light ph-hand-pointing"></i>
+      <i class="ph-light ph-mouse-simple"></i>
+    </div>
+  </div>
+  <div class="weight-row">
+    <span class="weight-label">Regular</span>
+    <div class="weight-icons">
+      <i class="ph ph-arrow-bend-down-left"></i>
+      <i class="ph ph-cursor-click"></i>
+      <i class="ph ph-hand-tap"></i>
+      <i class="ph ph-hand-pointing"></i>
+      <i class="ph ph-mouse-simple"></i>
+    </div>
+  </div>
+  <div class="weight-row">
+    <span class="weight-label">Bold</span>
+    <div class="weight-icons">
+      <i class="ph-bold ph-arrow-bend-down-left"></i>
+      <i class="ph-bold ph-cursor-click"></i>
+      <i class="ph-bold ph-hand-tap"></i>
+      <i class="ph-bold ph-hand-pointing"></i>
+      <i class="ph-bold ph-mouse-simple"></i>
+    </div>
+  </div>
+
+  <hr class="div">
+  <h3>Sizes (Light weight)</h3>
+  <div class="size-row">
+    <div class="size-group">
+      <span class="size-label">14px</span>
+      <div class="size-icons" style="font-size:14px;">
+        <i class="ph-light ph-arrow-bend-down-left"></i>
+        <i class="ph-light ph-cursor-click"></i>
+        <i class="ph-light ph-hand-tap"></i>
+        <i class="ph-light ph-hand-pointing"></i>
+      </div>
+    </div>
+    <div class="size-group">
+      <span class="size-label">18px</span>
+      <div class="size-icons" style="font-size:18px;">
+        <i class="ph-light ph-arrow-bend-down-left"></i>
+        <i class="ph-light ph-cursor-click"></i>
+        <i class="ph-light ph-hand-tap"></i>
+        <i class="ph-light ph-hand-pointing"></i>
+      </div>
+    </div>
+    <div class="size-group">
+      <span class="size-label">24px</span>
+      <div class="size-icons" style="font-size:24px;">
+        <i class="ph-light ph-arrow-bend-down-left"></i>
+        <i class="ph-light ph-cursor-click"></i>
+        <i class="ph-light ph-hand-tap"></i>
+        <i class="ph-light ph-hand-pointing"></i>
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+  <h3>Notes</h3>
+  <p style="font-size:0.75rem;color:var(--text-muted);">
+    6 weight variants (thin, light, regular, bold, fill, duotone) from a single icon set.
+    Has <strong>hand-tap</strong>, <strong>hand-swipe</strong>, <strong>hand-grabbing</strong> — best touch/gesture coverage.
+    Font-based — sizes via <code>font-size</code>. Loads per-weight CSS (~50kb each).
+  </p>
+  <span class="verdict verdict-best">Best</span>
+  <span style="font-size:0.7rem;color:var(--text-muted);margin-left:0.5rem;">Best gesture coverage + weight variants</span>
+</div>
+
+
+<!-- ── Tabler ── -->
+<div class="lib-card">
+  <div class="lib-header">
+    <span class="lib-name">Tabler Icons</span>
+    <span class="lib-meta">
+      <span><span class="star">★</span> 20.2k</span>
+      <span>~120kb (webfont)</span>
+      <span class="tag">Font / CSS</span>
+    </span>
+  </div>
+
+  <h3>Icons</h3>
+  <div class="icon-row" style="font-size:24px;">
+    <div class="icon-cell">
+      <div class="icon-wrap"><i class="ti ti-corner-down-left"></i></div>
+      <span class="label">Enter</span>
+    </div>
+    <div class="icon-cell">
+      <div class="icon-wrap"><i class="ti ti-click"></i></div>
+      <span class="label">Click</span>
+    </div>
+    <div class="icon-cell">
+      <div class="icon-wrap"><i class="ti ti-hand-click"></i></div>
+      <span class="label">Hand Click</span>
+    </div>
+    <div class="icon-cell">
+      <div class="icon-wrap"><i class="ti ti-hand-finger"></i></div>
+      <span class="label">Finger</span>
+    </div>
+    <div class="icon-cell">
+      <div class="icon-wrap"><i class="ti ti-pointer"></i></div>
+      <span class="label">Pointer</span>
+    </div>
+    <div class="icon-cell">
+      <div class="icon-wrap"><i class="ti ti-mouse"></i></div>
+      <span class="label">Mouse</span>
+    </div>
+    <div class="icon-cell">
+      <div class="icon-wrap"><i class="ti ti-keyboard"></i></div>
+      <span class="label">Keyboard</span>
+    </div>
+    <div class="icon-cell">
+      <div class="icon-wrap"><i class="ti ti-hand-move"></i></div>
+      <span class="label">Move</span>
+    </div>
+  </div>
+
+  <hr class="div">
+  <h3>Sizes</h3>
+  <div class="size-row">
+    <div class="size-group">
+      <span class="size-label">14px</span>
+      <div class="size-icons" style="font-size:14px;">
+        <i class="ti ti-corner-down-left"></i>
+        <i class="ti ti-click"></i>
+        <i class="ti ti-hand-click"></i>
+        <i class="ti ti-hand-finger"></i>
+      </div>
+    </div>
+    <div class="size-group">
+      <span class="size-label">18px</span>
+      <div class="size-icons" style="font-size:18px;">
+        <i class="ti ti-corner-down-left"></i>
+        <i class="ti ti-click"></i>
+        <i class="ti ti-hand-click"></i>
+        <i class="ti ti-hand-finger"></i>
+      </div>
+    </div>
+    <div class="size-group">
+      <span class="size-label">24px</span>
+      <div class="size-icons" style="font-size:24px;">
+        <i class="ti ti-corner-down-left"></i>
+        <i class="ti ti-click"></i>
+        <i class="ti ti-hand-click"></i>
+        <i class="ti ti-hand-finger"></i>
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+  <h3>Notes</h3>
+  <p style="font-size:0.75rem;color:var(--text-muted);">
+    Outline-only (no weight variants). 5,200+ icons — massive catalog.
+    Has <strong>hand-click</strong> and <strong>hand-finger</strong> for touch, but no dedicated <em>hand-tap</em>.
+    Single webfont at ~120kb. Stroke width 2px (not adjustable via CSS).
+  </p>
+  <span class="verdict verdict-good">Good</span>
+  <span style="font-size:0.7rem;color:var(--text-muted);margin-left:0.5rem;">Huge catalog, outline-only, no weight control</span>
+</div>
+
+
+<!-- ── Bootstrap Icons ── -->
+<div class="lib-card">
+  <div class="lib-header">
+    <span class="lib-name">Bootstrap Icons</span>
+    <span class="lib-meta">
+      <span><span class="star">★</span> 7.9k</span>
+      <span>~90kb (webfont)</span>
+      <span class="tag">Font / CSS</span>
+    </span>
+  </div>
+
+  <h3>Icons</h3>
+  <div class="icon-row" style="font-size:24px;">
+    <div class="icon-cell">
+      <div class="icon-wrap"><i class="bi bi-arrow-return-left"></i></div>
+      <span class="label">Enter</span>
+    </div>
+    <div class="icon-cell">
+      <div class="icon-wrap"><i class="bi bi-mouse"></i></div>
+      <span class="label">Mouse</span>
+    </div>
+    <div class="icon-cell">
+      <div class="icon-wrap"><i class="bi bi-mouse2"></i></div>
+      <span class="label">Mouse 2</span>
+    </div>
+    <div class="icon-cell">
+      <div class="icon-wrap"><i class="bi bi-hand-index-thumb"></i></div>
+      <span class="label">Touch</span>
+    </div>
+    <div class="icon-cell">
+      <div class="icon-wrap"><i class="bi bi-hand-index"></i></div>
+      <span class="label">Point</span>
+    </div>
+    <div class="icon-cell">
+      <div class="icon-wrap"><i class="bi bi-keyboard"></i></div>
+      <span class="label">Keyboard</span>
+    </div>
+    <div class="icon-cell">
+      <div class="icon-wrap"><i class="bi bi-cursor"></i></div>
+      <span class="label">Cursor</span>
+    </div>
+  </div>
+
+  <hr class="div">
+  <h3>Sizes</h3>
+  <div class="size-row">
+    <div class="size-group">
+      <span class="size-label">14px</span>
+      <div class="size-icons" style="font-size:14px;">
+        <i class="bi bi-arrow-return-left"></i>
+        <i class="bi bi-mouse"></i>
+        <i class="bi bi-hand-index-thumb"></i>
+        <i class="bi bi-hand-index"></i>
+      </div>
+    </div>
+    <div class="size-group">
+      <span class="size-label">18px</span>
+      <div class="size-icons" style="font-size:18px;">
+        <i class="bi bi-arrow-return-left"></i>
+        <i class="bi bi-mouse"></i>
+        <i class="bi bi-hand-index-thumb"></i>
+        <i class="bi bi-hand-index"></i>
+      </div>
+    </div>
+    <div class="size-group">
+      <span class="size-label">24px</span>
+      <div class="size-icons" style="font-size:24px;">
+        <i class="bi bi-arrow-return-left"></i>
+        <i class="bi bi-mouse"></i>
+        <i class="bi bi-hand-index-thumb"></i>
+        <i class="bi bi-hand-index"></i>
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+  <h3>Notes</h3>
+  <p style="font-size:0.75rem;color:var(--text-muted);">
+    Two styles: outline + fill. 2,000+ icons. Familiar if using Bootstrap.
+    No dedicated <em>tap</em>, <em>click</em>, or <em>swipe</em> gesture icons.
+    <strong>hand-index-thumb</strong> is the closest to a "tap". No weight variants.
+  </p>
+  <span class="verdict verdict-ok">OK</span>
+  <span style="font-size:0.7rem;color:var(--text-muted);margin-left:0.5rem;">Limited gesture coverage</span>
+</div>
+
+
+<!-- ══════════════════════════════════════════════ -->
+<h2>Part C &mdash; Touch &amp; Tap Icons (Side-by-Side)</h2>
+<p style="color:var(--text-muted);font-size:0.78rem;margin-bottom:1rem;">
+  Dedicated touch/tap gesture icons — critical for mobile hint text
+</p>
+
+<div class="touch-grid">
+  <div class="touch-cell">
+    <div class="lib">LUCIDE</div>
+    <div class="icons lucide-24">
+      <i data-lucide="hand" id="touch-lucide-hand"></i>
+      <i data-lucide="pointer" id="touch-lucide-pointer"></i>
+    </div>
+    <div class="names">
+      <span>hand</span>
+      <span>pointer</span>
+    </div>
+    <div style="margin-top:0.5rem;"><span class="verdict verdict-ok">No tap</span></div>
+  </div>
+
+  <div class="touch-cell">
+    <div class="lib">PHOSPHOR</div>
+    <div class="icons" style="font-size:24px;">
+      <i class="ph-light ph-hand-tap"></i>
+      <i class="ph-light ph-hand-pointing"></i>
+      <i class="ph-light ph-hand-swipe-right"></i>
+    </div>
+    <div class="names">
+      <span>hand-tap</span>
+      <span>pointing</span>
+      <span>swipe</span>
+    </div>
+    <div style="margin-top:0.5rem;"><span class="verdict verdict-best">Best</span></div>
+  </div>
+
+  <div class="touch-cell">
+    <div class="lib">TABLER</div>
+    <div class="icons" style="font-size:24px;">
+      <i class="ti ti-hand-click"></i>
+      <i class="ti ti-hand-finger"></i>
+      <i class="ti ti-hand-move"></i>
+    </div>
+    <div class="names">
+      <span>hand-click</span>
+      <span>finger</span>
+      <span>move</span>
+    </div>
+    <div style="margin-top:0.5rem;"><span class="verdict verdict-good">Good</span></div>
+  </div>
+
+  <div class="touch-cell">
+    <div class="lib">BOOTSTRAP</div>
+    <div class="icons" style="font-size:24px;">
+      <i class="bi bi-hand-index-thumb"></i>
+      <i class="bi bi-hand-index"></i>
+    </div>
+    <div class="names">
+      <span>index-thumb</span>
+      <span>index</span>
+    </div>
+    <div style="margin-top:0.5rem;"><span class="verdict verdict-limited">Limited</span></div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════ -->
+<h2>Part D &mdash; In-Context Usage</h2>
+<p style="color:var(--text-muted);font-size:0.78rem;margin-bottom:1rem;">
+  How the hint <code>Ctrl+Enter or click to add child</code> looks with each kbd style + icon library combo
+</p>
+
+<!-- Minimal Outline kbd + each icon lib -->
+<h3 style="margin-top:1rem;">Minimal Outline kbd</h3>
+<div class="context-grid">
+  <div class="context-preview">
+    <span class="combo-tag">Minimal + Lucide</span>
+    <span class="kbd-min">Ctrl</span><span class="plus">+</span><span class="kbd-min lucide-inline"><i data-lucide="corner-down-left" id="ctx-ml-enter"></i></span>
+    <span style="margin:0 0.2rem;">or</span>
+    <span class="lucide-inline" style="color:var(--text-secondary)"><i data-lucide="mouse-pointer-click" id="ctx-ml-click"></i></span>
+    <span style="color:var(--text-muted);font-size:0.82em;">to add child</span>
+  </div>
+  <div class="context-preview">
+    <span class="combo-tag">Minimal + Phosphor Light</span>
+    <span class="kbd-min">Ctrl</span><span class="plus">+</span><span class="kbd-min"><i class="ph-light ph-arrow-bend-down-left" style="font-size:1em;vertical-align:-0.1em;"></i></span>
+    <span style="margin:0 0.2rem;">or</span>
+    <i class="ph-light ph-cursor-click" style="font-size:1.1em;color:var(--text-secondary);vertical-align:-0.15em;"></i>
+    <span style="color:var(--text-muted);font-size:0.82em;">to add child</span>
+  </div>
+  <div class="context-preview">
+    <span class="combo-tag">Minimal + Tabler</span>
+    <span class="kbd-min">Ctrl</span><span class="plus">+</span><span class="kbd-min"><i class="ti ti-corner-down-left" style="font-size:1em;vertical-align:-0.1em;"></i></span>
+    <span style="margin:0 0.2rem;">or</span>
+    <i class="ti ti-click" style="font-size:1.1em;color:var(--text-secondary);vertical-align:-0.15em;"></i>
+    <span style="color:var(--text-muted);font-size:0.82em;">to add child</span>
+  </div>
+  <div class="context-preview">
+    <span class="combo-tag">Minimal + Bootstrap</span>
+    <span class="kbd-min">Ctrl</span><span class="plus">+</span><span class="kbd-min"><i class="bi bi-arrow-return-left" style="font-size:0.9em;vertical-align:-0.05em;"></i></span>
+    <span style="margin:0 0.2rem;">or</span>
+    <i class="bi bi-mouse" style="font-size:1.1em;color:var(--text-secondary);vertical-align:-0.15em;"></i>
+    <span style="color:var(--text-muted);font-size:0.82em;">to add child</span>
+  </div>
+</div>
+
+<!-- 3D Keycap kbd + each icon lib -->
+<h3 style="margin-top:1.25rem;">3D Keycap kbd</h3>
+<div class="context-grid">
+  <div class="context-preview">
+    <span class="combo-tag">3D + Lucide</span>
+    <span class="kbd-3d">Ctrl</span><span class="plus">+</span><span class="kbd-3d lucide-inline"><i data-lucide="corner-down-left" id="ctx-3l-enter"></i></span>
+    <span style="margin:0 0.2rem;">or</span>
+    <span class="lucide-inline" style="color:var(--text-secondary)"><i data-lucide="mouse-pointer-click" id="ctx-3l-click"></i></span>
+    <span style="color:var(--text-muted);font-size:0.82em;">to add child</span>
+  </div>
+  <div class="context-preview">
+    <span class="combo-tag">3D + Phosphor Light</span>
+    <span class="kbd-3d">Ctrl</span><span class="plus">+</span><span class="kbd-3d"><i class="ph-light ph-arrow-bend-down-left" style="font-size:1em;vertical-align:-0.1em;"></i></span>
+    <span style="margin:0 0.2rem;">or</span>
+    <i class="ph-light ph-cursor-click" style="font-size:1.1em;color:var(--text-secondary);vertical-align:-0.15em;"></i>
+    <span style="color:var(--text-muted);font-size:0.82em;">to add child</span>
+  </div>
+  <div class="context-preview">
+    <span class="combo-tag">3D + Tabler</span>
+    <span class="kbd-3d">Ctrl</span><span class="plus">+</span><span class="kbd-3d"><i class="ti ti-corner-down-left" style="font-size:1em;vertical-align:-0.1em;"></i></span>
+    <span style="margin:0 0.2rem;">or</span>
+    <i class="ti ti-click" style="font-size:1.1em;color:var(--text-secondary);vertical-align:-0.15em;"></i>
+    <span style="color:var(--text-muted);font-size:0.82em;">to add child</span>
+  </div>
+  <div class="context-preview">
+    <span class="combo-tag">3D + Bootstrap</span>
+    <span class="kbd-3d">Ctrl</span><span class="plus">+</span><span class="kbd-3d"><i class="bi bi-arrow-return-left" style="font-size:0.9em;vertical-align:-0.05em;"></i></span>
+    <span style="margin:0 0.2rem;">or</span>
+    <i class="bi bi-mouse" style="font-size:1.1em;color:var(--text-secondary);vertical-align:-0.15em;"></i>
+    <span style="color:var(--text-muted);font-size:0.82em;">to add child</span>
+  </div>
+</div>
+
+<!-- Ghost Pill kbd + each icon lib -->
+<h3 style="margin-top:1.25rem;">Ghost Pill kbd</h3>
+<div class="context-grid">
+  <div class="context-preview">
+    <span class="combo-tag">Pill + Lucide</span>
+    <span class="kbd-pill">Ctrl</span><span class="plus">+</span><span class="kbd-pill lucide-inline"><i data-lucide="corner-down-left" id="ctx-pl-enter"></i></span>
+    <span style="margin:0 0.2rem;">or</span>
+    <span class="lucide-inline" style="color:var(--text-secondary)"><i data-lucide="mouse-pointer-click" id="ctx-pl-click"></i></span>
+    <span style="color:var(--text-muted);font-size:0.82em;">to add child</span>
+  </div>
+  <div class="context-preview">
+    <span class="combo-tag">Pill + Phosphor Light</span>
+    <span class="kbd-pill">Ctrl</span><span class="plus">+</span><span class="kbd-pill"><i class="ph-light ph-arrow-bend-down-left" style="font-size:1em;vertical-align:-0.1em;"></i></span>
+    <span style="margin:0 0.2rem;">or</span>
+    <i class="ph-light ph-cursor-click" style="font-size:1.1em;color:var(--text-secondary);vertical-align:-0.15em;"></i>
+    <span style="color:var(--text-muted);font-size:0.82em;">to add child</span>
+  </div>
+  <div class="context-preview">
+    <span class="combo-tag">Pill + Tabler</span>
+    <span class="kbd-pill">Ctrl</span><span class="plus">+</span><span class="kbd-pill"><i class="ti ti-corner-down-left" style="font-size:1em;vertical-align:-0.1em;"></i></span>
+    <span style="margin:0 0.2rem;">or</span>
+    <i class="ti ti-click" style="font-size:1.1em;color:var(--text-secondary);vertical-align:-0.15em;"></i>
+    <span style="color:var(--text-muted);font-size:0.82em;">to add child</span>
+  </div>
+  <div class="context-preview">
+    <span class="combo-tag">Pill + Bootstrap</span>
+    <span class="kbd-pill">Ctrl</span><span class="plus">+</span><span class="kbd-pill"><i class="bi bi-arrow-return-left" style="font-size:0.9em;vertical-align:-0.05em;"></i></span>
+    <span style="margin:0 0.2rem;">or</span>
+    <i class="bi bi-mouse" style="font-size:1.1em;color:var(--text-secondary);vertical-align:-0.15em;"></i>
+    <span style="color:var(--text-muted);font-size:0.82em;">to add child</span>
+  </div>
+</div>
+
+<!-- Touch variant of context -->
+<h3 style="margin-top:1.25rem;">Touch/Mobile Context (tap instead of click)</h3>
+<div class="context-grid">
+  <div class="context-preview">
+    <span class="combo-tag">3D + Phosphor (Tap)</span>
+    <span class="kbd-3d">Ctrl</span><span class="plus">+</span><span class="kbd-3d"><i class="ph-light ph-arrow-bend-down-left" style="font-size:1em;vertical-align:-0.1em;"></i></span>
+    <span style="margin:0 0.2rem;">or</span>
+    <i class="ph-light ph-hand-tap" style="font-size:1.1em;color:var(--text-secondary);vertical-align:-0.15em;"></i>
+    <span style="color:var(--text-muted);font-size:0.82em;">to add child</span>
+  </div>
+  <div class="context-preview">
+    <span class="combo-tag">Minimal + Tabler (Finger)</span>
+    <span class="kbd-min">Ctrl</span><span class="plus">+</span><span class="kbd-min"><i class="ti ti-corner-down-left" style="font-size:1em;vertical-align:-0.1em;"></i></span>
+    <span style="margin:0 0.2rem;">or</span>
+    <i class="ti ti-hand-finger" style="font-size:1.1em;color:var(--text-secondary);vertical-align:-0.15em;"></i>
+    <span style="color:var(--text-muted);font-size:0.82em;">to add child</span>
+  </div>
+  <div class="context-preview">
+    <span class="combo-tag">Pill + Phosphor Thin (Tap)</span>
+    <span class="kbd-pill">Ctrl</span><span class="plus">+</span><span class="kbd-pill"><i class="ph-thin ph-arrow-bend-down-left" style="font-size:1em;vertical-align:-0.1em;"></i></span>
+    <span style="margin:0 0.2rem;">or</span>
+    <i class="ph-thin ph-hand-tap" style="font-size:1.1em;color:var(--text-secondary);vertical-align:-0.15em;"></i>
+    <span style="color:var(--text-muted);font-size:0.82em;">to add child</span>
+  </div>
+  <div class="context-preview">
+    <span class="combo-tag">3D + Lucide (Hand)</span>
+    <span class="kbd-3d">Ctrl</span><span class="plus">+</span><span class="kbd-3d lucide-inline"><i data-lucide="corner-down-left" id="ctx-touch-enter"></i></span>
+    <span style="margin:0 0.2rem;">or</span>
+    <span class="lucide-inline" style="color:var(--text-secondary)"><i data-lucide="hand" id="ctx-touch-hand"></i></span>
+    <span style="color:var(--text-muted);font-size:0.82em;">to add child</span>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════ -->
+<h2>Part E &mdash; Library Metadata</h2>
+
+<table class="meta-table">
+  <thead>
+    <tr>
+      <th>Library</th>
+      <th>Stars</th>
+      <th>Icons</th>
+      <th>Bundle</th>
+      <th>Weights</th>
+      <th>Type</th>
+      <th>Tap Icon?</th>
+      <th>Verdict</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="name-cell">Lucide</td>
+      <td><span class="star">★</span> 21.2k</td>
+      <td>1,500+</td>
+      <td>~8kb (per icon)</td>
+      <td>1 (stroke adjustable)</td>
+      <td>SVG / JS</td>
+      <td><span class="na">No (hand only)</span></td>
+      <td><span class="verdict verdict-good">Good</span></td>
+    </tr>
+    <tr>
+      <td class="name-cell">Phosphor</td>
+      <td><span class="star">★</span> 6.2k</td>
+      <td>1,300+</td>
+      <td>~50kb (per weight)</td>
+      <td>6 (thin→bold+fill+duo)</td>
+      <td>Font / CSS</td>
+      <td><span style="color:#3fb950;">hand-tap ✓</span></td>
+      <td><span class="verdict verdict-best">Best</span></td>
+    </tr>
+    <tr>
+      <td class="name-cell">Tabler</td>
+      <td><span class="star">★</span> 20.2k</td>
+      <td>5,200+</td>
+      <td>~120kb (webfont)</td>
+      <td>1 (outline only)</td>
+      <td>Font / CSS</td>
+      <td><span style="color:#d29922;">hand-click ≈</span></td>
+      <td><span class="verdict verdict-good">Good</span></td>
+    </tr>
+    <tr>
+      <td class="name-cell">Bootstrap Icons</td>
+      <td><span class="star">★</span> 7.9k</td>
+      <td>2,000+</td>
+      <td>~90kb (webfont)</td>
+      <td>2 (outline + fill)</td>
+      <td>Font / CSS</td>
+      <td><span class="na">No (hand-index only)</span></td>
+      <td><span class="verdict verdict-ok">OK</span></td>
+    </tr>
+    <tr>
+      <td class="name-cell">kbd.css</td>
+      <td><span class="star">★</span> 102</td>
+      <td>0 (CSS only)</td>
+      <td>~2kb</td>
+      <td>N/A</td>
+      <td>CSS</td>
+      <td><span class="na">N/A (kbd styling only)</span></td>
+      <td><span class="verdict verdict-limited">Kbd only</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<div style="margin-top:1.5rem;padding:1rem;background:var(--bg-surface);border:1px solid var(--border);border-radius:6px;">
+  <h3>Recommendation Summary</h3>
+  <p style="font-size:0.8rem;color:var(--text-secondary);margin-top:0.5rem;line-height:1.7;">
+    <strong style="color:var(--text-primary);">Best overall:</strong> Phosphor (Light weight) — has <code>hand-tap</code>, <code>cursor-click</code>, <code>hand-swipe</code>, plus 6 weight variants for fine-tuning thickness.<br>
+    <strong style="color:var(--text-primary);">Runner-up:</strong> Lucide — cleanest SVGs, tree-shakeable, but no tap icon.<br>
+    <strong style="color:var(--text-primary);">kbd.css note:</strong> It's a tiny CSS-only lib for 3D keycap styling. The "3D Keycap" approach above replicates it. No need to import separately.<br>
+    <strong style="color:var(--text-primary);">For kbd styling:</strong> The 3D Keycap or Minimal Outline approaches work best on dark backgrounds.
+  </p>
+</div>
+
+
+<!-- ══════════════════════════════════════════════ -->
+<h2>Part F &mdash; Phosphor Weight Deep-Dive</h2>
+<p style="color:var(--text-muted);font-size:0.78rem;margin-bottom:1rem;">
+  Since Phosphor has the best coverage, here's a detailed look at its weight variants for our key icons
+</p>
+
+<div class="lib-card">
+  <table class="meta-table" style="margin:0;">
+    <thead>
+      <tr>
+        <th style="width:80px;">Weight</th>
+        <th>Enter</th>
+        <th>Click</th>
+        <th>Tap</th>
+        <th>Point</th>
+        <th>Mouse</th>
+        <th>Swipe</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="name-cell">Thin</td>
+        <td style="font-size:22px;"><i class="ph-thin ph-arrow-bend-down-left"></i></td>
+        <td style="font-size:22px;"><i class="ph-thin ph-cursor-click"></i></td>
+        <td style="font-size:22px;"><i class="ph-thin ph-hand-tap"></i></td>
+        <td style="font-size:22px;"><i class="ph-thin ph-hand-pointing"></i></td>
+        <td style="font-size:22px;"><i class="ph-thin ph-mouse-simple"></i></td>
+        <td style="font-size:22px;"><i class="ph-thin ph-hand-swipe-right"></i></td>
+      </tr>
+      <tr>
+        <td class="name-cell">Light</td>
+        <td style="font-size:22px;"><i class="ph-light ph-arrow-bend-down-left"></i></td>
+        <td style="font-size:22px;"><i class="ph-light ph-cursor-click"></i></td>
+        <td style="font-size:22px;"><i class="ph-light ph-hand-tap"></i></td>
+        <td style="font-size:22px;"><i class="ph-light ph-hand-pointing"></i></td>
+        <td style="font-size:22px;"><i class="ph-light ph-mouse-simple"></i></td>
+        <td style="font-size:22px;"><i class="ph-light ph-hand-swipe-right"></i></td>
+      </tr>
+      <tr>
+        <td class="name-cell">Regular</td>
+        <td style="font-size:22px;"><i class="ph ph-arrow-bend-down-left"></i></td>
+        <td style="font-size:22px;"><i class="ph ph-cursor-click"></i></td>
+        <td style="font-size:22px;"><i class="ph ph-hand-tap"></i></td>
+        <td style="font-size:22px;"><i class="ph ph-hand-pointing"></i></td>
+        <td style="font-size:22px;"><i class="ph ph-mouse-simple"></i></td>
+        <td style="font-size:22px;"><i class="ph ph-hand-swipe-right"></i></td>
+      </tr>
+      <tr>
+        <td class="name-cell">Bold</td>
+        <td style="font-size:22px;"><i class="ph-bold ph-arrow-bend-down-left"></i></td>
+        <td style="font-size:22px;"><i class="ph-bold ph-cursor-click"></i></td>
+        <td style="font-size:22px;"><i class="ph-bold ph-hand-tap"></i></td>
+        <td style="font-size:22px;"><i class="ph-bold ph-hand-pointing"></i></td>
+        <td style="font-size:22px;"><i class="ph-bold ph-mouse-simple"></i></td>
+        <td style="font-size:22px;"><i class="ph-bold ph-hand-swipe-right"></i></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ══════════════════════════════════════════════ -->
+<h2>Part G &mdash; "+" Add Child Hint (Full Context)</h2>
+<p style="color:var(--text-muted);font-size:0.78rem;margin-bottom:1rem;">
+  The actual hint that appears below the active block — pick your favorite combo
+</p>
+
+<div style="display:flex;flex-direction:column;gap:0.75rem;">
+  <!-- Combo 1 -->
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.75rem 1.25rem;">
+    <div style="font-size:0.6rem;color:var(--text-muted);margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:0.06em;">Option A: 3D Keycap + Phosphor Light</div>
+    <div style="color:var(--text-muted);font-size:0.82rem;display:flex;align-items:center;gap:0.3rem;flex-wrap:wrap;">
+      <span class="kbd-3d">Ctrl</span><span style="color:var(--text-muted);">+</span><span class="kbd-3d"><i class="ph-light ph-arrow-bend-down-left" style="font-size:1em;vertical-align:-0.1em;"></i></span>
+      <span>or</span>
+      <i class="ph-light ph-cursor-click" style="font-size:1.1em;"></i>
+      <span>to add child</span>
+    </div>
+  </div>
+
+  <!-- Combo 2 -->
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.75rem 1.25rem;">
+    <div style="font-size:0.6rem;color:var(--text-muted);margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:0.06em;">Option B: Minimal Outline + Phosphor Light</div>
+    <div style="color:var(--text-muted);font-size:0.82rem;display:flex;align-items:center;gap:0.3rem;flex-wrap:wrap;">
+      <span class="kbd-min">Ctrl</span><span style="color:var(--text-muted);">+</span><span class="kbd-min"><i class="ph-light ph-arrow-bend-down-left" style="font-size:1em;vertical-align:-0.1em;"></i></span>
+      <span>or</span>
+      <i class="ph-light ph-cursor-click" style="font-size:1.1em;"></i>
+      <span>to add child</span>
+    </div>
+  </div>
+
+  <!-- Combo 3 -->
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.75rem 1.25rem;">
+    <div style="font-size:0.6rem;color:var(--text-muted);margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:0.06em;">Option C: Ghost Pill + Phosphor Thin</div>
+    <div style="color:var(--text-muted);font-size:0.82rem;display:flex;align-items:center;gap:0.3rem;flex-wrap:wrap;">
+      <span class="kbd-pill">Ctrl</span><span style="color:var(--text-muted);">+</span><span class="kbd-pill"><i class="ph-thin ph-arrow-bend-down-left" style="font-size:1em;vertical-align:-0.1em;"></i></span>
+      <span>or</span>
+      <i class="ph-thin ph-cursor-click" style="font-size:1.1em;"></i>
+      <span>to add child</span>
+    </div>
+  </div>
+
+  <!-- Combo 4 -->
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.75rem 1.25rem;">
+    <div style="font-size:0.6rem;color:var(--text-muted);margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:0.06em;">Option D: 3D Keycap + Lucide</div>
+    <div style="color:var(--text-muted);font-size:0.82rem;display:flex;align-items:center;gap:0.3rem;flex-wrap:wrap;">
+      <span class="kbd-3d">Ctrl</span><span style="color:var(--text-muted);">+</span><span class="kbd-3d lucide-inline"><i data-lucide="corner-down-left" id="opt-d-enter"></i></span>
+      <span>or</span>
+      <span class="lucide-inline"><i data-lucide="mouse-pointer-click" id="opt-d-click"></i></span>
+      <span>to add child</span>
+    </div>
+  </div>
+
+  <!-- Combo 5 -->
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.75rem 1.25rem;">
+    <div style="font-size:0.6rem;color:var(--text-muted);margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:0.06em;">Option E: Minimal Outline + Tabler</div>
+    <div style="color:var(--text-muted);font-size:0.82rem;display:flex;align-items:center;gap:0.3rem;flex-wrap:wrap;">
+      <span class="kbd-min">Ctrl</span><span style="color:var(--text-muted);">+</span><span class="kbd-min"><i class="ti ti-corner-down-left" style="font-size:1em;vertical-align:-0.1em;"></i></span>
+      <span>or</span>
+      <i class="ti ti-click" style="font-size:1.1em;"></i>
+      <span>to add child</span>
+    </div>
+  </div>
+
+  <!-- Combo 6: Plus sign only (current approach) -->
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.75rem 1.25rem;">
+    <div style="font-size:0.6rem;color:var(--text-muted);margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:0.06em;">Option F: Current (just "+", no icons)</div>
+    <div style="color:var(--text-muted);font-size:0.82rem;display:flex;align-items:center;gap:0.3rem;">
+      <span style="font-size:1.4em;font-weight:300;opacity:0.7;">+</span>
+    </div>
+  </div>
+</div>
+
+
+<script>
+// Initialize Lucide icons
+document.addEventListener('DOMContentLoaded', function() {
+  // Init Lucide
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
+
+  // Generate Lucide stroke-width variants
+  var strokeContainer = document.getElementById('lucide-stroke-variants');
+  if (strokeContainer && typeof lucide !== 'undefined') {
+    var widths = [1, 1.5, 2, 2.5];
+    var icons = ['corner-down-left', 'mouse-pointer-click', 'hand', 'pointer'];
+    widths.forEach(function(w) {
+      var row = document.createElement('div');
+      row.className = 'weight-row';
+      row.innerHTML = '<span class="weight-label">Stroke ' + w + '</span><div class="weight-icons" id="lucide-sw-' + w + '"></div>';
+      strokeContainer.appendChild(row);
+      var iconsDiv = row.querySelector('.weight-icons');
+      icons.forEach(function(name) {
+        var el = document.createElement('i');
+        el.setAttribute('data-lucide', name);
+        el.style.width = '22px';
+        el.style.height = '22px';
+        iconsDiv.appendChild(el);
+      });
+    });
+    // Re-init Lucide for new elements
+    lucide.createIcons();
+
+    // Adjust stroke widths
+    widths.forEach(function(w) {
+      var container = document.getElementById('lucide-sw-' + w);
+      if (container) {
+        container.querySelectorAll('svg').forEach(function(svg) {
+          svg.setAttribute('stroke-width', w);
+        });
+      }
+    });
+  }
+
+  // Hide loading overlay
+  setTimeout(function() {
+    var loading = document.getElementById('loading');
+    if (loading) loading.classList.add('hidden');
+  }, 1500);
+});
+</script>
+
+</body>
+</html>
