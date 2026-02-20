@@ -142,6 +142,9 @@ if (typeof Quill !== 'undefined') {
                 text = text.slice(0, -1);
             }
 
+            // Strip ZWSP anchor characters (added to fix caret positioning after trailing embeds)
+            text = text.replace(/\u200B/g, '');
+
             return text;
         },
 
@@ -184,6 +187,9 @@ if (typeof Quill !== 'undefined') {
             // Add remaining text
             if (lastIndex < plainText.length) {
                 ops.push({ insert: plainText.slice(lastIndex) });
+            } else if (ops.length > 0 && typeof ops[ops.length - 1].insert !== 'string') {
+                // Content ends with an embed — add ZWSP so browser can anchor caret
+                ops.push({ insert: '\u200B' });
             }
 
             // Quill requires a trailing newline
@@ -251,6 +257,12 @@ if (typeof Quill !== 'undefined') {
                     preview: preview,
                     undefined: values.length === 0
                 }, Quill.sources.SILENT);
+            }
+
+            // If the last chip is now immediately before \n, add ZWSP so browser can anchor caret
+            const lastR = replacements[replacements.length - 1];
+            if (lastR.index + 1 === quillInstance.getLength() - 1) {
+                quillInstance.insertText(lastR.index + 1, '\u200B', Quill.sources.SILENT);
             }
 
             // Fix cursor position - place after last replacement
@@ -476,6 +488,11 @@ if (typeof Quill !== 'undefined') {
                 undefined: values.length === 0
             }, Quill.sources.SILENT);
 
+            // Add ZWSP anchor if chip is now at end before \n
+            if (triggerIndex + 1 === quill.getLength() - 1) {
+                quill.insertText(triggerIndex + 1, '\u200B', Quill.sources.SILENT);
+            }
+
             // Set cursor after chip
             quill.setSelection(triggerIndex + 1, 0, Quill.sources.SILENT);
 
@@ -685,6 +702,12 @@ if (typeof Quill !== 'undefined') {
             quillInstance.insertEmbed(triggerIdx, 'wildcard', {
                 name: wcName, preview, undefined: values.length === 0
             }, Quill.sources.SILENT);
+
+            // Add ZWSP anchor if chip is now at end before \n
+            if (triggerIdx + 1 === quillInstance.getLength() - 1) {
+                quillInstance.insertText(triggerIdx + 1, '\u200B', Quill.sources.SILENT);
+            }
+
             quillInstance.setSelection(triggerIdx + 1, 0, Quill.sources.SILENT);
 
             // Open popover on the chip

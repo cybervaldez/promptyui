@@ -3,8 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PromptyUI — Landing Preview</title>
-<link rel="stylesheet" href="/vendor/quill/quill.snow.css">
+<title>PromptyUI — Try It</title>
 <style>
 :root {
     --bg-deep: #0a0a0a;
@@ -14,13 +13,9 @@
     --text-secondary: #8b949e;
     --text-muted: #484f58;
     --accent-green: #3fb950;
-    --accent-green-dim: rgba(63, 185, 80, 0.15);
     --accent-amber: #ff6b35;
-    --accent-amber-dim: rgba(255, 107, 53, 0.15);
     --accent-blue: #58a6ff;
-    --accent-blue-dim: rgba(88, 166, 255, 0.15);
     --accent-purple: #bc8cff;
-    --accent-purple-dim: rgba(188, 140, 255, 0.15);
     --reel-label: #e8943a;
     --reel-value: #529CCA;
     --reel-bg: rgba(82, 156, 202, 0.08);
@@ -37,54 +32,7 @@ body {
     overflow-y: auto;
 }
 
-/* ── Section 1: Hero ── */
-.hero-section {
-    height: 100vh;
-    position: relative;
-    overflow: hidden;
-}
-
-.viewport {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-}
-
-.editor-zone {
-    flex: 6;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    padding: 1rem 4rem;
-    position: relative;
-    overflow: visible;
-}
-
-.editor-lines {
-    width: 100%;
-    max-width: 750px;
-    min-width: 580px;
-    min-height: 22em;
-}
-
-.divider {
-    height: 1px;
-    background: linear-gradient(90deg, transparent 5%, var(--text-muted) 50%, transparent 95%);
-    opacity: 0.25;
-}
-
-.math-zone {
-    flex: 4;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 1.5rem 2rem;
-    position: relative;
-}
-
-/* ── Editor lines (shared hero + demo) ── */
+/* ── Editor lines ── */
 .editor-line {
     font-size: clamp(0.85rem, 1.8vw, 1.1rem);
     line-height: 2.6em;
@@ -92,25 +40,6 @@ body {
     overflow: visible;
     color: var(--text-secondary);
     margin-top: 0.4em;
-    transition: opacity 0.5s ease;
-}
-
-.editor-line.dimmed {
-    opacity: 0.12;
-}
-
-/* Wildcard placeholder — dormant reel block (name visible, no window) */
-.wc-placeholder {
-    display: inline-block;
-    vertical-align: middle;
-    padding: 0 8px;
-    border-radius: 4px;
-    background: var(--reel-bg);
-    color: var(--reel-label);
-    height: 1.6em;
-    line-height: 1.6em;
-    text-align: center;
-    white-space: nowrap;
 }
 
 .editor-line--child {
@@ -130,7 +59,7 @@ body {
     user-select: none;
 }
 
-/* ── Inline reel (shared hero + demo) ── */
+/* ── Inline reel ── */
 .reel {
     display: inline-block;
     position: relative;
@@ -155,6 +84,26 @@ body {
 .reel.interactive.popover-open {
     background: rgba(82, 156, 202, 0.22);
     outline: 1px solid rgba(82, 156, 202, 0.3);
+}
+
+.reel-badge {
+    position: absolute;
+    top: -0.55em;
+    right: -0.65em;
+    min-width: 1.3em;
+    height: 1.3em;
+    border-radius: 9999px;
+    background: var(--bg-surface);
+    color: var(--reel-label);
+    font-size: 0.5em;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.3em;
+    line-height: 1;
+    pointer-events: none;
+    z-index: 3;
 }
 
 .reel-label {
@@ -219,16 +168,8 @@ body {
     justify-content: center;
 }
 
-/* ── Math zone: formula mode ── */
-.math-formula-area {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.4rem;
-    transition: opacity 0.6s ease;
-}
-
-.math-formula, .demo-formula {
+/* ── Formula ── */
+.demo-formula {
     font-size: clamp(0.75rem, 1.4vw, 1rem);
     color: var(--text-muted);
     display: flex;
@@ -240,14 +181,6 @@ body {
 
 .formula-term {
     font-weight: 500;
-    opacity: 0;
-    transform: translateX(10px);
-    transition: opacity 0.4s ease, transform 0.4s ease;
-}
-
-.formula-term.visible {
-    opacity: 1;
-    transform: translateX(0);
 }
 
 .formula-count {
@@ -256,17 +189,11 @@ body {
 
 .formula-x {
     color: var(--text-muted);
-    opacity: 0;
-    transition: opacity 0.3s ease;
 }
 
-.formula-x.visible {
-    opacity: 1;
-}
-
-/* ── Big odometer count (shared) ── */
-.math-big-count, .demo-count {
-    font-size: clamp(3rem, 8vw, 6rem);
+/* ── Big odometer count ── */
+.demo-count {
+    font-size: clamp(2rem, 5vw, 3.5rem);
     font-weight: 700;
     color: var(--accent-amber);
     display: flex;
@@ -304,129 +231,6 @@ body {
 
 .math-label.visible {
     opacity: 1;
-}
-
-/* ── Scroll indicator ── */
-.scroll-indicator {
-    position: absolute;
-    bottom: 2rem;
-    left: 50%;
-    transform: translateX(-50%);
-    color: var(--text-muted);
-    font-size: 1.4rem;
-    opacity: 0;
-    transition: opacity 0.6s ease;
-    animation: bounce 2s ease-in-out infinite;
-    cursor: pointer;
-}
-
-.scroll-indicator.visible {
-    opacity: 0.6;
-}
-
-.scroll-indicator:hover {
-    opacity: 1;
-}
-
-@keyframes bounce {
-    0%, 100% { transform: translateX(-50%) translateY(0); }
-    50% { transform: translateX(-50%) translateY(8px); }
-}
-
-/* ══════════════════════════════════════
-   Section 2: Interactive Demo
-   ══════════════════════════════════════ */
-.demo-section {
-    min-height: 100vh;
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 6rem 2rem 4rem;
-    border-top: 1px solid rgba(72, 79, 88, 0.2);
-}
-
-.demo-title {
-    font-size: clamp(1.2rem, 3vw, 1.8rem);
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 0.4rem;
-}
-
-.demo-subtitle {
-    font-size: clamp(0.75rem, 1.4vw, 0.9rem);
-    color: var(--text-muted);
-    margin-bottom: 2.5rem;
-}
-
-.demo-editor-area {
-    width: 100%;
-    max-width: 700px;
-    background: var(--bg-surface);
-    border: 1px solid rgba(72, 79, 88, 0.3);
-    border-radius: 8px;
-    padding: 1.5rem 2rem;
-    position: relative;
-}
-
-.demo-lines {
-    min-height: 6em;
-}
-
-.demo-actions {
-    display: flex;
-    gap: 0.8rem;
-    margin-top: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid rgba(72, 79, 88, 0.2);
-}
-
-.demo-btn {
-    font-family: var(--font-mono);
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    background: transparent;
-    border: 1px dashed rgba(72, 79, 88, 0.4);
-    border-radius: 4px;
-    padding: 0.3em 0.8em;
-    cursor: pointer;
-    transition: color 0.2s, border-color 0.2s;
-}
-
-.demo-btn:hover {
-    color: var(--reel-value);
-    border-color: var(--reel-value);
-}
-
-.demo-formula-area {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.4rem;
-    margin-top: 2.5rem;
-}
-
-.demo-count {
-    font-size: clamp(2rem, 5vw, 3.5rem);
-}
-
-.demo-cta {
-    display: inline-block;
-    margin-top: 2.5rem;
-    font-family: var(--font-mono);
-    font-size: 1rem;
-    color: var(--bg-deep);
-    background: var(--accent-amber);
-    text-decoration: none;
-    padding: 0.7em 2em;
-    border-radius: 6px;
-    font-weight: 600;
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.demo-cta:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 20px rgba(255, 107, 53, 0.3);
 }
 
 /* ── Value popover ── */
@@ -502,27 +306,11 @@ body {
     font-size: 0.75rem;
 }
 
-/* ── Demo child input ── */
-.demo-child-input {
-    color: var(--text-primary);
-    outline: none;
-    min-width: 12ch;
-    border-bottom: 1px dashed var(--text-muted);
-    padding: 0 0.2em;
-}
-
-.demo-child-input:empty::before {
-    content: attr(data-placeholder);
-    color: var(--text-muted);
-    font-size: 0.85em;
-}
-
 /* ══════════════════════════════════════
-   Section 3: Quill Editor
+   Quill Section
    ══════════════════════════════════════ */
 .quill-section {
     min-height: 100vh;
-    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -550,18 +338,12 @@ body {
     border: 1px solid rgba(72, 79, 88, 0.3);
     border-radius: 8px;
     padding: 1.5rem 2rem;
-    position: relative;
 }
 
-.quill-blocks {
-    min-height: 6em;
-}
+.quill-blocks { min-height: 6em; overflow: visible; }
 
-/* ── Block wrapper ── */
-.q-block {
-    position: relative;
-    margin-bottom: 0.3em;
-}
+.q-block { position: relative; margin-bottom: 0.3em; overflow: visible; transition: margin-bottom 0.3s ease; }
+.q-block.editing { margin-bottom: 1.8em; }
 
 .q-block-view {
     cursor: text;
@@ -569,19 +351,59 @@ body {
     border-radius: 4px;
     transition: background 0.15s;
 }
-
-.q-block-view:hover {
-    background: rgba(72, 79, 88, 0.1);
-}
-
-.q-block-edit {
-    display: none;
-}
-
+.q-block-view:hover { background: rgba(72, 79, 88, 0.1); }
+.q-block-edit { display: none; padding-bottom: 0; transition: padding-bottom 0.3s ease; }
 .q-block.editing .q-block-view { display: none; }
-.q-block.editing .q-block-edit { display: flex; align-items: baseline; }
+.q-block.editing .q-block-edit {
+    display: flex;
+    align-items: baseline;
+    position: relative;
+    padding-bottom: 1.2em;
+}
+.q-block.editing .q-block-edit::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--reel-value), transparent);
+    opacity: 0.4;
+}
+.q-block.editing .q-add-child-hint {
+    position: absolute;
+    bottom: -0.55em;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    background: var(--bg-surface);
+    padding: 0 0.6em;
+    white-space: nowrap;
+    cursor: pointer;
+    z-index: 4;
+    letter-spacing: 0.03em;
+    transition: color 0.15s;
+}
+.q-block.editing .q-add-child-hint:hover {
+    color: var(--reel-value);
+}
+.q-block.editing .q-add-child-hint kbd {
+    font-family: var(--font-mono);
+    font-size: inherit;
+    color: var(--text-secondary);
+    background: var(--bg-deep);
+    border: 1px solid rgba(72, 79, 88, 0.4);
+    border-radius: 2px;
+    padding: 0 0.3em;
+    margin: 0 0.15em;
+}
+/* Fade children when parent (non-child) is editing */
+.q-block.editing:not(.q-block--child) ~ .q-block--child {
+    opacity: 0.75;
+    transition: opacity 0.3s ease;
+}
 
-/* ── Edit-mode tree connector ── */
 .q-edit-connector {
     color: var(--text-muted);
     user-select: none;
@@ -591,61 +413,49 @@ body {
     padding-left: 2ch;
 }
 
-.q-quill-wrap {
-    flex: 1;
-    min-width: 0;
-}
+.q-quill-wrap { flex: 1; min-width: 0; }
 
-/* ── Quill overrides: block edit (seamless with view) ── */
 .q-block-edit .ql-container.ql-snow {
     border: none;
     font-family: var(--font-mono);
     font-size: clamp(0.85rem, 1.8vw, 1.1rem);
     background: transparent;
+    overflow: visible;
 }
-
 .q-block-edit .ql-editor {
     color: var(--text-secondary);
     padding: 0.2em 0;
     min-height: auto;
     line-height: 2.6em;
     caret-color: var(--accent-amber);
+    overflow: visible;
+    outline: none;
 }
+.q-block-edit .ql-editor.ql-blank::before { color: var(--text-muted); font-style: normal; }
 
-.q-block-edit .ql-editor.ql-blank::before {
-    color: var(--text-muted);
-    font-style: normal;
-}
-
-/* ── Quill overrides: persistent input ── */
 .q-persistent-input {
     margin-top: 0.5em;
     padding-top: 0.5em;
     border-top: 1px dashed rgba(72, 79, 88, 0.3);
 }
-
 .q-persistent-input .ql-container.ql-snow {
     border: 1px dashed rgba(72, 79, 88, 0.4);
     border-radius: 4px;
     font-family: var(--font-mono);
     font-size: clamp(0.85rem, 1.8vw, 1.1rem);
     background: transparent;
+    overflow: visible;
 }
-
 .q-persistent-input .ql-editor {
     color: var(--text-primary);
     padding: 0.4em 0.6em;
     min-height: 2em;
     line-height: 2em;
     caret-color: var(--accent-amber);
+    overflow: visible;
 }
+.q-persistent-input .ql-editor.ql-blank::before { color: var(--text-muted); font-style: normal; }
 
-.q-persistent-input .ql-editor.ql-blank::before {
-    color: var(--text-muted);
-    font-style: normal;
-}
-
-/* ── Wildcard chip in Quill (matches view-mode reel) ── */
 .ql-wildcard-chip {
     display: inline-block;
     position: relative;
@@ -653,17 +463,26 @@ body {
     padding: 0 8px;
     border-radius: 4px;
     background: var(--reel-bg);
-    cursor: default;
+    cursor: pointer;
     height: 1.6em;
     line-height: 1.6em;
     overflow: visible;
+    transition: background 0.2s ease;
 }
-
+/* Quill Embed wraps content in an inline span — make it layout-transparent */
+.ql-wildcard-chip > span:not([class]) {
+    display: contents;
+}
+.ql-wildcard-chip:hover {
+    background: rgba(82, 156, 202, 0.18);
+}
+.ql-wildcard-chip.popover-open {
+    background: rgba(82, 156, 202, 0.22);
+    outline: 1px solid rgba(82, 156, 202, 0.3);
+}
 .ql-wc-label {
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
+    top: 0; left: 0; right: 0;
     text-align: center;
     color: var(--reel-label);
     font-family: var(--font-mono);
@@ -671,18 +490,79 @@ body {
     line-height: 1.6em;
     white-space: nowrap;
     pointer-events: none;
-    transform: translateY(-1.3em) scale(0.55);
     transform-origin: center center;
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.15s ease;
+    z-index: 2;
 }
-
-.ql-wc-value {
-    color: var(--reel-value);
-    font-family: var(--font-mono);
-    font-size: inherit;
+.ql-wc-label.float {
+    transform: translateY(-1.3em) scale(0.55);
+    opacity: 1;
+}
+.ql-wc-window {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: block;
+    overflow: hidden;
+    height: 0;
+    transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+}
+.ql-wc-window.open {
+    height: 1.6em;
+}
+.ql-wc-track {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    opacity: 0;
+    transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+                opacity 0.4s ease;
+}
+.ql-wc-track.visible {
+    opacity: 1;
+}
+.ql-wc-item {
     white-space: nowrap;
+    font-size: inherit;
+    color: var(--reel-value);
+    line-height: 1.6em;
+    height: 1.6em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.ql-wc-item.placeholder {
+    color: var(--text-muted);
+    font-size: 1.1em;
+    font-style: normal;
+    font-weight: 300;
+}
+.ql-wc-badge {
+    position: absolute;
+    top: -0.55em;
+    right: -0.65em;
+    min-width: 1.3em;
+    height: 1.3em;
+    border-radius: 9999px;
+    background: var(--bg-surface);
+    color: var(--reel-label);
+    font-size: 0.5em;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.3em;
+    line-height: 1;
+    pointer-events: none;
+    z-index: 10;
 }
 
-/* ── Quill formula area ── */
 .quill-formula-area {
     display: flex;
     flex-direction: column;
@@ -690,19 +570,11 @@ body {
     gap: 0.4rem;
     margin-top: 2.5rem;
 }
-
-.quill-count {
-    font-size: clamp(2rem, 5vw, 3.5rem);
-}
+.quill-count { font-size: clamp(2rem, 5vw, 3.5rem); }
 
 /* ── Responsive ── */
 @media (max-width: 768px) {
-    .editor-zone { padding: 2rem 1.5rem; }
-    .editor-lines { min-width: 0; }
     .editor-line--child { padding-left: 1.5ch; }
-    .math-big-count { font-size: clamp(2rem, 6vw, 4rem); }
-    .demo-section { padding: 4rem 1rem 3rem; }
-    .demo-editor-area { padding: 1rem; }
     .quill-section { padding: 4rem 1rem 3rem; }
     .quill-editor-area { padding: 1rem; }
 }
@@ -710,59 +582,15 @@ body {
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════════
-     SECTION 1: Hero Animation
-     ═══════════════════════════════════════════ -->
-<section class="hero-section">
-    <div class="viewport">
-        <div class="editor-zone">
-            <div class="editor-lines" id="editor-lines"></div>
-        </div>
-        <div class="divider"></div>
-        <div class="math-zone" id="math-zone">
-            <div class="math-formula-area" id="math-formula-area" style="opacity: 0;">
-                <div class="math-formula" id="math-formula"></div>
-                <div class="math-big-count" id="math-big-count"></div>
-                <div class="math-label" id="math-label">compositions</div>
-            </div>
-        </div>
-    </div>
-    <div class="scroll-indicator" id="scroll-indicator">&#8595; try it yourself</div>
-</section>
+<!-- Value popover (fixed positioned) -->
+<div class="wc-popover" id="wc-popover" style="display: none;" data-testid="wc-popover">
+    <div class="wc-popover-name"></div>
+    <div class="wc-popover-pills"></div>
+    <input class="wc-popover-input" type="text" placeholder="add values, comma separated" data-testid="wc-popover-input">
+</div>
 
 <!-- ═══════════════════════════════════════════
-     SECTION 2: Interactive Demo
-     ═══════════════════════════════════════════ -->
-<section class="demo-section" id="demo-section">
-    <h2 class="demo-title">Now try it yourself</h2>
-    <p class="demo-subtitle">Click a wildcard block to edit its values</p>
-
-    <div class="demo-editor-area" data-testid="demo-editor-area">
-        <div class="demo-lines" id="demo-lines"></div>
-        <div class="demo-actions">
-            <button class="demo-btn" id="btn-add-child" data-testid="btn-add-child">+ Add Child</button>
-            <button class="demo-btn" id="btn-add-wildcard" data-testid="btn-add-wildcard">+ Add Wildcard</button>
-        </div>
-    </div>
-
-    <div class="demo-formula-area">
-        <div class="demo-formula" id="demo-formula"></div>
-        <div class="demo-count" id="demo-count" data-testid="demo-count"></div>
-        <div class="math-label" id="demo-label">compositions</div>
-    </div>
-
-    <a href="#" class="demo-cta" data-testid="demo-cta">Start Building &rarr;</a>
-
-    <!-- Value popover (shared, fixed positioned) -->
-    <div class="wc-popover" id="wc-popover" style="display: none;" data-testid="wc-popover">
-        <div class="wc-popover-name"></div>
-        <div class="wc-popover-pills"></div>
-        <input class="wc-popover-input" type="text" placeholder="add values, comma separated" data-testid="wc-popover-input">
-    </div>
-</section>
-
-<!-- ═══════════════════════════════════════════
-     SECTION 3: Quill Editor
+     SECTION 2: Quill Editor
      ═══════════════════════════════════════════ -->
 <section class="quill-section" id="quill-section">
     <h2 class="quill-title">Quill Editor</h2>
@@ -790,167 +618,10 @@ body {
 var SEASONS = ['autumn', 'winter', 'spring', 'summer'];
 var STYLES = ['watercolor', 'oil', 'digital', 'pencil'];
 var BASE = 'A cabin in the forest';
-
-var COLORS = {
-    season: { color: '#ff6b35', dim: 'rgba(255,107,53,0.15)' },
-    style:  { color: '#58a6ff', dim: 'rgba(88,166,255,0.15)' },
-    detail: { color: '#3fb950', dim: 'rgba(63,185,80,0.15)' },
-    lighting: { color: '#bc8cff', dim: 'rgba(188,140,255,0.15)' },
-    lens:   { color: '#ff6b35', dim: 'rgba(255,107,53,0.15)' },
-    palette: { color: '#58a6ff', dim: 'rgba(88,166,255,0.15)' },
-    era:    { color: '#3fb950', dim: 'rgba(63,185,80,0.15)' }
-};
-
 var DEMO_COLORS = ['#ff6b35', '#58a6ff', '#3fb950', '#bc8cff', '#ff6b35', '#58a6ff', '#3fb950'];
 
 /* ══════════════════════════════════════════════════
-   UTILITY
-   ══════════════════════════════════════════════════ */
-function wait(ms) {
-    return new Promise(function(r) { setTimeout(r, ms); });
-}
-
-/* ══════════════════════════════════════════════════
-   BUILD TEXT LINE — plain text with placeholder spans
-   for wildcard positions. Used by hero Phase 1.
-   ══════════════════════════════════════════════════ */
-function buildTextLine(text, wildcards) {
-    var line = document.createElement('div');
-    line.className = 'editor-line';
-
-    var sorted = wildcards.slice().sort(function(a, b) { return a.pos - b.pos; });
-    var cursor = 0;
-
-    sorted.forEach(function(wc) {
-        if (wc.pos > cursor) {
-            line.appendChild(document.createTextNode(text.slice(cursor, wc.pos)));
-        }
-
-        var span = document.createElement('span');
-        span.className = 'wc-placeholder';
-        span.setAttribute('data-wc', wc.name);
-        span.textContent = wc.name;
-        span.style.minWidth = (wc.name.length + 1) + 'ch';
-        span._wcDef = wc;
-        line.appendChild(span);
-
-        cursor = wc.pos + wc.len;
-    });
-
-    if (cursor < text.length) {
-        line.appendChild(document.createTextNode(text.slice(cursor)));
-    }
-
-    return line;
-}
-
-/* ══════════════════════════════════════════════════
-   REVEAL PLACEHOLDER — swap text span for reel block
-   and activate it. Returns the reel controller.
-   ══════════════════════════════════════════════════ */
-async function revealPlaceholder(span) {
-    var wc = span._wcDef;
-
-    // Build reel element
-    var reel = document.createElement('span');
-    reel.className = 'reel';
-    reel.setAttribute('data-wc', wc.name);
-
-    var label = document.createElement('span');
-    label.className = 'reel-label';
-    label.textContent = wc.name;
-    reel.appendChild(label);
-
-    var win = document.createElement('span');
-    win.className = 'reel-window';
-
-    var track = document.createElement('span');
-    track.className = 'reel-track';
-
-    wc.values.forEach(function(v) {
-        var item = document.createElement('span');
-        item.className = 'reel-item';
-        item.textContent = v;
-        track.appendChild(item);
-    });
-    var clone = document.createElement('span');
-    clone.className = 'reel-item';
-    clone.textContent = wc.values[0];
-    track.appendChild(clone);
-
-    win.appendChild(track);
-    reel.appendChild(win);
-
-    reel.style.minWidth = (wc.name.length + 1) + 'ch';
-    reel._values = wc.values;
-    reel._currentIdx = 0;
-    reel._track = track;
-    reel._label = label;
-
-    // Swap placeholder for reel
-    span.parentNode.replaceChild(reel, span);
-
-    // Activate (label floats, window opens, values scroll)
-    return await activateReel(reel);
-}
-
-/* ══════════════════════════════════════════════════
-   ACTIVATE REEL — hero animation sequence
-   ══════════════════════════════════════════════════ */
-var _allReelCtrls = [];
-
-async function activateReel(reelEl) {
-    var values = reelEl._values;
-    var track = reelEl._track;
-    var label = reelEl._label;
-    var win = reelEl.querySelector('.reel-window');
-    var currentIdx = reelEl._currentIdx;
-
-    var maxLen = 0;
-    values.forEach(function(v) { if (v.length > maxLen) maxLen = v.length; });
-    reelEl.style.minWidth = (maxLen + 1) + 'ch';
-
-    label.classList.add('float');
-    await wait(650);
-
-    win.classList.add('open');
-
-    var itemH = track.querySelector('.reel-item').offsetHeight || 26;
-    track.style.transition = 'none';
-    track.style.transform = 'translateY(' + itemH + 'px)';
-    track.offsetHeight;
-    track.classList.add('visible');
-
-    await wait(100);
-    var targetIdx = values.length - 1;
-    track.style.transition = 'transform 1.2s cubic-bezier(0.22, 1, 0.36, 1)';
-    track.style.transform = 'translateY(-' + (targetIdx * itemH) + 'px)';
-    currentIdx = targetIdx;
-    reelEl._currentIdx = targetIdx;
-
-    function spinTo(idx) {
-        var h = track.querySelector('.reel-item').offsetHeight || 26;
-        track.style.transition = 'none';
-        track.style.transform = 'translateY(-' + (values.length * h) + 'px)';
-        track.offsetHeight;
-        track.style.transition = 'transform 0.8s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.4s ease';
-        track.style.transform = 'translateY(-' + (idx * h) + 'px)';
-        currentIdx = idx;
-        reelEl._currentIdx = idx;
-    }
-
-    function spin() {
-        var next = (currentIdx + 1 + Math.floor(Math.random() * (values.length - 1))) % values.length;
-        spinTo(next);
-    }
-
-    var ctrl = { spin: spin, spinTo: spinTo };
-    _allReelCtrls.push(ctrl);
-    return ctrl;
-}
-
-/* ══════════════════════════════════════════════════
-   ODOMETER — shared by hero and demo
+   ODOMETER
    ══════════════════════════════════════════════════ */
 function rollOdometerTo(containerEl, num, prevNum) {
     var newFormatted = num.toLocaleString();
@@ -1009,234 +680,12 @@ function rollOdometerTo(containerEl, num, prevNum) {
     });
 }
 
-/* Hero odometer wrapper (keeps backward compat) */
-var _prevOdoNum = 0;
-function rollOdometer(containerEl, num) {
-    rollOdometerTo(containerEl, num, _prevOdoNum);
-    _prevOdoNum = num;
-}
-
 /* ══════════════════════════════════════════════════
-   FORMULA — hero animation
+   SHARED STATE
    ══════════════════════════════════════════════════ */
-var formulaTerms = [];
 
-function addFormulaTerm(name, count, color) {
-    var formulaEl = document.getElementById('math-formula');
-
-    if (formulaTerms.length > 0) {
-        var x = document.createElement('span');
-        x.className = 'formula-x';
-        x.textContent = '\u00d7';
-        formulaEl.appendChild(x);
-        setTimeout(function() { x.classList.add('visible'); }, 50);
-    }
-
-    var term = document.createElement('span');
-    term.className = 'formula-term';
-    term.style.color = color;
-    term.innerHTML = name + '<span class="formula-count">(' + count + ')</span>';
-    formulaEl.appendChild(term);
-    setTimeout(function() { term.classList.add('visible'); }, 150);
-
-    formulaTerms.push({ name: name, count: count });
-}
-
-function getFormulaTotal() {
-    return formulaTerms.reduce(function(a, t) { return a * t.count; }, 1);
-}
-
-/* ══════════════════════════════════════════════════
-   HERO ANIMATION — runs once, no loop
-   ══════════════════════════════════════════════════ */
-var editorLines = document.getElementById('editor-lines');
-var mathFormulaArea = document.getElementById('math-formula-area');
-var mathFormula = document.getElementById('math-formula');
-var mathBigCount = document.getElementById('math-big-count');
-var mathLabel = document.getElementById('math-label');
-
-async function runAnimation() {
-    var connectorEls = [];
-    _allReelCtrls = [];
-
-    var allLines = [];       // every line element
-    var allPlaceholders = []; // {span, lineEl, def} for reveal phase
-
-    /* ════════════════════════════════════════════════
-       PHASE 1 — Show all lines as plain text, one by one
-       ════════════════════════════════════════════════ */
-
-    // Parent line
-    var promptText = BASE + ', autumn, watercolor';
-    var parentWcDefs = [
-        { pos: BASE.length + 2, len: 6, name: 'season', values: SEASONS },
-        { pos: BASE.length + 10, len: 10, name: 'style', values: STYLES }
-    ];
-    var promptLine = buildTextLine(promptText, parentWcDefs);
-    editorLines.appendChild(promptLine);
-    allLines.push(promptLine);
-
-    // Collect parent placeholders
-    parentWcDefs.forEach(function(wd) {
-        var span = promptLine.querySelector('[data-wc="' + wd.name + '"]');
-        allPlaceholders.push({ span: span, lineEl: promptLine, def: wd });
-    });
-
-    await wait(600);
-
-    // Child lines
-    var allChildDefs = [
-        { pre: 'with ', wc: 'detail', suf: ' level of detail',
-          values: ['high', 'medium', 'sketch'] },
-        { pre: 'in ', wc: 'lighting', suf: ' light',
-          values: ['warm', 'cool', 'dramatic', 'natural'] },
-        { pre: 'shot with ', wc: 'lens', suf: ' lens',
-          values: ['35mm', '50mm', '85mm', 'macro', 'tilt-shift', 'wide'] },
-        { pre: 'with ', wc: 'palette', suf: ' palette',
-          values: ['vibrant', 'muted', 'earth', 'neon', 'pastel'] },
-        { pre: 'in ', wc: 'era', suf: ' style',
-          values: ['1920s', '1960s', '1980s', 'modern', 'futuristic', 'medieval'] }
-    ];
-
-    for (var c = 0; c < allChildDefs.length; c++) {
-        var cd = allChildDefs[c];
-
-        if (connectorEls.length > 0) {
-            connectorEls[connectorEls.length - 1].textContent = '\u251C\u2500\u2500 ';
-        }
-
-        var childText = cd.pre + cd.values[0] + cd.suf;
-        var childLine = buildTextLine(childText, [
-            { pos: cd.pre.length, len: cd.values[0].length, name: cd.wc, values: cd.values }
-        ]);
-        childLine.className = 'editor-line editor-line--child';
-
-        var conn = document.createElement('span');
-        conn.className = 'tree-connector';
-        conn.textContent = '\u2514\u2500\u2500 ';
-        connectorEls.push(conn);
-        childLine.insertBefore(conn, childLine.firstChild);
-
-        editorLines.appendChild(childLine);
-        allLines.push(childLine);
-
-        await wait(50);
-        childLine.classList.add('visible');
-        await wait(300);
-
-        var childSpan = childLine.querySelector('[data-wc="' + cd.wc + '"]');
-        allPlaceholders.push({ span: childSpan, lineEl: childLine, def: cd });
-    }
-
-    await wait(800);
-
-    /* ════════════════════════════════════════════════
-       PHASE 2 — Reveal wildcards with focus effect
-       Dim everything, highlight the line(s) being revealed.
-       ════════════════════════════════════════════════ */
-
-    // Helper: dim all except given lines
-    function focusLines(keepLines) {
-        allLines.forEach(function(l) {
-            if (keepLines.indexOf(l) !== -1) {
-                l.classList.remove('dimmed');
-            } else {
-                l.classList.add('dimmed');
-            }
-        });
-    }
-
-    function unfocusAll() {
-        allLines.forEach(function(l) { l.classList.remove('dimmed'); });
-    }
-
-    mathFormulaArea.style.opacity = '1';
-    mathLabel.classList.add('visible');
-
-    // Parent wildcards — reveal together, focus on parent line
-    var parentPlaceholders = allPlaceholders.filter(function(p) { return p.lineEl === promptLine; });
-    focusLines([promptLine]);
-    await wait(400);
-
-    var parentPromises = parentPlaceholders.map(function(p) {
-        addFormulaTerm(p.def.name, p.def.values.length, COLORS[p.def.name].color);
-        return revealPlaceholder(p.span);
-    });
-    rollOdometer(mathBigCount, getFormulaTotal());
-    await Promise.all(parentPromises);
-    await wait(800);
-    unfocusAll();
-    await wait(400);
-
-    // Child wildcards — reveal one by one, focus child + parent
-    var childPlaceholders = allPlaceholders.filter(function(p) { return p.lineEl !== promptLine; });
-    for (var r = 0; r < childPlaceholders.length; r++) {
-        var cp = childPlaceholders[r];
-
-        focusLines([promptLine, cp.lineEl]);
-        await wait(400);
-
-        addFormulaTerm(cp.def.wc || cp.def.name, cp.def.values.length, COLORS[cp.def.wc || cp.def.name].color);
-        rollOdometer(mathBigCount, getFormulaTotal());
-        await revealPlaceholder(cp.span);
-        await wait(600);
-
-        unfocusAll();
-        await wait(300);
-    }
-
-    /* ════════════════════════════════════════════════
-       PHASE 3 — Scroll indicator + idle shuffle
-       ════════════════════════════════════════════════ */
-    document.getElementById('scroll-indicator').classList.add('visible');
-    await wait(3000);
-    idleShuffle();
-}
-
-function idleShuffle() {
-    if (_allReelCtrls.length === 0) return;
-
-    var count = 1 + Math.floor(Math.random() * Math.min(3, _allReelCtrls.length));
-    var picked = [];
-    while (picked.length < count) {
-        var idx = Math.floor(Math.random() * _allReelCtrls.length);
-        if (picked.indexOf(idx) === -1) picked.push(idx);
-    }
-
-    picked.forEach(function(ri, i) {
-        setTimeout(function() { _allReelCtrls[ri].spin(); }, i * 150 + Math.floor(Math.random() * 150));
-    });
-
-    var delay = 1800 + Math.floor(Math.random() * 2500);
-    setTimeout(idleShuffle, delay);
-}
-
-
-/* ══════════════════════════════════════════════════════════════
-   ═══════════════════ INTERACTIVE DEMO ═══════════════════════
-   ══════════════════════════════════════════════════════════════ */
-
-var demoState = {
-    wildcards: [],       // {name, values, color, reelEl}
-    lines: [],
-    connectorEls: [],
-    prevOdo: 0,
-    parentLine: null,
-    colorIdx: 0
-};
-
-var demoContainer = document.getElementById('demo-lines');
-var demoFormulaEl = document.getElementById('demo-formula');
-var demoCountEl = document.getElementById('demo-count');
-var demoLabelEl = document.getElementById('demo-label');
 var popoverEl = document.getElementById('wc-popover');
 var _activePopoverWc = null;
-
-function nextDemoColor() {
-    var c = DEMO_COLORS[demoState.colorIdx % DEMO_COLORS.length];
-    demoState.colorIdx++;
-    return c;
-}
 
 /* ── Build an interactive reel (pre-activated, clickable) ── */
 function buildDemoReel(name, values) {
@@ -1270,6 +719,14 @@ function buildDemoReel(name, values) {
     values.forEach(function(v) { if (v.length > maxLen) maxLen = v.length; });
     reel.style.minWidth = Math.max(name.length + 1, maxLen + 1) + 'ch';
 
+    if (values.length > 1) {
+        var badge = document.createElement('span');
+        badge.className = 'reel-badge';
+        badge.textContent = '+' + values.length;
+        reel._badge = badge;
+        reel.appendChild(badge);
+    }
+
     reel._values = values;
     reel._name = name;
     reel._track = track;
@@ -1282,113 +739,6 @@ function buildDemoReel(name, values) {
     });
 
     return reel;
-}
-
-/* ── Build a demo line with text + reels ── */
-function buildDemoLineEl(text, wildcards, isChild) {
-    var line = document.createElement('div');
-    line.className = 'editor-line' + (isChild ? ' editor-line--child visible' : '');
-
-    var sorted = wildcards.slice().sort(function(a, b) { return a.pos - b.pos; });
-    var cursor = 0;
-    var reels = [];
-
-    sorted.forEach(function(wc) {
-        if (wc.pos > cursor) {
-            line.appendChild(document.createTextNode(text.slice(cursor, wc.pos)));
-        }
-
-        var reel = buildDemoReel(wc.name, wc.values);
-        reels.push({ name: wc.name, values: wc.values, reelEl: reel });
-        line.appendChild(reel);
-        cursor = wc.pos + wc.len;
-    });
-
-    if (cursor < text.length) {
-        line.appendChild(document.createTextNode(text.slice(cursor)));
-    }
-
-    return { lineEl: line, reels: reels };
-}
-
-/* ── Initialize the demo with pre-filled prompt ── */
-function initDemo() {
-    // Parent: "A cabin in the forest, [season], [style]"
-    var parentText = BASE + ', autumn, watercolor';
-    var parentResult = buildDemoLineEl(parentText, [
-        { pos: BASE.length + 2, len: 6, name: 'season', values: SEASONS.slice() },
-        { pos: BASE.length + 10, len: 10, name: 'style', values: STYLES.slice() }
-    ], false);
-    demoContainer.appendChild(parentResult.lineEl);
-    demoState.parentLine = parentResult.lineEl;
-    demoState.lines.push(parentResult.lineEl);
-
-    parentResult.reels.forEach(function(r) {
-        demoState.wildcards.push({
-            name: r.name,
-            values: r.values.slice(),
-            color: nextDemoColor(),
-            reelEl: r.reelEl,
-            _recalcFn: demoRecalc
-        });
-    });
-
-    // Child: "└── with [detail] level of detail"
-    var childText = 'with high level of detail';
-    var childResult = buildDemoLineEl(childText, [
-        { pos: 5, len: 4, name: 'detail', values: ['high', 'medium', 'sketch'] }
-    ], true);
-
-    var conn = document.createElement('span');
-    conn.className = 'tree-connector';
-    conn.textContent = '\u2514\u2500\u2500 ';
-    demoState.connectorEls.push(conn);
-    childResult.lineEl.insertBefore(conn, childResult.lineEl.firstChild);
-
-    demoContainer.appendChild(childResult.lineEl);
-    demoState.lines.push(childResult.lineEl);
-
-    childResult.reels.forEach(function(r) {
-        demoState.wildcards.push({
-            name: r.name,
-            values: r.values.slice(),
-            color: nextDemoColor(),
-            reelEl: r.reelEl,
-            _recalcFn: demoRecalc
-        });
-    });
-
-    demoRecalc();
-}
-
-/* ── Recalculate formula + odometer ── */
-function demoRecalc() {
-    demoFormulaEl.innerHTML = '';
-    var total = 1;
-
-    demoState.wildcards.forEach(function(wc, i) {
-        if (wc.values.length === 0) return;
-
-        if (demoFormulaEl.children.length > 0) {
-            var x = document.createElement('span');
-            x.className = 'formula-x visible';
-            x.textContent = '\u00d7';
-            demoFormulaEl.appendChild(x);
-        }
-
-        var term = document.createElement('span');
-        term.className = 'formula-term visible';
-        term.style.color = wc.color;
-        term.innerHTML = wc.name + '<span class="formula-count">(' + wc.values.length + ')</span>';
-        demoFormulaEl.appendChild(term);
-
-        total *= wc.values.length;
-    });
-
-    var prev = demoState.prevOdo;
-    demoState.prevOdo = total;
-    rollOdometerTo(demoCountEl, total, prev);
-    demoLabelEl.classList.add('visible');
 }
 
 /* ── Rebuild a reel's track after values change ── */
@@ -1411,6 +761,22 @@ function rebuildDemoReel(wcData) {
     wcData.values.forEach(function(v) { if (v.length > maxLen) maxLen = v.length; });
     reel.style.minWidth = Math.max(wcData.name.length + 1, maxLen + 1) + 'ch';
 
+    // Update badge count
+    if (reel._badge) {
+        if (wcData.values.length > 1) {
+            reel._badge.textContent = '+' + wcData.values.length;
+        } else {
+            reel._badge.remove();
+            reel._badge = null;
+        }
+    } else if (wcData.values.length > 1) {
+        var badge = document.createElement('span');
+        badge.className = 'reel-badge';
+        badge.textContent = '+' + wcData.values.length;
+        reel._badge = badge;
+        reel.appendChild(badge);
+    }
+
     track.style.transition = 'none';
     track.style.transform = 'translateY(0)';
 }
@@ -1418,22 +784,29 @@ function rebuildDemoReel(wcData) {
 /* ══════════════════════════════════════════════════
    POPOVER — edit wildcard values
    ══════════════════════════════════════════════════ */
-function openPopover(reelEl) {
-    var wcData = reelEl._wcRef || demoState.wildcards.find(function(w) { return w.reelEl === reelEl; });
+var _popoverIsChip = false; // true when popover opened from an edit-mode chip
+var _popoverFromClick = false; // true when popover opened by explicit click (not cursor-adjacent)
+
+function openPopover(reelEl, fromClick) {
+    var wcData = reelEl._wcRef;
     if (!wcData) return;
 
-    // Close previous
     if (_activePopoverWc && _activePopoverWc.reelEl) {
         _activePopoverWc.reelEl.classList.remove('popover-open');
     }
 
     _activePopoverWc = wcData;
+    _popoverIsChip = reelEl.classList.contains('ql-wildcard-chip');
+    _popoverFromClick = !!fromClick;
     reelEl.classList.add('popover-open');
 
-    // Position below the reel
     var rect = reelEl.getBoundingClientRect();
     popoverEl.style.display = 'block';
-    popoverEl.style.left = rect.left + 'px';
+
+    // Measure popover width, then clamp to viewport edges (12px margin)
+    var popW = popoverEl.offsetWidth;
+    var left = Math.max(12, Math.min(rect.left, window.innerWidth - popW - 12));
+    popoverEl.style.left = left + 'px';
     popoverEl.style.top = (rect.bottom + 8) + 'px';
 
     renderPopoverContent();
@@ -1478,7 +851,15 @@ function renderPopoverContent() {
     });
 
     inputEl.value = '';
-    inputEl.focus();
+    if (_popoverIsChip && !_popoverFromClick) {
+        // Cursor-adjacent auto-open: don't steal focus from editor
+        inputEl.placeholder = 'Press Tab to focus';
+        inputEl.blur();
+    } else {
+        // Explicit click (chip or reel): autofocus the input
+        inputEl.placeholder = 'add values, comma separated';
+        inputEl.focus();
+    }
 }
 
 // Pill remove handler (delegated)
@@ -1488,12 +869,15 @@ popoverEl.querySelector('.wc-popover-pills').addEventListener('click', function(
     var idx = parseInt(rm.getAttribute('data-idx'));
     if (_activePopoverWc.values.length <= 1) return;
     _activePopoverWc.values.splice(idx, 1);
-    rebuildDemoReel(_activePopoverWc);
-    if (_activePopoverWc._recalcFn) _activePopoverWc._recalcFn(); else demoRecalc();
+    // rebuildDemoReel only works on reel elements, not chip elements
+    if (!_activePopoverWc.reelEl.classList.contains('ql-wildcard-chip')) {
+        rebuildDemoReel(_activePopoverWc);
+    }
+    if (_activePopoverWc._recalcFn) _activePopoverWc._recalcFn(); else qRecalc();
     renderPopoverContent();
 });
 
-// Input handler — Enter or comma to add values
+// Input handler — Enter to add values
 popoverEl.querySelector('.wc-popover-input').addEventListener('keydown', function(e) {
     if (e.key !== 'Enter') return;
     e.preventDefault();
@@ -1509,180 +893,42 @@ popoverEl.querySelector('.wc-popover-input').addEventListener('keydown', functio
         }
     });
 
-    rebuildDemoReel(_activePopoverWc);
-    if (_activePopoverWc._recalcFn) _activePopoverWc._recalcFn(); else demoRecalc();
+    if (!_activePopoverWc.reelEl.classList.contains('ql-wildcard-chip')) {
+        rebuildDemoReel(_activePopoverWc);
+    }
+    if (_activePopoverWc._recalcFn) _activePopoverWc._recalcFn(); else qRecalc();
     renderPopoverContent();
 });
+
+// Placeholder swap on focus/blur + Tab redirect
+(function() {
+    var inp = popoverEl.querySelector('.wc-popover-input');
+    inp.addEventListener('focus', function() {
+        this.placeholder = 'add values, comma separated';
+    });
+    inp.addEventListener('blur', function() {
+        this.placeholder = 'Press Tab to focus';
+    });
+    // When popover is open and Tab is pressed, focus the popover input
+    document.addEventListener('keydown', function(e) {
+        if (e.key !== 'Tab' || !_activePopoverWc) return;
+        if (document.activeElement === inp) return; // already focused
+        e.preventDefault();
+        inp.focus();
+    });
+})();
 
 // Close popover on click outside
 document.addEventListener('click', function(e) {
     if (!_activePopoverWc) return;
     if (popoverEl.contains(e.target)) return;
     if (e.target.closest('.reel.interactive')) return;
+    if (e.target.closest('.ql-wildcard-chip')) return;
     closePopover();
-});
-
-/* ══════════════════════════════════════════════════
-   ADD CHILD — new editable child line
-   ══════════════════════════════════════════════════ */
-document.getElementById('btn-add-child').addEventListener('click', function() {
-    closePopover();
-
-    // Update previous last connector └ → ├
-    if (demoState.connectorEls.length > 0) {
-        demoState.connectorEls[demoState.connectorEls.length - 1].textContent = '\u251C\u2500\u2500 ';
-    }
-
-    var childLine = document.createElement('div');
-    childLine.className = 'editor-line editor-line--child visible';
-
-    var conn = document.createElement('span');
-    conn.className = 'tree-connector';
-    conn.textContent = '\u2514\u2500\u2500 ';
-    demoState.connectorEls.push(conn);
-    childLine.appendChild(conn);
-
-    var input = document.createElement('span');
-    input.className = 'demo-child-input';
-    input.contentEditable = 'true';
-    input.setAttribute('data-placeholder', 'type text, use [brackets] for wildcards');
-    input.setAttribute('data-testid', 'demo-child-input');
-    childLine.appendChild(input);
-
-    demoContainer.appendChild(childLine);
-    demoState.lines.push(childLine);
-    input.focus();
-
-    var committed = false;
-    function commit() {
-        if (committed) return;
-        var text = input.textContent.trim();
-        if (!text) return;
-        committed = true;
-        commitInput(input, childLine);
-    }
-
-    input.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') { e.preventDefault(); commit(); }
-    });
-    input.addEventListener('blur', function() {
-        setTimeout(commit, 100);
-    });
-});
-
-/* ══════════════════════════════════════════════════
-   ADD WILDCARD — append to parent line
-   ══════════════════════════════════════════════════ */
-document.getElementById('btn-add-wildcard').addEventListener('click', function() {
-    closePopover();
-
-    var parentLine = demoState.parentLine;
-    if (!parentLine) return;
-
-    // Append ", " + editable span
-    parentLine.appendChild(document.createTextNode(', '));
-
-    var input = document.createElement('span');
-    input.className = 'demo-child-input';
-    input.contentEditable = 'true';
-    input.setAttribute('data-placeholder', '[name]');
-    input.setAttribute('data-testid', 'demo-wc-input');
-    parentLine.appendChild(input);
-    input.focus();
-
-    var committed = false;
-    function commit() {
-        if (committed) return;
-        var text = input.textContent.trim();
-        if (!text) return;
-        committed = true;
-        commitInput(input, parentLine);
-    }
-
-    input.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') { e.preventDefault(); commit(); }
-    });
-    input.addEventListener('blur', function() {
-        setTimeout(commit, 100);
-    });
-});
-
-/* ══════════════════════════════════════════════════
-   COMMIT INPUT — parse [brackets], create reels
-   ══════════════════════════════════════════════════ */
-function commitInput(inputEl, lineEl) {
-    var text = inputEl.textContent.trim();
-    if (!text) return;
-
-    // Parse [bracket] patterns
-    var regex = /\[([^\]]+)\]/g;
-    var match;
-    var wildcards = [];
-
-    while ((match = regex.exec(text)) !== null) {
-        wildcards.push({ pos: match.index, len: match[0].length, name: match[1] });
-    }
-
-    // Replace input element with parsed content
-    var parent = inputEl.parentNode;
-    var frag = document.createDocumentFragment();
-
-    if (wildcards.length === 0) {
-        // No wildcards — just plain text
-        frag.appendChild(document.createTextNode(text));
-    } else {
-        var cursor = 0;
-        wildcards.forEach(function(wc) {
-            if (wc.pos > cursor) {
-                frag.appendChild(document.createTextNode(text.slice(cursor, wc.pos)));
-            }
-
-            var initValues = [wc.name];
-            var reel = buildDemoReel(wc.name, initValues);
-            frag.appendChild(reel);
-
-            var wcData = {
-                name: wc.name,
-                values: initValues.slice(),
-                color: nextDemoColor(),
-                reelEl: reel,
-                _recalcFn: demoRecalc
-            };
-            demoState.wildcards.push(wcData);
-
-            cursor = wc.pos + wc.len;
-        });
-
-        if (cursor < text.length) {
-            frag.appendChild(document.createTextNode(text.slice(cursor)));
-        }
-    }
-
-    parent.replaceChild(frag, inputEl);
-    demoRecalc();
-
-    // Auto-open popover for first new wildcard
-    if (wildcards.length > 0) {
-        var firstNewReel = null;
-        for (var i = demoState.wildcards.length - wildcards.length; i < demoState.wildcards.length; i++) {
-            firstNewReel = demoState.wildcards[i].reelEl;
-            break;
-        }
-        if (firstNewReel) {
-            setTimeout(function() { openPopover(firstNewReel); }, 150);
-        }
-    }
-}
-
-/* ══════════════════════════════════════════════════
-   SCROLL INDICATOR
-   ══════════════════════════════════════════════════ */
-document.getElementById('scroll-indicator').addEventListener('click', function() {
-    document.getElementById('demo-section').scrollIntoView({ behavior: 'smooth' });
 });
 
 /* ══════════════════════════════════════════════════════════════
-   ═══════════════════ QUILL EDITOR SECTION ═══════════════════
+   QUILL EDITOR SECTION
    ══════════════════════════════════════════════════════════════ */
 
 /* ── DemoWildcardBlot — minimal inline embed ── */
@@ -1695,20 +941,39 @@ class DemoWildcardBlot extends QEmbed {
 
     static create(value) {
         var node = super.create();
-        node.setAttribute('data-wildcard-name', value.name || '');
+        var name = value.name || '';
+        node.setAttribute('data-wildcard-name', name);
         node.setAttribute('contenteditable', 'false');
 
-        // Floating label (matches view mode reel label)
-        var labelSpan = document.createElement('span');
-        labelSpan.className = 'ql-wc-label';
-        labelSpan.textContent = value.name;
-        node.appendChild(labelSpan);
+        // Label — centered (closed) or floated (open)
+        var label = document.createElement('span');
+        label.className = 'ql-wc-label';
+        label.textContent = name;
+        node.appendChild(label);
 
-        // Value display (shows first value or name as placeholder)
-        var valueSpan = document.createElement('span');
-        valueSpan.className = 'ql-wc-value';
-        valueSpan.textContent = value.name;
-        node.appendChild(valueSpan);
+        // Value window — height:0 (closed), .open shows value
+        var win = document.createElement('span');
+        win.className = 'ql-wc-window';
+        var track = document.createElement('span');
+        track.className = 'ql-wc-track';
+        win.appendChild(track);
+        node.appendChild(win);
+
+        // Stash refs for hydration
+        node._label = label;
+        node._window = win;
+        node._track = track;
+        node._badge = null;
+        node._wcName = name;
+
+        // Click → open popover with autofocus
+        node.addEventListener('click', function(e) {
+            e.stopPropagation();
+            openChipPopover(node, true);
+        });
+
+        // Hydrate from registry on next frame (DOM must be attached first)
+        requestAnimationFrame(function() { hydrateChip(node); });
 
         return node;
     }
@@ -1720,18 +985,134 @@ class DemoWildcardBlot extends QEmbed {
 
 Quill.register(DemoWildcardBlot);
 
+/* ── Chip helpers — hydrate, update, popover ── */
+
+function hydrateChip(chipNode) {
+    if (!chipNode.isConnected) return;
+    var name = chipNode._wcName;
+    var reg = qState.chipRegistry[name];
+    if (reg) {
+        if (reg.chipEls.indexOf(chipNode) === -1) reg.chipEls.push(chipNode);
+    }
+    var values = reg ? reg.values : [];
+    updateChipAppearance(chipNode, values);
+}
+
+function updateChipAppearance(chipNode, values) {
+    var name = chipNode._wcName;
+    var reg = qState.chipRegistry[name];
+    var isEmpty = !values || values.length === 0;
+
+    // Clean disconnected chip elements
+    if (reg) {
+        reg.chipEls = reg.chipEls.filter(function(el) { return el.isConnected; });
+    }
+
+    // Float label
+    chipNode._label.classList.add('float');
+
+    // Rebuild track items
+    var track = chipNode._track;
+    track.innerHTML = '';
+
+    if (isEmpty) {
+        var placeholder = document.createElement('span');
+        placeholder.className = 'ql-wc-item placeholder';
+        placeholder.textContent = '+';
+        track.appendChild(placeholder);
+    } else {
+        values.forEach(function(v) {
+            var item = document.createElement('span');
+            item.className = 'ql-wc-item';
+            item.textContent = v;
+            track.appendChild(item);
+        });
+    }
+    track.classList.add('visible');
+
+    // Open window
+    chipNode._window.classList.add('open');
+
+    // Compute min-width
+    var maxLen = isEmpty ? 1 : 0;
+    if (!isEmpty) {
+        values.forEach(function(v) { if (v.length > maxLen) maxLen = v.length; });
+    }
+    chipNode.style.minWidth = Math.max(name.length + 1, maxLen + 1) + 'ch';
+
+    // Badge
+    if (chipNode._badge) {
+        if (!isEmpty && values.length > 1) {
+            chipNode._badge.textContent = '+' + values.length;
+        } else {
+            chipNode._badge.remove();
+            chipNode._badge = null;
+        }
+    } else if (!isEmpty && values.length > 1) {
+        var badge = document.createElement('span');
+        badge.className = 'ql-wc-badge';
+        badge.textContent = '+' + values.length;
+        chipNode._badge = badge;
+        chipNode.appendChild(badge);
+    }
+}
+
+function openChipPopover(chipNode, fromClick) {
+    var name = chipNode._wcName;
+
+    // Ensure registry entry
+    if (!qState.chipRegistry[name]) {
+        qState.chipRegistry[name] = { values: [], color: nextQColor(), chipEls: [] };
+    }
+    var reg = qState.chipRegistry[name];
+    if (reg.chipEls.indexOf(chipNode) === -1) reg.chipEls.push(chipNode);
+
+    // Build a wcData-compatible object the popover can work with
+    var wcData = {
+        name: name,
+        values: reg.values,
+        color: reg.color,
+        reelEl: chipNode,
+        _recalcFn: function() {
+            // Update all chip elements for this wildcard
+            reg.chipEls = reg.chipEls.filter(function(el) { return el.isConnected; });
+            reg.chipEls.forEach(function(el) { updateChipAppearance(el, reg.values); });
+            // Sync into blocks so qRecalc formula is correct
+            syncRegistryToBlocks();
+            qRecalc();
+        }
+    };
+    chipNode._wcRef = wcData;
+
+    openPopover(chipNode, fromClick);
+}
+
+function syncRegistryToBlocks() {
+    qState.blocks.forEach(function(block) {
+        block.wildcards.forEach(function(wc) {
+            var reg = qState.chipRegistry[wc.name];
+            if (reg) {
+                wc.values = reg.values;
+                wc.color = reg.color;
+            }
+        });
+    });
+}
+
 /* ── Quill section state ── */
 var qState = {
-    blocks: [],      // { id, isChild, lineEl, viewEl, editEl, quill, wildcards, _prevWildcards, _connector }
+    blocks: [],
     prevOdo: 0,
     colorIdx: 0,
     persistentQuill: null,
-    nextId: 0
+    nextId: 0,
+    chipRegistry: {}
 };
 
 var qBlocksEl = document.getElementById('quill-blocks');
 var qFormulaEl = document.getElementById('quill-formula');
 var qCountEl = document.getElementById('quill-count');
+var QDelta = Quill.import('delta');
 
 function nextQColor() {
     var c = DEMO_COLORS[qState.colorIdx % DEMO_COLORS.length];
@@ -1764,21 +1145,65 @@ function parseQWildcards(text) {
     return wildcards;
 }
 
-/* ── Convert __name__ patterns in Quill to chip embeds (atomic Delta) ── */
-var _qConverting = false;
-var QDelta = Quill.import('delta');
+/* ── Convert __name__ patterns to chip embeds — FIXED: uses getContents() + posMap ──
+ *
+ * Bug fixed: the original used quill.getText() which silently skips embed blots,
+ * so match.index was offset by N (number of embeds before the pattern). This caused
+ * the delta to delete the wrong range, leaving residual __ text after the chip.
+ *
+ * Fix: build a text→doc position map from getContents() so each character index in
+ * searchText maps to the correct document position regardless of preceding embeds.
+ */
 function convertQWildcards(quill) {
-    if (_qConverting) return false;
-    var text = quill.getText();
-    // Name must start with letter, end with alphanumeric (prevents _ eating into __ delimiter)
-    var match = /__([a-zA-Z](?:[a-zA-Z0-9_-]*[a-zA-Z0-9])?)__/.exec(text);
+    var contents = quill.getContents();
+    var searchText = '';
+    var docPos = 0;
+    var posMap = []; // posMap[textCharIdx] = documentIdx
+
+    contents.ops.forEach(function(op) {
+        if (typeof op.insert === 'string') {
+            for (var i = 0; i < op.insert.length; i++) {
+                posMap.push(docPos + i);
+            }
+            searchText += op.insert;
+            docPos += op.insert.length;
+        } else {
+            // Embed: 1 doc position, contributes 0 chars to searchText
+            docPos += 1;
+        }
+    });
+    posMap.push(docPos); // sentinel
+
+    var match = /__([a-zA-Z](?:[a-zA-Z0-9_-]*[a-zA-Z0-9])?)__/.exec(searchText);
     if (!match) return false;
-    _qConverting = true;
-    // Single atomic operation: retain up to match, delete the pattern, insert embed
-    var delta = new QDelta().retain(match.index).delete(match[0].length).insert({ wildcard: { name: match[1] } });
+
+    var docMatchStart = posMap[match.index];
+    var docMatchEnd = posMap[match.index + match[0].length];
+
+    var delta = new QDelta()
+        .retain(docMatchStart)
+        .delete(docMatchEnd - docMatchStart)
+        .insert({ wildcard: { name: match[1] } });
+
     quill.updateContents(delta, 'silent');
-    quill.setSelection(match.index + 1, 0, 'silent');
-    _qConverting = false;
+
+    // If the new chip is now the last element before \n, add ZWSP so the
+    // browser has a real text node to anchor the caret (avoids top-right bug)
+    if (docMatchStart + 1 === quill.getLength() - 1) {
+        quill.updateContents(new QDelta().retain(docMatchStart + 1).insert('\u200B'), 'silent');
+    }
+
+    quill.setSelection(docMatchStart + 1, 0, 'silent');
+
+    // Auto-open popover for newly typed chip (if it has no values yet)
+    var newName = match[1];
+    requestAnimationFrame(function() {
+        var chip = quill.root.querySelector('.ql-wildcard-chip[data-wildcard-name="' + newName + '"]');
+        if (chip && (!qState.chipRegistry[newName] || qState.chipRegistry[newName].values.length === 0)) {
+            openChipPopover(chip);
+        }
+    });
+
     return true;
 }
 
@@ -1798,17 +1223,15 @@ function qRecalc() {
     allWc.forEach(function(wc, i) {
         if (i > 0) {
             var x = document.createElement('span');
-            x.className = 'formula-x visible';
+            x.className = 'formula-x';
             x.textContent = '\u00d7';
             qFormulaEl.appendChild(x);
         }
-
         var term = document.createElement('span');
-        term.className = 'formula-term visible';
+        term.className = 'formula-term';
         term.style.color = wc.color;
         term.innerHTML = wc.name + '<span class="formula-count">(' + wc.values.length + ')</span>';
         qFormulaEl.appendChild(term);
-
         total *= wc.values.length;
     });
 
@@ -1832,7 +1255,6 @@ function buildBlockView(block) {
     var viewEl = block.viewEl;
     viewEl.innerHTML = '';
 
-    // Tree connector for children
     if (block.isChild) {
         var conn = document.createElement('span');
         conn.className = 'tree-connector';
@@ -1841,11 +1263,9 @@ function buildBlockView(block) {
         viewEl.appendChild(conn);
     }
 
-    // Parse serialized text
     var serialized = serializeQuill(block.quill);
     var wcDefs = parseQWildcards(serialized);
 
-    // Save previous wildcards for value retention
     var prevMap = {};
     if (block._prevWildcards) {
         block._prevWildcards.forEach(function(pw) { prevMap[pw.name] = pw; });
@@ -1854,7 +1274,6 @@ function buildBlockView(block) {
     block.wildcards = [];
 
     if (wcDefs.length === 0) {
-        // Plain text only
         viewEl.appendChild(document.createTextNode(serialized));
     } else {
         var cursor = 0;
@@ -1863,11 +1282,11 @@ function buildBlockView(block) {
             if (before) viewEl.appendChild(document.createTextNode(before));
 
             var prev = prevMap[wc.name];
-            var values = prev ? prev.values.slice() : [wc.name];
-            var color = prev ? prev.color : nextQColor();
+            var reg = qState.chipRegistry[wc.name];
+            var values = prev ? prev.values.slice() : (reg ? reg.values.slice() : [wc.name]);
+            var color = prev ? prev.color : (reg ? reg.color : nextQColor());
 
             var reel = buildDemoReel(wc.name, values);
-
             var wcData = {
                 name: wc.name,
                 values: values,
@@ -1875,12 +1294,17 @@ function buildBlockView(block) {
                 reelEl: reel,
                 _recalcFn: qRecalc
             };
-
-            // Store ref on reel so popover can find it
             reel._wcRef = wcData;
-
             viewEl.appendChild(reel);
             block.wildcards.push(wcData);
+
+            // Sync registry so chips in edit mode stay current
+            if (!qState.chipRegistry[wc.name]) {
+                qState.chipRegistry[wc.name] = { values: values, color: color, chipEls: [] };
+            } else {
+                qState.chipRegistry[wc.name].values = values;
+                qState.chipRegistry[wc.name].color = color;
+            }
 
             cursor = wc.pos + wc.len;
         });
@@ -1901,12 +1325,10 @@ function createQBlock(initialText, isChild, wildcardValues) {
     blockEl.className = 'q-block' + (isChild ? ' q-block--child' : '');
     blockEl.setAttribute('data-block-id', id);
 
-    // View mode
     var viewEl = document.createElement('div');
     viewEl.className = 'q-block-view editor-line' + (isChild ? ' editor-line--child visible' : '');
     blockEl.appendChild(viewEl);
 
-    // Edit mode
     var editEl = document.createElement('div');
     editEl.className = 'q-block-edit';
 
@@ -1921,39 +1343,82 @@ function createQBlock(initialText, isChild, wildcardValues) {
     var quillContainer = document.createElement('div');
     quillContainer.className = 'q-quill-wrap';
     editEl.appendChild(quillContainer);
+
+    // Floating hint on the gradient border
+    var hint = document.createElement('span');
+    hint.className = 'q-add-child-hint';
+    hint.innerHTML = '<kbd>Ctrl</kbd>+<kbd>Enter</kbd> or click here to add a child';
+    if (!initialText.replace(/\u200B/g, '').trim()) hint.style.display = 'none';
+    editEl.appendChild(hint);
+
     blockEl.appendChild(editEl);
 
-    // Create Quill instance
     var quill = new Quill(quillContainer, {
         theme: 'snow',
         modules: { toolbar: false },
         placeholder: ''
     });
 
-    // Set initial content with wildcard embeds
     var wcParsed = parseQWildcards(initialText);
     if (wcParsed.length > 0) {
         var ops = [];
         var cursor = 0;
         wcParsed.forEach(function(wc) {
-            if (wc.pos > cursor) {
-                ops.push({ insert: initialText.slice(cursor, wc.pos) });
-            }
+            if (wc.pos > cursor) ops.push({ insert: initialText.slice(cursor, wc.pos) });
             ops.push({ insert: { wildcard: { name: wc.name } } });
             cursor = wc.pos + wc.len;
         });
-        var remaining = initialText.slice(cursor);
-        if (remaining) ops.push({ insert: remaining });
+        var rem = initialText.slice(cursor);
+        if (rem) ops.push({ insert: rem });
+        // Ensure trailing text node so browser can anchor caret after last embed
+        else ops.push({ insert: '\u200B' });
         ops.push({ insert: '\n' });
         quill.setContents(ops, 'silent');
     } else {
         quill.setText(initialText, 'silent');
     }
 
-    // Text-change: detect __name__ and convert to chip (user input only)
     quill.on('text-change', function(delta, oldDelta, source) {
         if (source !== 'user') return;
         convertQWildcards(quill);
+        // Toggle add-child hint visibility based on content
+        var text = serializeQuill(quill).replace(/\u200B/g, '').trim();
+        hint.style.display = text ? '' : 'none';
+    });
+
+    // Show popover when cursor lands adjacent to a wildcard chip
+    quill.on('selection-change', function(range, oldRange, source) {
+        if (!range || range.length !== 0) return; // only collapsed cursor
+        if (source !== 'user') return;
+        var idx = range.index;
+
+        // Check leaf at cursor (right side: cursor|wildcard) and
+        // leaf before cursor (left side: wildcard|cursor) — only if immediately adjacent
+        var chipNode = null;
+        var leafAt = quill.getLeaf(idx);
+        if (leafAt && leafAt[0] && leafAt[0].constructor.blotName === 'wildcard') {
+            chipNode = leafAt[0].domNode;
+        }
+        if (!chipNode && idx > 0) {
+            var leafBefore = quill.getLeaf(idx - 1);
+            if (leafBefore && leafBefore[0] && leafBefore[0].constructor.blotName === 'wildcard') {
+                // Verify cursor is immediately after the wildcard (blotPos + 1 === idx)
+                var blotPos = quill.getIndex(leafBefore[0]);
+                if (blotPos + 1 === idx) {
+                    chipNode = leafBefore[0].domNode;
+                }
+            }
+        }
+
+        if (chipNode) {
+            // Only open if not already showing this chip's popover
+            if (!_activePopoverWc || _activePopoverWc.reelEl !== chipNode) {
+                openChipPopover(chipNode);
+            }
+        } else if (_popoverIsChip) {
+            // Cursor moved away from any wildcard — close chip popover
+            closePopover();
+        }
     });
 
     var block = {
@@ -1969,73 +1434,115 @@ function createQBlock(initialText, isChild, wildcardValues) {
         _editConnector: editConn
     };
 
-    // Pre-seed wildcard values
     if (wildcardValues) {
         block._prevWildcards = Object.keys(wildcardValues).map(function(name) {
-            return { name: name, values: wildcardValues[name].slice(), color: nextQColor() };
+            var color = nextQColor();
+            var vals = wildcardValues[name].slice();
+            // Populate chipRegistry so hydrateChip can read values immediately
+            if (!qState.chipRegistry[name]) {
+                qState.chipRegistry[name] = { values: vals, color: color, chipEls: [] };
+            } else {
+                qState.chipRegistry[name].values = vals;
+                qState.chipRegistry[name].color = color;
+            }
+            return { name: name, values: vals, color: color };
         });
     }
 
-    // Click view → switch to edit
     viewEl.addEventListener('click', function(e) {
         if (e.target.closest('.reel.interactive')) return;
         switchToEdit(block);
     });
 
+    hint.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var text = serializeQuill(block.quill).replace(/\u200B/g, '').trim();
+        if (!text) return;
+        addChildFromBlock(block);
+    });
+
     qState.blocks.push(block);
     buildBlockView(block);
-
     return block;
+}
+
+/* ── Add child block from edit mode ── */
+function addChildFromBlock(parentBlock) {
+    // Finish editing the parent first
+    syncRegistryToBlocks();
+    parentBlock._prevWildcards = parentBlock.wildcards.slice();
+    parentBlock.lineEl.classList.remove('editing');
+    buildBlockView(parentBlock);
+
+    // Create a new empty child block and insert right after the parent
+    updateQConnectors();
+    var newBlock = createQBlock('', true, null);
+    var nextSibling = parentBlock.lineEl.nextSibling;
+    if (nextSibling) {
+        qBlocksEl.insertBefore(newBlock.lineEl, nextSibling);
+    } else {
+        qBlocksEl.appendChild(newBlock.lineEl);
+    }
+    // Also fix block order in qState.blocks to match DOM order
+    var parentIdx = qState.blocks.indexOf(parentBlock);
+    var newIdx = qState.blocks.indexOf(newBlock);
+    if (newIdx !== -1) qState.blocks.splice(newIdx, 1);
+    qState.blocks.splice(parentIdx + 1, 0, newBlock);
+    updateQConnectors();
+    switchToEdit(newBlock);
 }
 
 /* ── Switch block to edit mode ── */
 function switchToEdit(block) {
-    // Close popover if open
     closePopover();
     block.lineEl.classList.add('editing');
     block.quill.focus();
-    // Move cursor to end
     block.quill.setSelection(block.quill.getLength() - 1, 0);
 
     function finishEdit() {
         if (!block.lineEl.classList.contains('editing')) return;
+        syncRegistryToBlocks();
+        var serialized = serializeQuill(block.quill).replace(/\u200B/g, '').trim();
+        if (!serialized) {
+            // Empty block — remove it
+            block.lineEl.remove();
+            var idx = qState.blocks.indexOf(block);
+            if (idx !== -1) qState.blocks.splice(idx, 1);
+            updateQConnectors();
+            qRecalc();
+            return;
+        }
         block._prevWildcards = block.wildcards.slice();
         block.lineEl.classList.remove('editing');
         buildBlockView(block);
     }
 
     var keyHandler = function(e) {
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
             e.preventDefault();
-            cleanup();
-            finishEdit();
-        } else if (e.key === 'Escape') {
-            cleanup();
-            finishEdit();
+            var text = serializeQuill(block.quill).replace(/\u200B/g, '').trim();
+            if (!text) return; // prevent add child when empty
+            cleanup(); addChildFromBlock(block); return;
         }
+        if (e.key === 'Enter') { e.preventDefault(); cleanup(); finishEdit(); }
+        else if (e.key === 'Escape') { cleanup(); finishEdit(); }
     };
-
     var blurHandler = function() {
         setTimeout(function() {
-            if (block.lineEl.classList.contains('editing')) {
-                cleanup();
-                finishEdit();
-            }
+            if (_activePopoverWc) return; // popover open — don't finish edit
+            if (block.lineEl.classList.contains('editing')) { cleanup(); finishEdit(); }
         }, 200);
     };
-
     function cleanup() {
         block.quill.root.removeEventListener('keydown', keyHandler);
         block.quill.root.removeEventListener('blur', blurHandler);
     }
-
     block.quill.root.addEventListener('keydown', keyHandler);
     block.quill.root.addEventListener('blur', blurHandler);
 }
 
-/* ── Initialize Quill section with pre-filled data ── */
+/* ── Initialize Quill section ── */
 function initQuillSection() {
-    // Parent: "A cabin in the forest, __season__, __style__"
     var parentBlock = createQBlock(
         BASE + ', __season__, __style__',
         false,
@@ -2043,7 +1550,6 @@ function initQuillSection() {
     );
     qBlocksEl.appendChild(parentBlock.lineEl);
 
-    // Child: "with __detail__ level of detail"
     var childBlock = createQBlock(
         'with __detail__ level of detail',
         true,
@@ -2051,7 +1557,6 @@ function initQuillSection() {
     );
     qBlocksEl.appendChild(childBlock.lineEl);
 
-    // Persistent input (always-visible child input)
     var persistentContainer = document.getElementById('quill-persistent-editor');
     var persistentQuill = new Quill(persistentContainer, {
         theme: 'snow',
@@ -2064,23 +1569,17 @@ function initQuillSection() {
         setTimeout(function() { convertQWildcards(persistentQuill); }, 0);
     });
 
-    // Enter commits new child block
     persistentQuill.root.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            var serialized = serializeQuill(persistentQuill);
-            if (!serialized.trim()) return;
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        var serialized = serializeQuill(persistentQuill);
+        if (!serialized.trim()) return;
 
-            // Update previous last connector └ → ├
-            updateQConnectors();
-
-            var newBlock = createQBlock(serialized, true, null);
-            qBlocksEl.appendChild(newBlock.lineEl);
-            updateQConnectors();
-
-            // Clear persistent input
-            persistentQuill.setText('', 'silent');
-        }
+        updateQConnectors();
+        var newBlock = createQBlock(serialized, true, null);
+        qBlocksEl.appendChild(newBlock.lineEl);
+        updateQConnectors();
+        persistentQuill.setText('', 'silent');
     });
 
     qState.persistentQuill = persistentQuill;
@@ -2089,8 +1588,6 @@ function initQuillSection() {
 /* ══════════════════════════════════════════════════
    START
    ══════════════════════════════════════════════════ */
-runAnimation();
-initDemo();
 initQuillSection();
 </script>
 </body>
