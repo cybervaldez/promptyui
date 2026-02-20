@@ -31,11 +31,14 @@ PU.actions = {
         PU.rightPanel.applyCollapsedState();
         PU.sidebar.applyCollapsedState();
 
-        // Re-enable transitions after layout settles
-        requestAnimationFrame(() => {
+        // Force reflow so collapsed state commits with transition: none
+        void document.body.offsetHeight;
+
+        // Re-enable transitions after paint
+        requestAnimationFrame(() => requestAnimationFrame(() => {
             if (sidebar) sidebar.style.transition = '';
             if (rightPanel) rightPanel.style.transition = '';
-        });
+        }));
 
         // Then load jobs (which may select a job and populate dropdowns)
         await PU.sidebar.init();
