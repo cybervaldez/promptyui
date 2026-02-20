@@ -44,7 +44,9 @@ PU.state = {
         outputGroupCollapsed: {},
         outputFilters: {},
         outputFilterCollapsed: {},
-        rpSectionsCollapsed: {}    // (deprecated — kept for compat)
+        rpSectionsCollapsed: {},   // (deprecated — kept for compat)
+        rightPanelCollapsed: false,
+        leftSidebarCollapsed: false
     },
 
     // Preview state
@@ -187,7 +189,9 @@ PU.helpers = {
             jobsExpanded: PU.state.ui.jobsExpanded,
             sectionsCollapsed: PU.state.ui.sectionsCollapsed,
             outputFooterCollapsed: PU.state.ui.outputFooterCollapsed,
-            outputLabelMode: PU.state.ui.outputLabelMode
+            outputLabelMode: PU.state.ui.outputLabelMode,
+            rightPanelCollapsed: PU.state.ui.rightPanelCollapsed,
+            leftSidebarCollapsed: PU.state.ui.leftSidebarCollapsed
         };
         localStorage.setItem('pu_ui_state', JSON.stringify(uiState));
     },
@@ -206,6 +210,8 @@ PU.helpers = {
                 PU.state.ui.sectionsCollapsed = state.sectionsCollapsed || {};
                 PU.state.ui.outputFooterCollapsed = state.outputFooterCollapsed || false;
                 PU.state.ui.outputLabelMode = state.outputLabelMode || 'none';
+                PU.state.ui.rightPanelCollapsed = state.rightPanelCollapsed || false;
+                PU.state.ui.leftSidebarCollapsed = state.leftSidebarCollapsed || false;
             }
         } catch (e) {
             console.warn('Failed to load UI state:', e);

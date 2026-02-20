@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PromptyUI — One Prompt, Every Combination</title>
+<style>
+/* ── Design Tokens ── */
+:root {
+    --bg-deep: #0a0a0a;
+    --bg-primary: #0d1117;
+    --bg-card: #161b22;
+    --bg-card-hover: #1c2333;
+    --text-primary: #e6edf3;
+    --text-secondary: #8b949e;
+    --text-muted: #484f58;
+    --accent-blue: #58a6ff;
+    --accent-blue-dim: rgba(88, 166, 255, 0.15);
+    --accent-amber: #ff6b35;
+    --accent-amber-dim: rgba(255, 107, 53, 0.15);
+    --accent-green: #3fb950;
+    --accent-green-dim: rgba(63, 185, 80, 0.15);
+    --accent-purple: #bc8cff;
+    --accent-purple-dim: rgba(188, 140, 255, 0.15);
+    --border: rgba(255, 255, 255, 0.08);
+    --border-accent: rgba(88, 166, 255, 0.4);
+    --font-body: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --font-mono: 'Courier New', Courier, monospace;
+    --radius: 6px;
+    --radius-sm: 4px;
+    --transition-fast: 150ms ease-out;
+    --transition-normal: 300ms ease-out;
+    --transition-slow: 600ms ease-in-out;
+    --transition-very-slow: 800ms ease-in-out;
+}
+
+/* ── Reset & Base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+    scroll-behavior: smooth;
+    overflow-x: hidden;
+}
+
+body {
+    font-family: var(--font-body);
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    line-height: 1.6;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--bg-deep); }
+::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 4px; }
+
+/* ── Section: Hook (Section 0) ── */
+.section-hook {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.hook-text {
+    text-align: center;
+    position: relative;
+    z-index: 2;
+}
+
+.hook-text .line {
+    font-size: clamp(1.6rem, 4vw, 3rem);
+    font-weight: 300;
+    letter-spacing: -0.02em;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+
+.hook-text .line.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.hook-text .line:nth-child(2) { transition-delay: 0.3s; }
+.hook-text .line:nth-child(3) {
+    transition-delay: 0.6s;
+    color: var(--accent-amber);
+    font-weight: 500;
+}
+
+.ghost-copies {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1;
+    pointer-events: none;
+}
+
+.ghost-copy {
+    position: absolute;
+    white-space: nowrap;
+    font-size: clamp(1.4rem, 3.5vw, 2.6rem);
+    font-weight: 300;
+    color: var(--text-primary);
+    opacity: 0.06;
+}
+
+/* ── Split Layout (Sections 1-5) ── */
+.split-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 100vh;
+    position: relative;
+}
+
+.narrative-col {
+    padding: 0 clamp(2rem, 4vw, 5rem);
+}
+
+.sticky-col {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    overflow: hidden;
+}
+
+/* ── Narrative Blocks ── */
+.narrative-block {
+    min-height: 60vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 4rem 0;
+}
+
+.narrative-block h2 {
+    font-size: clamp(1.3rem, 2.5vw, 2rem);
+    font-weight: 400;
+    line-height: 1.4;
+    margin-bottom: 1rem;
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+}
+
+.narrative-block h2.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.narrative-block p {
+    font-size: clamp(1rem, 1.5vw, 1.2rem);
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.5s ease-out 0.15s, transform 0.5s ease-out 0.15s;
+}
+
+.narrative-block p.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.narrative-block .math-expression {
+    font-family: var(--font-mono);
+    font-size: clamp(1.5rem, 3vw, 2.5rem);
+    color: var(--accent-amber);
+    font-weight: 700;
+    margin-top: 1rem;
+}
+
+/* ── Fan-Out Visual ── */
+.fanout-stage {
+    position: relative;
+    width: 100%;
+    max-width: 500px;
+}
+
+.fanout-line {
+    position: relative;
+    font-family: var(--font-mono);
+    font-size: clamp(0.7rem, 1.1vw, 0.9rem);
+    padding: 8px 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transform-origin: top left;
+    transition: transform var(--transition-slow), opacity var(--transition-slow);
+    opacity: 0;
+}
+
+.fanout-line.fanned {
+    opacity: var(--fan-opacity, 1);
+    transform: translate(var(--fan-x, 0px), var(--fan-y, 0px));
+}
+
+.fanout-line.collapsed {
+    opacity: 1;
+    transform: translate(0, 0) !important;
+}
+
+.fanout-counter {
+    position: absolute;
+    bottom: -60px;
+    right: 0;
+    font-family: var(--font-mono);
+    font-size: 3rem;
+    font-weight: 800;
+    color: var(--accent-amber);
+    opacity: 0;
+    transition: opacity var(--transition-normal);
+}
+
+.fanout-counter.visible {
+    opacity: 1;
+}
+
+/* ── Template Line (collapsed state) ── */
+.template-stage {
+    position: relative;
+    width: 100%;
+    max-width: 500px;
+    opacity: 0;
+    transition: opacity var(--transition-slow);
+}
+
+.template-stage.visible {
+    opacity: 1;
+}
+
+.template-line {
+    font-family: var(--font-mono);
+    font-size: clamp(0.75rem, 1.1vw, 0.95rem);
+    padding: 12px 18px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    line-height: 1.8;
+}
+
+.wildcard-chip {
+    display: inline-block;
+    padding: 2px 10px;
+    background: var(--accent-blue-dim);
+    border: 1px solid var(--accent-blue);
+    border-radius: 3px;
+    color: var(--accent-blue);
+    font-weight: 600;
+    font-size: 0.85em;
+}
+
+.template-math {
+    font-family: var(--font-mono);
+    font-size: clamp(2rem, 4vw, 3.5rem);
+    font-weight: 800;
+    color: var(--text-primary);
+    margin-top: 1.5rem;
+    text-align: center;
+    opacity: 0;
+    transition: opacity var(--transition-slow) 0.3s;
+}
+
+.template-math.visible {
+    opacity: 1;
+}
+
+.template-math .eq-result {
+    color: var(--accent-blue);
+}
+
+/* ── Cartesian Grid ── */
+.grid-stage {
+    width: 100%;
+    max-width: 560px;
+    opacity: 0;
+    transition: opacity var(--transition-slow), transform var(--transition-very-slow);
+}
+
+.grid-stage.visible {
+    opacity: 1;
+}
+
+.grid-stage.compressed {
+    transform: scale(0.25);
+    opacity: 0.7;
+}
+
+.cartesian-grid {
+    display: grid;
+    grid-template-columns: auto repeat(4, 1fr);
+    gap: 4px;
+    font-family: var(--font-mono);
+    font-size: clamp(0.55rem, 0.85vw, 0.72rem);
+}
+
+.grid-header {
+    padding: 6px 8px;
+    text-align: center;
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 0.75em;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.grid-row-header {
+    padding: 8px 10px;
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 0.75em;
+    display: flex;
+    align-items: center;
+}
+
+.grid-cell {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 6px;
+    transition: opacity 0.4s ease-out, transform 0.4s ease-out, border-color var(--transition-fast), background var(--transition-fast);
+    opacity: 0;
+    transform: translateY(8px);
+}
+
+.grid-cell.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.grid-cell.highlighted {
+    border-color: var(--accent-blue);
+    background: var(--accent-blue-dim);
+}
+
+.grid-cell.green-highlight {
+    border-color: var(--accent-green);
+    background: var(--accent-green-dim);
+}
+
+.grid-cell.amber-highlight {
+    border-color: var(--accent-amber);
+    background: var(--accent-amber-dim);
+}
+
+.grid-cell.purple-highlight {
+    border-color: var(--accent-purple);
+    background: var(--accent-purple-dim);
+}
+
+.grid-cell.dimmed {
+    opacity: 0.25;
+}
+
+.grid-cell .cell-text {
+    color: var(--text-secondary);
+    font-size: 0.8em;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.grid-cell .cell-number {
+    color: var(--text-muted);
+    font-size: 0.7em;
+    margin-top: 4px;
+}
+
+.grid-cell.highlighted .cell-number {
+    color: var(--accent-blue);
+    font-weight: 700;
+}
+
+/* ── Depth Mini-Scenes Overlay ── */
+.depth-overlay {
+    position: absolute;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    font-size: 0.9rem;
+    font-weight: 600;
+    opacity: 0;
+    transition: opacity var(--transition-normal);
+    white-space: nowrap;
+}
+
+.depth-overlay.visible {
+    opacity: 1;
+}
+
+.depth-overlay.green { color: var(--accent-green); }
+.depth-overlay.amber { color: var(--accent-amber); }
+.depth-overlay.purple { color: var(--accent-purple); }
+
+/* ── Scale / Mosaic ── */
+.scale-stage {
+    width: 100%;
+    max-width: 560px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    opacity: 0;
+    transition: opacity var(--transition-slow);
+}
+
+.scale-stage.visible {
+    opacity: 1;
+}
+
+.mosaic-container {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    display: grid;
+    grid-template-columns: repeat(40, 1fr);
+    grid-template-rows: repeat(30, 1fr);
+    gap: 1px;
+    border-radius: var(--radius);
+    overflow: hidden;
+    position: relative;
+}
+
+.mosaic-cell {
+    border-radius: 1px;
+    transition: opacity 0.2s;
+}
+
+.mosaic-window {
+    position: absolute;
+    border: 2px solid var(--accent-amber);
+    border-radius: 3px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity var(--transition-slow);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 2px;
+}
+
+.mosaic-window.visible {
+    opacity: 1;
+}
+
+.mosaic-window-label {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: var(--accent-amber);
+    background: var(--bg-deep);
+    padding: 1px 6px;
+    border-radius: 2px;
+    font-weight: 700;
+}
+
+.odometer {
+    font-family: var(--font-mono);
+    font-size: clamp(2.5rem, 5vw, 4rem);
+    font-weight: 800;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+}
+
+.odometer-digit-wrap {
+    display: inline-block;
+    height: 1.2em;
+    overflow: hidden;
+    position: relative;
+}
+
+.odometer-digit-inner {
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.8s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.odometer-digit-inner span {
+    display: block;
+    height: 1.2em;
+    line-height: 1.2em;
+    text-align: center;
+    min-width: 0.65em;
+}
+
+.odometer-comma {
+    display: inline-block;
+    height: 1.2em;
+    line-height: 1.2em;
+    color: var(--text-muted);
+}
+
+/* ── Close Section ── */
+.section-close {
+    min-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 4rem 2rem;
+    position: relative;
+}
+
+.close-headline {
+    font-size: clamp(1.8rem, 4vw, 3rem);
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    margin-bottom: 1rem;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+}
+
+.close-headline.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.close-subline {
+    font-size: clamp(1rem, 1.5vw, 1.2rem);
+    color: var(--text-secondary);
+    margin-bottom: 3rem;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.5s ease-out 0.2s, transform 0.5s ease-out 0.2s;
+}
+
+.close-subline.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.cta-row {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.5s ease-out 0.4s, transform 0.5s ease-out 0.4s;
+}
+
+.cta-row.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.cta-primary {
+    display: inline-block;
+    padding: 14px 36px;
+    background: var(--accent-blue);
+    color: var(--bg-deep);
+    font-weight: 700;
+    font-size: 1rem;
+    border-radius: var(--radius);
+    text-decoration: none;
+    transition: background var(--transition-fast), transform var(--transition-fast);
+    cursor: pointer;
+    border: none;
+}
+
+.cta-primary:hover {
+    background: #79b8ff;
+    transform: translateY(-1px);
+}
+
+.cta-secondary {
+    display: inline-block;
+    padding: 14px 36px;
+    background: transparent;
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 1rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    text-decoration: none;
+    transition: border-color var(--transition-fast), transform var(--transition-fast);
+    cursor: pointer;
+}
+
+.cta-secondary:hover {
+    border-color: var(--text-muted);
+    transform: translateY(-1px);
+}
+
+.footer-links {
+    display: flex;
+    gap: 2rem;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    opacity: 0;
+    transition: opacity 0.5s ease-out 0.6s;
+}
+
+.footer-links.visible {
+    opacity: 1;
+}
+
+.footer-links a {
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+}
+
+.footer-links a:hover {
+    color: var(--text-secondary);
+}
+
+.footer-links span {
+    color: var(--text-muted);
+    opacity: 0.4;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+    .split-container {
+        grid-template-columns: 1fr;
+    }
+    .sticky-col {
+        position: relative;
+        height: auto;
+        min-height: 60vh;
+    }
+    .narrative-block {
+        min-height: 40vh;
+    }
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     SECTION 0 — HOOK
+     ============================================================ -->
+<section class="section-hook" data-testid="section-0" id="section-0">
+    <div class="ghost-copies" id="ghost-copies"></div>
+    <div class="hook-text" id="hook-text">
+        <div class="line">You write prompts for AI.</div>
+        <div class="line">You copy-paste them 60 times.</div>
+        <div class="line">What if you didn't?</div>
+    </div>
+</section>
+
+<!-- ============================================================
+     SECTIONS 1-5 — Split Layout with Sticky Right
+     ============================================================ -->
+<div class="split-container">
+    <!-- ── Left: Narrative Column ── -->
+    <div class="narrative-col">
+
+        <!-- SECTION 1 — BEFORE -->
+        <div class="narrative-block" data-testid="section-1" id="section-1">
+            <h2 class="obs-reveal">You start with one prompt.</h2>
+            <p class="obs-reveal">A single line of text that feeds an image model.</p>
+            <p class="obs-reveal">Then you need variations. Different seasons. Different styles. Different moods.</p>
+            <p class="obs-reveal math-expression">3 &times; 4 &times; 5 = 60 prompts. By hand.</p>
+        </div>
+
+        <!-- SECTION 2 — THE TURN -->
+        <div class="narrative-block" data-testid="section-2" id="section-2">
+            <h2 class="obs-reveal">Or you write it once.</h2>
+            <p class="obs-reveal">Mark the parts that change. Each variable becomes a wildcard. The tool does the multiplication.</p>
+        </div>
+
+        <!-- SECTION 3 — OUTPUT -->
+        <div class="narrative-block" data-testid="section-3" id="section-3">
+            <h2 class="obs-reveal">Every combination. Addressed by a number.</h2>
+            <p class="obs-reveal">A grid of outputs. Each cell is a unique prompt. Navigate by composition ID.</p>
+        </div>
+
+        <!-- SECTION 4 — DEPTH -->
+        <div class="narrative-block" data-testid="section-4" id="section-4">
+            <h2 class="obs-reveal">Then shape the space.</h2>
+            <p class="obs-reveal"><strong style="color:var(--accent-green)">Themes</strong> swap entire columns of values. Swap "painting styles" for "photography styles" in one click.</p>
+            <p class="obs-reveal"><strong style="color:var(--accent-amber)">Locks</strong> pin specific values. Export exactly the rows you need.</p>
+            <p class="obs-reveal"><strong style="color:var(--accent-purple)">Operations</strong> transform values in-place. "neutral" becomes "bold and energetic" without changing your template.</p>
+        </div>
+
+        <!-- SECTION 5 — SCALE -->
+        <div class="narrative-block" data-testid="section-5" id="section-5">
+            <h2 class="obs-reveal">It scales.</h2>
+            <p class="obs-reveal math-expression">8 wildcards &times; 6 values each</p>
+            <p class="obs-reveal" style="color:var(--text-muted); font-size:0.95rem;">Buckets window the space into navigable chunks. You see 9 at a time. The full space is always there.</p>
+        </div>
+    </div>
+
+    <!-- ── Right: Sticky Visual Column ── -->
+    <div class="sticky-col" id="sticky-visual">
+
+        <!-- Fan-out visual (Section 1) -->
+        <div class="fanout-stage" id="fanout-stage" style="display:none;">
+            <div id="fanout-lines"></div>
+            <div class="fanout-counter" id="fanout-counter">0</div>
+        </div>
+
+        <!-- Template visual (Section 2) -->
+        <div class="template-stage" id="template-stage" style="display:none;">
+            <div class="template-line">
+                A cabin in the forest, <span class="wildcard-chip">__season__</span>, <span class="wildcard-chip">__style__</span>
+            </div>
+            <div class="template-math" id="template-math">
+                4 &times; 4 = <span class="eq-result">16</span>
+            </div>
+        </div>
+
+        <!-- Cartesian grid (Sections 3-4) -->
+        <div class="grid-stage" id="grid-stage" style="display:none; position: relative;">
+            <div class="cartesian-grid" id="cartesian-grid"></div>
+            <div class="depth-overlay" id="depth-overlay"></div>
+        </div>
+
+        <!-- Scale / Mosaic (Section 5) -->
+        <div class="scale-stage" id="scale-stage" style="display:none;">
+            <div class="odometer" id="odometer"></div>
+            <div class="mosaic-container" id="mosaic-container">
+                <div class="mosaic-window" id="mosaic-window">
+                    <span class="mosaic-window-label">Showing 9</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================
+     SECTION 6 — CLOSE
+     ============================================================ -->
+<section class="section-close" data-testid="section-6" id="section-6">
+    <div class="close-headline obs-reveal">One prompt. Every combination.</div>
+    <div class="close-subline obs-reveal">Self-hosted. No accounts. Your data stays yours.</div>
+    <div class="cta-row obs-reveal">
+        <a href="#" class="cta-primary" data-testid="cta-get-started">Get Started</a>
+        <a href="#" class="cta-secondary" data-testid="cta-cookbook">Read the Cookbook</a>
+    </div>
+    <div class="footer-links obs-reveal">
+        <a href="#">GitHub</a>
+        <span>&middot;</span>
+        <a href="#">Docs</a>
+        <span>&middot;</span>
+        <a href="#">Discord</a>
+    </div>
+</section>
+
+<script>
+/* ================================================================
+   PROMPTYUI LANDING — VARIATION C: "MULTIPLIED"
+   Scrollytelling with IntersectionObserver
+   ================================================================ */
+
+(function () {
+    'use strict';
+
+    // ── Data ──
+    const seasons = ['autumn', 'winter', 'spring', 'summer'];
+    const styles = ['watercolor', 'oil', 'digital', 'pencil'];
+    const basePrompt = 'A cabin in the forest';
+
+    const fanoutLines = [];
+    seasons.forEach((season) => {
+        styles.forEach((style) => {
+            fanoutLines.push(`${basePrompt}, ${season}, ${style}`);
+        });
+    });
+
+    // ── Ghost copies (Section 0) ──
+    function buildGhostCopies() {
+        const container = document.getElementById('ghost-copies');
+        const texts = [
+            'You write prompts for AI.',
+            'You copy-paste them 60 times.',
+            'What if you didn\'t?'
+        ];
+        texts.forEach((text) => {
+            for (let i = 1; i <= 8; i++) {
+                const el = document.createElement('div');
+                el.className = 'ghost-copy';
+                el.textContent = text;
+                el.style.transform = `translate(${i * 3}px, ${i * 3}px)`;
+                el.style.opacity = Math.max(0.02, 0.06 - i * 0.005);
+                container.appendChild(el);
+            }
+        });
+    }
+
+    // ── Fan-out lines (Section 1) ──
+    function buildFanoutLines() {
+        const container = document.getElementById('fanout-lines');
+        container.innerHTML = '';
+        fanoutLines.forEach((text, i) => {
+            const el = document.createElement('div');
+            el.className = 'fanout-line';
+            el.textContent = text;
+            el.style.position = 'absolute';
+            el.style.top = '0';
+            el.style.left = '0';
+            el.style.width = '100%';
+            el.style.setProperty('--fan-x', `${i * 4}px`);
+            el.style.setProperty('--fan-y', `${i * 4}px`);
+            el.style.setProperty('--fan-opacity', `${Math.max(0.15, 1 - i * 0.055)}`);
+            el.style.transitionDelay = `${i * 80}ms`;
+            el.style.zIndex = fanoutLines.length - i;
+            container.appendChild(el);
+        });
+    }
+
+    // ── Cartesian Grid (Section 3) ──
+    function buildCartesianGrid() {
+        const grid = document.getElementById('cartesian-grid');
+        grid.innerHTML = '';
+
+        // Corner spacer
+        const spacer = document.createElement('div');
+        spacer.className = 'grid-header';
+        grid.appendChild(spacer);
+
+        // Column headers
+        styles.forEach((style) => {
+            const h = document.createElement('div');
+            h.className = 'grid-header';
+            h.textContent = style;
+            h.dataset.style = style;
+            grid.appendChild(h);
+        });
+
+        // Rows
+        let cellIndex = 0;
+        seasons.forEach((season, rowIdx) => {
+            const rh = document.createElement('div');
+            rh.className = 'grid-row-header';
+            rh.textContent = season;
+            rh.dataset.season = season;
+            grid.appendChild(rh);
+
+            styles.forEach((style, colIdx) => {
+                cellIndex++;
+                const cell = document.createElement('div');
+                cell.className = 'grid-cell';
+                cell.dataset.row = rowIdx;
+                cell.dataset.col = colIdx;
+                cell.dataset.cellIndex = cellIndex;
+                cell.style.transitionDelay = `${rowIdx * 150}ms`;
+
+                const text = document.createElement('div');
+                text.className = 'cell-text';
+                text.textContent = `cabin, ${season}, ${style}`;
+                cell.appendChild(text);
+
+                const num = document.createElement('div');
+                num.className = 'cell-number';
+                num.textContent = `#${cellIndex}`;
+                cell.appendChild(num);
+
+                grid.appendChild(cell);
+            });
+        });
+    }
+
+    // ── Mosaic (Section 5) ──
+    function buildMosaic() {
+        const container = document.getElementById('mosaic-container');
+        // Keep the window element
+        const windowEl = document.getElementById('mosaic-window');
+
+        const colors = [
+            'var(--accent-blue)', 'var(--accent-amber)',
+            'var(--accent-green)', 'var(--accent-purple)',
+            '#58a6ff', '#ff6b35', '#3fb950', '#bc8cff',
+            '#1f6feb', '#da3633', '#8b949e', '#f0883e'
+        ];
+
+        for (let i = 0; i < 1200; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'mosaic-cell';
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            const opacity = 0.15 + Math.random() * 0.55;
+            cell.style.background = color;
+            cell.style.opacity = opacity;
+            container.insertBefore(cell, windowEl);
+        }
+
+        // Position the bucket window (3x3 cells in the center area)
+        windowEl.style.top = '35%';
+        windowEl.style.left = '40%';
+        windowEl.style.width = '20%';
+        windowEl.style.height = '25%';
+    }
+
+    // ── Odometer ──
+    function buildOdometer(targetStr) {
+        const container = document.getElementById('odometer');
+        container.innerHTML = '';
+        const digits = targetStr.split('');
+
+        digits.forEach((char, i) => {
+            if (char === ',') {
+                const comma = document.createElement('span');
+                comma.className = 'odometer-comma';
+                comma.textContent = ',';
+                container.appendChild(comma);
+                return;
+            }
+
+            const wrap = document.createElement('span');
+            wrap.className = 'odometer-digit-wrap';
+
+            const inner = document.createElement('span');
+            inner.className = 'odometer-digit-inner';
+            inner.dataset.digitIndex = i;
+
+            // Build all 10 digits 0-9
+            for (let d = 0; d <= 9; d++) {
+                const s = document.createElement('span');
+                s.textContent = d;
+                inner.appendChild(s);
+            }
+
+            // Start at 0
+            inner.style.transform = 'translateY(0)';
+            wrap.appendChild(inner);
+            container.appendChild(wrap);
+        });
+    }
+
+    function animateOdometer(targetStr) {
+        const digits = targetStr.replace(/,/g, '').split('');
+        const inners = document.querySelectorAll('.odometer-digit-inner');
+        let digitIdx = 0;
+
+        inners.forEach((inner, i) => {
+            const target = parseInt(digits[digitIdx], 10);
+            digitIdx++;
+            // Stagger delay by position — rightmost digits roll first
+            const delay = (inners.length - i) * 100;
+            setTimeout(() => {
+                inner.style.transform = `translateY(-${target * 1.2}em)`;
+            }, delay);
+        });
+    }
+
+    // ── State Machine for Sticky Visual ──
+    let currentPhase = 'hook';
+
+    function showPhase(phase) {
+        if (phase === currentPhase) return;
+        currentPhase = phase;
+
+        const fanout = document.getElementById('fanout-stage');
+        const template = document.getElementById('template-stage');
+        const gridStage = document.getElementById('grid-stage');
+        const scaleStage = document.getElementById('scale-stage');
+        const depthOverlay = document.getElementById('depth-overlay');
+
+        // Hide all
+        [fanout, template, gridStage, scaleStage].forEach((el) => {
+            el.style.display = 'none';
+        });
+        depthOverlay.classList.remove('visible');
+
+        switch (phase) {
+            case 'fanout':
+                fanout.style.display = 'block';
+                requestAnimationFrame(() => triggerFanout());
+                break;
+
+            case 'template':
+                template.style.display = 'block';
+                requestAnimationFrame(() => {
+                    template.classList.add('visible');
+                    setTimeout(() => {
+                        document.getElementById('template-math').classList.add('visible');
+                    }, 400);
+                });
+                break;
+
+            case 'grid':
+                gridStage.style.display = 'block';
+                resetGridHighlights();
+                requestAnimationFrame(() => {
+                    gridStage.classList.add('visible');
+                    gridStage.classList.remove('compressed');
+                    revealGridCells();
+                });
+                break;
+
+            case 'depth-themes':
+                gridStage.style.display = 'block';
+                gridStage.classList.add('visible');
+                gridStage.classList.remove('compressed');
+                resetGridHighlights();
+                showDepthThemes();
+                break;
+
+            case 'depth-locks':
+                gridStage.style.display = 'block';
+                gridStage.classList.add('visible');
+                gridStage.classList.remove('compressed');
+                resetGridHighlights();
+                showDepthLocks();
+                break;
+
+            case 'depth-ops':
+                gridStage.style.display = 'block';
+                gridStage.classList.add('visible');
+                gridStage.classList.remove('compressed');
+                resetGridHighlights();
+                showDepthOps();
+                break;
+
+            case 'scale':
+                scaleStage.style.display = 'flex';
+                requestAnimationFrame(() => {
+                    scaleStage.classList.add('visible');
+                    setTimeout(() => animateOdometer('1,679,616'), 300);
+                    setTimeout(() => {
+                        document.getElementById('mosaic-window').classList.add('visible');
+                    }, 1600);
+                });
+                break;
+        }
+    }
+
+    // ── Fan-out Trigger ──
+    function triggerFanout() {
+        const lines = document.querySelectorAll('.fanout-line');
+        const counter = document.getElementById('fanout-counter');
+
+        lines.forEach((line) => {
+            line.classList.remove('fanned', 'collapsed');
+        });
+
+        requestAnimationFrame(() => {
+            lines.forEach((line) => {
+                line.classList.add('fanned');
+            });
+            counter.classList.add('visible');
+            animateCounter(counter, 0, fanoutLines.length, 1200);
+        });
+    }
+
+    function animateCounter(el, from, to, duration) {
+        const start = performance.now();
+        function step(now) {
+            const progress = Math.min((now - start) / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+            el.textContent = Math.round(from + (to - from) * eased);
+            if (progress < 1) requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+    }
+
+    // ── Grid Reveal ──
+    function revealGridCells() {
+        const cells = document.querySelectorAll('.grid-cell');
+        cells.forEach((cell) => {
+            cell.classList.add('visible');
+        });
+        // Highlight cell #7
+        setTimeout(() => {
+            cells.forEach((cell) => {
+                if (cell.dataset.cellIndex === '7') {
+                    cell.classList.add('highlighted');
+                }
+            });
+        }, 800);
+    }
+
+    function resetGridHighlights() {
+        document.querySelectorAll('.grid-cell').forEach((cell) => {
+            cell.classList.remove('highlighted', 'green-highlight', 'amber-highlight', 'purple-highlight', 'dimmed');
+            cell.classList.add('visible');
+            // Reset cell text
+            const row = parseInt(cell.dataset.row);
+            const col = parseInt(cell.dataset.col);
+            const text = cell.querySelector('.cell-text');
+            if (text) text.textContent = `cabin, ${seasons[row]}, ${styles[col]}`;
+        });
+        document.getElementById('depth-overlay').classList.remove('visible');
+        document.getElementById('depth-overlay').className = 'depth-overlay';
+    }
+
+    // ── Depth Scenes ──
+    function showDepthThemes() {
+        const overlay = document.getElementById('depth-overlay');
+        // Highlight column 2 (digital) -> green
+        document.querySelectorAll('.grid-cell').forEach((cell) => {
+            cell.classList.add('visible');
+            if (cell.dataset.col === '2') {
+                cell.classList.add('green-highlight');
+                const text = cell.querySelector('.cell-text');
+                if (text) text.textContent = text.textContent.replace('digital', 'photo');
+            }
+        });
+        // Highlight column header
+        document.querySelectorAll('.grid-header[data-style="digital"]').forEach((h) => {
+            h.style.color = 'var(--accent-green)';
+            h.textContent = 'photo';
+        });
+        overlay.textContent = 'Theme applied: photography styles';
+        overlay.className = 'depth-overlay green visible';
+    }
+
+    function showDepthLocks() {
+        const overlay = document.getElementById('depth-overlay');
+        document.querySelectorAll('.grid-cell').forEach((cell) => {
+            cell.classList.add('visible');
+            if (cell.dataset.row === '1') {
+                cell.classList.add('amber-highlight');
+            } else {
+                cell.classList.add('dimmed');
+            }
+        });
+        overlay.textContent = 'Export 4 of 16';
+        overlay.className = 'depth-overlay amber visible';
+    }
+
+    function showDepthOps() {
+        const overlay = document.getElementById('depth-overlay');
+        // Reset column header if needed
+        document.querySelectorAll('.grid-header[data-style="digital"]').forEach((h) => {
+            h.style.color = '';
+            h.textContent = 'digital';
+        });
+        document.querySelectorAll('.grid-cell').forEach((cell) => {
+            cell.classList.add('visible');
+            cell.classList.add('purple-highlight');
+            const text = cell.querySelector('.cell-text');
+            if (text) {
+                text.textContent = text.textContent.replace('cabin', 'grand cabin');
+            }
+        });
+        overlay.textContent = 'Operation: "neutral" → "bold and energetic"';
+        overlay.className = 'depth-overlay purple visible';
+    }
+
+    // ── IntersectionObserver: Narrative Reveals ──
+    const revealObserver = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+            }
+        });
+    }, { threshold: 0.3, rootMargin: '0px 0px -10% 0px' });
+
+    document.querySelectorAll('.obs-reveal').forEach((el) => {
+        revealObserver.observe(el);
+    });
+
+    // ── IntersectionObserver: Hook ──
+    const hookObserver = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+                document.querySelectorAll('.hook-text .line').forEach((line) => {
+                    line.classList.add('visible');
+                });
+            }
+        });
+    }, { threshold: 0.5 });
+
+    hookObserver.observe(document.getElementById('section-0'));
+
+    // ── IntersectionObserver: Section Phase Switching ──
+    function createSectionObserver(sectionId, phase, options) {
+        const opts = Object.assign({ threshold: 0.4, rootMargin: '0px' }, options || {});
+        const obs = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (entry.isIntersecting) {
+                    showPhase(phase);
+                }
+            });
+        }, opts);
+        const el = document.getElementById(sectionId);
+        if (el) obs.observe(el);
+    }
+
+    createSectionObserver('section-1', 'fanout', { threshold: 0.3 });
+    createSectionObserver('section-2', 'template', { threshold: 0.4 });
+    createSectionObserver('section-3', 'grid', { threshold: 0.4 });
+
+    // Section 4 depth sub-phases — use scroll position for sub-scenes
+    const section4Observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+                startDepthScrollWatcher();
+            } else {
+                stopDepthScrollWatcher();
+            }
+        });
+    }, { threshold: 0.1 });
+    section4Observer.observe(document.getElementById('section-4'));
+
+    let depthScrollHandler = null;
+    function startDepthScrollWatcher() {
+        if (depthScrollHandler) return;
+        depthScrollHandler = () => {
+            const s4 = document.getElementById('section-4');
+            const rect = s4.getBoundingClientRect();
+            const progress = -rect.top / rect.height;
+
+            if (progress < 0.33) {
+                showPhase('depth-themes');
+            } else if (progress < 0.66) {
+                showPhase('depth-locks');
+            } else {
+                showPhase('depth-ops');
+            }
+        };
+        window.addEventListener('scroll', depthScrollHandler, { passive: true });
+        depthScrollHandler();
+    }
+    function stopDepthScrollWatcher() {
+        if (depthScrollHandler) {
+            window.removeEventListener('scroll', depthScrollHandler);
+            depthScrollHandler = null;
+        }
+    }
+
+    createSectionObserver('section-5', 'scale', { threshold: 0.3 });
+
+    // ── Close section reveal ──
+    const closeObserver = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+                entry.target.querySelectorAll('.obs-reveal').forEach((el) => {
+                    el.classList.add('visible');
+                });
+            }
+        });
+    }, { threshold: 0.3 });
+
+    closeObserver.observe(document.getElementById('section-6'));
+
+    // ── Build everything on load ──
+    buildGhostCopies();
+    buildFanoutLines();
+    buildCartesianGrid();
+    buildMosaic();
+    buildOdometer('1,679,616');
+
+})();
+</script>
+</body>
+</html>

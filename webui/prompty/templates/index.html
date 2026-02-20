@@ -15,7 +15,6 @@
         <!-- Header -->
         <header class="pu-header" data-testid="pu-header">
             <div class="pu-header-left">
-                <span class="pu-header-icon"></span>
                 <span class="pu-header-title">PromptyUI</span>
             </div>
             <div class="pu-header-center">
@@ -41,10 +40,11 @@
             <aside class="pu-sidebar" data-testid="pu-sidebar">
                 <!-- Jobs Section -->
                 <section class="pu-sidebar-section pu-jobs-section" data-testid="pu-jobs-section">
-                    <div class="pu-sidebar-header" onclick="PU.actions.toggleSection('jobs')">
+                    <div class="pu-sidebar-header">
                         <span class="pu-sidebar-title">JOBS</span>
                         <span class="pu-jobs-count" data-testid="pu-jobs-count"></span>
-                        <span class="pu-sidebar-toggle" data-testid="pu-jobs-toggle">&#9660;</span>
+                        <button class="pu-panel-collapse-btn" data-testid="pu-sidebar-collapse-btn"
+                                onclick="event.stopPropagation(); PU.sidebar.togglePanel()" title="Collapse sidebar ([)">&#9664;</button>
                     </div>
                     <div class="pu-sidebar-content pu-jobs-tree" data-testid="pu-jobs-tree">
                         <!-- Jobs tree rendered by JS -->
@@ -148,13 +148,15 @@
 
             <!-- Right Panel (wildcard stream + compositions) -->
             <aside class="pu-right-panel" data-testid="pu-right-panel">
-                <!-- Top bar: scope + variant selector + wc count -->
-                <div class="pu-rp-top-bar" data-testid="pu-rp-top-bar" style="display: none; position: relative;">
+                <!-- Top bar: scope + variant selector + wc count + collapse toggle -->
+                <div class="pu-rp-top-bar" data-testid="pu-rp-top-bar" style="position: relative;">
                     <span class="pu-rp-scope-chip" data-testid="pu-rp-scope"></span>
                     <span class="pu-rp-top-sep"></span>
                     <span class="pu-rp-op-selector" data-testid="pu-rp-op-selector"></span>
                     <span class="pu-rp-top-spacer"></span>
                     <span class="pu-rp-top-stats" data-testid="pu-rp-wc-count"></span>
+                    <button class="pu-panel-collapse-btn" data-testid="pu-rp-collapse-btn"
+                            onclick="PU.rightPanel.togglePanel()" title="Collapse panel (])">&#9654;</button>
                     <!-- Operation dropdown (hidden by default) -->
                     <div class="pu-rp-op-dropdown" data-testid="pu-rp-op-dropdown" style="display: none;"></div>
                 </div>
@@ -175,6 +177,22 @@
                 </div>
             </aside>
         </div>
+
+        <!-- Footer Helper Bar -->
+        <footer class="pu-footer" data-testid="pu-footer">
+            <div class="pu-footer-shortcuts" data-testid="pu-footer-shortcuts">
+                <span class="pu-footer-prefix">Keyboard Shortcuts</span>
+                <span class="pu-footer-sep">&mdash;</span>
+                <span class="pu-footer-label" data-testid="pu-footer-job-browser"
+                      onclick="PU.sidebar.togglePanel()">Open</span>
+                <kbd>[</kbd>
+                <span class="pu-footer-comma">,</span>
+                <span class="pu-footer-label" data-testid="pu-footer-composer"
+                      onclick="PU.rightPanel.togglePanel()">Compose</span>
+                <kbd>]</kbd>
+            </div>
+            <div class="pu-footer-tip" data-testid="pu-footer-tip"></div>
+        </footer>
 
         <!-- Focus Mode Overlay -->
         <div class="pu-focus-overlay" data-testid="pu-focus-overlay" style="display: none;"

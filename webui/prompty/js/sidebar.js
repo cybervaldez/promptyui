@@ -164,6 +164,64 @@ PU.sidebar = {
         }
     },
 
+    // ============================================
+    // Panel collapse / expand
+    // ============================================
+
+    /**
+     * Collapse the left sidebar (fully hidden).
+     */
+    collapse() {
+        const panel = document.querySelector('[data-testid="pu-sidebar"]');
+        if (!panel) return;
+        panel.classList.add('collapsed');
+        PU.state.ui.leftSidebarCollapsed = true;
+        PU.sidebar._updateToggleIcon(true);
+        PU.helpers.saveUIState();
+    },
+
+    /**
+     * Expand the left sidebar.
+     */
+    expand() {
+        const panel = document.querySelector('[data-testid="pu-sidebar"]');
+        if (!panel) return;
+        panel.classList.remove('collapsed');
+        PU.state.ui.leftSidebarCollapsed = false;
+        PU.sidebar._updateToggleIcon(false);
+        PU.helpers.saveUIState();
+    },
+
+    /**
+     * Toggle the left sidebar open/closed.
+     */
+    togglePanel() {
+        if (PU.state.ui.leftSidebarCollapsed) {
+            PU.sidebar.expand();
+        } else {
+            PU.sidebar.collapse();
+        }
+    },
+
+    /**
+     * Apply persisted collapsed state (called on init).
+     */
+    applyCollapsedState() {
+        if (PU.state.ui.leftSidebarCollapsed) {
+            const panel = document.querySelector('[data-testid="pu-sidebar"]');
+            if (panel) panel.classList.add('collapsed');
+            PU.sidebar._updateToggleIcon(true);
+        }
+    },
+
+    /**
+     * Update toggle icon in sidebar header.
+     */
+    _updateToggleIcon(collapsed) {
+        const headerBtn = document.querySelector('[data-testid="pu-sidebar-collapse-btn"]');
+        if (headerBtn) headerBtn.innerHTML = collapsed ? '&#9654;' : '&#9664;';
+    },
+
     /**
      * Check if folder or children match filter (used by inspector)
      */

@@ -16,6 +16,11 @@ PU.buildComposition = {
     open() {
         const panel = document.querySelector('[data-testid="pu-build-panel"]');
         if (!panel) return;
+        // Auto-collapse right panel, remember its state for restore
+        PU.buildComposition._rpWasCollapsed = PU.state.ui.rightPanelCollapsed;
+        if (!PU.state.ui.rightPanelCollapsed) {
+            PU.rightPanel.collapse();
+        }
         PU.state.buildComposition.visible = true;
         panel.style.display = 'flex';
         // Trigger reflow then add class for animation
@@ -32,6 +37,10 @@ PU.buildComposition = {
         if (!panel) return;
         PU.state.buildComposition.visible = false;
         panel.classList.remove('open');
+        // Restore right panel if it was open before build panel opened
+        if (PU.buildComposition._rpWasCollapsed === false) {
+            PU.rightPanel.expand();
+        }
         setTimeout(() => {
             if (!PU.state.buildComposition.visible) {
                 panel.style.display = 'none';

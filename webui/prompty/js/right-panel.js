@@ -319,6 +319,14 @@ PU.rightPanel = {
                 e.preventDefault();
                 PU.rightPanel.showReplacePopover(chip, e);
             });
+
+            // Hover: show footer tip
+            chip.addEventListener('mouseenter', () => {
+                PU.rightPanel._showFooterTip('<kbd>Ctrl</kbd>+Click lock wildcard');
+            });
+            chip.addEventListener('mouseleave', () => {
+                PU.rightPanel._hideFooterTip();
+            });
         });
 
         // Hover wildcard entry → highlight associated blocks in editor
@@ -1095,12 +1103,15 @@ PU.rightPanel = {
         const topBar = document.querySelector('[data-testid="pu-rp-top-bar"]');
         if (!topBar) return;
 
-        if (!prompt || wcCount === 0) {
-            topBar.style.display = 'none';
-            return;
-        }
+        const hasData = prompt && wcCount > 0;
 
-        topBar.style.display = '';
+        // Hide/show content elements but always keep top bar visible (for collapse toggle)
+        topBar.querySelector('[data-testid="pu-rp-scope"]').style.display = hasData ? '' : 'none';
+        topBar.querySelector('.pu-rp-top-sep').style.display = 'none'; // updated below if needed
+        topBar.querySelector('[data-testid="pu-rp-op-selector"]').style.display = 'none'; // updated below if needed
+        topBar.querySelector('[data-testid="pu-rp-wc-count"]').style.display = hasData ? '' : 'none';
+
+        if (!hasData) return;
 
         // Scope chip
         const scopeEl = topBar.querySelector('[data-testid="pu-rp-scope"]');
@@ -1639,6 +1650,83 @@ PU.rightPanel = {
         }
 
         return false;
+    },
+
+    // ============================================
+    // Panel collapse / expand
+    // ============================================
+
+    /**
+     * Collapse the right panel (fully hidden).
+     */
+    collapse() {
+        const panel = document.querySelector('[data-testid="pu-right-panel"]');
+        if (!panel) return;
+        panel.classList.add('collapsed');
+        PU.state.ui.rightPanelCollapsed = true;
+        PU.rightPanel._updateToggleIcon(true);
+        PU.helpers.saveUIState();
+    },
+
+    /**
+     * Expand the right panel.
+     */
+    expand() {
+        const panel = document.querySelector('[data-testid="pu-right-panel"]');
+        if (!panel) return;
+        panel.classList.remove('collapsed');
+        PU.state.ui.rightPanelCollapsed = false;
+        PU.rightPanel._updateToggleIcon(false);
+        PU.helpers.saveUIState();
+    },
+
+    /**
+     * Toggle the right panel open/closed.
+     */
+    togglePanel() {
+        if (PU.state.ui.rightPanelCollapsed) {
+            PU.rightPanel.expand();
+        } else {
+            PU.rightPanel.collapse();
+        }
+    },
+
+    /**
+     * Apply persisted collapsed state (called on init).
+     */
+    applyCollapsedState() {
+        if (PU.state.ui.rightPanelCollapsed) {
+            const panel = document.querySelector('[data-testid="pu-right-panel"]');
+            if (panel) panel.classList.add('collapsed');
+            PU.rightPanel._updateToggleIcon(true);
+        }
+    },
+
+    /**
+     * Update toggle icon in panel header.
+     */
+    _updateToggleIcon(collapsed) {
+        const headerBtn = document.querySelector('[data-testid="pu-rp-collapse-btn"]');
+        if (headerBtn) headerBtn.innerHTML = collapsed ? '&#9664;' : '&#9654;';
+    },
+
+    /**
+     * Show a contextual tip in the footer bar.
+     */
+    _showFooterTip(html) {
+        const tip = document.querySelector('[data-testid="pu-footer-tip"]');
+        if (!tip) return;
+        tip.innerHTML = html;
+        tip.classList.add('visible');
+    },
+
+    /**
+     * Hide the footer tip.
+     */
+    _hideFooterTip() {
+        const tip = document.querySelector('[data-testid="pu-footer-tip"]');
+        if (!tip) return;
+        tip.classList.remove('visible');
     }
 };
 

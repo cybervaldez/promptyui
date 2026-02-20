@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Progressive Operations — Preview</title>
+<style>
+/* ── Design Tokens ── */
+:root {
+    --pu-bg-primary: #191919;
+    --pu-bg-secondary: #202020;
+    --pu-bg-tertiary: #2f2f2f;
+    --pu-bg-input: #252525;
+    --pu-bg-hover: rgba(255, 255, 255, 0.04);
+    --pu-bg-selected: rgba(255, 255, 255, 0.06);
+    --pu-bg-elevated: #252525;
+    --pu-text-primary: #ebebeb;
+    --pu-text-secondary: #999999;
+    --pu-text-muted: #7a7a7a;
+    --pu-accent: #529CCA;
+    --pu-accent-bg: rgba(82, 156, 202, 0.08);
+    --pu-accent-light: rgba(82, 156, 202, 0.12);
+    --pu-accent-border: rgba(82, 156, 202, 0.25);
+    --pu-success: #4daa57;
+    --pu-success-bg: rgba(77, 170, 87, 0.12);
+    --pu-warning: #cb912f;
+    --pu-warning-bg: rgba(203, 145, 47, 0.1);
+    --pu-error: #e06c75;
+    --pu-purple: #c678dd;
+    --pu-purple-bg: rgba(198, 120, 221, 0.1);
+    --pu-border: rgba(255, 255, 255, 0.06);
+    --pu-border-light: rgba(255, 255, 255, 0.09);
+    --pu-radius-sm: 3px;
+    --pu-radius: 4px;
+    --pu-radius-lg: 6px;
+    --pu-radius-full: 9999px;
+    --pu-font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --pu-font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+    --pu-font-size-2xs: 10px;
+    --pu-font-size-xs: 11px;
+    --pu-font-size-sm: 12px;
+    --pu-font-size-md: 13px;
+    --pu-font-size-base: 14px;
+    --pu-font-size-lg: 16px;
+    --pu-space-xs: 4px;
+    --pu-space-sm: 8px;
+    --pu-space-md: 12px;
+    --pu-space-lg: 16px;
+    --pu-space-xl: 24px;
+    --pu-transition-fast: 120ms ease-out;
+    --pu-transition-normal: 200ms ease-out;
+    --pu-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+* { box-sizing: border-box; }
+body {
+    margin: 0; padding: 0;
+    font-family: var(--pu-font-body);
+    font-size: var(--pu-font-size-base);
+    line-height: 1.5;
+    background: var(--pu-bg-primary);
+    color: var(--pu-text-primary);
+}
+
+/* Scenario switcher */
+.preview-controls {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 3000;
+    background: var(--pu-bg-secondary);
+    border-bottom: 1px solid var(--pu-border-light);
+    padding: var(--pu-space-sm) var(--pu-space-lg);
+    display: flex; align-items: center; gap: var(--pu-space-lg);
+    font-size: var(--pu-font-size-sm); color: var(--pu-text-secondary);
+}
+.preview-controls label { cursor: pointer; display: flex; align-items: center; gap: 4px; }
+.preview-controls input[type="radio"] { accent-color: var(--pu-accent); }
+.preview-label {
+    font-family: var(--pu-font-mono); color: var(--pu-accent);
+    font-size: var(--pu-font-size-xs); background: var(--pu-accent-bg);
+    padding: 2px 6px; border-radius: var(--pu-radius-sm); margin-right: var(--pu-space-sm);
+}
+
+.scenario { display: none; margin-top: 40px; }
+.scenario.active { display: block; }
+
+/* ── Right Panel bottom section simulation ── */
+.rp-container {
+    width: 320px;
+    margin: var(--pu-space-xl) auto;
+    background: var(--pu-bg-secondary);
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius-lg);
+    overflow: hidden;
+}
+.rp-section-label {
+    font-size: var(--pu-font-size-2xs);
+    color: var(--pu-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: var(--pu-space-sm) var(--pu-space-md) var(--pu-space-xs);
+}
+
+/* Top bar */
+.rp-top-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--pu-space-sm);
+    padding: var(--pu-space-sm) var(--pu-space-md);
+    border-bottom: 1px solid var(--pu-border);
+    font-size: var(--pu-font-size-xs);
+}
+.scope-chip {
+    padding: 2px 6px;
+    background: var(--pu-accent-bg);
+    border: 1px solid var(--pu-accent-border);
+    border-radius: var(--pu-radius-sm);
+    color: var(--pu-accent);
+    font-family: var(--pu-font-mono);
+    font-size: var(--pu-font-size-2xs);
+}
+.rp-top-sep {
+    width: 1px;
+    height: 14px;
+    background: var(--pu-border);
+}
+.rp-op-label {
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-muted);
+}
+.rp-wc-count {
+    margin-left: auto;
+    font-size: var(--pu-font-size-2xs);
+    color: var(--pu-text-muted);
+    font-family: var(--pu-font-mono);
+}
+
+/* Wildcard entries */
+.wc-stream {
+    padding: var(--pu-space-sm);
+    max-height: 200px;
+    overflow-y: auto;
+}
+.pu-rp-wc-entry {
+    padding: 5px 6px;
+    border-radius: var(--pu-radius);
+    margin-bottom: 2px;
+}
+.pu-rp-wc-entry-header {
+    display: flex; align-items: center; gap: 5px; margin-bottom: 3px;
+}
+.pu-rp-wc-name {
+    font-family: var(--pu-font-mono); font-size: 11px;
+    color: var(--pu-text-primary); font-weight: 500;
+}
+.pu-rp-wc-source {
+    font-size: 9px; color: var(--pu-text-muted); margin-left: auto;
+    font-family: var(--pu-font-mono); opacity: 0.7;
+}
+.pu-rp-wc-values { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.pu-rp-wc-v {
+    font-size: 10px; padding: 2px 6px; background: transparent;
+    border: 1px solid transparent; border-radius: 3px;
+    color: var(--pu-text-muted); cursor: pointer;
+}
+.pu-rp-wc-v.active {
+    background: rgba(203, 145, 47, 0.10);
+    border: 1px solid rgba(203, 145, 47, 0.25);
+    color: var(--pu-text-primary);
+}
+
+/* ── Compositions section ── */
+.rp-compositions {
+    padding: var(--pu-space-sm) var(--pu-space-md);
+    border-top: 1px solid var(--pu-border);
+}
+.comp-nav {
+    display: flex;
+    align-items: center;
+    gap: var(--pu-space-sm);
+    margin-bottom: var(--pu-space-xs);
+}
+.comp-label {
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-secondary);
+    font-family: var(--pu-font-mono);
+}
+.comp-dims {
+    font-size: var(--pu-font-size-2xs);
+    color: var(--pu-text-muted);
+    font-family: var(--pu-font-mono);
+}
+.comp-export {
+    display: flex;
+    align-items: center;
+    gap: var(--pu-space-sm);
+    margin-top: var(--pu-space-sm);
+}
+.pu-btn-sm {
+    padding: 3px 8px;
+    background: var(--pu-bg-hover);
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius-sm);
+    color: var(--pu-text-primary);
+    font-size: var(--pu-font-size-xs);
+    cursor: pointer;
+    font-family: var(--pu-font-body);
+}
+.pu-btn-sm:hover { background: var(--pu-bg-selected); }
+
+/* ── Operation ghost card ── */
+.pu-op-ghost {
+    margin: var(--pu-space-sm) var(--pu-space-md);
+    padding: var(--pu-space-md);
+    border: 1px dashed var(--pu-border-light);
+    border-radius: var(--pu-radius);
+    background: transparent;
+    cursor: pointer;
+    transition: all var(--pu-transition-fast);
+}
+.pu-op-ghost:hover {
+    border-color: var(--pu-purple);
+    background: var(--pu-purple-bg);
+}
+.pu-op-ghost-title {
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.pu-op-ghost-title:hover { color: var(--pu-purple); }
+.pu-op-ghost-desc {
+    font-size: var(--pu-font-size-2xs);
+    color: var(--pu-text-muted);
+    margin-top: 4px;
+    line-height: 1.5;
+    opacity: 0.7;
+}
+.pu-op-ghost-example {
+    font-family: var(--pu-font-mono);
+    font-size: var(--pu-font-size-2xs);
+    color: var(--pu-purple);
+    margin-top: 6px;
+    padding: 4px 6px;
+    background: var(--pu-purple-bg);
+    border-radius: var(--pu-radius-sm);
+}
+
+/* ── Existing operation selector ── */
+.rp-op-selector {
+    padding: var(--pu-space-sm) var(--pu-space-md);
+    border-top: 1px solid var(--pu-border);
+}
+.op-select {
+    width: 100%;
+    padding: 4px 8px;
+    background: var(--pu-bg-input);
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius);
+    color: var(--pu-text-primary);
+    font-family: var(--pu-font-body);
+    font-size: var(--pu-font-size-sm);
+}
+.op-row {
+    display: flex;
+    align-items: center;
+    gap: var(--pu-space-sm);
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-muted);
+}
+
+.callout {
+    background: var(--pu-accent-bg); border: 1px solid var(--pu-accent-border);
+    border-radius: var(--pu-radius); padding: 6px 10px;
+    font-size: var(--pu-font-size-xs); color: var(--pu-accent);
+    max-width: 380px; line-height: 1.5;
+    margin: var(--pu-space-lg) auto;
+    text-align: center;
+}
+</style>
+</head>
+<body>
+
+<div class="preview-controls">
+    <span class="preview-label">GAP 5</span>
+    <label><input type="radio" name="scene" value="a" checked onchange="switchScene('a')"> A: No wildcards — ops hidden</label>
+    <label><input type="radio" name="scene" value="b" onchange="switchScene('b')"> B: Wildcards exist — ghost card</label>
+    <label><input type="radio" name="scene" value="c" onchange="switchScene('c')"> C: Operations exist — selector</label>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!-- SCENARIO A: No wildcards — operations section hidden entirely   -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<div class="scenario active" id="scene-a" data-testid="scene-ops-hidden">
+    <div class="rp-container">
+        <div class="rp-section-label">Right Panel</div>
+        <div class="wc-stream">
+            <div style="padding: 12px; font-size: var(--pu-font-size-sm); color: var(--pu-text-secondary); background: var(--pu-bg-primary); border-radius: var(--pu-radius); border: 1px solid var(--pu-border); line-height: 1.6;">
+                No wildcards or themes yet. The panel shows the composition navigator once wildcards are added.
+            </div>
+        </div>
+        <!-- Compositions: minimal, no operation mention -->
+        <div class="rp-compositions" data-testid="pu-rp-ops-section">
+            <div class="comp-nav">
+                <span class="comp-label">0 compositions</span>
+            </div>
+            <!-- NO operation label, NO export button -->
+        </div>
+    </div>
+
+    <div class="callout">
+        <strong>Zero wildcards = zero complexity.</strong><br>
+        No operation label, no export button, no composition dimensions. Just a flat "0 compositions" until there's something to compose.
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!-- SCENARIO B: Wildcards exist, no operations — ghost card         -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<div class="scenario" id="scene-b" data-testid="scene-ops-ghost">
+    <div class="rp-container">
+        <!-- Top bar appears with wildcards -->
+        <div class="rp-top-bar">
+            <span class="scope-chip">local</span>
+            <span class="rp-top-sep"></span>
+            <span class="rp-op-label" style="color: var(--pu-text-muted);">no operation</span>
+            <span class="rp-wc-count">2 wc</span>
+        </div>
+
+        <div class="wc-stream">
+            <div class="pu-rp-wc-entry">
+                <div class="pu-rp-wc-entry-header">
+                    <span class="pu-rp-wc-name">tone</span>
+                    <span class="pu-rp-wc-source">local</span>
+                </div>
+                <div class="pu-rp-wc-values">
+                    <span class="pu-rp-wc-v active">formal</span>
+                    <span class="pu-rp-wc-v">casual</span>
+                    <span class="pu-rp-wc-v">fun</span>
+                </div>
+            </div>
+            <div class="pu-rp-wc-entry">
+                <div class="pu-rp-wc-entry-header">
+                    <span class="pu-rp-wc-name">role</span>
+                    <span class="pu-rp-wc-source">local</span>
+                </div>
+                <div class="pu-rp-wc-values">
+                    <span class="pu-rp-wc-v active">engineer</span>
+                    <span class="pu-rp-wc-v">designer</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ghost card: operation hint -->
+        <div class="pu-op-ghost" data-testid="pu-op-ghost-card">
+            <div class="pu-op-ghost-title">+ New Operation</div>
+            <div class="pu-op-ghost-desc">
+                Swap wildcard values for a variant batch without changing the base prompts.
+            </div>
+            <div class="pu-op-ghost-example">
+                e.g. tone: "formal" &rarr; "diplomatic"
+            </div>
+        </div>
+
+        <!-- Compositions -->
+        <div class="rp-compositions">
+            <div class="comp-nav">
+                <span class="comp-label">6 compositions</span>
+                <span class="comp-dims">3 tone &times; 2 role</span>
+            </div>
+            <div class="comp-export">
+                <button class="pu-btn-sm">Export .txt (~1 KB)</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="callout">
+        <strong>Wildcards exist, operations don't.</strong><br>
+        A dashed ghost card with a concrete example explains what operations do. Hovering highlights in purple (the operation color). Clicking opens creation flow.
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!-- SCENARIO C: Operations exist — full selector                    -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<div class="scenario" id="scene-c" data-testid="scene-ops-exists">
+    <div class="rp-container">
+        <!-- Top bar with operation selector -->
+        <div class="rp-top-bar">
+            <span class="scope-chip">local</span>
+            <span class="rp-top-sep"></span>
+            <span class="rp-op-label" style="color: var(--pu-purple);">formal-batch</span>
+            <span class="rp-wc-count">2 wc</span>
+        </div>
+
+        <div class="wc-stream">
+            <div class="pu-rp-wc-entry">
+                <div class="pu-rp-wc-entry-header">
+                    <span class="pu-rp-wc-name">tone</span>
+                    <span class="pu-rp-wc-source">local</span>
+                </div>
+                <div class="pu-rp-wc-values">
+                    <span class="pu-rp-wc-v" style="background: var(--pu-purple-bg); color: var(--pu-purple); font-weight: 500;">diplomatic<span style="font-size: 8px; vertical-align: super; margin-left: 1px; opacity: 0.7;">*</span></span>
+                    <span class="pu-rp-wc-v">casual</span>
+                    <span class="pu-rp-wc-v">fun</span>
+                </div>
+            </div>
+            <div class="pu-rp-wc-entry">
+                <div class="pu-rp-wc-entry-header">
+                    <span class="pu-rp-wc-name">role</span>
+                    <span class="pu-rp-wc-source">local</span>
+                </div>
+                <div class="pu-rp-wc-values">
+                    <span class="pu-rp-wc-v active">engineer</span>
+                    <span class="pu-rp-wc-v">designer</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Operation selector -->
+        <div class="rp-op-selector" data-testid="pu-rp-op-section">
+            <div class="op-row" style="margin-bottom: 6px;">
+                <span>Operation:</span>
+                <select class="op-select" style="width: auto; flex: 1;">
+                    <option value="">None</option>
+                    <option value="formal-batch" selected>formal-batch</option>
+                    <option value="casual-batch">casual-batch</option>
+                </select>
+            </div>
+            <div style="font-size: var(--pu-font-size-2xs); color: var(--pu-text-muted);">
+                <span style="color: var(--pu-purple);">*</span> tone: formal &rarr; diplomatic
+            </div>
+        </div>
+
+        <!-- Compositions -->
+        <div class="rp-compositions">
+            <div class="comp-nav">
+                <span class="comp-label">6 compositions</span>
+                <span class="comp-dims">3 tone &times; 2 role</span>
+            </div>
+            <div class="comp-export">
+                <button class="pu-btn-sm">Export .txt (~1 KB)</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="callout">
+        <strong>Operations created.</strong><br>
+        Full selector with dropdown. Replaced values show in purple with asterisk. The ghost card is gone — replaced by the real operation selector.
+    </div>
+</div>
+
+<script>
+function switchScene(id) {
+    document.querySelectorAll('.scenario').forEach(s => s.classList.remove('active'));
+    document.getElementById('scene-' + id).classList.add('active');
+}
+</script>
+</body>
+</html>

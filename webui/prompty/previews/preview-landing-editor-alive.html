@@ -1,0 +1,1567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PromptyUI — Editor Comes Alive</title>
+<style>
+/* ============================================
+   CSS Custom Properties
+   ============================================ */
+:root {
+    /* Core palette */
+    --bg-deep: #0a0a0a;
+    --bg-surface: #161b22;
+    --bg-elevated: #1c2128;
+    --bg-sidebar: #13161a;
+    --bg-panel: #141820;
+    --bg-input: #0d1117;
+
+    /* Text */
+    --text-primary: #e6edf3;
+    --text-secondary: #8b949e;
+    --text-muted: #484f58;
+    --text-link: #58a6ff;
+
+    /* Accent colors */
+    --color-blue: #58a6ff;
+    --color-blue-bg: rgba(88, 166, 255, 0.15);
+    --color-blue-border: rgba(88, 166, 255, 0.4);
+    --color-green: #3fb950;
+    --color-green-dim: rgba(63, 185, 80, 0.3);
+    --color-amber: #ff6b35;
+    --color-amber-dim: rgba(255, 107, 53, 0.15);
+    --color-purple: #bc8cff;
+    --color-purple-bg: rgba(188, 140, 255, 0.15);
+    --color-red: #f85149;
+    --color-yellow: #d29922;
+    --color-orange: #db6d28;
+
+    /* Borders */
+    --border-default: rgba(240, 246, 252, 0.1);
+    --border-muted: rgba(240, 246, 252, 0.06);
+
+    /* Shadows */
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+
+    /* Motion tokens */
+    --motion-fast: 200ms;
+    --motion-medium: 400ms;
+    --motion-slow: 600ms;
+
+    /* Layout */
+    --sidebar-width: 0px;
+    --right-panel-width: 0px;
+    --titlebar-height: 0px;
+}
+
+/* ============================================
+   Reset & Base
+   ============================================ */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    line-height: 1.6;
+    overflow-x: hidden;
+}
+
+/* ============================================
+   Section Layout
+   ============================================ */
+.section {
+    min-height: 100vh;
+    position: relative;
+}
+
+.section--full {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 80px 40px;
+}
+
+.section--split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 100vh;
+}
+
+/* Narrative column (left) */
+.narrative {
+    padding: 120px 60px 120px 80px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+    z-index: 2;
+}
+
+.narrative h2 {
+    font-size: 2.2rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.3;
+    margin-bottom: 16px;
+    color: var(--text-primary);
+}
+
+.narrative p {
+    font-size: 1.15rem;
+    color: var(--text-secondary);
+    max-width: 460px;
+    margin-bottom: 12px;
+    line-height: 1.7;
+}
+
+.narrative .counter {
+    font-family: 'Courier New', monospace;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-amber);
+    margin-top: 8px;
+    transition: all var(--motion-medium) ease-out;
+}
+
+.narrative .math {
+    font-family: 'Courier New', monospace;
+    font-size: 1.3rem;
+    color: var(--color-blue);
+    margin-top: 12px;
+    opacity: 0;
+    transition: opacity var(--motion-medium) ease-out;
+}
+
+.narrative .math.visible {
+    opacity: 1;
+}
+
+/* Mini-scene bullets */
+.mini-scene {
+    margin-bottom: 32px;
+    padding-left: 20px;
+    border-left: 2px solid var(--border-default);
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all var(--motion-medium) ease-out;
+}
+
+.mini-scene.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.mini-scene h3 {
+    font-size: 1.1rem;
+    color: var(--color-blue);
+    margin-bottom: 4px;
+}
+
+.mini-scene p {
+    font-size: 1rem;
+    color: var(--text-secondary);
+}
+
+/* ============================================
+   Sticky Editor Panel (right column)
+   ============================================ */
+.sticky-col {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+}
+
+/* ============================================
+   Editor Mockup
+   ============================================ */
+.editor-frame {
+    width: 100%;
+    max-width: 540px;
+    height: 380px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border-default);
+    box-shadow: var(--shadow-lg);
+    background: var(--bg-surface);
+    transition: border-color var(--motion-medium) ease-out,
+                box-shadow var(--motion-medium) ease-out;
+}
+
+/* Title bar */
+.editor-titlebar {
+    height: var(--titlebar-height);
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border-muted);
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    gap: 8px;
+    overflow: hidden;
+    transition: height var(--motion-medium) ease-out;
+    flex-shrink: 0;
+}
+
+.editor-titlebar .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    opacity: 0;
+    transform: scale(0);
+    transition: all var(--motion-fast) ease-out;
+}
+
+.editor-titlebar .dot.visible {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.editor-titlebar .dot--red { background: var(--color-red); }
+.editor-titlebar .dot--yellow { background: var(--color-yellow); }
+.editor-titlebar .dot--green { background: var(--color-green); }
+
+.editor-titlebar .titlebar-text {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-left: auto;
+    opacity: 0;
+    transition: opacity var(--motion-medium) ease-out;
+    white-space: nowrap;
+}
+
+.editor-titlebar .titlebar-text.visible {
+    opacity: 1;
+}
+
+.editor-titlebar .composition-counter {
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    color: var(--color-amber);
+    margin-left: 8px;
+    opacity: 0;
+    transition: opacity var(--motion-medium) ease-out;
+    white-space: nowrap;
+}
+
+.editor-titlebar .composition-counter.visible {
+    opacity: 1;
+}
+
+.editor-titlebar .export-btn {
+    font-size: 11px;
+    background: var(--color-blue);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 3px 10px;
+    cursor: pointer;
+    opacity: 0;
+    transform: scale(0.8);
+    transition: all var(--motion-fast) ease-out;
+    white-space: nowrap;
+}
+
+.editor-titlebar .export-btn.visible {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* Editor body: sidebar + content + right panel */
+.editor-body {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    position: relative;
+}
+
+/* Sidebar */
+.editor-sidebar {
+    width: var(--sidebar-width);
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border-muted);
+    overflow: hidden;
+    transition: width var(--motion-slow) ease-out;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: width var(--motion-slow) ease-out,
+                opacity var(--motion-medium) ease-out;
+}
+
+.editor-sidebar.visible {
+    opacity: 1;
+}
+
+.editor-sidebar-inner {
+    width: 160px;
+    padding: 14px 12px;
+}
+
+.sidebar-header {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+}
+
+.sidebar-item {
+    font-size: 12px;
+    color: var(--text-secondary);
+    padding: 5px 8px;
+    border-radius: 4px;
+    margin-bottom: 2px;
+    cursor: default;
+    white-space: nowrap;
+}
+
+.sidebar-item--parent {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.sidebar-item--child {
+    padding-left: 22px;
+    position: relative;
+}
+
+.sidebar-item--child::before {
+    content: '';
+    position: absolute;
+    left: 12px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--border-default);
+}
+
+.sidebar-item--active {
+    background: rgba(88, 166, 255, 0.1);
+    color: var(--color-blue);
+}
+
+/* Main content area */
+.editor-content {
+    flex: 1;
+    padding: 20px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--text-primary);
+    position: relative;
+    min-width: 0;
+    overflow: hidden;
+}
+
+/* Blinking cursor */
+.cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1.1em;
+    background: var(--color-green);
+    vertical-align: text-bottom;
+    animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+
+/* Typed text container */
+.typed-text {
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* Wildcard chips */
+.wildcard-chip {
+    display: inline-block;
+    background: var(--color-blue-bg);
+    border: 1px solid var(--color-blue-border);
+    color: var(--color-blue);
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin: 0 2px;
+    position: relative;
+    transition: all 300ms ease-out;
+    transform: scale(0);
+    opacity: 0;
+}
+
+.wildcard-chip.visible {
+    transform: scale(1);
+    opacity: 1;
+}
+
+.wildcard-chip.has-lock .lock-icon {
+    margin-left: 4px;
+    font-size: 10px;
+    opacity: 0;
+    transition: opacity var(--motion-fast) ease-out;
+}
+
+.wildcard-chip.has-lock .lock-icon.visible {
+    opacity: 1;
+}
+
+/* Wildcard popover */
+.wildcard-popover {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: 6px;
+    padding: 8px 0;
+    box-shadow: var(--shadow-md);
+    z-index: 10;
+    min-width: 140px;
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: all var(--motion-fast) ease-out;
+    pointer-events: none;
+}
+
+.wildcard-popover.visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.popover-item {
+    padding: 4px 14px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-family: 'Courier New', monospace;
+    cursor: default;
+}
+
+.popover-item--active {
+    background: var(--color-blue-bg);
+    color: var(--color-blue);
+}
+
+/* Theme cards in editor content */
+.theme-cards {
+    margin-top: 16px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: all var(--motion-medium) ease-out;
+}
+
+.theme-cards.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.theme-card {
+    background: var(--color-purple-bg);
+    border: 1px solid rgba(188, 140, 255, 0.25);
+    border-radius: 5px;
+    padding: 6px 12px;
+    font-size: 11px;
+    color: var(--color-purple);
+    font-family: 'Courier New', monospace;
+}
+
+/* Ops dropdown */
+.ops-dropdown {
+    margin-top: 12px;
+    padding: 6px 10px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-default);
+    border-radius: 4px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    opacity: 0;
+    transition: opacity var(--motion-medium) ease-out;
+}
+
+.ops-dropdown.visible {
+    opacity: 1;
+}
+
+.ops-dropdown .ops-label {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Right panel */
+.editor-right-panel {
+    width: var(--right-panel-width);
+    background: var(--bg-panel);
+    border-left: 1px solid var(--border-muted);
+    overflow: hidden;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: width var(--motion-slow) ease-out,
+                opacity var(--motion-medium) ease-out;
+    display: flex;
+    flex-direction: column;
+}
+
+.editor-right-panel.visible {
+    opacity: 1;
+}
+
+.right-panel-inner {
+    width: 220px;
+    padding: 14px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    flex: 1;
+}
+
+.right-panel-header {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+/* Right panel wildcard entries */
+.right-panel-entry {
+    opacity: 0;
+    transform: translateX(12px);
+    transition: all var(--motion-medium) ease-out;
+}
+
+.right-panel-entry.visible {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.entry-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.entry-label .bucket-tag {
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--color-amber);
+    background: var(--color-amber-dim);
+    padding: 1px 5px;
+    border-radius: 3px;
+    opacity: 0;
+    transition: opacity var(--motion-fast) ease-out;
+}
+
+.entry-label .bucket-tag.visible {
+    opacity: 1;
+}
+
+.entry-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.entry-chip {
+    font-size: 11px;
+    font-family: 'Courier New', monospace;
+    padding: 2px 8px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-secondary);
+    cursor: default;
+    transition: all var(--motion-fast) ease-out;
+}
+
+.entry-chip--active {
+    background: var(--color-blue-bg);
+    color: var(--color-blue);
+    border: 1px solid var(--color-blue-border);
+}
+
+/* Output list */
+.output-list {
+    opacity: 0;
+    transition: opacity var(--motion-medium) ease-out;
+}
+
+.output-list.visible {
+    opacity: 1;
+}
+
+.output-list-header {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+
+.output-item {
+    font-size: 10px;
+    font-family: 'Courier New', monospace;
+    color: var(--text-muted);
+    padding: 3px 0;
+    border-bottom: 1px solid var(--border-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.output-item .num {
+    color: var(--text-secondary);
+    margin-right: 6px;
+}
+
+.output-item--active {
+    color: var(--text-primary);
+}
+
+/* ============================================
+   Section 0 — Hook
+   ============================================ */
+.hook-line {
+    font-size: 2.4rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.4;
+    opacity: 0;
+    transform: translateY(24px);
+    transition: all var(--motion-slow) ease-out;
+}
+
+.hook-line.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.hook-line:nth-child(2) {
+    transition-delay: 200ms;
+    color: var(--text-secondary);
+    font-size: 1.8rem;
+}
+
+.hook-line:nth-child(3) {
+    transition-delay: 400ms;
+    color: var(--color-blue);
+    font-size: 2rem;
+    margin-top: 24px;
+}
+
+/* ============================================
+   Section 6 — Close
+   ============================================ */
+.close-tagline {
+    font-size: 2.4rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    margin-bottom: 16px;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all var(--motion-slow) ease-out;
+}
+
+.close-tagline.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.close-sub {
+    font-size: 1.15rem;
+    color: var(--text-secondary);
+    margin-bottom: 40px;
+    opacity: 0;
+    transition: opacity var(--motion-slow) ease-out 200ms;
+}
+
+.close-sub.visible {
+    opacity: 1;
+}
+
+.cta-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 40px;
+    opacity: 0;
+    transform: translateY(12px);
+    transition: all var(--motion-slow) ease-out 300ms;
+}
+
+.cta-row.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.cta-btn {
+    font-size: 1rem;
+    font-weight: 600;
+    padding: 12px 28px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all var(--motion-fast) ease-out;
+}
+
+.cta-btn--primary {
+    background: var(--color-blue);
+    color: #fff;
+}
+
+.cta-btn--primary:hover {
+    background: #79b8ff;
+    transform: translateY(-1px);
+}
+
+.cta-btn--secondary {
+    background: transparent;
+    color: var(--text-primary);
+    border: 1px solid var(--border-default);
+}
+
+.cta-btn--secondary:hover {
+    border-color: var(--text-muted);
+    transform: translateY(-1px);
+}
+
+.footer-links {
+    display: flex;
+    gap: 24px;
+    opacity: 0;
+    transition: opacity var(--motion-slow) ease-out 500ms;
+}
+
+.footer-links.visible {
+    opacity: 1;
+}
+
+.footer-links a {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: color var(--motion-fast) ease-out;
+}
+
+.footer-links a:hover {
+    color: var(--text-primary);
+}
+
+/* ============================================
+   Big counter animation
+   ============================================ */
+.big-counter {
+    font-family: 'Courier New', monospace;
+    font-size: 3rem;
+    font-weight: 700;
+    color: var(--color-amber);
+    margin-top: 16px;
+    opacity: 0;
+    transition: opacity var(--motion-medium) ease-out;
+}
+
+.big-counter.visible {
+    opacity: 1;
+}
+
+/* ============================================
+   Dissolve effect for close
+   ============================================ */
+.editor-frame.dissolving {
+    opacity: 0;
+    transform: scale(0.96);
+    transition: all 1s ease-out;
+}
+
+/* ============================================
+   Responsive
+   ============================================ */
+@media (max-width: 900px) {
+    .section--split {
+        grid-template-columns: 1fr;
+    }
+
+    .sticky-col {
+        position: relative;
+        height: auto;
+        min-height: 50vh;
+    }
+
+    .narrative {
+        padding: 60px 32px;
+    }
+}
+
+/* ============================================
+   Highlighted text (before chip formation)
+   ============================================ */
+.highlight-word {
+    display: inline;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: transparent;
+    border: 1px solid transparent;
+    transition: all 300ms ease-out;
+}
+
+.highlight-word.highlighted {
+    background: var(--color-blue-bg);
+    border-color: var(--color-blue-border);
+}
+
+.highlight-word.hidden {
+    display: none;
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================
+     SECTION 0 — HOOK
+     ============================================ -->
+<section class="section section--full" data-testid="section-0" id="section-0">
+    <div class="hook-line">You write prompts for AI.</div>
+    <div class="hook-line">You copy-paste them 60 times.</div>
+    <div class="hook-line">What if you didn't?</div>
+</section>
+
+<!-- ============================================
+     SECTION 1 — BEFORE
+     ============================================ -->
+<section class="section section--split" data-testid="section-1" id="section-1">
+    <div class="narrative">
+        <h2>You start with a prompt.</h2>
+        <p>One carefully crafted sentence. You know the words matter.</p>
+        <p>Then you need variations. You duplicate it. Tweak one word. Duplicate again.</p>
+        <p>The copies multiply.</p>
+        <div class="counter" id="counter-1">12 prompts</div>
+    </div>
+    <div class="sticky-col" id="sticky-editor">
+        <div class="editor-frame" id="editor-frame">
+            <div class="editor-titlebar">
+                <span class="dot dot--red"></span>
+                <span class="dot dot--yellow"></span>
+                <span class="dot dot--green"></span>
+                <span class="titlebar-text">prompt-a.yaml</span>
+                <span class="composition-counter" id="comp-counter">Composition 42 / 1,679,616</span>
+                <button class="export-btn" id="export-btn">Export</button>
+            </div>
+            <div class="editor-body">
+                <div class="editor-sidebar" id="editor-sidebar">
+                    <div class="editor-sidebar-inner">
+                        <div class="sidebar-header">Jobs</div>
+                        <div class="sidebar-item sidebar-item--parent">landscape-gen</div>
+                        <div class="sidebar-item sidebar-item--child sidebar-item--active">prompt-a</div>
+                        <div class="sidebar-item sidebar-item--child">prompt-b</div>
+                        <div class="sidebar-item sidebar-item--parent" style="margin-top:8px">portrait-gen</div>
+                        <div class="sidebar-item sidebar-item--child">headshot</div>
+                    </div>
+                </div>
+                <div class="editor-content" id="editor-content">
+                    <span class="typed-text" id="typed-text"></span><span class="cursor" id="cursor"></span>
+
+                    <!-- Theme cards (shown in section 4) -->
+                    <div class="theme-cards" id="theme-cards">
+                        <div class="theme-card">ext/landscapes</div>
+                        <div class="theme-card">ext/seasons</div>
+                        <div class="theme-card">ext/styles</div>
+                    </div>
+                </div>
+                <div class="editor-right-panel" id="editor-right-panel">
+                    <div class="right-panel-inner">
+                        <div class="right-panel-header">Wildcards</div>
+
+                        <div class="right-panel-entry" id="rp-season">
+                            <div class="entry-label">
+                                season
+                                <span class="bucket-tag" id="bucket-season">[1/2]</span>
+                            </div>
+                            <div class="entry-chips">
+                                <span class="entry-chip entry-chip--active">autumn</span>
+                                <span class="entry-chip">winter</span>
+                                <span class="entry-chip">spring</span>
+                                <span class="entry-chip">summer</span>
+                            </div>
+                        </div>
+
+                        <div class="right-panel-entry" id="rp-style">
+                            <div class="entry-label">
+                                style
+                                <span class="bucket-tag" id="bucket-style">[1/3]</span>
+                            </div>
+                            <div class="entry-chips">
+                                <span class="entry-chip entry-chip--active">watercolor</span>
+                                <span class="entry-chip">oil painting</span>
+                                <span class="entry-chip">digital art</span>
+                                <span class="entry-chip">pencil sketch</span>
+                            </div>
+                        </div>
+
+                        <div class="output-list" id="output-list">
+                            <div class="output-list-header">Output</div>
+                            <div class="output-item output-item--active"><span class="num">#1</span>autumn, watercolor</div>
+                            <div class="output-item"><span class="num">#2</span>autumn, oil painting</div>
+                            <div class="output-item"><span class="num">#3</span>autumn, digital art</div>
+                            <div class="output-item"><span class="num">#4</span>autumn, pencil sketch</div>
+                            <div class="output-item"><span class="num">#5</span>winter, watercolor</div>
+                            <div class="output-item"><span class="num">#6</span>winter, oil painting</div>
+                            <div class="output-item"><span class="num">#7</span>winter, digital art</div>
+                            <div class="output-item"><span class="num">#8</span>winter, pencil sketch</div>
+                            <div class="output-item"><span class="num">#9</span>spring, watercolor</div>
+                            <div class="output-item"><span class="num">#10</span>spring, oil painting</div>
+                            <div class="output-item"><span class="num">#11</span>spring, digital art</div>
+                            <div class="output-item"><span class="num">#12</span>spring, pencil sketch</div>
+                            <div class="output-item"><span class="num">#13</span>summer, watercolor</div>
+                            <div class="output-item"><span class="num">#14</span>summer, oil painting</div>
+                            <div class="output-item"><span class="num">#15</span>summer, digital art</div>
+                            <div class="output-item"><span class="num">#16</span>summer, pencil sketch</div>
+                        </div>
+
+                        <div class="ops-dropdown" id="ops-dropdown">
+                            <span class="ops-label">Ops</span>
+                            <span>localize-jp.yaml</span>
+                            <span style="margin-left:auto; font-size:10px">&#9662;</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ============================================
+     SECTION 2 — THE TURN
+     ============================================ -->
+<section class="section section--split" data-testid="section-2" id="section-2">
+    <div class="narrative">
+        <h2>Or you write it once.</h2>
+        <p>The parts that change? Mark them as wildcards.</p>
+        <p><code style="color:var(--color-blue);background:var(--color-blue-bg);padding:2px 6px;border-radius:3px">__season__</code> replaces "autumn" with every value you define.</p>
+        <p><code style="color:var(--color-blue);background:var(--color-blue-bg);padding:2px 6px;border-radius:3px">__style__</code> replaces "watercolor" with every medium.</p>
+        <div class="math" id="math-turn">4 seasons &times; 4 styles = 16 prompts</div>
+    </div>
+    <div class="sticky-col">
+        <!-- shares the same sticky editor from section 1 via scroll context -->
+        <div style="color:var(--text-muted);font-size:0.9rem;text-align:center">
+            &#8593; Editor builds as you scroll &#8593;
+        </div>
+    </div>
+</section>
+
+<!-- ============================================
+     SECTION 3 — OUTPUT
+     ============================================ -->
+<section class="section section--split" data-testid="section-3" id="section-3">
+    <div class="narrative">
+        <h2>Every combination. Generated.</h2>
+        <p>Click any value to preview that specific combination instantly.</p>
+        <p>The right panel shows every wildcard dimension and its values. Pick one, see the result.</p>
+        <p>No more guessing which version you exported.</p>
+    </div>
+    <div class="sticky-col">
+        <div style="color:var(--text-muted);font-size:0.9rem;text-align:center">
+            &#8593; Editor builds as you scroll &#8593;
+        </div>
+    </div>
+</section>
+
+<!-- ============================================
+     SECTION 4 — DEPTH
+     ============================================ -->
+<section class="section section--split" data-testid="section-4" id="section-4">
+    <div class="narrative">
+        <div class="mini-scene" id="ms-themes">
+            <h3>Themes</h3>
+            <p>Import reusable text lists from shared theme files. Your prompt references <code style="color:var(--color-purple)">ext/landscapes</code> and gets every landscape instantly.</p>
+        </div>
+        <div class="mini-scene" id="ms-locks">
+            <h3>Locks</h3>
+            <p>Pin a wildcard value to freeze it across all combinations. Lock "autumn" while you iterate on styles.</p>
+        </div>
+        <div class="mini-scene" id="ms-ops">
+            <h3>Operations</h3>
+            <p>Named transforms that swap values per batch. Localize to Japanese? A/B test tones? Apply an operation file.</p>
+        </div>
+    </div>
+    <div class="sticky-col">
+        <div style="color:var(--text-muted);font-size:0.9rem;text-align:center">
+            &#8593; Editor builds as you scroll &#8593;
+        </div>
+    </div>
+</section>
+
+<!-- ============================================
+     SECTION 5 — SCALE
+     ============================================ -->
+<section class="section section--split" data-testid="section-5" id="section-5">
+    <div class="narrative">
+        <h2>It scales.</h2>
+        <p>8 wildcards. 6 values each.</p>
+        <div class="big-counter" id="big-counter">0</div>
+        <p style="margin-top:8px">total combinations.</p>
+        <p style="margin-top:16px">Bucketing shows 9 at a time. You navigate the composition space, not a spreadsheet.</p>
+        <p>When you're ready, one click exports everything.</p>
+    </div>
+    <div class="sticky-col">
+        <div style="color:var(--text-muted);font-size:0.9rem;text-align:center">
+            &#8593; Editor builds as you scroll &#8593;
+        </div>
+    </div>
+</section>
+
+<!-- ============================================
+     SECTION 6 — CLOSE
+     ============================================ -->
+<section class="section section--full" data-testid="section-6" id="section-6">
+    <div class="close-tagline">One prompt. Every combination.</div>
+    <div class="close-sub">Self-hosted. No accounts. Your data stays yours.</div>
+    <div class="cta-row">
+        <a href="#" class="cta-btn cta-btn--primary" data-testid="cta-get-started">Get Started</a>
+        <a href="#" class="cta-btn cta-btn--secondary" data-testid="cta-cookbook">Read the Cookbook</a>
+    </div>
+    <div class="footer-links">
+        <a href="#">GitHub</a>
+        <a href="#">Docs</a>
+        <a href="#">Discord</a>
+    </div>
+</section>
+
+
+<script>
+/* ============================================
+   SCROLL STATE MACHINE
+   ============================================
+   Each section has an IntersectionObserver that
+   triggers the corresponding visual state in the
+   sticky editor panel.
+   ============================================ */
+
+(function () {
+    'use strict';
+
+    // --- State tracking ---
+    let currentPhase = -1;
+    let typewriterDone = false;
+    let typewriterRunning = false;
+    let chipsFormed = false;
+    let bigCounterAnimated = false;
+
+    // --- DOM refs ---
+    const editorFrame = document.getElementById('editor-frame');
+    const typedText = document.getElementById('typed-text');
+    const cursor = document.getElementById('cursor');
+    const editorContent = document.getElementById('editor-content');
+    const editorSidebar = document.getElementById('editor-sidebar');
+    const editorRightPanel = document.getElementById('editor-right-panel');
+    const titlebar = document.querySelector('.editor-titlebar');
+    const dots = document.querySelectorAll('.editor-titlebar .dot');
+    const titlebarText = document.querySelector('.titlebar-text');
+    const compCounter = document.getElementById('comp-counter');
+    const exportBtn = document.getElementById('export-btn');
+    const themeCards = document.getElementById('theme-cards');
+    const opsDropdown = document.getElementById('ops-dropdown');
+    const outputList = document.getElementById('output-list');
+    const rpSeason = document.getElementById('rp-season');
+    const rpStyle = document.getElementById('rp-style');
+    const bucketSeason = document.getElementById('bucket-season');
+    const bucketStyle = document.getElementById('bucket-style');
+    const bigCounter = document.getElementById('big-counter');
+
+    // --- Full prompt text for typewriter ---
+    const fullPrompt = 'A cozy cabin in the mountains during autumn, watercolor painting';
+
+    // --- Typewriter ---
+    function runTypewriter(callback) {
+        if (typewriterRunning || typewriterDone) return;
+        typewriterRunning = true;
+        let i = 0;
+
+        function typeNext() {
+            if (i < fullPrompt.length) {
+                typedText.textContent += fullPrompt[i];
+                i++;
+                setTimeout(typeNext, 30);
+            } else {
+                typewriterDone = true;
+                typewriterRunning = false;
+                if (callback) callback();
+            }
+        }
+        typeNext();
+    }
+
+    // --- Chip formation (replaces words in typed text with chips) ---
+    function formChips() {
+        if (chipsFormed) return;
+        chipsFormed = true;
+
+        const text = typedText.textContent;
+
+        // First, highlight "autumn"
+        setTimeout(() => {
+            replaceWordWithHighlight('autumn');
+
+            // Then transform to chip
+            setTimeout(() => {
+                replaceHighlightWithChip('autumn', '__season__');
+
+                // Show popover briefly
+                setTimeout(() => {
+                    showPopover();
+
+                    // Next, highlight "watercolor"
+                    setTimeout(() => {
+                        replaceWordWithHighlight('watercolor');
+
+                        setTimeout(() => {
+                            replaceHighlightWithChip('watercolor', '__style__');
+                            hidePopover();
+
+                            // Show math
+                            const mathEl = document.getElementById('math-turn');
+                            if (mathEl) mathEl.classList.add('visible');
+                        }, 400);
+                    }, 300);
+                }, 200);
+            }, 500);
+        }, 200);
+    }
+
+    function replaceWordWithHighlight(word) {
+        const content = typedText.innerHTML;
+        const regex = new RegExp('(' + escapeRegex(word) + ')', 'i');
+        typedText.innerHTML = content.replace(regex,
+            '<span class="highlight-word highlighted">$1</span>');
+    }
+
+    function replaceHighlightWithChip(word, chipLabel) {
+        const highlighted = typedText.querySelector('.highlight-word.highlighted');
+        if (!highlighted) return;
+
+        const chip = document.createElement('span');
+        chip.className = 'wildcard-chip';
+        chip.textContent = chipLabel;
+
+        if (chipLabel === '__season__') {
+            // Add popover
+            const popover = document.createElement('div');
+            popover.className = 'wildcard-popover';
+            popover.id = 'season-popover';
+            popover.innerHTML = [
+                '<div class="popover-item popover-item--active">autumn</div>',
+                '<div class="popover-item">winter</div>',
+                '<div class="popover-item">spring</div>',
+                '<div class="popover-item">summer</div>'
+            ].join('');
+            chip.appendChild(popover);
+        }
+
+        highlighted.replaceWith(chip);
+
+        // Trigger animation
+        requestAnimationFrame(() => {
+            chip.classList.add('visible');
+        });
+    }
+
+    function showPopover() {
+        const popover = document.getElementById('season-popover');
+        if (popover) {
+            popover.classList.add('visible');
+        }
+    }
+
+    function hidePopover() {
+        const popover = document.getElementById('season-popover');
+        if (popover) {
+            setTimeout(() => {
+                popover.classList.remove('visible');
+            }, 1200);
+        }
+    }
+
+    function escapeRegex(str) {
+        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    // --- Counter animation for section 1 ---
+    function animateCounter1() {
+        const counter = document.getElementById('counter-1');
+        const values = [12, 24, 36, 48, 60];
+        let i = 0;
+
+        function next() {
+            if (i < values.length) {
+                counter.textContent = values[i] + ' prompts';
+                i++;
+                setTimeout(next, 400);
+            }
+        }
+        next();
+    }
+
+    // --- Big counter animation for section 5 ---
+    function animateBigCounter() {
+        if (bigCounterAnimated) return;
+        bigCounterAnimated = true;
+        bigCounter.classList.add('visible');
+
+        const target = 1679616;
+        const duration = 2000;
+        const startTime = performance.now();
+
+        function tick(now) {
+            const elapsed = now - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            // Ease out cubic
+            const eased = 1 - Math.pow(1 - progress, 3);
+            const value = Math.floor(eased * target);
+            bigCounter.textContent = value.toLocaleString();
+
+            if (progress < 1) {
+                requestAnimationFrame(tick);
+            } else {
+                bigCounter.textContent = target.toLocaleString();
+            }
+        }
+        requestAnimationFrame(tick);
+    }
+
+    // --- Phase transitions ---
+    function transitionToPhase(phase) {
+        if (phase <= currentPhase) return;
+
+        // Execute all phases up to and including the target
+        for (let p = currentPhase + 1; p <= phase; p++) {
+            applyPhase(p);
+        }
+        currentPhase = phase;
+    }
+
+    function applyPhase(phase) {
+        switch (phase) {
+            case 0:
+                // Hook — animate text lines
+                document.querySelectorAll('.hook-line').forEach((el, i) => {
+                    setTimeout(() => el.classList.add('visible'), i * 300);
+                });
+                break;
+
+            case 1:
+                // Before — cursor visible, start typewriter, show counter growing
+                cursor.style.display = 'inline-block';
+                setTimeout(() => {
+                    runTypewriter();
+                    animateCounter1();
+                }, 300);
+                break;
+
+            case 2:
+                // The Turn — form chips, show titlebar
+                if (!typewriterDone) {
+                    // Force complete typewriter
+                    typedText.textContent = fullPrompt;
+                    typewriterDone = true;
+                    typewriterRunning = false;
+                }
+
+                // Show titlebar
+                editorFrame.style.setProperty('--titlebar-height', '36px');
+                setTimeout(() => {
+                    dots.forEach((dot, i) => {
+                        setTimeout(() => dot.classList.add('visible'), i * 100);
+                    });
+                }, 200);
+
+                setTimeout(() => {
+                    titlebarText.classList.add('visible');
+                }, 500);
+
+                // Form chips
+                setTimeout(() => formChips(), 600);
+                break;
+
+            case 3:
+                // Output — right panel materializes
+                editorFrame.style.setProperty('--right-panel-width', '220px');
+                editorRightPanel.classList.add('visible');
+
+                setTimeout(() => {
+                    rpSeason.classList.add('visible');
+                }, 300);
+                setTimeout(() => {
+                    rpStyle.classList.add('visible');
+                }, 500);
+                setTimeout(() => {
+                    outputList.classList.add('visible');
+                }, 700);
+                break;
+
+            case 4:
+                // Depth — sidebar materializes, theme cards, lock icons, ops
+                editorFrame.style.setProperty('--sidebar-width', '160px');
+                editorSidebar.classList.add('visible');
+
+                // Mini-scenes
+                setTimeout(() => {
+                    document.getElementById('ms-themes').classList.add('visible');
+                }, 200);
+                setTimeout(() => {
+                    themeCards.classList.add('visible');
+                }, 400);
+                setTimeout(() => {
+                    document.getElementById('ms-locks').classList.add('visible');
+                }, 600);
+                setTimeout(() => {
+                    // Add lock icons to chips in right panel
+                    rpSeason.querySelectorAll('.entry-chip--active').forEach(chip => {
+                        if (!chip.querySelector('.lock-icon')) {
+                            const lock = document.createElement('span');
+                            lock.className = 'lock-icon';
+                            lock.textContent = ' \uD83D\uDD12';
+                            lock.style.fontSize = '9px';
+                            chip.appendChild(lock);
+                            setTimeout(() => lock.classList.add('visible'), 50);
+                        }
+                    });
+                }, 800);
+                setTimeout(() => {
+                    document.getElementById('ms-ops').classList.add('visible');
+                }, 900);
+                setTimeout(() => {
+                    opsDropdown.classList.add('visible');
+                }, 1100);
+                break;
+
+            case 5:
+                // Scale — composition counter, bucket tags, export btn, big counter
+                compCounter.classList.add('visible');
+                setTimeout(() => {
+                    exportBtn.classList.add('visible');
+                }, 300);
+                setTimeout(() => {
+                    bucketSeason.classList.add('visible');
+                    bucketStyle.classList.add('visible');
+                }, 500);
+                setTimeout(() => {
+                    animateBigCounter();
+                }, 400);
+                break;
+
+            case 6:
+                // Close — dissolve editor, reveal close text
+                editorFrame.classList.add('dissolving');
+
+                setTimeout(() => {
+                    document.querySelector('.close-tagline').classList.add('visible');
+                }, 400);
+                setTimeout(() => {
+                    document.querySelector('.close-sub').classList.add('visible');
+                }, 600);
+                setTimeout(() => {
+                    document.querySelector('.cta-row').classList.add('visible');
+                }, 800);
+                setTimeout(() => {
+                    document.querySelector('.footer-links').classList.add('visible');
+                }, 1000);
+                break;
+        }
+    }
+
+    // --- Allow reverse (reset phases when scrolling back up) ---
+    function resetToPhase(targetPhase) {
+        if (targetPhase >= currentPhase) return;
+
+        // For simplicity we only handle full reset scenarios
+        // The primary experience is scrolling down
+        if (targetPhase < 0) {
+            // Reset everything
+            currentPhase = -1;
+            resetAll();
+        }
+    }
+
+    function resetAll() {
+        typedText.textContent = '';
+        typewriterDone = false;
+        typewriterRunning = false;
+        chipsFormed = false;
+        bigCounterAnimated = false;
+
+        cursor.style.display = 'inline-block';
+
+        document.querySelectorAll('.hook-line').forEach(el => el.classList.remove('visible'));
+        document.querySelectorAll('.visible').forEach(el => {
+            if (el.classList.contains('dot') || el === titlebarText || el === compCounter ||
+                el === exportBtn || el === editorSidebar || el === editorRightPanel ||
+                el === rpSeason || el === rpStyle || el === outputList ||
+                el === themeCards || el === opsDropdown || el === bigCounter) {
+                el.classList.remove('visible');
+            }
+        });
+
+        editorFrame.classList.remove('dissolving');
+        editorFrame.style.setProperty('--titlebar-height', '0px');
+        editorFrame.style.setProperty('--sidebar-width', '0px');
+        editorFrame.style.setProperty('--right-panel-width', '0px');
+
+        document.querySelectorAll('.mini-scene').forEach(el => el.classList.remove('visible'));
+        document.querySelectorAll('.close-tagline, .close-sub, .cta-row, .footer-links').forEach(el => el.classList.remove('visible'));
+
+        bucketSeason.classList.remove('visible');
+        bucketStyle.classList.remove('visible');
+
+        const mathEl = document.getElementById('math-turn');
+        if (mathEl) mathEl.classList.remove('visible');
+    }
+
+    // --- IntersectionObserver setup ---
+    const sectionIds = [
+        'section-0', 'section-1', 'section-2',
+        'section-3', 'section-4', 'section-5', 'section-6'
+    ];
+
+    // Track which sections are currently visible
+    const visibleSections = new Set();
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            const id = entry.target.id;
+            const idx = sectionIds.indexOf(id);
+
+            if (entry.isIntersecting) {
+                visibleSections.add(idx);
+            } else {
+                visibleSections.delete(idx);
+            }
+        });
+
+        // Determine highest visible section
+        if (visibleSections.size > 0) {
+            const maxVisible = Math.max(...visibleSections);
+            transitionToPhase(maxVisible);
+        }
+    }, {
+        threshold: 0.3
+    });
+
+    sectionIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) observer.observe(el);
+    });
+
+    // --- Initial state ---
+    // Hide cursor until section 1
+    cursor.style.display = 'none';
+
+    // Set initial CSS variable overrides on editor frame
+    editorFrame.style.setProperty('--titlebar-height', '0px');
+    editorFrame.style.setProperty('--sidebar-width', '0px');
+    editorFrame.style.setProperty('--right-panel-width', '0px');
+
+    // --- Reposition the editor to be truly sticky across sections 1-5 ---
+    // We use a "reparenting" approach: the editor-frame is absolutely positioned
+    // and we track scroll to keep it in the right column.
+    // Actually, the cleaner approach: use CSS sticky on the first sticky-col
+    // and make sections 2-5 just provide left-side narrative.
+    // The sticky-col in section 1 will naturally be sticky across all the split sections.
+
+    // Wait for DOM, then configure sticky behavior
+    // The first .sticky-col contains the editor. We need it to span sections 1-5.
+    // CSS sticky already handles this: as long as the parent is tall enough, it stays.
+    // But our parent is only section-1. Let's restructure...
+
+    // Instead of restructuring HTML, we'll use JS to make the editor float:
+    const stickyEditor = document.getElementById('sticky-editor');
+    const editorRect = { top: 0 };
+
+    function positionEditor() {
+        const s1 = document.getElementById('section-1');
+        const s5 = document.getElementById('section-5');
+
+        if (!s1 || !s5) return;
+
+        const s1Top = s1.getBoundingClientRect().top + window.scrollY;
+        const s5Bottom = s5.getBoundingClientRect().bottom + window.scrollY;
+
+        // Make the editor-frame fixed when in view of sections 1-5
+        const scrollY = window.scrollY;
+        const viewportH = window.innerHeight;
+
+        const editorH = 380;
+        const editorCenterY = (viewportH - editorH) / 2;
+
+        if (scrollY + viewportH > s1Top + 200 && scrollY < s5Bottom - 200) {
+            editorFrame.style.position = 'fixed';
+            editorFrame.style.top = editorCenterY + 'px';
+            editorFrame.style.right = 'calc(2vw + 20px)';
+            editorFrame.style.left = 'auto';
+            editorFrame.style.width = 'min(540px, 44vw)';
+            editorFrame.style.zIndex = '100';
+            stickyEditor.style.visibility = 'hidden';
+        } else if (scrollY >= s5Bottom - 200) {
+            // Park it at the end
+            editorFrame.style.position = 'fixed';
+            editorFrame.style.top = editorCenterY + 'px';
+            editorFrame.style.right = 'calc(2vw + 20px)';
+            editorFrame.style.width = 'min(540px, 44vw)';
+            editorFrame.style.zIndex = '100';
+            stickyEditor.style.visibility = 'hidden';
+        } else {
+            // Before section 1 — keep in flow
+            editorFrame.style.position = '';
+            editorFrame.style.top = '';
+            editorFrame.style.right = '';
+            editorFrame.style.left = '';
+            editorFrame.style.width = '100%';
+            editorFrame.style.zIndex = '';
+            stickyEditor.style.visibility = '';
+        }
+    }
+
+    window.addEventListener('scroll', positionEditor, { passive: true });
+    window.addEventListener('resize', positionEditor, { passive: true });
+    positionEditor();
+
+})();
+</script>
+
+</body>
+</html>

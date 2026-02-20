@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wildcard Value Editor — Preview</title>
+<style>
+/* ── Design Tokens ── */
+:root {
+    --pu-bg-primary: #191919;
+    --pu-bg-secondary: #202020;
+    --pu-bg-tertiary: #2f2f2f;
+    --pu-bg-input: #252525;
+    --pu-bg-hover: rgba(255, 255, 255, 0.04);
+    --pu-bg-selected: rgba(255, 255, 255, 0.06);
+    --pu-bg-elevated: #252525;
+    --pu-text-primary: #ebebeb;
+    --pu-text-secondary: #999999;
+    --pu-text-muted: #7a7a7a;
+    --pu-accent: #529CCA;
+    --pu-accent-bg: rgba(82, 156, 202, 0.08);
+    --pu-accent-light: rgba(82, 156, 202, 0.12);
+    --pu-accent-border: rgba(82, 156, 202, 0.25);
+    --pu-success: #4daa57;
+    --pu-success-bg: rgba(77, 170, 87, 0.12);
+    --pu-warning: #cb912f;
+    --pu-warning-bg: rgba(203, 145, 47, 0.1);
+    --pu-error: #e06c75;
+    --pu-error-bg: rgba(224, 108, 117, 0.1);
+    --pu-border: rgba(255, 255, 255, 0.06);
+    --pu-border-light: rgba(255, 255, 255, 0.09);
+    --pu-radius-sm: 3px;
+    --pu-radius: 4px;
+    --pu-radius-lg: 6px;
+    --pu-radius-full: 9999px;
+    --pu-font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --pu-font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+    --pu-font-size-2xs: 10px;
+    --pu-font-size-xs: 11px;
+    --pu-font-size-sm: 12px;
+    --pu-font-size-md: 13px;
+    --pu-font-size-base: 14px;
+    --pu-font-size-lg: 16px;
+    --pu-space-xs: 4px;
+    --pu-space-sm: 8px;
+    --pu-space-md: 12px;
+    --pu-space-lg: 16px;
+    --pu-space-xl: 24px;
+    --pu-transition-fast: 120ms ease-out;
+    --pu-transition-normal: 200ms ease-out;
+    --pu-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    --pu-shadow-lg: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+* { box-sizing: border-box; }
+body {
+    margin: 0; padding: 0;
+    font-family: var(--pu-font-body);
+    font-size: var(--pu-font-size-base);
+    line-height: 1.5;
+    background: var(--pu-bg-primary);
+    color: var(--pu-text-primary);
+}
+
+/* Scenario switcher */
+.preview-controls {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 3000;
+    background: var(--pu-bg-secondary);
+    border-bottom: 1px solid var(--pu-border-light);
+    padding: var(--pu-space-sm) var(--pu-space-lg);
+    display: flex; align-items: center; gap: var(--pu-space-lg);
+    font-size: var(--pu-font-size-sm); color: var(--pu-text-secondary);
+}
+.preview-controls label { cursor: pointer; display: flex; align-items: center; gap: 4px; }
+.preview-controls input[type="radio"] { accent-color: var(--pu-accent); }
+.preview-label {
+    font-family: var(--pu-font-mono); color: var(--pu-accent);
+    font-size: var(--pu-font-size-xs); background: var(--pu-accent-bg);
+    padding: 2px 6px; border-radius: var(--pu-radius-sm); margin-right: var(--pu-space-sm);
+}
+
+.scenario { display: none; margin-top: 40px; }
+.scenario.active { display: block; }
+
+/* ── Right Panel simulation ── */
+.rp-container {
+    width: 320px;
+    margin: var(--pu-space-xl) auto;
+    background: var(--pu-bg-secondary);
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius-lg);
+    overflow: hidden;
+}
+.rp-header {
+    display: flex;
+    align-items: center;
+    gap: var(--pu-space-sm);
+    padding: var(--pu-space-sm) var(--pu-space-md);
+    border-bottom: 1px solid var(--pu-border);
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-muted);
+    text-transform: uppercase;
+}
+.rp-body {
+    padding: var(--pu-space-sm);
+}
+
+/* ── Wildcard entry ── */
+.pu-rp-wc-entry {
+    padding: 5px 6px;
+    border-radius: var(--pu-radius);
+    margin-bottom: 2px;
+}
+.pu-rp-wc-entry:hover { background: rgba(255, 255, 255, 0.04); }
+.pu-rp-wc-entry-header {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 3px;
+}
+.pu-rp-wc-name {
+    font-family: var(--pu-font-mono);
+    font-size: 11px;
+    color: var(--pu-text-primary);
+    font-weight: 500;
+}
+.pu-rp-wc-source {
+    font-size: 9px;
+    color: var(--pu-text-muted);
+    margin-left: auto;
+    font-family: var(--pu-font-mono);
+    opacity: 0.7;
+}
+.pu-rp-wc-values {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+}
+.pu-rp-wc-v {
+    font-size: 10px;
+    padding: 2px 6px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    color: var(--pu-text-muted);
+    cursor: pointer;
+    transition: all var(--pu-transition-fast);
+    white-space: nowrap;
+}
+.pu-rp-wc-v:hover {
+    color: var(--pu-text-secondary);
+    background: var(--pu-bg-hover);
+}
+.pu-rp-wc-v.active {
+    background: rgba(203, 145, 47, 0.10);
+    border: 1px solid rgba(203, 145, 47, 0.25);
+    color: var(--pu-text-primary);
+}
+
+/* ── NEW: Value editor ── */
+.pu-wc-editor {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--pu-border);
+}
+.pu-wc-editor-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+    margin-bottom: 6px;
+}
+.pu-wc-editor-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    padding: 2px 4px 2px 7px;
+    background: var(--pu-bg-tertiary);
+    border: 1px solid var(--pu-border-light);
+    border-radius: 3px;
+    color: var(--pu-text-primary);
+    font-family: var(--pu-font-mono);
+}
+.pu-wc-editor-chip .chip-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 2px;
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    cursor: pointer;
+    transition: all var(--pu-transition-fast);
+}
+.pu-wc-editor-chip .chip-remove:hover {
+    background: var(--pu-error-bg);
+    color: var(--pu-error);
+}
+.pu-wc-editor-input-row {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+.pu-wc-editor-input {
+    flex: 1;
+    padding: 4px 8px;
+    background: var(--pu-bg-input);
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius-sm);
+    color: var(--pu-text-primary);
+    font-family: var(--pu-font-mono);
+    font-size: var(--pu-font-size-xs);
+    outline: none;
+    transition: border-color var(--pu-transition-fast);
+}
+.pu-wc-editor-input:focus {
+    border-color: var(--pu-accent);
+    box-shadow: 0 0 0 2px var(--pu-accent-bg);
+}
+.pu-wc-editor-input::placeholder {
+    color: var(--pu-text-muted);
+}
+.pu-wc-editor-add-btn {
+    padding: 4px 8px;
+    background: var(--pu-accent-bg);
+    border: 1px solid var(--pu-accent-border);
+    border-radius: var(--pu-radius-sm);
+    color: var(--pu-accent);
+    font-size: var(--pu-font-size-xs);
+    cursor: pointer;
+    font-family: var(--pu-font-body);
+    transition: all var(--pu-transition-fast);
+}
+.pu-wc-editor-add-btn:hover {
+    background: var(--pu-accent-light);
+}
+
+/* Editor footer: count + bulk toggle */
+.pu-wc-editor-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-size: var(--pu-font-size-2xs);
+    color: var(--pu-text-muted);
+}
+.pu-wc-editor-bulk-toggle {
+    cursor: pointer;
+    color: var(--pu-text-muted);
+    transition: color var(--pu-transition-fast);
+    font-size: var(--pu-font-size-2xs);
+    background: none;
+    border: none;
+    font-family: var(--pu-font-body);
+    padding: 0;
+}
+.pu-wc-editor-bulk-toggle:hover {
+    color: var(--pu-accent);
+}
+
+/* ── Bulk textarea mode ── */
+.pu-wc-editor-bulk {
+    margin-top: 6px;
+}
+.pu-wc-editor-textarea {
+    width: 100%;
+    min-height: 80px;
+    padding: 8px;
+    background: var(--pu-bg-input);
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius-sm);
+    color: var(--pu-text-primary);
+    font-family: var(--pu-font-mono);
+    font-size: var(--pu-font-size-xs);
+    line-height: 1.6;
+    resize: vertical;
+    outline: none;
+    transition: border-color var(--pu-transition-fast);
+}
+.pu-wc-editor-textarea:focus {
+    border-color: var(--pu-accent);
+    box-shadow: 0 0 0 2px var(--pu-accent-bg);
+}
+.pu-wc-editor-bulk-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 6px;
+}
+.pu-wc-editor-bulk-hint {
+    font-size: var(--pu-font-size-2xs);
+    color: var(--pu-text-muted);
+}
+
+/* ── Empty state for no-values ── */
+.pu-wc-empty-values {
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-muted);
+    font-style: italic;
+    padding: 4px 0;
+}
+
+/* Compositions bar */
+.rp-compositions {
+    padding: var(--pu-space-sm) var(--pu-space-md);
+    border-top: 1px solid var(--pu-border);
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.comp-count {
+    font-family: var(--pu-font-mono);
+    color: var(--pu-text-secondary);
+}
+
+.callout {
+    background: var(--pu-accent-bg); border: 1px solid var(--pu-accent-border);
+    border-radius: var(--pu-radius); padding: 6px 10px;
+    font-size: var(--pu-font-size-xs); color: var(--pu-accent);
+    max-width: 320px; line-height: 1.5;
+    margin: var(--pu-space-lg) auto;
+    text-align: center;
+}
+</style>
+</head>
+<body>
+
+<div class="preview-controls">
+    <span class="preview-label">GAP 3</span>
+    <label><input type="radio" name="scene" value="a" checked onchange="switchScene('a')"> A: No values yet</label>
+    <label><input type="radio" name="scene" value="b" onchange="switchScene('b')"> B: Chip editor (3 values)</label>
+    <label><input type="radio" name="scene" value="c" onchange="switchScene('c')"> C: Bulk textarea mode</label>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!-- SCENARIO A: Wildcard detected, no values yet                    -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<div class="scenario active" id="scene-a" data-testid="scene-no-values">
+    <div class="rp-container">
+        <div class="rp-header">Wildcards <span style="margin-left: auto;">2</span></div>
+        <div class="rp-body">
+            <!-- tone: no values -->
+            <div class="pu-rp-wc-entry" data-testid="pu-rp-wc-entry-tone">
+                <div class="pu-rp-wc-entry-header">
+                    <span class="pu-rp-wc-name">tone</span>
+                    <span class="pu-rp-wc-source">local</span>
+                </div>
+                <div class="pu-wc-empty-values">no values — add some below</div>
+                <div class="pu-wc-editor" data-testid="pu-wc-editor-tone">
+                    <div class="pu-wc-editor-input-row">
+                        <input class="pu-wc-editor-input" type="text" placeholder="Type a value..." data-testid="pu-wc-editor-input-tone">
+                        <button class="pu-wc-editor-add-btn" data-testid="pu-wc-editor-add-tone">+ Add</button>
+                    </div>
+                    <div class="pu-wc-editor-footer">
+                        <span>0 values</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- role: no values -->
+            <div class="pu-rp-wc-entry" data-testid="pu-rp-wc-entry-role">
+                <div class="pu-rp-wc-entry-header">
+                    <span class="pu-rp-wc-name">role</span>
+                    <span class="pu-rp-wc-source">local</span>
+                </div>
+                <div class="pu-wc-empty-values">no values — add some below</div>
+                <div class="pu-wc-editor" data-testid="pu-wc-editor-role">
+                    <div class="pu-wc-editor-input-row">
+                        <input class="pu-wc-editor-input" type="text" placeholder="Type a value...">
+                        <button class="pu-wc-editor-add-btn">+ Add</button>
+                    </div>
+                    <div class="pu-wc-editor-footer">
+                        <span>0 values</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="rp-compositions">
+            <span><span class="comp-count">0</span> compositions</span>
+        </div>
+    </div>
+
+    <div class="callout">
+        Wildcards detected from text but have zero values. The editor input is immediately visible — inviting the user to type their first value.
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!-- SCENARIO B: Chip editor with values                             -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<div class="scenario" id="scene-b" data-testid="scene-chip-editor">
+    <div class="rp-container">
+        <div class="rp-header">Wildcards <span style="margin-left: auto;">2</span></div>
+        <div class="rp-body">
+            <!-- tone: 3 values -->
+            <div class="pu-rp-wc-entry" data-testid="pu-rp-wc-entry-tone">
+                <div class="pu-rp-wc-entry-header">
+                    <span class="pu-rp-wc-name">tone</span>
+                    <span class="pu-rp-wc-source">local</span>
+                </div>
+                <!-- Existing value chips (read-only navigation) -->
+                <div class="pu-rp-wc-values">
+                    <span class="pu-rp-wc-v active">formal</span>
+                    <span class="pu-rp-wc-v">casual</span>
+                    <span class="pu-rp-wc-v">fun</span>
+                </div>
+                <!-- NEW: Editable chip list + input -->
+                <div class="pu-wc-editor" data-testid="pu-wc-editor-tone">
+                    <div class="pu-wc-editor-chips">
+                        <span class="pu-wc-editor-chip">formal <span class="chip-remove" data-testid="pu-wc-remove-formal">&times;</span></span>
+                        <span class="pu-wc-editor-chip">casual <span class="chip-remove">&times;</span></span>
+                        <span class="pu-wc-editor-chip">fun <span class="chip-remove">&times;</span></span>
+                    </div>
+                    <div class="pu-wc-editor-input-row">
+                        <input class="pu-wc-editor-input" type="text" placeholder="Add value..." data-testid="pu-wc-editor-input-tone">
+                        <button class="pu-wc-editor-add-btn" data-testid="pu-wc-editor-add-tone">+ Add</button>
+                    </div>
+                    <div class="pu-wc-editor-footer">
+                        <span>3 values</span>
+                        <button class="pu-wc-editor-bulk-toggle" data-testid="pu-wc-bulk-toggle-tone">Bulk edit</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- role: 2 values -->
+            <div class="pu-rp-wc-entry" data-testid="pu-rp-wc-entry-role">
+                <div class="pu-rp-wc-entry-header">
+                    <span class="pu-rp-wc-name">role</span>
+                    <span class="pu-rp-wc-source">local</span>
+                </div>
+                <div class="pu-rp-wc-values">
+                    <span class="pu-rp-wc-v active">engineer</span>
+                    <span class="pu-rp-wc-v">designer</span>
+                </div>
+                <div class="pu-wc-editor" data-testid="pu-wc-editor-role">
+                    <div class="pu-wc-editor-chips">
+                        <span class="pu-wc-editor-chip">engineer <span class="chip-remove">&times;</span></span>
+                        <span class="pu-wc-editor-chip">designer <span class="chip-remove">&times;</span></span>
+                    </div>
+                    <div class="pu-wc-editor-input-row">
+                        <input class="pu-wc-editor-input" type="text" placeholder="Add value...">
+                        <button class="pu-wc-editor-add-btn">+ Add</button>
+                    </div>
+                    <div class="pu-wc-editor-footer">
+                        <span>2 values</span>
+                        <button class="pu-wc-editor-bulk-toggle">Bulk edit</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="rp-compositions">
+            <span><span class="comp-count">6</span> compositions</span>
+            <span style="font-family: var(--pu-font-mono);">3 tone &times; 2 role</span>
+        </div>
+    </div>
+
+    <div class="callout">
+        Chip editor shows removable value chips + input for adding more. The <strong>"Bulk edit"</strong> toggle appears once values exist. Composition count updates live: <strong>3 &times; 2 = 6</strong>.
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!-- SCENARIO C: Bulk textarea mode                                  -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<div class="scenario" id="scene-c" data-testid="scene-bulk-editor">
+    <div class="rp-container">
+        <div class="rp-header">Wildcards <span style="margin-left: auto;">2</span></div>
+        <div class="rp-body">
+            <!-- tone: bulk mode -->
+            <div class="pu-rp-wc-entry" data-testid="pu-rp-wc-entry-tone">
+                <div class="pu-rp-wc-entry-header">
+                    <span class="pu-rp-wc-name">tone</span>
+                    <span class="pu-rp-wc-source">local</span>
+                </div>
+                <div class="pu-rp-wc-values">
+                    <span class="pu-rp-wc-v active">formal</span>
+                    <span class="pu-rp-wc-v">casual</span>
+                    <span class="pu-rp-wc-v">fun</span>
+                </div>
+                <div class="pu-wc-editor" data-testid="pu-wc-editor-tone-bulk">
+                    <div class="pu-wc-editor-bulk">
+                        <textarea class="pu-wc-editor-textarea" data-testid="pu-wc-bulk-textarea-tone" rows="5">formal
+casual
+fun</textarea>
+                        <div class="pu-wc-editor-bulk-actions">
+                            <span class="pu-wc-editor-bulk-hint">One value per line &middot; 3 values</span>
+                            <button class="pu-wc-editor-bulk-toggle" data-testid="pu-wc-chip-toggle-tone">Chip view</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- role: chip mode still (to show contrast) -->
+            <div class="pu-rp-wc-entry" data-testid="pu-rp-wc-entry-role">
+                <div class="pu-rp-wc-entry-header">
+                    <span class="pu-rp-wc-name">role</span>
+                    <span class="pu-rp-wc-source">local</span>
+                </div>
+                <div class="pu-rp-wc-values">
+                    <span class="pu-rp-wc-v active">engineer</span>
+                    <span class="pu-rp-wc-v">designer</span>
+                </div>
+                <div class="pu-wc-editor">
+                    <div class="pu-wc-editor-chips">
+                        <span class="pu-wc-editor-chip">engineer <span class="chip-remove">&times;</span></span>
+                        <span class="pu-wc-editor-chip">designer <span class="chip-remove">&times;</span></span>
+                    </div>
+                    <div class="pu-wc-editor-input-row">
+                        <input class="pu-wc-editor-input" type="text" placeholder="Add value...">
+                        <button class="pu-wc-editor-add-btn">+ Add</button>
+                    </div>
+                    <div class="pu-wc-editor-footer">
+                        <span>2 values</span>
+                        <button class="pu-wc-editor-bulk-toggle">Bulk edit</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="rp-compositions">
+            <span><span class="comp-count">6</span> compositions</span>
+            <span style="font-family: var(--pu-font-mono);">3 tone &times; 2 role</span>
+        </div>
+    </div>
+
+    <div class="callout">
+        Bulk edit mode: one value per line. Paste-friendly for power users importing 50+ values from a spreadsheet. Toggle flips per-wildcard, not globally.
+    </div>
+</div>
+
+<script>
+function switchScene(id) {
+    document.querySelectorAll('.scenario').forEach(s => s.classList.remove('active'));
+    document.getElementById('scene-' + id).classList.add('active');
+}
+</script>
+</body>
+</html>

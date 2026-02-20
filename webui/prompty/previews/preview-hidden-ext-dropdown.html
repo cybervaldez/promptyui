@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hidden Ext Dropdown — Preview</title>
+<style>
+/* ── Design Tokens ── */
+:root {
+    --pu-bg-primary: #191919;
+    --pu-bg-secondary: #202020;
+    --pu-bg-tertiary: #2f2f2f;
+    --pu-bg-input: #252525;
+    --pu-bg-hover: rgba(255, 255, 255, 0.04);
+    --pu-bg-selected: rgba(255, 255, 255, 0.06);
+    --pu-bg-elevated: #252525;
+    --pu-text-primary: #ebebeb;
+    --pu-text-secondary: #999999;
+    --pu-text-muted: #7a7a7a;
+    --pu-accent: #529CCA;
+    --pu-accent-bg: rgba(82, 156, 202, 0.08);
+    --pu-accent-border: rgba(82, 156, 202, 0.25);
+    --pu-success: #4daa57;
+    --pu-warning: #cb912f;
+    --pu-error: #e06c75;
+    --pu-border: rgba(255, 255, 255, 0.06);
+    --pu-border-light: rgba(255, 255, 255, 0.09);
+    --pu-radius-sm: 3px;
+    --pu-radius: 4px;
+    --pu-radius-lg: 6px;
+    --pu-radius-full: 9999px;
+    --pu-font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --pu-font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+    --pu-font-size-2xs: 10px;
+    --pu-font-size-xs: 11px;
+    --pu-font-size-sm: 12px;
+    --pu-font-size-md: 13px;
+    --pu-font-size-base: 14px;
+    --pu-font-size-lg: 16px;
+    --pu-space-xs: 4px;
+    --pu-space-sm: 8px;
+    --pu-space-md: 12px;
+    --pu-space-lg: 16px;
+    --pu-space-xl: 24px;
+    --pu-transition-fast: 120ms ease-out;
+    --pu-transition-normal: 200ms ease-out;
+    --pu-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+* { box-sizing: border-box; }
+body {
+    margin: 0; padding: 0;
+    font-family: var(--pu-font-body);
+    font-size: var(--pu-font-size-base);
+    line-height: 1.5;
+    background: var(--pu-bg-primary);
+    color: var(--pu-text-primary);
+}
+
+/* Scenario switcher */
+.preview-controls {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 3000;
+    background: var(--pu-bg-secondary);
+    border-bottom: 1px solid var(--pu-border-light);
+    padding: var(--pu-space-sm) var(--pu-space-lg);
+    display: flex; align-items: center; gap: var(--pu-space-lg);
+    font-size: var(--pu-font-size-sm); color: var(--pu-text-secondary);
+}
+.preview-controls label { cursor: pointer; display: flex; align-items: center; gap: 4px; }
+.preview-controls input[type="radio"] { accent-color: var(--pu-accent); }
+.preview-label {
+    font-family: var(--pu-font-mono); color: var(--pu-accent);
+    font-size: var(--pu-font-size-xs); background: var(--pu-accent-bg);
+    padding: 2px 6px; border-radius: var(--pu-radius-sm); margin-right: var(--pu-space-sm);
+}
+
+.scenario { display: none; margin-top: 40px; }
+.scenario.active { display: block; }
+
+/* ── Defaults toolbar simulation ── */
+.defaults-container {
+    max-width: 600px;
+    margin: var(--pu-space-xl) auto;
+    background: var(--pu-bg-secondary);
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius-lg);
+    overflow: hidden;
+}
+.defaults-header {
+    display: flex;
+    align-items: center;
+    gap: var(--pu-space-sm);
+    padding: var(--pu-space-sm) var(--pu-space-lg);
+    background: var(--pu-bg-hover);
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-muted);
+    text-transform: uppercase;
+    cursor: pointer;
+}
+.defaults-hint {
+    font-style: italic;
+    text-transform: none;
+}
+.defaults-expand {
+    margin-left: auto;
+    font-size: var(--pu-font-size-2xs);
+    color: var(--pu-text-muted);
+}
+.defaults-form {
+    padding: var(--pu-space-md) var(--pu-space-lg);
+}
+.defaults-row {
+    display: flex;
+    align-items: center;
+    gap: var(--pu-space-sm);
+    margin-bottom: var(--pu-space-sm);
+}
+.defaults-row label {
+    font-size: var(--pu-font-size-sm);
+    color: var(--pu-text-muted);
+    min-width: 80px;
+}
+.defaults-row select {
+    padding: 4px 8px;
+    background: var(--pu-bg-input);
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius);
+    color: var(--pu-text-primary);
+    font-family: var(--pu-font-body);
+    font-size: var(--pu-font-size-sm);
+}
+
+/* Prompt header */
+.prompt-header {
+    display: flex;
+    align-items: center;
+    gap: var(--pu-space-sm);
+    padding: var(--pu-space-sm) var(--pu-space-lg);
+    border-top: 1px solid var(--pu-border);
+}
+.prompt-label {
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-muted);
+    text-transform: uppercase;
+}
+.prompt-title {
+    font-size: var(--pu-font-size-base);
+    color: var(--pu-text-primary);
+    font-weight: 500;
+}
+
+/* Block */
+.block-area {
+    padding: var(--pu-space-md) var(--pu-space-lg);
+}
+.block {
+    background: var(--pu-bg-primary);
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius);
+    padding: var(--pu-space-md) var(--pu-space-lg);
+    font-size: var(--pu-font-size-md);
+}
+.block .wc { color: var(--pu-warning); font-family: var(--pu-font-mono); }
+
+.callout {
+    background: var(--pu-accent-bg); border: 1px solid var(--pu-accent-border);
+    border-radius: var(--pu-radius); padding: 6px 10px;
+    font-size: var(--pu-font-size-xs); color: var(--pu-accent);
+    max-width: 400px; line-height: 1.5;
+    margin: var(--pu-space-lg) auto;
+    text-align: center;
+}
+
+.annotation {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--pu-font-size-2xs);
+    color: var(--pu-accent);
+    font-family: var(--pu-font-mono);
+    padding: 2px 6px;
+    background: var(--pu-accent-bg);
+    border-radius: var(--pu-radius-sm);
+    margin-left: var(--pu-space-sm);
+}
+</style>
+</head>
+<body>
+
+<div class="preview-controls">
+    <span class="preview-label">GAP 4</span>
+    <label><input type="radio" name="scene" value="a" checked onchange="switchScene('a')"> A: ext/ empty — dropdown hidden</label>
+    <label><input type="radio" name="scene" value="b" onchange="switchScene('b')"> B: ext/ has themes — dropdown visible</label>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!-- SCENARIO A: ext/ is empty — hide ext dropdown entirely          -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<div class="scenario active" id="scene-a" data-testid="scene-ext-hidden">
+    <div class="defaults-container">
+        <div class="defaults-header">
+            <span>DEFAULTS</span>
+            <span class="defaults-hint">(applies to all prompts)</span>
+            <span class="defaults-expand">&#9660;</span>
+        </div>
+        <div class="defaults-form" data-testid="pu-defaults-form">
+            <!-- NO ext row — hidden because ext/ is empty -->
+            <div style="padding: var(--pu-space-xs) 0; font-size: var(--pu-font-size-xs); color: var(--pu-text-muted); font-style: italic;">
+                No extension themes installed
+            </div>
+        </div>
+        <div class="prompt-header">
+            <span class="prompt-label">PROMPT:</span>
+            <span class="prompt-title">welcome-email</span>
+        </div>
+        <div class="block-area">
+            <div class="block">
+                Write a <span class="wc">__tone__</span> welcome email for new <span class="wc">__role__</span> hires
+            </div>
+        </div>
+    </div>
+
+    <div class="callout">
+        <strong>Fresh install: ext/ is empty.</strong><br>
+        The ext dropdown is hidden entirely. A subtle italic note replaces it. Zero cognitive load for new users who haven't created themes yet.
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!-- SCENARIO B: ext/ has themes — dropdown appears naturally        -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<div class="scenario" id="scene-b" data-testid="scene-ext-visible">
+    <div class="defaults-container">
+        <div class="defaults-header">
+            <span>DEFAULTS</span>
+            <span class="defaults-hint">(applies to all prompts)</span>
+            <span class="defaults-expand">&#9660;</span>
+        </div>
+        <div class="defaults-form" data-testid="pu-defaults-form">
+            <div class="defaults-row">
+                <label>ext:</label>
+                <select data-testid="pu-defaults-ext">
+                    <option value="">(none)</option>
+                    <option value="hiring" selected>hiring</option>
+                </select>
+                <span class="annotation">appeared after Move to Theme</span>
+            </div>
+        </div>
+        <div class="prompt-header">
+            <span class="prompt-label">PROMPT:</span>
+            <span class="prompt-title">welcome-email</span>
+        </div>
+        <div class="block-area">
+            <div class="block">
+                Write a <span class="wc">__tone__</span> welcome email for new <span class="wc">__role__</span> hires
+            </div>
+        </div>
+    </div>
+
+    <div class="callout">
+        <strong>After using Move to Theme:</strong><br>
+        The ext dropdown appears once ext/ has at least one folder. The user discovers themes organically through their own actions, not through a dropdown they don't understand.
+    </div>
+</div>
+
+<script>
+function switchScene(id) {
+    document.querySelectorAll('.scenario').forEach(s => s.classList.remove('active'));
+    document.getElementById('scene-' + id).classList.add('active');
+}
+</script>
+</body>
+</html>

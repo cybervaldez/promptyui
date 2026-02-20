@@ -1,0 +1,2618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PromptyUI — One Prompt, Every Combination</title>
+<style>
+/* ══════════════════════════════════════════════════
+   DESIGN TOKENS
+   ══════════════════════════════════════════════════ */
+:root {
+    --bg-deep: #0a0a0a;
+    --bg-surface: #161b22;
+    --bg-elevated: #1c2128;
+    --bg-card: #161b22;
+    --bg-card-hover: #1c2333;
+    --text-primary: #e6edf3;
+    --text-secondary: #8b949e;
+    --text-muted: #484f58;
+    --accent-blue: #58a6ff;
+    --accent-blue-dim: rgba(88, 166, 255, 0.15);
+    --accent-amber: #ff6b35;
+    --accent-amber-dim: rgba(255, 107, 53, 0.15);
+    --accent-green: #3fb950;
+    --accent-green-dim: rgba(63, 185, 80, 0.15);
+    --accent-purple: #bc8cff;
+    --accent-purple-dim: rgba(188, 140, 255, 0.15);
+    --border: rgba(255, 255, 255, 0.08);
+    --border-accent: rgba(88, 166, 255, 0.4);
+    --font-body: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --font-mono: 'Courier New', Courier, monospace;
+    --radius: 6px;
+    --motion-fast: 200ms;
+    --motion-medium: 400ms;
+    --motion-slow: 600ms;
+    --motion-ambient: 1200ms;
+}
+
+/* ══════════════════════════════════════════════════
+   RESET & BASE
+   ══════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+    scroll-behavior: smooth;
+    overflow-x: hidden;
+}
+
+body {
+    font-family: var(--font-body);
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    line-height: 1.6;
+    overflow-x: hidden;
+}
+
+/* ══════════════════════════════════════════════════
+   SHARED: Typewriter cursor
+   ══════════════════════════════════════════════════ */
+.tw-cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1.2em;
+    background: var(--accent-green);
+    margin-left: 2px;
+    vertical-align: text-bottom;
+    animation: cursor-blink 0.8s step-end infinite;
+}
+
+@keyframes cursor-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+
+/* ══════════════════════════════════════════════════
+   SHARED: Reel components
+   ══════════════════════════════════════════════════ */
+.reel-unit {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.reel-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin-bottom: 0.4rem;
+}
+
+.reel-window {
+    width: 140px;
+    height: 2em;
+    overflow: hidden;
+    border-radius: var(--radius);
+    border: 1px solid var(--border-accent);
+    background: var(--bg-elevated);
+    font-size: 1.1rem;
+    position: relative;
+}
+
+.reel-window::before,
+.reel-window::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 6px;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.reel-window::before {
+    top: 0;
+    background: linear-gradient(to bottom, var(--bg-elevated), transparent);
+}
+
+.reel-window::after {
+    bottom: 0;
+    background: linear-gradient(to top, var(--bg-elevated), transparent);
+}
+
+.reel-window.locked {
+    border-color: var(--accent-amber);
+}
+
+.reel-window.locked::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: 6px;
+    transform: translateY(-50%);
+    width: 12px;
+    height: 12px;
+    z-index: 3;
+}
+
+.reel-lock-icon {
+    position: absolute;
+    top: 50%;
+    right: 5px;
+    transform: translateY(-50%);
+    font-size: 0.65rem;
+    z-index: 3;
+    color: var(--accent-amber);
+}
+
+.reel-strip {
+    transition: transform 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.reel-value {
+    height: 2em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    color: var(--accent-blue);
+    font-weight: 500;
+}
+
+/* ══════════════════════════════════════════════════
+   SECTION 0 — HOOK
+   ══════════════════════════════════════════════════ */
+.section-hook {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.hook-content {
+    text-align: left;
+    position: relative;
+    z-index: 2;
+    max-width: 700px;
+    padding: 0 2rem;
+}
+
+.hook-terminal {
+    font-family: var(--font-mono);
+    font-size: clamp(1.3rem, 3.5vw, 2.2rem);
+    line-height: 1.8;
+}
+
+.hook-terminal .line {
+    display: block;
+    min-height: 1.8em;
+}
+
+.hook-terminal .line--green {
+    color: var(--accent-green);
+}
+
+.hook-terminal .line--amber {
+    color: var(--accent-amber);
+    font-weight: 500;
+}
+
+.hook-terminal .line--muted {
+    color: var(--text-muted);
+    font-size: 0.75em;
+    margin-top: 1.5rem;
+}
+
+.hook-terminal .prompt-prefix {
+    color: var(--text-muted);
+    margin-right: 0.3em;
+}
+
+/* ══════════════════════════════════════════════════
+   SHARED SPLIT LAYOUT
+   ══════════════════════════════════════════════════ */
+.split-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 100vh;
+}
+
+.narrative-column {
+    padding: 2rem;
+}
+
+.narrative-block {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 4rem 3rem;
+}
+
+.narrative-block .reveal {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity var(--motion-slow) ease, transform var(--motion-slow) ease;
+}
+
+.narrative-block.active .reveal {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.narrative-block.active .reveal:nth-child(2) { transition-delay: 200ms; }
+.narrative-block.active .reveal:nth-child(3) { transition-delay: 400ms; }
+.narrative-block.active .reveal:nth-child(4) { transition-delay: 600ms; }
+
+.narrative-title {
+    font-size: clamp(1.3rem, 3vw, 2rem);
+    font-weight: 300;
+    margin-bottom: 1rem;
+    line-height: 1.4;
+}
+
+.narrative-text {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+    line-height: 1.6;
+}
+
+.narrative-math {
+    font-family: var(--font-mono);
+    font-size: 1.2rem;
+    color: var(--accent-amber);
+    margin-top: 0.5rem;
+}
+
+.sticky-column {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.sticky-panel {
+    width: 100%;
+    max-width: 500px;
+    padding: 2rem;
+}
+
+/* ══════════════════════════════════════════════════
+   SECTION 1 — BEFORE (Accelerating Typewriter)
+   ══════════════════════════════════════════════════ */
+.copies-container {
+    position: relative;
+    width: 100%;
+    height: 380px;
+    display: flex;
+    flex-direction: column;
+}
+
+.copies-list {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    border-radius: var(--radius);
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    padding: 0.75rem;
+}
+
+.copies-list::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: linear-gradient(to bottom, var(--bg-surface), transparent);
+    z-index: 2;
+    pointer-events: none;
+}
+
+.copies-active-line {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--accent-green);
+    padding: 0.3rem 0;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.copies-done-line {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    padding: 0.15rem 0;
+    opacity: 0.6;
+    white-space: nowrap;
+    overflow: hidden;
+    animation: slide-up-in 0.2s ease forwards;
+}
+
+@keyframes slide-up-in {
+    from { transform: translateY(8px); opacity: 0; }
+    to   { transform: translateY(0); opacity: 0.6; }
+}
+
+.copies-counter {
+    text-align: center;
+    margin-top: 1rem;
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--accent-amber);
+    font-family: var(--font-mono);
+    transition: transform 0.15s ease;
+}
+
+.copies-counter.bump {
+    transform: scale(1.15);
+}
+
+/* ══════════════════════════════════════════════════
+   SECTION 2 — THE TURN (Word morphs into reel)
+   ══════════════════════════════════════════════════ */
+.turn-panel {
+    width: 100%;
+}
+
+.turn-prompt-line {
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    color: var(--accent-green);
+    padding: 1rem;
+    background: var(--bg-surface);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    margin-bottom: 1rem;
+    min-height: 3em;
+    position: relative;
+    line-height: 1.8;
+}
+
+.turn-template-line {
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    padding: 1rem;
+    background: var(--bg-surface);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    margin-bottom: 1rem;
+    line-height: 1.8;
+    opacity: 0;
+    transition: opacity var(--motion-medium) ease;
+}
+
+.turn-template-line.visible {
+    opacity: 1;
+}
+
+.wildcard-chip {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    background: var(--accent-blue-dim);
+    color: var(--accent-blue);
+    border-radius: var(--radius);
+    font-weight: 500;
+    border: 1px solid rgba(88, 166, 255, 0.3);
+}
+
+.turn-math {
+    text-align: center;
+    font-family: var(--font-mono);
+    color: var(--accent-blue);
+    font-size: 1.1rem;
+    margin-bottom: 1.5rem;
+    opacity: 0;
+    transition: opacity var(--motion-medium) ease;
+}
+
+.turn-math.visible {
+    opacity: 1;
+}
+
+.turn-reels {
+    display: flex;
+    gap: 2rem;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+    opacity: 0;
+    transition: opacity var(--motion-medium) ease;
+}
+
+.turn-reels.visible {
+    opacity: 1;
+}
+
+.turn-result {
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    padding: 0.75rem 1rem;
+    background: var(--bg-surface);
+    border-radius: var(--radius);
+    border: 1px solid var(--accent-blue-dim);
+    opacity: 0;
+    transition: opacity var(--motion-medium) ease;
+}
+
+.turn-result.visible {
+    opacity: 1;
+}
+
+/* Word lift animation */
+.lift-word {
+    display: inline-block;
+    transition: transform 0.5s ease, opacity 0.5s ease;
+}
+
+.lift-word.lifting {
+    transform: translateY(-20px);
+    opacity: 0;
+}
+
+/* ══════════════════════════════════════════════════
+   SECTION 3 — OUTPUT (Reels drive the grid)
+   ══════════════════════════════════════════════════ */
+.s3-reels-row {
+    display: flex;
+    gap: 1.5rem;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+
+.s3-typed-result {
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--accent-green);
+    min-height: 1.8em;
+    margin-bottom: 1rem;
+    padding: 0.4rem 0.8rem;
+    background: var(--bg-surface);
+    border-radius: var(--radius);
+    border: 1px solid var(--accent-green-dim);
+}
+
+.cartesian-grid {
+    display: grid;
+    grid-template-columns: auto repeat(4, 1fr);
+    gap: 2px;
+    font-size: 0.65rem;
+}
+
+.grid-corner { background: transparent; }
+
+.grid-col-header {
+    padding: 0.4rem 0.3rem;
+    text-align: center;
+    font-family: var(--font-mono);
+    color: var(--accent-blue);
+    font-weight: 600;
+    font-size: 0.7rem;
+}
+
+.grid-row-header {
+    padding: 0.4rem 0.3rem;
+    display: flex;
+    align-items: center;
+    font-family: var(--font-mono);
+    color: var(--accent-amber);
+    font-weight: 600;
+    font-size: 0.7rem;
+}
+
+.grid-cell {
+    padding: 0.5rem 0.35rem;
+    background: var(--bg-surface);
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    line-height: 1.3;
+    transition: all var(--motion-fast) ease;
+    opacity: 0;
+    transform: translateY(8px);
+    cursor: default;
+}
+
+.grid-cell.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.grid-cell.typed-in {
+    animation: typed-flash 0.5s ease;
+}
+
+@keyframes typed-flash {
+    0% { background: var(--accent-green-dim); border-color: var(--accent-green); }
+    100% { background: var(--bg-surface); border-color: var(--border); }
+}
+
+.grid-cell-number {
+    display: block;
+    color: var(--text-muted);
+    font-size: 0.6rem;
+    margin-top: 0.2rem;
+}
+
+.grid-cell.row-highlight {
+    border-color: var(--accent-amber);
+    background: var(--accent-amber-dim);
+}
+
+.grid-cell.col-highlight {
+    border-color: var(--accent-blue);
+    background: var(--accent-blue-dim);
+}
+
+.grid-cell.cell-highlight {
+    border-color: var(--accent-green);
+    background: var(--accent-green-dim);
+    color: var(--accent-green);
+    animation: cell-pulse 0.6s ease;
+}
+
+@keyframes cell-pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+    100% { transform: scale(1); }
+}
+
+/* ══════════════════════════════════════════════════
+   SECTION 3.5 — BROWSE YOUR WAY (hero demos)
+   ══════════════════════════════════════════════════ */
+.section-browse {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 2rem;
+}
+
+.browse-header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+}
+
+.browse-header h2 {
+    font-size: clamp(1.5rem, 3.5vw, 2.2rem);
+    font-weight: 300;
+    margin-bottom: 0.5rem;
+}
+
+.browse-header p {
+    color: var(--text-secondary);
+    font-size: 1.05rem;
+}
+
+.browse-heroes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    width: 100%;
+    max-width: 900px;
+    margin-bottom: 2rem;
+}
+
+.browse-hero {
+    background: var(--bg-surface);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    min-height: 280px;
+}
+
+.browse-hero-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0.8rem 1.2rem;
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.browse-hero-title .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.browse-hero-title .dot--green { background: var(--accent-green); }
+.browse-hero-title .dot--blue { background: var(--accent-blue); }
+
+.browse-hero-body {
+    padding: 1.5rem;
+    min-height: 220px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+/* Hero typewriter demo */
+.hero-tw-output {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--accent-green);
+    min-height: 3em;
+    display: flex;
+    align-items: center;
+}
+
+/* Hero reel demo */
+.hero-reels-row {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+
+.hero-reel-window {
+    width: 110px;
+    height: 2em;
+    overflow: hidden;
+    border-radius: var(--radius);
+    border: 1px solid var(--border-accent);
+    background: var(--bg-deep);
+    font-size: 0.9rem;
+    position: relative;
+}
+
+.hero-reel-window::before,
+.hero-reel-window::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 4px;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.hero-reel-window::before {
+    top: 0;
+    background: linear-gradient(to bottom, var(--bg-deep), transparent);
+}
+
+.hero-reel-window::after {
+    bottom: 0;
+    background: linear-gradient(to top, var(--bg-deep), transparent);
+}
+
+.hero-reel-result {
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--text-primary);
+    padding: 0.5rem;
+    background: var(--bg-deep);
+    border-radius: var(--radius);
+    border: 1px solid var(--accent-blue-dim);
+    opacity: 0;
+    transition: opacity var(--motion-medium) ease;
+}
+
+.hero-reel-result.visible {
+    opacity: 1;
+}
+
+/* Secondary mode pills */
+.browse-secondary {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.browse-secondary-label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-right: 0.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.browse-pill {
+    padding: 0.4rem 1rem;
+    font-size: 0.8rem;
+    font-family: var(--font-body);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    border-radius: 20px;
+    cursor: default;
+    transition: all var(--motion-fast) ease;
+}
+
+.browse-pill:hover {
+    border-color: var(--border-accent);
+    color: var(--text-primary);
+}
+
+/* ══════════════════════════════════════════════════
+   SECTION 4 — DEPTH (Editor Chrome + Reels)
+   ══════════════════════════════════════════════════ */
+.section-depth {
+    position: relative;
+}
+
+.depth-narrative-block {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 4rem 3rem;
+}
+
+.depth-scene {
+    margin-bottom: 2rem;
+    opacity: 0;
+    transform: translateY(15px);
+    transition: opacity var(--motion-medium) ease, transform var(--motion-medium) ease;
+}
+
+.depth-scene.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.depth-scene-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.3rem;
+}
+
+.depth-scene-title.theme-green { color: var(--accent-green); }
+.depth-scene-title.theme-amber { color: var(--accent-amber); }
+.depth-scene-title.theme-purple { color: var(--accent-purple); }
+
+.depth-scene-text {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.editor-chrome {
+    background: var(--bg-surface);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    width: 100%;
+    max-width: 480px;
+}
+
+.editor-titlebar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0.6rem 0.8rem;
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border);
+}
+
+.editor-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.editor-dot--red { background: #ff5f56; }
+.editor-dot--yellow { background: #ffbd2e; }
+.editor-dot--green { background: #27c93f; }
+
+.editor-filename {
+    margin-left: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+}
+
+.editor-content {
+    padding: 0.75rem;
+}
+
+.editor-reels-row {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.editor-reel-unit {
+    text-align: center;
+}
+
+.editor-reel-label {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 0.2rem;
+}
+
+.editor-reel-window {
+    width: 100px;
+    height: 1.8em;
+    overflow: hidden;
+    border-radius: 4px;
+    border: 1px solid var(--border-accent);
+    background: var(--bg-deep);
+    font-size: 0.8rem;
+    position: relative;
+}
+
+.editor-reel-window.locked {
+    border-color: var(--accent-amber);
+}
+
+.editor-reel-strip {
+    transition: transform 1s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.editor-reel-val {
+    height: 1.8em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    color: var(--accent-blue);
+    font-weight: 500;
+    font-size: 0.75rem;
+}
+
+.editor-typed-result {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--accent-green);
+    text-align: center;
+    padding: 0.4rem 0.6rem;
+    background: var(--bg-deep);
+    border-radius: 4px;
+    border: 1px solid var(--accent-green-dim);
+    margin-top: 0.5rem;
+    min-height: 1.6em;
+}
+
+.lock-badge {
+    text-align: center;
+    padding: 0.4rem;
+    font-size: 0.7rem;
+    color: var(--accent-amber);
+    font-weight: 600;
+    opacity: 0;
+    transition: opacity var(--motion-medium) ease;
+}
+
+.lock-badge.visible {
+    opacity: 1;
+}
+
+/* ══════════════════════════════════════════════════
+   SECTION 5 — SCALE (Reel odometer + speed typewriter)
+   ══════════════════════════════════════════════════ */
+.s5-container {
+    width: 100%;
+}
+
+.reel-odometer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 2rem;
+}
+
+.reel-odo-digit-wrap {
+    display: inline-block;
+    height: 1.2em;
+    overflow: hidden;
+    line-height: 1.2;
+}
+
+.reel-odo-strip {
+    transition: transform 1.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.reel-odo-digit {
+    display: block;
+    height: 1.2em;
+    text-align: center;
+    font-size: clamp(2.5rem, 4vw, 4rem);
+    font-family: var(--font-mono);
+    font-weight: 700;
+    color: var(--accent-amber);
+}
+
+.reel-odo-comma {
+    font-size: clamp(2.5rem, 4vw, 4rem);
+    font-family: var(--font-mono);
+    font-weight: 700;
+    color: var(--accent-amber);
+    line-height: 1.2;
+}
+
+.speed-typewriter {
+    position: relative;
+    height: 260px;
+    overflow: hidden;
+    border-radius: var(--radius);
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    opacity: 0;
+    transition: opacity var(--motion-slow) ease;
+}
+
+.speed-typewriter.visible {
+    opacity: 1;
+}
+
+.speed-typewriter::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 40px;
+    background: linear-gradient(to bottom, var(--bg-surface), transparent);
+    z-index: 2;
+    pointer-events: none;
+}
+
+.speed-typewriter::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 40px;
+    background: linear-gradient(to top, var(--bg-surface), transparent);
+    z-index: 2;
+    pointer-events: none;
+}
+
+.speed-tw-list {
+    padding: 0.75rem;
+}
+
+.speed-tw-line {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    padding: 0.2rem 0.4rem;
+    white-space: nowrap;
+    overflow: hidden;
+    animation: speed-line-in 0.3s ease forwards;
+}
+
+@keyframes speed-line-in {
+    0% { color: var(--accent-green); opacity: 1; }
+    100% { color: var(--text-muted); opacity: 0.5; }
+}
+
+/* ══════════════════════════════════════════════════
+   SECTION 6 — CLOSE (Typewriter CTA)
+   ══════════════════════════════════════════════════ */
+.section-close {
+    min-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 4rem 2rem;
+}
+
+.close-terminal {
+    font-family: var(--font-mono);
+    font-size: clamp(1.4rem, 3.5vw, 2.4rem);
+    font-weight: 300;
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.02em;
+    min-height: 2em;
+}
+
+.close-subtext {
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    color: var(--text-muted);
+    margin-bottom: 2.5rem;
+    min-height: 1.5em;
+}
+
+.close-ctas {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 3rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity var(--motion-slow) ease;
+}
+
+.close-ctas.visible {
+    opacity: 1;
+}
+
+.cta-primary {
+    display: inline-block;
+    padding: 0.75rem 2rem;
+    background: var(--accent-amber);
+    color: var(--bg-deep);
+    font-weight: 600;
+    font-size: 1rem;
+    border-radius: var(--radius);
+    text-decoration: none;
+    border: 2px solid var(--accent-amber);
+    transition: all var(--motion-fast) ease;
+    cursor: pointer;
+}
+
+.cta-primary:hover {
+    background: transparent;
+    color: var(--accent-amber);
+}
+
+.cta-secondary {
+    display: inline-block;
+    padding: 0.75rem 2rem;
+    background: transparent;
+    color: var(--accent-blue);
+    font-weight: 600;
+    font-size: 1rem;
+    border-radius: var(--radius);
+    text-decoration: none;
+    border: 2px solid var(--accent-blue);
+    transition: all var(--motion-fast) ease;
+    cursor: pointer;
+}
+
+.cta-secondary:hover {
+    background: var(--accent-blue-dim);
+}
+
+.close-footer {
+    display: flex;
+    gap: 2rem;
+    font-size: 0.85rem;
+    opacity: 0;
+    transition: opacity var(--motion-slow) ease;
+}
+
+.close-footer.visible {
+    opacity: 1;
+}
+
+.close-footer a {
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: color var(--motion-fast) ease;
+}
+
+.close-footer a:hover {
+    color: var(--text-primary);
+}
+
+/* ══════════════════════════════════════════════════
+   RESPONSIVE
+   ══════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+    .split-container {
+        grid-template-columns: 1fr;
+    }
+
+    .sticky-column {
+        position: relative;
+        height: auto;
+        min-height: 60vh;
+    }
+
+    .narrative-block {
+        min-height: 60vh;
+        padding: 3rem 1.5rem;
+    }
+
+    .depth-narrative-block {
+        min-height: auto;
+        padding: 3rem 1.5rem;
+    }
+
+    .sticky-panel {
+        padding: 1.5rem;
+    }
+
+    .cartesian-grid {
+        font-size: 0.55rem;
+    }
+
+    .browse-heroes {
+        grid-template-columns: 1fr;
+    }
+
+    .close-ctas {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .hook-terminal {
+        font-size: clamp(1rem, 3vw, 1.6rem);
+    }
+
+    .s3-reels-row {
+        gap: 0.75rem;
+    }
+
+    .reel-window {
+        width: 110px;
+    }
+
+    .editor-reels-row {
+        gap: 0.5rem;
+    }
+
+    .editor-reel-window {
+        width: 80px;
+    }
+}
+
+/* ══════════════════════════════════════════════════
+   UTILITY
+   ══════════════════════════════════════════════════ */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0,0,0,0);
+    white-space: nowrap;
+    border: 0;
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════
+     SECTION 0 — HOOK (Typewriter types the hook)
+     ═══════════════════════════════════════════════════ -->
+<section class="section-hook" data-testid="section-0">
+    <div class="hook-content">
+        <div class="hook-terminal" id="hook-terminal">
+            <span class="line line--green" id="hook-line-0"></span>
+            <span class="line line--green" id="hook-line-1"></span>
+            <span class="line line--amber" id="hook-line-2"></span>
+            <span class="line line--muted" id="hook-line-seed"></span>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     SECTION 1 — BEFORE (Accelerating typewriter)
+     ═══════════════════════════════════════════════════ -->
+<section data-testid="section-1">
+    <div class="split-container">
+        <div class="narrative-column">
+            <div class="narrative-block" id="narrative-1">
+                <div class="reveal">
+                    <p class="narrative-title">You start with one prompt.</p>
+                </div>
+                <div class="reveal">
+                    <p class="narrative-text">Different seasons. Different styles.</p>
+                </div>
+                <div class="reveal">
+                    <p class="narrative-math">3 &times; 4 &times; 5 = 60 prompts. By hand.</p>
+                </div>
+            </div>
+        </div>
+        <div class="sticky-column">
+            <div class="sticky-panel">
+                <div class="copies-container" id="copies-container">
+                    <div class="copies-list" id="copies-list">
+                        <div class="copies-active-line" id="copies-active"><span class="tw-cursor"></span></div>
+                    </div>
+                    <div class="copies-counter" id="copies-counter">0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     SECTION 2 — THE TURN (Word morphs into reel)
+     ═══════════════════════════════════════════════════ -->
+<section data-testid="section-2">
+    <div class="split-container">
+        <div class="narrative-column">
+            <div class="narrative-block" id="narrative-2">
+                <div class="reveal">
+                    <p class="narrative-title">Or you write it once.</p>
+                </div>
+                <div class="reveal">
+                    <p class="narrative-text">Mark the parts that change.</p>
+                </div>
+                <div class="reveal">
+                    <p class="narrative-text">Each marker becomes a wildcard.</p>
+                </div>
+            </div>
+        </div>
+        <div class="sticky-column">
+            <div class="sticky-panel">
+                <div class="turn-panel" id="turn-panel">
+                    <!-- Phase 1: typewriter types the prompt -->
+                    <div class="turn-prompt-line" id="turn-prompt"><span class="tw-cursor" id="turn-cursor"></span></div>
+                    <!-- Phase 2: crossfade to template -->
+                    <div class="turn-template-line" id="turn-template">
+                        A cabin in the forest, <span class="wildcard-chip">__season__</span>, <span class="wildcard-chip">__style__</span>
+                    </div>
+                    <!-- Phase 3: math -->
+                    <div class="turn-math" id="turn-math">4 &times; 4 = 16</div>
+                    <!-- Phase 4: reels + result -->
+                    <div class="turn-reels" id="turn-reels">
+                        <div class="reel-unit">
+                            <div class="reel-label">season</div>
+                            <div class="reel-window">
+                                <div class="reel-strip" id="turn-reel-season">
+                                    <div class="reel-value">autumn</div>
+                                    <div class="reel-value">winter</div>
+                                    <div class="reel-value">spring</div>
+                                    <div class="reel-value">summer</div>
+                                    <div class="reel-value">autumn</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="reel-unit">
+                            <div class="reel-label">style</div>
+                            <div class="reel-window">
+                                <div class="reel-strip" id="turn-reel-style">
+                                    <div class="reel-value">watercolor</div>
+                                    <div class="reel-value">oil</div>
+                                    <div class="reel-value">digital</div>
+                                    <div class="reel-value">pencil</div>
+                                    <div class="reel-value">watercolor</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="turn-result" id="turn-result"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     SECTION 3 — OUTPUT (Reels drive the grid)
+     ═══════════════════════════════════════════════════ -->
+<section data-testid="section-3">
+    <div class="split-container">
+        <div class="narrative-column">
+            <div class="narrative-block" id="narrative-3">
+                <div class="reveal">
+                    <p class="narrative-title">Every combination. Addressed by a number.</p>
+                </div>
+                <div class="reveal">
+                    <p class="narrative-text">Reels spin. The grid follows.</p>
+                </div>
+            </div>
+        </div>
+        <div class="sticky-column">
+            <div class="sticky-panel">
+                <div class="s3-reels-row" id="s3-reels-row">
+                    <div class="reel-unit">
+                        <div class="reel-label">season</div>
+                        <div class="reel-window">
+                            <div class="reel-strip" id="s3-reel-season">
+                                <div class="reel-value">autumn</div>
+                                <div class="reel-value">winter</div>
+                                <div class="reel-value">spring</div>
+                                <div class="reel-value">summer</div>
+                                <div class="reel-value">autumn</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="reel-unit">
+                        <div class="reel-label">style</div>
+                        <div class="reel-window">
+                            <div class="reel-strip" id="s3-reel-style">
+                                <div class="reel-value">watercolor</div>
+                                <div class="reel-value">oil</div>
+                                <div class="reel-value">digital</div>
+                                <div class="reel-value">pencil</div>
+                                <div class="reel-value">watercolor</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="s3-typed-result" id="s3-typed-result"><span class="tw-cursor"></span></div>
+                <div class="cartesian-grid" id="cartesian-grid-s3">
+                    <!-- Built by JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     SECTION 3.5 — BROWSE YOUR WAY (Hero demos)
+     ═══════════════════════════════════════════════════ -->
+<section class="section-browse" data-testid="section-browse">
+    <div class="browse-header">
+        <h2>Multiple ways to browse your combinations</h2>
+        <p>Same data. Different perspectives.</p>
+    </div>
+    <div class="browse-heroes">
+        <!-- Hero 1: Typewriter -->
+        <div class="browse-hero" id="hero-typewriter">
+            <div class="browse-hero-title">
+                <span class="dot dot--green"></span>
+                Typewriter
+            </div>
+            <div class="browse-hero-body">
+                <div class="hero-tw-output" id="hero-tw-output"><span class="tw-cursor"></span></div>
+            </div>
+        </div>
+        <!-- Hero 2: Reel -->
+        <div class="browse-hero" id="hero-reel">
+            <div class="browse-hero-title">
+                <span class="dot dot--blue"></span>
+                Reel
+            </div>
+            <div class="browse-hero-body">
+                <div class="hero-reels-row" id="hero-reels-row">
+                    <div class="reel-unit">
+                        <div class="reel-label">season</div>
+                        <div class="hero-reel-window">
+                            <div class="reel-strip" id="hero-reel-season">
+                                <div class="reel-value" style="font-size:0.85rem">autumn</div>
+                                <div class="reel-value" style="font-size:0.85rem">winter</div>
+                                <div class="reel-value" style="font-size:0.85rem">spring</div>
+                                <div class="reel-value" style="font-size:0.85rem">summer</div>
+                                <div class="reel-value" style="font-size:0.85rem">autumn</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="reel-unit">
+                        <div class="reel-label">style</div>
+                        <div class="hero-reel-window">
+                            <div class="reel-strip" id="hero-reel-style">
+                                <div class="reel-value" style="font-size:0.85rem">watercolor</div>
+                                <div class="reel-value" style="font-size:0.85rem">oil</div>
+                                <div class="reel-value" style="font-size:0.85rem">digital</div>
+                                <div class="reel-value" style="font-size:0.85rem">pencil</div>
+                                <div class="reel-value" style="font-size:0.85rem">watercolor</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="hero-reel-result" id="hero-reel-result"></div>
+            </div>
+        </div>
+    </div>
+    <div class="browse-secondary">
+        <span class="browse-secondary-label">Also available:</span>
+        <span class="browse-pill">Compact</span>
+        <span class="browse-pill">Stack</span>
+        <span class="browse-pill">Ticker</span>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     SECTION 4 — DEPTH (Editor Chrome + Reels)
+     ═══════════════════════════════════════════════════ -->
+<section class="section-depth" data-testid="section-4" id="section-4">
+    <div class="split-container">
+        <div class="narrative-column">
+            <div class="depth-narrative-block" id="narrative-4a">
+                <div class="depth-scene" id="depth-scene-themes">
+                    <div class="depth-scene-title theme-green">Themes</div>
+                    <div class="depth-scene-text">Import shared style packs. Swap 'painting' for 'photography' in one click.</div>
+                </div>
+            </div>
+            <div class="depth-narrative-block" id="narrative-4b">
+                <div class="depth-scene" id="depth-scene-locks">
+                    <div class="depth-scene-title theme-amber">Locks</div>
+                    <div class="depth-scene-text">Pin values. Export only what you need. 16 &rarr; 4 prompts.</div>
+                </div>
+            </div>
+            <div class="depth-narrative-block" id="narrative-4c">
+                <div class="depth-scene" id="depth-scene-ops">
+                    <div class="depth-scene-title theme-purple">Operations</div>
+                    <div class="depth-scene-text">Same prompt, different client. 'neutral' &rarr; 'bold and energetic'.</div>
+                </div>
+            </div>
+        </div>
+        <div class="sticky-column">
+            <div class="sticky-panel">
+                <div class="editor-chrome">
+                    <div class="editor-titlebar">
+                        <div class="editor-dot editor-dot--red"></div>
+                        <div class="editor-dot editor-dot--yellow"></div>
+                        <div class="editor-dot editor-dot--green"></div>
+                        <span class="editor-filename">prompt-a.yaml</span>
+                    </div>
+                    <div class="editor-content">
+                        <div class="editor-reels-row" id="editor-reels-row">
+                            <!-- Built by JS -->
+                        </div>
+                        <div class="editor-typed-result" id="editor-typed-result"><span class="tw-cursor"></span></div>
+                        <div class="lock-badge" id="lock-badge-s4">Exporting 4 of 16...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     SECTION 5 — SCALE (Reel odometer + speed typewriter)
+     ═══════════════════════════════════════════════════ -->
+<section data-testid="section-5">
+    <div class="split-container">
+        <div class="narrative-column">
+            <div class="narrative-block" id="narrative-5">
+                <div class="reveal">
+                    <p class="narrative-title">It scales.</p>
+                </div>
+                <div class="reveal">
+                    <p class="narrative-text">8 wildcards &times; 6 values each</p>
+                </div>
+                <div class="reveal">
+                    <p class="narrative-title" style="font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 700; color: var(--accent-amber); font-family: var(--font-mono);" id="scale-number-inline">0</p>
+                </div>
+                <div class="reveal">
+                    <p class="narrative-text">Buckets window the space. You see 9 at a time.</p>
+                </div>
+            </div>
+        </div>
+        <div class="sticky-column">
+            <div class="sticky-panel">
+                <div class="s5-container">
+                    <div class="reel-odometer" id="reel-odometer-s5">
+                        <!-- Built by JS -->
+                    </div>
+                    <div class="speed-typewriter" id="speed-tw-s5">
+                        <div class="speed-tw-list" id="speed-tw-list"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     SECTION 6 — CLOSE (Typewriter CTA)
+     ═══════════════════════════════════════════════════ -->
+<section class="section-close" data-testid="section-6">
+    <div class="close-terminal" id="close-terminal"></div>
+    <div class="close-subtext" id="close-subtext"></div>
+    <div class="close-ctas" id="close-ctas">
+        <a href="#" class="cta-primary" data-testid="cta-get-started">Get Started</a>
+        <a href="#" class="cta-secondary" data-testid="cta-cookbook">Read the Cookbook</a>
+    </div>
+    <div class="close-footer" id="close-footer">
+        <a href="#">GitHub</a>
+        <a href="#">Docs</a>
+        <a href="#">Discord</a>
+    </div>
+</section>
+
+<script>
+/* ══════════════════════════════════════════════════
+   DATA
+   ══════════════════════════════════════════════════ */
+var SEASONS = ['autumn', 'winter', 'spring', 'summer'];
+var STYLES = ['watercolor', 'oil', 'digital', 'pencil'];
+var BASE_PROMPT = 'A cabin in the forest';
+var SCALE_NUMBER = 1679616;
+var SCALE_FORMATTED = '1,679,616';
+
+function makePrompt(season, style) {
+    return BASE_PROMPT + ', ' + season + ', ' + style;
+}
+
+var ALL_COMPOSITIONS = [];
+for (var s = 0; s < SEASONS.length; s++) {
+    for (var st = 0; st < STYLES.length; st++) {
+        ALL_COMPOSITIONS.push({
+            season: SEASONS[s],
+            style: STYLES[st],
+            text: makePrompt(SEASONS[s], STYLES[st]),
+            num: s * STYLES.length + st + 1
+        });
+    }
+}
+
+var BROWSE_COMPOSITIONS = [
+    { season: 'autumn', style: 'watercolor', text: makePrompt('autumn', 'watercolor'), num: 1 },
+    { season: 'winter', style: 'oil', text: makePrompt('winter', 'oil'), num: 6 },
+    { season: 'spring', style: 'digital', text: makePrompt('spring', 'digital'), num: 11 },
+    { season: 'summer', style: 'pencil', text: makePrompt('summer', 'pencil'), num: 16 }
+];
+
+/* ══════════════════════════════════════════════════
+   SHARED ENGINE: TypewriterEngine
+   ══════════════════════════════════════════════════ */
+function TypewriterEngine(containerEl) {
+    this._el = containerEl;
+    this._cursor = null;
+    this._destroyed = false;
+    this._currentTimeout = null;
+    this._init();
+}
+
+TypewriterEngine.SPEED_NORMAL = 30;
+TypewriterEngine.SPEED_FAST = 12;
+TypewriterEngine.SPEED_BLITZ = 2;
+
+TypewriterEngine.prototype._init = function() {
+    // Ensure cursor exists
+    this._cursor = this._el.querySelector('.tw-cursor');
+    if (!this._cursor) {
+        this._cursor = document.createElement('span');
+        this._cursor.className = 'tw-cursor';
+        this._el.appendChild(this._cursor);
+    }
+};
+
+TypewriterEngine.prototype._getTextNode = function() {
+    // Return or create a text node before the cursor
+    if (this._cursor.previousSibling && this._cursor.previousSibling.nodeType === 3) {
+        return this._cursor.previousSibling;
+    }
+    var tn = document.createTextNode('');
+    this._el.insertBefore(tn, this._cursor);
+    return tn;
+};
+
+TypewriterEngine.prototype.type = function(text, speed) {
+    var self = this;
+    speed = speed || TypewriterEngine.SPEED_NORMAL;
+    return new Promise(function(resolve) {
+        var i = 0;
+        var textNode = self._getTextNode();
+        function tick() {
+            if (self._destroyed) return resolve();
+            if (i < text.length) {
+                textNode.textContent += text[i];
+                i++;
+                self._currentTimeout = setTimeout(tick, speed);
+            } else {
+                resolve();
+            }
+        }
+        tick();
+    });
+};
+
+TypewriterEngine.prototype.erase = function(charCount) {
+    var self = this;
+    return new Promise(function(resolve) {
+        var textNode = self._getTextNode();
+        var remaining = charCount;
+        function tick() {
+            if (self._destroyed) return resolve();
+            if (remaining > 0 && textNode.textContent.length > 0) {
+                textNode.textContent = textNode.textContent.slice(0, -1);
+                remaining--;
+                self._currentTimeout = setTimeout(tick, 20);
+            } else {
+                resolve();
+            }
+        }
+        tick();
+    });
+};
+
+TypewriterEngine.prototype.blitz = function(text) {
+    return this.type(text, TypewriterEngine.SPEED_BLITZ);
+};
+
+TypewriterEngine.prototype.pause = function(ms) {
+    var self = this;
+    return new Promise(function(resolve) {
+        if (self._destroyed) return resolve();
+        self._currentTimeout = setTimeout(resolve, ms);
+    });
+};
+
+TypewriterEngine.prototype.clear = function() {
+    // Remove all text nodes (keep cursor)
+    while (this._el.firstChild !== this._cursor && this._el.firstChild) {
+        this._el.removeChild(this._el.firstChild);
+    }
+};
+
+TypewriterEngine.prototype.newline = function() {
+    var br = document.createElement('br');
+    this._el.insertBefore(br, this._cursor);
+    // Reset text node for next line
+};
+
+TypewriterEngine.prototype.setText = function(text) {
+    this.clear();
+    var tn = document.createTextNode(text);
+    this._el.insertBefore(tn, this._cursor);
+};
+
+TypewriterEngine.prototype.destroy = function() {
+    this._destroyed = true;
+    if (this._currentTimeout) clearTimeout(this._currentTimeout);
+};
+
+/* ══════════════════════════════════════════════════
+   SHARED ENGINE: ReelEngine
+   ══════════════════════════════════════════════════ */
+function ReelEngine(stripEl, values) {
+    this._strip = stripEl;
+    this._values = values;
+    this._currentIndex = 0;
+    this._locked = false;
+}
+
+ReelEngine.prototype.spin = function(targetIndex) {
+    if (this._locked) return;
+    var self = this;
+    var numValues = this._values.length;
+    // Jump ahead for spin illusion
+    this._strip.style.transition = 'none';
+    this._strip.style.transform = 'translateY(' + (-(numValues + targetIndex) * 2) + 'em)';
+    this._strip.offsetHeight; // force reflow
+    this._strip.style.transition = 'transform 1.2s cubic-bezier(0.22, 1, 0.36, 1)';
+    this._strip.style.transform = 'translateY(' + (-targetIndex * 2) + 'em)';
+    this._currentIndex = targetIndex;
+};
+
+ReelEngine.prototype.spinRandom = function() {
+    if (this._locked) return;
+    var next = (this._currentIndex + 1 + Math.floor(Math.random() * (this._values.length - 1))) % this._values.length;
+    this.spin(next);
+    return next;
+};
+
+ReelEngine.prototype.lock = function() {
+    this._locked = true;
+    var win = this._strip.parentElement;
+    if (win) win.classList.add('locked');
+};
+
+ReelEngine.prototype.unlock = function() {
+    this._locked = false;
+    var win = this._strip.parentElement;
+    if (win) win.classList.remove('locked');
+};
+
+ReelEngine.prototype.getCurrentValue = function() {
+    return this._values[this._currentIndex];
+};
+
+ReelEngine.prototype.getCurrentIndex = function() {
+    return this._currentIndex;
+};
+
+/* ══════════════════════════════════════════════════
+   SHARED ENGINE: ReelGroup
+   ══════════════════════════════════════════════════ */
+function ReelGroup(reels, staggerMs) {
+    this._reels = reels; // array of ReelEngine
+    this._stagger = staggerMs || 200;
+}
+
+ReelGroup.prototype.spinAll = function(targets) {
+    var self = this;
+    this._reels.forEach(function(reel, i) {
+        setTimeout(function() {
+            if (targets && targets[i] !== undefined) {
+                reel.spin(targets[i]);
+            } else {
+                reel.spinRandom();
+            }
+        }, i * self._stagger);
+    });
+};
+
+ReelGroup.prototype.spinAllRandom = function() {
+    var self = this;
+    var results = [];
+    this._reels.forEach(function(reel, i) {
+        setTimeout(function() {
+            var idx = reel.spinRandom();
+            results[i] = idx;
+        }, i * self._stagger);
+    });
+    return results;
+};
+
+ReelGroup.prototype.getValues = function() {
+    return this._reels.map(function(r) { return r.getCurrentValue(); });
+};
+
+/* ══════════════════════════════════════════════════
+   UTILITY: animateCounter
+   ══════════════════════════════════════════════════ */
+function animateCounter(el, from, to, duration) {
+    var start = performance.now();
+    function tick(now) {
+        var elapsed = now - start;
+        var progress = Math.min(elapsed / duration, 1);
+        var eased = 1 - Math.pow(1 - progress, 3);
+        var current = Math.round(from + (to - from) * eased);
+        el.textContent = current.toLocaleString();
+        if (progress < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+}
+
+/* ══════════════════════════════════════════════════
+   SECTION 0 — HOOK: Pure typewriter
+   ══════════════════════════════════════════════════ */
+(function initHook() {
+    var line0 = document.getElementById('hook-line-0');
+    var line1 = document.getElementById('hook-line-1');
+    var line2 = document.getElementById('hook-line-2');
+    var lineSeed = document.getElementById('hook-line-seed');
+
+    // Create typewriter engines per line
+    var tw0 = new TypewriterEngine(line0);
+    var tw1 = new TypewriterEngine(line1);
+    var tw2 = new TypewriterEngine(line2);
+    var twSeed = new TypewriterEngine(lineSeed);
+
+    // Hide cursors initially on non-active lines
+    line1.querySelector('.tw-cursor').style.display = 'none';
+    line2.querySelector('.tw-cursor').style.display = 'none';
+    lineSeed.querySelector('.tw-cursor').style.display = 'none';
+
+    // Auto-play on page load
+    setTimeout(function() {
+        // Line 1: "You write prompts for AI."
+        tw0.type('You write prompts for AI.', 35).then(function() {
+            line0.querySelector('.tw-cursor').style.display = 'none';
+            line1.querySelector('.tw-cursor').style.display = '';
+            return tw0.pause(300);
+        }).then(function() {
+            // Line 2: "You copy-paste them 60 times."
+            return tw1.type('You copy-paste them 60 times.', 35);
+        }).then(function() {
+            line1.querySelector('.tw-cursor').style.display = 'none';
+            line2.querySelector('.tw-cursor').style.display = '';
+            return tw1.pause(500);
+        }).then(function() {
+            // Line 3: "What if you didn't?"
+            return tw2.type("What if you didn't?", 40);
+        }).then(function() {
+            line2.querySelector('.tw-cursor').style.display = 'none';
+            lineSeed.querySelector('.tw-cursor').style.display = '';
+            return tw2.pause(800);
+        }).then(function() {
+            // Seed line
+            var prefix = document.createElement('span');
+            prefix.className = 'prompt-prefix';
+            prefix.textContent = '> ';
+            lineSeed.insertBefore(prefix, lineSeed.firstChild);
+            return twSeed.type('A cabin in the forest, autumn, watercolor', 25);
+        });
+    }, 800);
+})();
+
+/* ══════════════════════════════════════════════════
+   SECTION 1 — BEFORE: Accelerating typewriter copies
+   ══════════════════════════════════════════════════ */
+(function initCopies() {
+    var listEl = document.getElementById('copies-list');
+    var activeEl = document.getElementById('copies-active');
+    var counterEl = document.getElementById('copies-counter');
+    var active = false;
+    var copyCount = 0;
+    var maxVisible = 20;
+    var timeouts = [];
+
+    // Accelerating speeds: 30, 22, 15, 10, 6, 4, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1
+    var speeds = [30, 22, 15, 10, 6, 4, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+
+    function typeOneCopy(compIndex) {
+        if (!active || compIndex >= ALL_COMPOSITIONS.length) return;
+
+        var comp = ALL_COMPOSITIONS[compIndex];
+        var speed = speeds[Math.min(compIndex, speeds.length - 1)];
+        var charIdx = 0;
+
+        // Clear active line
+        var textSpan = activeEl.querySelector('.tw-text');
+        if (!textSpan) {
+            textSpan = document.createElement('span');
+            textSpan.className = 'tw-text';
+            activeEl.insertBefore(textSpan, activeEl.querySelector('.tw-cursor'));
+        }
+        textSpan.textContent = '';
+
+        function tick() {
+            if (!active) return;
+            if (charIdx <= comp.text.length) {
+                textSpan.textContent = comp.text.substring(0, charIdx);
+                charIdx++;
+                var t = setTimeout(tick, speed);
+                timeouts.push(t);
+            } else {
+                // Done typing this copy — move to done list
+                finishCopy(comp, compIndex);
+            }
+        }
+        tick();
+    }
+
+    function finishCopy(comp, compIndex) {
+        // Create done line
+        var doneLine = document.createElement('div');
+        doneLine.className = 'copies-done-line';
+        doneLine.textContent = comp.text;
+        listEl.insertBefore(doneLine, activeEl);
+
+        // Trim old lines
+        var doneLines = listEl.querySelectorAll('.copies-done-line');
+        if (doneLines.length > maxVisible) {
+            listEl.removeChild(doneLines[0]);
+        }
+
+        // Update counter
+        copyCount++;
+        counterEl.textContent = copyCount;
+        counterEl.classList.add('bump');
+        setTimeout(function() { counterEl.classList.remove('bump'); }, 150);
+
+        // Clear active text
+        var textSpan = activeEl.querySelector('.tw-text');
+        if (textSpan) textSpan.textContent = '';
+
+        // Start next copy
+        if (compIndex + 1 < ALL_COMPOSITIONS.length) {
+            var t = setTimeout(function() {
+                typeOneCopy(compIndex + 1);
+            }, 100);
+            timeouts.push(t);
+        }
+    }
+
+    window._activateCopies = function() {
+        if (active) return;
+        active = true;
+        copyCount = 0;
+        counterEl.textContent = '0';
+        // Clear previous
+        var doneLines = listEl.querySelectorAll('.copies-done-line');
+        doneLines.forEach(function(l) { l.remove(); });
+        typeOneCopy(0);
+    };
+
+    window._deactivateCopies = function() {
+        active = false;
+        timeouts.forEach(function(t) { clearTimeout(t); });
+        timeouts = [];
+    };
+})();
+
+/* ══════════════════════════════════════════════════
+   SECTION 2 — THE TURN: Three-phase sequence
+   ══════════════════════════════════════════════════ */
+(function initTurn() {
+    var promptEl = document.getElementById('turn-prompt');
+    var cursorEl = document.getElementById('turn-cursor');
+    var templateEl = document.getElementById('turn-template');
+    var mathEl = document.getElementById('turn-math');
+    var reelsEl = document.getElementById('turn-reels');
+    var resultEl = document.getElementById('turn-result');
+
+    var seasonStrip = document.getElementById('turn-reel-season');
+    var styleStrip = document.getElementById('turn-reel-style');
+
+    var reelSeason = new ReelEngine(seasonStrip, SEASONS);
+    var reelStyle = new ReelEngine(styleStrip, STYLES);
+    var reelGroup = new ReelGroup([reelSeason, reelStyle], 200);
+
+    var activated = false;
+    var reelInterval = null;
+    var tw = null;
+    var phaseTimeouts = [];
+
+    function runSequence() {
+        // Phase 1: Type the full prompt
+        tw = new TypewriterEngine(promptEl);
+        cursorEl.style.display = '';
+
+        tw.type('A cabin in the forest, autumn, watercolor', 25).then(function() {
+            return tw.pause(600);
+        }).then(function() {
+            // Phase 2: Crossfade — hide prompt, show template
+            promptEl.style.transition = 'opacity 0.5s ease';
+            promptEl.style.opacity = '0';
+
+            var t1 = setTimeout(function() {
+                promptEl.style.display = 'none';
+                templateEl.classList.add('visible');
+
+                // Phase 3: Show math
+                var t2 = setTimeout(function() {
+                    mathEl.classList.add('visible');
+
+                    // Phase 4: Show reels
+                    var t3 = setTimeout(function() {
+                        reelsEl.classList.add('visible');
+
+                        // Initial spin
+                        var t4 = setTimeout(function() {
+                            spinAndShow();
+                            // Auto-spin every 3.5s
+                            reelInterval = setInterval(spinAndShow, 3500);
+                        }, 400);
+                        phaseTimeouts.push(t4);
+                    }, 500);
+                    phaseTimeouts.push(t3);
+                }, 400);
+                phaseTimeouts.push(t2);
+            }, 500);
+            phaseTimeouts.push(t1);
+        });
+    }
+
+    function spinAndShow() {
+        resultEl.classList.remove('visible');
+        reelGroup.spinAllRandom();
+        setTimeout(function() {
+            resultEl.textContent = makePrompt(reelSeason.getCurrentValue(), reelStyle.getCurrentValue());
+            resultEl.classList.add('visible');
+        }, 1600);
+    }
+
+    window._activateTurn = function() {
+        if (activated) return;
+        activated = true;
+        runSequence();
+    };
+
+    window._deactivateTurn = function() {
+        activated = false;
+        if (reelInterval) { clearInterval(reelInterval); reelInterval = null; }
+        if (tw) tw.destroy();
+        phaseTimeouts.forEach(function(t) { clearTimeout(t); });
+        phaseTimeouts = [];
+
+        // Reset state
+        promptEl.style.display = '';
+        promptEl.style.opacity = '1';
+        promptEl.style.transition = '';
+        // Clear typed text from prompt (keep cursor)
+        while (promptEl.firstChild !== cursorEl && promptEl.firstChild) {
+            promptEl.removeChild(promptEl.firstChild);
+        }
+        templateEl.classList.remove('visible');
+        mathEl.classList.remove('visible');
+        reelsEl.classList.remove('visible');
+        resultEl.classList.remove('visible');
+    };
+})();
+
+/* ══════════════════════════════════════════════════
+   SECTION 3 — OUTPUT: Reels drive the grid
+   ══════════════════════════════════════════════════ */
+(function initGridS3() {
+    var gridEl = document.getElementById('cartesian-grid-s3');
+    var typedResultEl = document.getElementById('s3-typed-result');
+    var seasonStrip = document.getElementById('s3-reel-season');
+    var styleStrip = document.getElementById('s3-reel-style');
+
+    var reelSeason = new ReelEngine(seasonStrip, SEASONS);
+    var reelStyle = new ReelEngine(styleStrip, STYLES);
+    var reelGroup = new ReelGroup([reelSeason, reelStyle], 200);
+
+    var cells = [];
+    var reelInterval = null;
+    var gridRevealed = false;
+
+    // Build grid
+    var corner = document.createElement('div');
+    corner.className = 'grid-corner';
+    gridEl.appendChild(corner);
+
+    STYLES.forEach(function(s) {
+        var hdr = document.createElement('div');
+        hdr.className = 'grid-col-header';
+        hdr.textContent = s;
+        gridEl.appendChild(hdr);
+    });
+
+    SEASONS.forEach(function(season, sIdx) {
+        var rowHdr = document.createElement('div');
+        rowHdr.className = 'grid-row-header';
+        rowHdr.textContent = season;
+        gridEl.appendChild(rowHdr);
+
+        STYLES.forEach(function(style, stIdx) {
+            var cell = document.createElement('div');
+            cell.className = 'grid-cell';
+            var num = sIdx * STYLES.length + stIdx + 1;
+            var truncated = 'cabin, ' + season.substring(0, 3) + ', ' + style.substring(0, 4);
+            cell.innerHTML = truncated + '<span class="grid-cell-number">#' + num + '</span>';
+            gridEl.appendChild(cell);
+            cells.push(cell);
+        });
+    });
+
+    function revealGrid() {
+        if (gridRevealed) return;
+        gridRevealed = true;
+        cells.forEach(function(cell, i) {
+            var row = Math.floor(i / STYLES.length);
+            setTimeout(function() {
+                cell.classList.add('visible');
+                cell.classList.add('typed-in');
+            }, row * 150 + (i % STYLES.length) * 50);
+        });
+    }
+
+    function clearHighlights() {
+        cells.forEach(function(c) {
+            c.classList.remove('row-highlight', 'col-highlight', 'cell-highlight');
+        });
+    }
+
+    function highlightForReel() {
+        clearHighlights();
+        var sIdx = reelSeason.getCurrentIndex();
+        var stIdx = reelStyle.getCurrentIndex();
+
+        // Row highlight (amber for season)
+        for (var c = 0; c < STYLES.length; c++) {
+            cells[sIdx * STYLES.length + c].classList.add('row-highlight');
+        }
+        // Column highlight (blue for style)
+        for (var r = 0; r < SEASONS.length; r++) {
+            cells[r * STYLES.length + stIdx].classList.add('col-highlight');
+        }
+        // Intersection cell pulse (green)
+        var intersection = sIdx * STYLES.length + stIdx;
+        cells[intersection].classList.add('cell-highlight');
+
+        // Type the result
+        var resultText = makePrompt(SEASONS[sIdx], STYLES[stIdx]);
+        typedResultEl.innerHTML = '';
+        var twResult = new TypewriterEngine(typedResultEl);
+        twResult.type(resultText, 15);
+    }
+
+    function spinAndHighlight() {
+        typedResultEl.innerHTML = '<span class="tw-cursor"></span>';
+        reelGroup.spinAllRandom();
+        setTimeout(highlightForReel, 1500);
+    }
+
+    window._activateGridS3 = function() {
+        revealGrid();
+        // Start reel-driven highlights after grid reveals
+        setTimeout(function() {
+            spinAndHighlight();
+            reelInterval = setInterval(spinAndHighlight, 3500);
+        }, 1000);
+    };
+
+    window._deactivateGridS3 = function() {
+        if (reelInterval) { clearInterval(reelInterval); reelInterval = null; }
+    };
+})();
+
+/* ══════════════════════════════════════════════════
+   SECTION 3.5 — BROWSE: Hero demos
+   ══════════════════════════════════════════════════ */
+(function initBrowseHeroes() {
+    // --- Hero Typewriter ---
+    var twOutput = document.getElementById('hero-tw-output');
+    var twTimer = null;
+    var twCompIdx = 0;
+
+    function runHeroTypewriter() {
+        var comp = BROWSE_COMPOSITIONS[twCompIdx];
+        twOutput.innerHTML = '';
+        var tw = new TypewriterEngine(twOutput);
+
+        tw.type(comp.text, 25).then(function() {
+            return tw.pause(1200);
+        }).then(function() {
+            twCompIdx = (twCompIdx + 1) % BROWSE_COMPOSITIONS.length;
+            twTimer = setTimeout(runHeroTypewriter, 200);
+        });
+    }
+
+    // --- Hero Reel ---
+    var heroSeasonStrip = document.getElementById('hero-reel-season');
+    var heroStyleStrip = document.getElementById('hero-reel-style');
+    var heroResultEl = document.getElementById('hero-reel-result');
+
+    var heroReelSeason = new ReelEngine(heroSeasonStrip, SEASONS);
+    var heroReelStyle = new ReelEngine(heroStyleStrip, STYLES);
+    var heroReelGroup = new ReelGroup([heroReelSeason, heroReelStyle], 150);
+    var heroReelInterval = null;
+
+    function spinHeroReels() {
+        heroResultEl.classList.remove('visible');
+        heroReelGroup.spinAllRandom();
+        setTimeout(function() {
+            heroResultEl.textContent = makePrompt(heroReelSeason.getCurrentValue(), heroReelStyle.getCurrentValue());
+            heroResultEl.classList.add('visible');
+        }, 1400);
+    }
+
+    // Start both when section visible
+    window._activateBrowse = function() {
+        runHeroTypewriter();
+        spinHeroReels();
+        heroReelInterval = setInterval(spinHeroReels, 2500);
+    };
+
+    window._deactivateBrowse = function() {
+        if (twTimer) { clearTimeout(twTimer); twTimer = null; }
+        if (heroReelInterval) { clearInterval(heroReelInterval); heroReelInterval = null; }
+    };
+})();
+
+/* ══════════════════════════════════════════════════
+   SECTION 4 — DEPTH: Reel-driven feature demos
+   ══════════════════════════════════════════════════ */
+(function initDepthS4() {
+    var reelsRow = document.getElementById('editor-reels-row');
+    var typedResult = document.getElementById('editor-typed-result');
+    var lockBadge = document.getElementById('lock-badge-s4');
+    var currentPhase = 'none';
+    var depthInterval = null;
+
+    // Reel data configs per phase
+    var phaseConfigs = {
+        themes: {
+            reels: [
+                { label: 'season', values: SEASONS },
+                { label: 'style', values: ['watercolor', 'oil', 'digital', 'pencil'] },
+                { label: 'style pack', values: ['painting', 'photography'] }
+            ]
+        },
+        locks: {
+            reels: [
+                { label: 'season', values: SEASONS, lockAt: 0 },
+                { label: 'style', values: STYLES }
+            ]
+        },
+        ops: {
+            reels: [
+                { label: 'season', values: SEASONS },
+                { label: 'style', values: STYLES },
+                { label: 'variant', values: ['default', 'ACME', 'ZenLife'] }
+            ]
+        }
+    };
+
+    var activeReels = [];
+    var activeGroup = null;
+
+    function buildReels(config) {
+        reelsRow.innerHTML = '';
+        activeReels = [];
+
+        config.reels.forEach(function(rd) {
+            var unit = document.createElement('div');
+            unit.className = 'editor-reel-unit';
+
+            var label = document.createElement('div');
+            label.className = 'editor-reel-label';
+            label.textContent = rd.label;
+            unit.appendChild(label);
+
+            var win = document.createElement('div');
+            win.className = 'editor-reel-window';
+
+            var strip = document.createElement('div');
+            strip.className = 'editor-reel-strip';
+
+            rd.values.forEach(function(v) {
+                var val = document.createElement('div');
+                val.className = 'editor-reel-val';
+                val.textContent = v;
+                strip.appendChild(val);
+            });
+            // Extra for wrap
+            var extra = document.createElement('div');
+            extra.className = 'editor-reel-val';
+            extra.textContent = rd.values[0];
+            strip.appendChild(extra);
+
+            win.appendChild(strip);
+            unit.appendChild(win);
+            reelsRow.appendChild(unit);
+
+            var reel = new ReelEngine(strip, rd.values);
+            if (rd.lockAt !== undefined) {
+                reel.spin(rd.lockAt);
+                setTimeout(function() { reel.lock(); }, 100);
+                // Show lock icon
+                var lockIcon = document.createElement('span');
+                lockIcon.className = 'reel-lock-icon';
+                lockIcon.textContent = '\uD83D\uDD12';
+                win.appendChild(lockIcon);
+            }
+            activeReels.push(reel);
+        });
+
+        activeGroup = new ReelGroup(activeReels, 200);
+    }
+
+    function spinAndType() {
+        // Clear result
+        typedResult.innerHTML = '<span class="tw-cursor"></span>';
+
+        activeGroup.spinAllRandom();
+
+        setTimeout(function() {
+            var vals = activeGroup.getValues();
+            var text;
+            if (currentPhase === 'themes') {
+                text = BASE_PROMPT + ', ' + vals[0] + ', ' + vals[1] + ' [' + vals[2] + ']';
+            } else if (currentPhase === 'locks') {
+                text = BASE_PROMPT + ', ' + vals[0] + ', ' + vals[1];
+            } else {
+                text = BASE_PROMPT + ', ' + vals[0] + ', ' + vals[1] + ' (' + vals[2] + ')';
+            }
+
+            typedResult.innerHTML = '';
+            var tw = new TypewriterEngine(typedResult);
+            tw.type(text, 12);
+        }, 1500);
+    }
+
+    window._setDepthPhase = function(phase) {
+        if (phase === currentPhase) return;
+        currentPhase = phase;
+
+        // Clear previous interval
+        if (depthInterval) { clearInterval(depthInterval); depthInterval = null; }
+
+        var config = phaseConfigs[phase];
+        if (!config) return;
+
+        buildReels(config);
+        lockBadge.classList.toggle('visible', phase === 'locks');
+
+        // Initial spin + auto-spin
+        setTimeout(function() {
+            spinAndType();
+            depthInterval = setInterval(spinAndType, 3500);
+        }, 300);
+    };
+})();
+
+/* ══════════════════════════════════════════════════
+   SECTION 5 — SCALE: Reel odometer + speed typewriter
+   ══════════════════════════════════════════════════ */
+(function initScaleS5() {
+    var odometerEl = document.getElementById('reel-odometer-s5');
+    var speedTwEl = document.getElementById('speed-tw-s5');
+    var speedListEl = document.getElementById('speed-tw-list');
+    var digits = SCALE_FORMATTED.split('');
+    var digitStrips = [];
+    var odometerAnimated = false;
+
+    // Build reel-style odometer
+    digits.forEach(function(d) {
+        if (d === ',') {
+            var comma = document.createElement('span');
+            comma.className = 'reel-odo-comma';
+            comma.textContent = ',';
+            odometerEl.appendChild(comma);
+            digitStrips.push(null);
+        } else {
+            var wrap = document.createElement('span');
+            wrap.className = 'reel-odo-digit-wrap';
+            var strip = document.createElement('span');
+            strip.className = 'reel-odo-strip';
+            strip.style.display = 'block';
+
+            for (var n = 0; n <= 9; n++) {
+                var digitDiv = document.createElement('span');
+                digitDiv.className = 'reel-odo-digit';
+                digitDiv.textContent = n.toString();
+                strip.appendChild(digitDiv);
+            }
+
+            strip.style.transform = 'translateY(0)';
+            wrap.appendChild(strip);
+            odometerEl.appendChild(wrap);
+            digitStrips.push({ strip: strip, target: parseInt(d) });
+        }
+    });
+
+    // Generate scale compositions for speed typewriter
+    var scaleWildcards = ['tone', 'mood', 'palette', 'format', 'aspect', 'detail', 'lens', 'era'];
+    var scaleValues = {
+        tone: ['warm', 'cool', 'neutral', 'vivid', 'muted', 'dramatic'],
+        mood: ['serene', 'energetic', 'nostalgic', 'playful', 'somber', 'majestic'],
+        palette: ['earth', 'ocean', 'sunset', 'monochrome', 'neon', 'pastel'],
+        format: ['16:9', '1:1', '4:3', '3:2', '9:16', '2.35:1'],
+        aspect: ['wide', 'close-up', 'aerial', 'macro', 'portrait', 'landscape'],
+        detail: ['hyper', 'sketch', 'minimal', 'ornate', 'rough', 'smooth'],
+        lens: ['35mm', '50mm', '85mm', 'fisheye', 'tilt-shift', 'telephoto'],
+        era: ['1920s', '1960s', '1980s', 'modern', 'futuristic', 'medieval']
+    };
+
+    function randomScaleComposition(idx) {
+        var parts = [BASE_PROMPT];
+        scaleWildcards.forEach(function(w) {
+            var vals = scaleValues[w];
+            parts.push(vals[Math.floor(Math.random() * vals.length)]);
+        });
+        return '#' + (idx + 1) + ' ' + parts.join(', ');
+    }
+
+    window._activateScaleS5 = function() {
+        if (odometerAnimated) return;
+        odometerAnimated = true;
+
+        // Stagger reel-odometer digits right-to-left
+        var nonComma = digitStrips.filter(function(d) { return d !== null; });
+        nonComma.reverse().forEach(function(d, i) {
+            setTimeout(function() {
+                d.strip.style.transition = 'transform 1.5s cubic-bezier(0.22, 1, 0.36, 1)';
+                d.strip.style.transform = 'translateY(' + (-d.target * 1.2) + 'em)';
+            }, i * 120);
+        });
+
+        // Inline number
+        var inlineEl = document.getElementById('scale-number-inline');
+        animateCounter(inlineEl, 0, SCALE_NUMBER, 2000);
+
+        // Speed typewriter after odometer settles
+        setTimeout(function() {
+            speedTwEl.classList.add('visible');
+            var lineCount = 0;
+            var maxLines = 80;
+
+            function addSpeedLine() {
+                if (lineCount >= maxLines) return;
+
+                var line = document.createElement('div');
+                line.className = 'speed-tw-line';
+                line.textContent = randomScaleComposition(lineCount);
+                speedListEl.appendChild(line);
+                lineCount++;
+
+                // Auto-scroll
+                speedListEl.scrollTop = speedListEl.scrollHeight;
+
+                // Trim old lines
+                while (speedListEl.children.length > 40) {
+                    speedListEl.removeChild(speedListEl.firstChild);
+                }
+
+                setTimeout(addSpeedLine, 80);
+            }
+            addSpeedLine();
+        }, 2000);
+    };
+
+    window._deactivateScaleS5 = function() {
+        // Optional: no cleanup needed since it's one-shot
+    };
+})();
+
+/* ══════════════════════════════════════════════════
+   SECTION 6 — CLOSE: Typewriter CTA
+   ══════════════════════════════════════════════════ */
+(function initClose() {
+    var terminalEl = document.getElementById('close-terminal');
+    var subtextEl = document.getElementById('close-subtext');
+    var ctasEl = document.getElementById('close-ctas');
+    var footerEl = document.getElementById('close-footer');
+    var activated = false;
+
+    window._activateClose = function() {
+        if (activated) return;
+        activated = true;
+
+        var tw1 = new TypewriterEngine(terminalEl);
+        var tw2 = new TypewriterEngine(subtextEl);
+
+        subtextEl.querySelector('.tw-cursor') && subtextEl.querySelector('.tw-cursor').remove();
+
+        tw1.type('One prompt.', 40).then(function() {
+            return tw1.pause(400);
+        }).then(function() {
+            return tw1.type(' Every combination.', 40);
+        }).then(function() {
+            terminalEl.querySelector('.tw-cursor').style.display = 'none';
+            return tw1.pause(300);
+        }).then(function() {
+            return tw2.type('Self-hosted. No accounts. Your data stays yours.', 25);
+        }).then(function() {
+            subtextEl.querySelector('.tw-cursor').style.display = 'none';
+            return tw2.pause(200);
+        }).then(function() {
+            ctasEl.classList.add('visible');
+            setTimeout(function() {
+                footerEl.classList.add('visible');
+            }, 300);
+        });
+    };
+})();
+
+/* ══════════════════════════════════════════════════
+   SCROLL OBSERVER — Narrative blocks
+   ══════════════════════════════════════════════════ */
+(function initScrollObserver() {
+    var narrative1 = document.getElementById('narrative-1');
+    var narrative2 = document.getElementById('narrative-2');
+    var narrative3 = document.getElementById('narrative-3');
+    var narrative5 = document.getElementById('narrative-5');
+
+    var narrative4a = document.getElementById('narrative-4a');
+    var narrative4b = document.getElementById('narrative-4b');
+    var narrative4c = document.getElementById('narrative-4c');
+
+    var depthThemes = document.getElementById('depth-scene-themes');
+    var depthLocks = document.getElementById('depth-scene-locks');
+    var depthOps = document.getElementById('depth-scene-ops');
+
+    var gridS3Activated = false;
+    var scaleActivated = false;
+
+    // General narrative observer (threshold 0.3)
+    var narrativeObserver = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+            var id = entry.target.id;
+
+            if (entry.isIntersecting) {
+                entry.target.classList.add('active');
+
+                if (id === 'narrative-1') {
+                    window._activateCopies();
+                } else if (id === 'narrative-2') {
+                    window._activateTurn();
+                } else if (id === 'narrative-3') {
+                    if (!gridS3Activated) {
+                        gridS3Activated = true;
+                        window._activateGridS3();
+                    }
+                } else if (id === 'narrative-5') {
+                    if (!scaleActivated) {
+                        scaleActivated = true;
+                        window._activateScaleS5();
+                    }
+                }
+            } else {
+                entry.target.classList.remove('active');
+
+                if (id === 'narrative-1') {
+                    window._deactivateCopies();
+                } else if (id === 'narrative-2') {
+                    window._deactivateTurn();
+                } else if (id === 'narrative-3') {
+                    window._deactivateGridS3();
+                }
+            }
+        });
+    }, { threshold: 0.3 });
+
+    narrativeObserver.observe(narrative1);
+    narrativeObserver.observe(narrative2);
+    narrativeObserver.observe(narrative3);
+    narrativeObserver.observe(narrative5);
+
+    // Depth section observer
+    var depthObserver = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+            var id = entry.target.id;
+
+            if (entry.isIntersecting) {
+                if (id === 'narrative-4a') {
+                    depthThemes.classList.add('visible');
+                    window._setDepthPhase('themes');
+                } else if (id === 'narrative-4b') {
+                    depthLocks.classList.add('visible');
+                    window._setDepthPhase('locks');
+                } else if (id === 'narrative-4c') {
+                    depthOps.classList.add('visible');
+                    window._setDepthPhase('ops');
+                }
+            }
+        });
+    }, { threshold: 0.3 });
+
+    depthObserver.observe(narrative4a);
+    depthObserver.observe(narrative4b);
+    depthObserver.observe(narrative4c);
+
+    // Scroll-based depth phase for sticky panel
+    var section4 = document.getElementById('section-4');
+    var lastDepthPhase = 'none';
+
+    function updateDepthPhaseOnScroll() {
+        if (!section4) return;
+        var rect = section4.getBoundingClientRect();
+        var sectionHeight = rect.height;
+        var viewportHeight = window.innerHeight;
+        var scrollableDistance = sectionHeight - viewportHeight;
+
+        if (scrollableDistance <= 0) return;
+
+        var progress = Math.max(0, Math.min(1, -rect.top / scrollableDistance));
+
+        var phase;
+        if (progress < 0.33) {
+            phase = 'themes';
+        } else if (progress < 0.66) {
+            phase = 'locks';
+        } else {
+            phase = 'ops';
+        }
+
+        if (phase !== lastDepthPhase) {
+            lastDepthPhase = phase;
+            window._setDepthPhase(phase);
+
+            if (phase === 'themes') depthThemes.classList.add('visible');
+            if (phase === 'locks') depthLocks.classList.add('visible');
+            if (phase === 'ops') depthOps.classList.add('visible');
+        }
+    }
+
+    window.addEventListener('scroll', updateDepthPhaseOnScroll, { passive: true });
+})();
+
+/* ══════════════════════════════════════════════════
+   SECTION 3.5 BROWSE — IntersectionObserver
+   ══════════════════════════════════════════════════ */
+(function initBrowseObserver() {
+    var browseSection = document.querySelector('[data-testid="section-browse"]');
+    var browseActivated = false;
+
+    var observer = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+            if (entry.isIntersecting && !browseActivated) {
+                browseActivated = true;
+                browseSection.style.opacity = '1';
+                window._activateBrowse();
+            } else if (!entry.isIntersecting && browseActivated) {
+                browseActivated = false;
+                window._deactivateBrowse();
+            }
+        });
+    }, { threshold: 0.2 });
+    observer.observe(browseSection);
+})();
+
+/* ══════════════════════════════════════════════════
+   SECTION 6 — Fade-in on scroll
+   ══════════════════════════════════════════════════ */
+(function initCloseObserver() {
+    var closeSection = document.querySelector('[data-testid="section-6"]');
+    closeSection.style.opacity = '0';
+    closeSection.style.transform = 'translateY(30px)';
+    closeSection.style.transition = 'opacity 0.8s ease, transform 0.8s ease';
+
+    var observer = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+            if (entry.isIntersecting) {
+                closeSection.style.opacity = '1';
+                closeSection.style.transform = 'translateY(0)';
+                window._activateClose();
+            }
+        });
+    }, { threshold: 0.2 });
+    observer.observe(closeSection);
+})();
+</script>
+</body>
+</html>

@@ -246,6 +246,15 @@ body {
     flex-direction: column;
     overflow: hidden;
     flex-shrink: 0;
+    transition: width 0.2s ease, border-right-width 0.2s ease, opacity 0.2s ease;
+    border-right: 1px solid var(--pu-border);
+}
+
+.pu-sidebar.collapsed {
+    width: 0;
+    border-right-width: 0;
+    opacity: 0;
+    pointer-events: none;
 }
 
 .pu-sidebar-section {
@@ -267,15 +276,17 @@ body {
     display: flex;
     align-items: center;
     gap: var(--pu-space-sm);
-    padding: var(--pu-space-md);
-    background: var(--pu-bg-hover);
+    padding: 6px 12px;
+    background: var(--pu-bg-primary);
+    border-bottom: 1px solid var(--pu-border);
     cursor: pointer;
     user-select: none;
+    flex-shrink: 0;
     transition: background var(--pu-transition-fast);
 }
 
 .pu-sidebar-header:hover {
-    background: var(--pu-bg-selected);
+    background: var(--pu-bg-hover);
 }
 
 .pu-sidebar-icon {
@@ -285,19 +296,27 @@ body {
 .pu-sidebar-title {
     font-size: var(--pu-font-size-xs);
     font-weight: 400;
-    text-transform: capitalize;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
     color: var(--pu-text-muted);
     flex: 1;
 }
 
-.pu-sidebar-toggle {
-    font-size: var(--pu-font-size-2xs);
+/* Panel collapse buttons — kbd key style */
+.pu-panel-collapse-btn {
+    background: var(--pu-bg-tertiary);
+    border: 1px solid var(--pu-border);
+    border-radius: 3px;
     color: var(--pu-text-muted);
-    transition: transform var(--pu-transition-normal);
+    cursor: pointer;
+    font-family: var(--pu-font-mono);
+    font-size: 10px;
+    padding: 1px 5px;
+    line-height: 1.2;
 }
-
-.pu-sidebar-toggle.collapsed {
-    transform: rotate(-90deg);
+.pu-panel-collapse-btn:hover {
+    color: var(--pu-text-primary);
+    background: var(--pu-bg-hover);
 }
 
 .pu-jobs-count {
@@ -337,8 +356,9 @@ body {
 }
 
 .pu-sidebar-footer {
-    padding: var(--pu-space-sm);
+    padding: 6px 12px 8px;
     border-top: 1px solid var(--pu-border);
+    background: var(--pu-bg-primary);
 }
 
 /* Tree Items */
@@ -2289,6 +2309,14 @@ body {
     flex-direction: column;
     overflow: hidden;
     flex-shrink: 0;
+    transition: width 0.2s ease, border-left-width 0.2s ease, opacity 0.2s ease;
+}
+
+.pu-right-panel.collapsed {
+    width: 0;
+    border-left-width: 0;
+    opacity: 0;
+    pointer-events: none;
 }
 
 /* Wildcard stream (scrollable) */
@@ -2346,8 +2374,10 @@ body {
     padding: 6px 12px;
     border-bottom: 1px solid var(--pu-border);
     background: var(--pu-bg-primary);
-    gap: 6px;
+    gap: var(--pu-space-sm);
     flex-shrink: 0;
+    user-select: none;
+    transition: background var(--pu-transition-fast);
 }
 .pu-rp-scope-chip {
     font-family: var(--pu-font-mono);
@@ -3389,6 +3419,57 @@ body {
 
 .pu-app ::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.2);
+}
+
+/* ============================================
+   Footer Helper Bar
+   ============================================ */
+.pu-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 12px;
+    height: 24px;
+    background: var(--pu-bg-primary);
+    border-top: 1px solid var(--pu-border);
+    flex-shrink: 0;
+    font-size: 11px;
+    color: var(--pu-text-muted);
+    user-select: none;
+}
+.pu-footer-shortcuts {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.pu-footer kbd {
+    font-family: var(--pu-font-mono);
+    font-size: 10px;
+    padding: 1px 5px;
+    border: 1px solid var(--pu-border);
+    border-radius: 3px;
+    background: var(--pu-bg-tertiary);
+    color: var(--pu-text-primary);
+    line-height: 1.2;
+}
+.pu-footer-label {
+    cursor: pointer;
+    color: var(--pu-text-muted);
+}
+.pu-footer-label:hover {
+    color: var(--pu-text-primary);
+}
+.pu-footer-tip {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--pu-text-muted);
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+.pu-footer-tip.visible {
+    opacity: 1;
 }
 
 /* ============================================

@@ -21,6 +21,22 @@ PU.actions = {
         // Load extensions first (needed for dropdown population)
         await PU.rightPanel.init();
 
+        // Suppress transitions during initial collapsed state restore
+        const sidebar = document.querySelector('[data-testid="pu-sidebar"]');
+        const rightPanel = document.querySelector('[data-testid="pu-right-panel"]');
+        if (sidebar) sidebar.style.transition = 'none';
+        if (rightPanel) rightPanel.style.transition = 'none';
+
+        // Apply persisted collapsed states (instant, no animation)
+        PU.rightPanel.applyCollapsedState();
+        PU.sidebar.applyCollapsedState();
+
+        // Re-enable transitions after layout settles
+        requestAnimationFrame(() => {
+            if (sidebar) sidebar.style.transition = '';
+            if (rightPanel) rightPanel.style.transition = '';
+        });
+
         // Then load jobs (which may select a job and populate dropdowns)
         await PU.sidebar.init();
 
@@ -172,12 +188,6 @@ PU.actions = {
 
     toggleSection(section) {
         PU.state.ui.sectionsCollapsed[section] = !PU.state.ui.sectionsCollapsed[section];
-
-        const toggle = document.querySelector(`[data-testid="pu-jobs-toggle"]`);
-        if (toggle) {
-            toggle.classList.toggle('collapsed', PU.state.ui.sectionsCollapsed[section]);
-        }
-
         PU.helpers.saveUIState();
     },
 
@@ -629,8 +639,30 @@ document.addEventListener('click', (e) => {
     }
 });
 
-// Handle escape key
+// Handle keyboard shortcuts
 document.addEventListener('keydown', (e) => {
+    // [ — toggle left sidebar (skip if typing in input/textarea/contenteditable)
+    if (e.key === '[' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const tag = (e.target.tagName || '').toLowerCase();
+        const editable = e.target.isContentEditable;
+        if (tag !== 'input' && tag !== 'textarea' && !editable) {
+            e.preventDefault();
+            PU.sidebar.togglePanel();
+            return;
+        }
+    }
+
+    // ] — toggle right panel (skip if typing in input/textarea/contenteditable)
+    if (e.key === ']' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const tag = (e.target.tagName || '').toLowerCase();
+        const editable = e.target.isContentEditable;
+        if (tag !== 'input' && tag !== 'textarea' && !editable) {
+            e.preventDefault();
+            PU.rightPanel.togglePanel();
+            return;
+        }
+    }
+
     if (e.key === 'Escape') {
         if (PU.state.themes.swapDropdown.visible) {
             PU.themes.closeSwapDropdown();

@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wildcard Syntax Hint — Preview</title>
+<style>
+/* ── Design Tokens ── */
+:root {
+    --pu-bg-primary: #191919;
+    --pu-bg-secondary: #202020;
+    --pu-bg-tertiary: #2f2f2f;
+    --pu-bg-input: #252525;
+    --pu-bg-hover: rgba(255, 255, 255, 0.04);
+    --pu-bg-selected: rgba(255, 255, 255, 0.06);
+    --pu-bg-elevated: #252525;
+    --pu-bg-overlay: rgba(0, 0, 0, 0.5);
+    --pu-text-primary: #ebebeb;
+    --pu-text-secondary: #999999;
+    --pu-text-muted: #7a7a7a;
+    --pu-accent: #529CCA;
+    --pu-accent-bg: rgba(82, 156, 202, 0.08);
+    --pu-accent-light: rgba(82, 156, 202, 0.12);
+    --pu-accent-border: rgba(82, 156, 202, 0.25);
+    --pu-success: #4daa57;
+    --pu-warning: #cb912f;
+    --pu-warning-bg: rgba(203, 145, 47, 0.1);
+    --pu-error: #e06c75;
+    --pu-border: rgba(255, 255, 255, 0.06);
+    --pu-border-light: rgba(255, 255, 255, 0.09);
+    --pu-radius-sm: 3px;
+    --pu-radius: 4px;
+    --pu-radius-lg: 6px;
+    --pu-radius-full: 9999px;
+    --pu-font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --pu-font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+    --pu-font-size-2xs: 10px;
+    --pu-font-size-xs: 11px;
+    --pu-font-size-sm: 12px;
+    --pu-font-size-md: 13px;
+    --pu-font-size-base: 14px;
+    --pu-font-size-lg: 16px;
+    --pu-space-xs: 4px;
+    --pu-space-sm: 8px;
+    --pu-space-md: 12px;
+    --pu-space-lg: 16px;
+    --pu-space-xl: 24px;
+    --pu-transition-fast: 120ms ease-out;
+    --pu-transition-normal: 200ms ease-out;
+    --pu-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    --pu-shadow-lg: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+* { box-sizing: border-box; }
+body {
+    margin: 0; padding: 0;
+    font-family: var(--pu-font-body);
+    font-size: var(--pu-font-size-base);
+    line-height: 1.5;
+    background: var(--pu-bg-primary);
+    color: var(--pu-text-primary);
+}
+
+/* Scenario switcher */
+.preview-controls {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 3000;
+    background: var(--pu-bg-secondary);
+    border-bottom: 1px solid var(--pu-border-light);
+    padding: var(--pu-space-sm) var(--pu-space-lg);
+    display: flex; align-items: center; gap: var(--pu-space-lg);
+    font-size: var(--pu-font-size-sm); color: var(--pu-text-secondary);
+}
+.preview-controls label { cursor: pointer; display: flex; align-items: center; gap: 4px; }
+.preview-controls input[type="radio"] { accent-color: var(--pu-accent); }
+.preview-label {
+    font-family: var(--pu-font-mono); color: var(--pu-accent);
+    font-size: var(--pu-font-size-xs); background: var(--pu-accent-bg);
+    padding: 2px 6px; border-radius: var(--pu-radius-sm); margin-right: var(--pu-space-sm);
+}
+
+.scenario { display: none; margin-top: 40px; }
+.scenario.active { display: block; }
+
+/* Focus overlay */
+.focus-overlay {
+    position: fixed; top: 40px; left: 0; right: 0; bottom: 0;
+    background: var(--pu-bg-overlay);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 2000;
+}
+.focus-panel {
+    width: min(700px, 85vw);
+    height: min(520px, 72vh);
+    background: var(--pu-bg-elevated);
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius-lg);
+    box-shadow: var(--pu-shadow-lg);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+}
+.focus-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: var(--pu-space-md) 20px;
+    border-bottom: 1px solid var(--pu-border);
+}
+.focus-title {
+    font-size: var(--pu-font-size-sm);
+    color: var(--pu-text-muted);
+}
+.focus-close {
+    background: none; border: none; color: var(--pu-text-muted);
+    font-size: 20px; cursor: pointer; line-height: 1;
+}
+.focus-editor {
+    flex: 1; padding: 20px; overflow-y: auto;
+}
+.focus-quill {
+    min-height: 160px;
+    font-size: 15px; line-height: 1.8;
+    color: var(--pu-text-primary);
+    outline: none;
+}
+.focus-quill .wc { color: var(--pu-warning); font-family: var(--pu-font-mono); }
+
+/* ── NEW: Syntax hint below the editor ── */
+.pu-focus-syntax-hint {
+    margin: var(--pu-space-lg) 0 0;
+    padding: var(--pu-space-md) var(--pu-space-lg);
+    border: 1px dashed var(--pu-border-light);
+    border-radius: var(--pu-radius);
+    background: var(--pu-bg-primary);
+    font-size: var(--pu-font-size-sm);
+    color: var(--pu-text-muted);
+    line-height: 1.6;
+    transition: opacity var(--pu-transition-normal);
+}
+.pu-focus-syntax-hint .hint-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+    color: var(--pu-text-secondary);
+    font-size: var(--pu-font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.pu-focus-syntax-hint .hint-label .bulb {
+    font-size: 12px;
+    opacity: 0.7;
+}
+.pu-focus-syntax-hint code {
+    font-family: var(--pu-font-mono);
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-warning);
+    background: var(--pu-warning-bg);
+    padding: 1px 4px;
+    border-radius: 2px;
+}
+.pu-focus-syntax-hint .hint-example {
+    margin-top: 8px;
+    padding: 8px 10px;
+    background: var(--pu-bg-secondary);
+    border-radius: var(--pu-radius-sm);
+    font-family: var(--pu-font-mono);
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-secondary);
+}
+.pu-focus-syntax-hint .hint-example .wc {
+    color: var(--pu-warning);
+}
+.pu-focus-syntax-hint.hint-fading {
+    opacity: 0;
+}
+
+/* Focus footer */
+.focus-footer {
+    border-top: 1px solid var(--pu-border);
+    padding: var(--pu-space-sm) 20px;
+    display: flex; align-items: center; gap: var(--pu-space-sm);
+}
+.focus-footer-label {
+    font-size: var(--pu-font-size-sm);
+    color: var(--pu-text-muted);
+}
+.focus-footer-count {
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-muted);
+    background: var(--pu-bg-primary);
+    padding: 1px 5px;
+    border-radius: var(--pu-radius-full);
+}
+
+.callout {
+    position: fixed; z-index: 3000;
+    background: var(--pu-accent-bg); border: 1px solid var(--pu-accent-border);
+    border-radius: var(--pu-radius); padding: 6px 10px;
+    font-size: var(--pu-font-size-xs); color: var(--pu-accent);
+    max-width: 320px; line-height: 1.5;
+}
+</style>
+</head>
+<body>
+
+<div class="preview-controls">
+    <span class="preview-label">GAP 2</span>
+    <label><input type="radio" name="scene" value="a" checked onchange="switchScene('a')"> A: Empty editor — hint visible</label>
+    <label><input type="radio" name="scene" value="b" onchange="switchScene('b')"> B: User typed wildcards — hint fading</label>
+    <label><input type="radio" name="scene" value="c" onchange="switchScene('c')"> C: Wildcards present — hint gone</label>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!-- SCENARIO A: Empty editor with syntax hint                       -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<div class="scenario active" id="scene-a" data-testid="scene-hint-visible">
+    <div class="focus-overlay">
+        <div class="focus-panel">
+            <div class="focus-header">
+                <span class="focus-title">Block: 0</span>
+                <button class="focus-close">&times;</button>
+            </div>
+            <div class="focus-editor">
+                <div class="focus-quill" contenteditable="true" data-testid="pu-focus-quill" style="color: var(--pu-text-muted);">
+                    Write your prompt here...
+                </div>
+
+                <!-- NEW: Syntax hint -->
+                <div class="pu-focus-syntax-hint" data-testid="pu-focus-syntax-hint">
+                    <div class="hint-label">
+                        <span class="bulb">&#128161;</span>
+                        <span>Tip</span>
+                    </div>
+                    Wrap a word in double underscores to create a wildcard variable:
+                    <div class="hint-example">
+                        "Write a <span class="wc">__tone__</span> email about <span class="wc">__topic__</span>"
+                    </div>
+                    <div style="margin-top: 6px; font-size: var(--pu-font-size-xs);">
+                        Wildcards appear in the right panel once detected.
+                    </div>
+                </div>
+            </div>
+            <div class="focus-footer">
+                <span class="focus-footer-label">Resolved Output</span>
+                <span class="focus-footer-count">0</span>
+                <span style="flex:1;"></span>
+                <span style="font-size: var(--pu-font-size-2xs); color: var(--pu-text-muted);">&#9660;</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="callout" style="bottom: 20px; right: 20px;">
+        The hint shows <strong>below the Quill editor</strong> in the focus overlay — exactly where the user's attention is. Dashed border distinguishes it from content.
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!-- SCENARIO B: User typed wildcards — hint fading out              -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<div class="scenario" id="scene-b" data-testid="scene-hint-fading">
+    <div class="focus-overlay">
+        <div class="focus-panel">
+            <div class="focus-header">
+                <span class="focus-title">Block: 0</span>
+                <button class="focus-close">&times;</button>
+            </div>
+            <div class="focus-editor">
+                <div class="focus-quill" contenteditable="true">
+                    Write a <span class="wc">__tone__</span> welcome email for new <span class="wc">__role__</span> hires
+                </div>
+
+                <!-- Hint fading out -->
+                <div class="pu-focus-syntax-hint hint-fading" data-testid="pu-focus-syntax-hint">
+                    <div class="hint-label">
+                        <span class="bulb">&#128161;</span>
+                        <span>Tip</span>
+                    </div>
+                    Wrap a word in double underscores to create a wildcard variable:
+                    <div class="hint-example">
+                        "Write a <span class="wc">__tone__</span> email about <span class="wc">__topic__</span>"
+                    </div>
+                </div>
+            </div>
+            <div class="focus-footer">
+                <span class="focus-footer-label">Resolved Output</span>
+                <span class="focus-footer-count">0</span>
+                <span style="flex:1;"></span>
+                <span style="font-size: var(--pu-font-size-2xs); color: var(--pu-text-muted);">&#9660;</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="callout" style="bottom: 20px; right: 20px;">
+        Once the user types their first <code style="color: var(--pu-warning);">__wildcard__</code>, the hint fades out (200ms transition). It's served its purpose.
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!-- SCENARIO C: Wildcards present — hint completely gone             -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<div class="scenario" id="scene-c" data-testid="scene-hint-gone">
+    <div class="focus-overlay">
+        <div class="focus-panel">
+            <div class="focus-header">
+                <span class="focus-title">Block: 0</span>
+                <button class="focus-close">&times;</button>
+            </div>
+            <div class="focus-editor">
+                <div class="focus-quill" contenteditable="true">
+                    Write a <span class="wc">__tone__</span> welcome email for new <span class="wc">__role__</span> hires at our <span class="wc">__stage__</span> startup
+                </div>
+                <!-- No hint — completely removed from DOM -->
+            </div>
+            <div class="focus-footer">
+                <span class="focus-footer-label">Resolved Output</span>
+                <span class="focus-footer-count">0</span>
+                <span style="font-size: var(--pu-font-size-xs); color: var(--pu-text-muted); margin-left: 4px;">(add wildcard values to see output)</span>
+                <span style="flex:1;"></span>
+                <span style="font-size: var(--pu-font-size-2xs); color: var(--pu-text-muted);">&#9660;</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="callout" style="bottom: 20px; right: 20px;">
+        Hint is gone. The output footer now says <em>"add wildcard values to see output"</em> — the next breadcrumb in the learning path.
+    </div>
+</div>
+
+<script>
+function switchScene(id) {
+    document.querySelectorAll('.scenario').forEach(s => s.classList.remove('active'));
+    document.getElementById('scene-' + id).classList.add('active');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,1265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PromptyUI — Layer by Layer</title>
+<style>
+/* ── Design Tokens ── */
+:root {
+    --color-bg: #0a0a0a;
+    --color-bg-elevated: #111111;
+    --color-bg-surface: #161616;
+    --color-text: #e0e0e0;
+    --color-text-dim: #888888;
+    --color-text-muted: #555555;
+    --color-amber: #ff6b35;
+    --color-blue: #58a6ff;
+    --color-green: #3fb950;
+    --color-purple: #bc8cff;
+    --color-border: rgba(255, 255, 255, 0.06);
+
+    --motion-fast: 200ms;
+    --motion-medium: 400ms;
+    --motion-slow: 600ms;
+    --motion-ambient: 1200ms;
+
+    --font-body: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'Courier New', Courier, monospace;
+}
+
+/* ── Reset & Base ── */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    scroll-behavior: smooth;
+    font-size: 16px;
+}
+
+body {
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-body);
+    line-height: 1.6;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+
+/* ── Section Base ── */
+.section {
+    min-height: 100vh;
+    position: relative;
+    overflow: hidden;
+}
+
+/* ── Dot Grid Overlay ── */
+.dot-grid {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity var(--motion-ambient) ease-in-out;
+    z-index: 0;
+    background-image: radial-gradient(circle, rgba(255,255,255,0.35) 1px, transparent 1px);
+    background-size: 24px 24px;
+}
+
+body.show-dots .dot-grid { opacity: 0.05; }
+
+/* ── Grain Overlay ── */
+.grain {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity var(--motion-ambient) ease-in-out;
+    z-index: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+    background-size: 128px 128px;
+}
+
+body.show-grain .grain { opacity: 0.03; }
+
+/* ── Animated Text Block ── */
+.reveal {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity var(--motion-slow) ease-out, transform var(--motion-slow) ease-out;
+}
+
+.reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.reveal-delay-1 { transition-delay: 150ms; }
+.reveal-delay-2 { transition-delay: 300ms; }
+.reveal-delay-3 { transition-delay: 450ms; }
+.reveal-delay-4 { transition-delay: 600ms; }
+.reveal-delay-5 { transition-delay: 750ms; }
+
+/* ── Section 0: Hook ── */
+.section-hook {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 2rem;
+    text-align: center;
+}
+
+.hook-line {
+    font-size: clamp(1.4rem, 3.5vw, 2.6rem);
+    font-weight: 300;
+    letter-spacing: -0.02em;
+    line-height: 1.5;
+    margin-bottom: 0.8rem;
+    color: var(--color-text);
+}
+
+.hook-line:last-child {
+    margin-top: 1.2rem;
+    font-weight: 500;
+    color: #ffffff;
+}
+
+/* ── Split Layout (Sections 1-5) ── */
+.split-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 100vh;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.narrative-col {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 4rem 3rem 4rem 2rem;
+    position: relative;
+    z-index: 1;
+}
+
+.sticky-col {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    z-index: 1;
+}
+
+.narrative-text {
+    font-size: clamp(1.1rem, 2vw, 1.5rem);
+    font-weight: 300;
+    line-height: 1.7;
+    margin-bottom: 2rem;
+    color: var(--color-text);
+}
+
+.narrative-text:last-child { margin-bottom: 0; }
+
+/* ── Accent Colors (applied via class) ── */
+.accent-amber { color: var(--color-amber); font-weight: 600; }
+.accent-blue { color: var(--color-blue); font-weight: 500; }
+.accent-green { color: var(--color-green); font-weight: 500; }
+.accent-purple { color: var(--color-purple); font-weight: 500; }
+
+/* ── Mockup Panel ── */
+.mockup-panel {
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    width: 100%;
+    max-width: 440px;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    line-height: 1.8;
+    color: var(--color-text-dim);
+    position: relative;
+    overflow: hidden;
+    transition: border-color var(--motion-medium) ease-in-out;
+}
+
+.mockup-panel.active {
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* ── Section 1: Before — Prompt Stack ── */
+.prompt-line {
+    padding: 0.3rem 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity var(--motion-medium) ease-out, transform var(--motion-medium) ease-out;
+}
+
+.prompt-line.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.prompt-line.faded {
+    opacity: 0.3;
+}
+
+.prompt-stack-fade {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: linear-gradient(transparent, var(--color-bg-elevated));
+    pointer-events: none;
+}
+
+.prompt-stack-counter {
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    margin-top: 1rem;
+    text-align: right;
+    opacity: 0;
+    transition: opacity var(--motion-medium) ease-out;
+}
+
+.prompt-stack-counter.visible { opacity: 1; }
+
+.prompt-stack-counter .count {
+    color: var(--color-amber);
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+/* ── Section 2: The Turn — Wildcard Chips ── */
+.chip {
+    display: inline-block;
+    background: rgba(88, 166, 255, 0.12);
+    border: 1px solid rgba(88, 166, 255, 0.3);
+    color: var(--color-blue);
+    padding: 0.15rem 0.55rem;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: all var(--motion-medium) ease-in-out;
+}
+
+.chip.highlight {
+    background: rgba(88, 166, 255, 0.2);
+    box-shadow: 0 0 12px rgba(88, 166, 255, 0.15);
+}
+
+.popover {
+    background: var(--color-bg-surface);
+    border: 1px solid rgba(88, 166, 255, 0.25);
+    border-radius: 6px;
+    padding: 0.6rem 0.8rem;
+    margin-top: 0.6rem;
+    font-size: 0.78rem;
+    color: var(--color-text-dim);
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity var(--motion-medium) ease-out, transform var(--motion-medium) ease-out;
+    max-width: 220px;
+}
+
+.popover.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.popover-label {
+    color: var(--color-blue);
+    font-weight: 600;
+    margin-bottom: 0.3rem;
+    font-family: var(--font-mono);
+}
+
+.popover-values {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+}
+
+.popover-value {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+}
+
+.popover-value.active {
+    background: rgba(88, 166, 255, 0.15);
+    color: var(--color-blue);
+}
+
+.combo-counter {
+    font-family: var(--font-body);
+    font-size: 1.1rem;
+    margin-top: 1.2rem;
+    color: var(--color-text-dim);
+    opacity: 0;
+    transition: opacity var(--motion-medium) ease-out;
+}
+
+.combo-counter.visible { opacity: 1; }
+
+/* ── Section 3: Output — Numbered List ── */
+.output-list {
+    list-style: none;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    line-height: 2;
+}
+
+.output-list li {
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    opacity: 0;
+    transform: translateX(12px);
+    transition: opacity var(--motion-medium) ease-out, transform var(--motion-medium) ease-out, background var(--motion-fast) ease-in-out;
+    cursor: default;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.output-list li.visible {
+    opacity: 0.6;
+    transform: translateX(0);
+}
+
+.output-list li.highlighted {
+    opacity: 1;
+    background: rgba(88, 166, 255, 0.08);
+    color: var(--color-blue);
+    font-weight: 500;
+}
+
+.output-list li .num {
+    color: var(--color-text-muted);
+    margin-right: 0.6rem;
+    font-weight: 400;
+    min-width: 1.6rem;
+    display: inline-block;
+    text-align: right;
+}
+
+.output-list li.highlighted .num {
+    color: var(--color-blue);
+}
+
+.output-chip-panel {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+    opacity: 0;
+    transition: opacity var(--motion-medium) ease-out;
+}
+
+.output-chip-panel.visible { opacity: 1; }
+
+.output-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--color-border);
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-family: var(--font-mono);
+}
+
+.output-chip .key {
+    color: var(--color-text-muted);
+}
+
+.output-chip .val {
+    color: var(--color-blue);
+    font-weight: 500;
+}
+
+/* ── Section 4: Depth — Mini Scenes ── */
+.mini-scenes {
+    display: flex;
+    flex-direction: column;
+    gap: 6rem;
+    padding: 4rem 2rem;
+}
+
+.mini-scene {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+    align-items: center;
+}
+
+.mini-scene-narrative {
+    padding: 0 1rem;
+}
+
+.mini-scene-title {
+    font-size: 1.3rem;
+    font-weight: 500;
+    margin-bottom: 0.6rem;
+}
+
+.mini-scene-desc {
+    font-size: 1rem;
+    color: var(--color-text-dim);
+    line-height: 1.6;
+}
+
+.mini-scene-visual {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mini-card {
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 1.2rem 1.5rem;
+    width: 100%;
+    max-width: 360px;
+    position: relative;
+}
+
+/* Theme Card */
+.theme-card {
+    border-color: rgba(63, 185, 80, 0.2);
+}
+
+.theme-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--color-green);
+    font-weight: 600;
+}
+
+.theme-card-header svg {
+    flex-shrink: 0;
+}
+
+.theme-targets {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.theme-target {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.78rem;
+    color: var(--color-text-dim);
+    font-family: var(--font-mono);
+}
+
+.theme-arrow {
+    color: var(--color-green);
+    font-size: 0.7rem;
+}
+
+/* Lock Card */
+.lock-card {
+    border-color: rgba(255, 107, 53, 0.2);
+}
+
+.lock-chips {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.lock-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--color-border);
+    padding: 0.25rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    font-family: var(--font-mono);
+    color: var(--color-text-dim);
+    transition: all var(--motion-medium) ease-in-out;
+}
+
+.lock-chip.locked {
+    border-color: rgba(255, 107, 53, 0.4);
+    background: rgba(255, 107, 53, 0.08);
+    color: var(--color-amber);
+}
+
+.lock-chip .lock-icon {
+    font-size: 0.7rem;
+}
+
+.lock-counter {
+    font-size: 0.85rem;
+    color: var(--color-text-dim);
+    font-family: var(--font-mono);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.lock-counter .strike {
+    text-decoration: line-through;
+    opacity: 0.4;
+}
+
+.lock-counter .arrow {
+    color: var(--color-amber);
+}
+
+.lock-counter .result {
+    color: var(--color-amber);
+    font-weight: 600;
+}
+
+/* Operations Card */
+.ops-card {
+    border-color: rgba(188, 140, 255, 0.2);
+}
+
+.ops-toggle {
+    display: flex;
+    gap: 0;
+    margin-bottom: 1rem;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid rgba(188, 140, 255, 0.2);
+}
+
+.ops-toggle-btn {
+    flex: 1;
+    padding: 0.5rem 1rem;
+    background: transparent;
+    border: none;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: all var(--motion-fast) ease-in-out;
+}
+
+.ops-toggle-btn.active {
+    background: rgba(188, 140, 255, 0.12);
+    color: var(--color-purple);
+    font-weight: 600;
+}
+
+.ops-preview {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--color-text-dim);
+    line-height: 1.8;
+    padding: 0.5rem;
+    background: rgba(0,0,0,0.2);
+    border-radius: 4px;
+    min-height: 3.6rem;
+    transition: opacity var(--motion-medium) ease-in-out;
+}
+
+.ops-preview .ops-highlight {
+    color: var(--color-purple);
+    font-weight: 500;
+}
+
+/* ── Section 5: Scale — Big Counter ── */
+.big-counter {
+    font-size: clamp(2.5rem, 6vw, 4.5rem);
+    font-weight: 700;
+    font-family: var(--font-mono);
+    letter-spacing: -0.02em;
+    color: var(--color-text);
+    text-align: center;
+    margin-bottom: 1rem;
+    min-height: 1.2em;
+}
+
+.navigator-mockup {
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 0.7rem 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    color: var(--color-text-dim);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 340px;
+    margin: 0 auto;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity var(--motion-slow) ease-out, transform var(--motion-slow) ease-out;
+}
+
+.navigator-mockup.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.nav-btn {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-dim);
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    cursor: default;
+}
+
+.nav-label {
+    color: var(--color-text);
+}
+
+.nav-label .range {
+    color: var(--color-amber);
+    font-weight: 600;
+}
+
+/* ── Section 6: Close ── */
+.section-close {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 4rem 2rem;
+    text-align: center;
+}
+
+.close-headline {
+    font-size: clamp(1.6rem, 3.5vw, 2.8rem);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.5rem;
+}
+
+.close-subline {
+    font-size: clamp(1rem, 2vw, 1.3rem);
+    color: var(--color-text-dim);
+    margin-bottom: 3rem;
+    max-width: 480px;
+    line-height: 1.6;
+}
+
+.cta-group {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 3rem;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.cta-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.8rem 2rem;
+    border-radius: 6px;
+    font-family: var(--font-body);
+    font-size: 1rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all var(--motion-fast) ease-out;
+    border: none;
+}
+
+.cta-primary {
+    background: var(--color-amber);
+    color: #0a0a0a;
+}
+
+.cta-primary:hover {
+    background: #ff8555;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(255, 107, 53, 0.3);
+}
+
+.cta-secondary {
+    background: transparent;
+    color: var(--color-blue);
+    border: 1px solid rgba(88, 166, 255, 0.3);
+}
+
+.cta-secondary:hover {
+    background: rgba(88, 166, 255, 0.08);
+    border-color: rgba(88, 166, 255, 0.5);
+    transform: translateY(-1px);
+}
+
+.footer-links {
+    display: flex;
+    gap: 2rem;
+    font-size: 0.85rem;
+}
+
+.footer-links a {
+    color: var(--color-text-muted);
+    text-decoration: none;
+    transition: color var(--motion-fast) ease-out;
+}
+
+.footer-links a:hover {
+    color: var(--color-text);
+}
+
+.footer-links .dot {
+    color: var(--color-text-muted);
+    opacity: 0.3;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+    .split-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .sticky-col {
+        position: relative;
+        height: auto;
+        min-height: 50vh;
+        padding: 2rem 1rem;
+    }
+
+    .narrative-col {
+        padding: 3rem 1.5rem;
+    }
+
+    .mini-scene {
+        grid-template-columns: 1fr;
+    }
+
+    .mini-scene-visual {
+        order: -1;
+    }
+}
+</style>
+</head>
+<body>
+
+<!-- Background Layers -->
+<div class="dot-grid" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
+
+<!-- ============================== -->
+<!-- SECTION 0: HOOK                -->
+<!-- ============================== -->
+<section class="section section-hook" data-testid="section-0" data-section="0">
+    <div class="hook-line reveal">You write prompts for AI.</div>
+    <div class="hook-line reveal reveal-delay-1">You copy-paste them 60 times.</div>
+    <div class="hook-line reveal reveal-delay-3">What if you didn't?</div>
+</section>
+
+<!-- ============================== -->
+<!-- SECTION 1: BEFORE              -->
+<!-- ============================== -->
+<section class="section" data-testid="section-1" data-section="1">
+    <div class="split-layout">
+        <div class="narrative-col">
+            <p class="narrative-text reveal">You start with a prompt.</p>
+            <p class="narrative-text reveal reveal-delay-1">A landscape, watercolor style, autumn colors, soft lighting, 8k resolution.</p>
+            <p class="narrative-text reveal reveal-delay-2">Then you need it in <span class="accent-amber">4 styles</span>.</p>
+            <p class="narrative-text reveal reveal-delay-3">Then <span class="accent-amber">3 subjects</span>.</p>
+            <p class="narrative-text reveal reveal-delay-4">3 subjects &times; 4 styles = <span class="accent-amber">12</span>. Add 5 lighting setups = <span class="accent-amber">60</span>.</p>
+        </div>
+        <div class="sticky-col">
+            <div class="mockup-panel" id="before-mockup">
+                <div class="prompt-line" data-line="0">A landscape, watercolor, autumn, soft lighting</div>
+                <div class="prompt-line" data-line="1">A landscape, oil paint, autumn, soft lighting</div>
+                <div class="prompt-line" data-line="2">A landscape, digital art, autumn, soft lighting</div>
+                <div class="prompt-line" data-line="3">A landscape, watercolor, winter, soft lighting</div>
+                <div class="prompt-line" data-line="4">A landscape, oil paint, winter, soft lighting</div>
+                <div class="prompt-line" data-line="5">A landscape, digital art, winter, hard light</div>
+                <div class="prompt-line" data-line="6">A portrait, watercolor, autumn, rim lighting</div>
+                <div class="prompt-line" data-line="7">A portrait, oil paint, spring, soft lighting</div>
+                <div class="prompt-stack-fade"></div>
+                <div class="prompt-stack-counter" id="stack-counter">
+                    &hellip; and <span class="count" id="stack-count">52</span> more
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ============================== -->
+<!-- SECTION 2: THE TURN            -->
+<!-- ============================== -->
+<section class="section" data-testid="section-2" data-section="2">
+    <div class="split-layout">
+        <div class="narrative-col">
+            <p class="narrative-text reveal">Or you write it once.</p>
+            <p class="narrative-text reveal reveal-delay-1">The parts that change? <span class="accent-blue">Mark them.</span></p>
+            <p class="narrative-text reveal reveal-delay-2">Each marker becomes a wildcard. Each wildcard holds your values.</p>
+            <p class="narrative-text reveal reveal-delay-3">
+                <span class="accent-amber">4</span> seasons &times; <span class="accent-amber">4</span> styles = <span class="accent-blue">16 prompts</span>.
+            </p>
+        </div>
+        <div class="sticky-col">
+            <div style="width:100%;max-width:440px;">
+                <div class="mockup-panel" id="turn-mockup">
+                    <div id="turn-prompt">
+                        A <span id="turn-subject">landscape</span>,
+                        <span id="turn-style" class="turn-word">watercolor</span> style,
+                        <span id="turn-season" class="turn-word">autumn</span> colors,
+                        soft lighting, 8k resolution
+                    </div>
+                </div>
+                <div class="popover" id="season-popover">
+                    <div class="popover-label">__season__</div>
+                    <div class="popover-values">
+                        <span class="popover-value active">spring</span>
+                        <span class="popover-value">summer</span>
+                        <span class="popover-value">autumn</span>
+                        <span class="popover-value">winter</span>
+                    </div>
+                </div>
+                <div class="combo-counter" id="combo-counter">
+                    <span class="accent-amber">4</span> &times; <span class="accent-amber">4</span> = <span class="accent-blue">16 prompts</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ============================== -->
+<!-- SECTION 3: OUTPUT              -->
+<!-- ============================== -->
+<section class="section" data-testid="section-3" data-section="3">
+    <div class="split-layout">
+        <div class="narrative-col">
+            <p class="narrative-text reveal">Every combination generated.</p>
+            <p class="narrative-text reveal reveal-delay-1">Click any value to preview the result instantly.</p>
+            <p class="narrative-text reveal reveal-delay-2">Every combination has an address &mdash; a <span class="accent-blue">composition ID</span> you can jump to.</p>
+        </div>
+        <div class="sticky-col">
+            <div style="width:100%;max-width:440px;">
+                <div class="mockup-panel" id="output-mockup">
+                    <ol class="output-list" id="output-list">
+                        <li data-idx="0"><span class="num">#1</span> landscape, watercolor, spring</li>
+                        <li data-idx="1"><span class="num">#2</span> landscape, watercolor, summer</li>
+                        <li data-idx="2"><span class="num">#3</span> landscape, watercolor, autumn</li>
+                        <li data-idx="3"><span class="num">#4</span> landscape, watercolor, winter</li>
+                        <li data-idx="4"><span class="num">#5</span> landscape, oil paint, spring</li>
+                        <li data-idx="5"><span class="num">#6</span> landscape, oil paint, summer</li>
+                        <li data-idx="6"><span class="num">#7</span> landscape, oil paint, autumn</li>
+                        <li data-idx="7"><span class="num">#8</span> landscape, oil paint, winter</li>
+                        <li data-idx="8"><span class="num">#9</span> landscape, digital art, spring</li>
+                        <li data-idx="9"><span class="num">#10</span> landscape, digital art, summer</li>
+                        <li data-idx="10"><span class="num">#11</span> landscape, digital art, autumn</li>
+                        <li data-idx="11"><span class="num">#12</span> landscape, digital art, winter</li>
+                        <li data-idx="12"><span class="num">#13</span> landscape, pencil, spring</li>
+                        <li data-idx="13"><span class="num">#14</span> landscape, pencil, summer</li>
+                        <li data-idx="14"><span class="num">#15</span> landscape, pencil, autumn</li>
+                        <li data-idx="15"><span class="num">#16</span> landscape, pencil, winter</li>
+                    </ol>
+                </div>
+                <div class="output-chip-panel" id="output-chips">
+                    <div class="output-chip">
+                        <span class="key">season</span>=<span class="val">autumn</span>
+                    </div>
+                    <div class="output-chip">
+                        <span class="key">style</span>=<span class="val">oil paint</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ============================== -->
+<!-- SECTION 4: DEPTH               -->
+<!-- ============================== -->
+<section class="section" data-testid="section-4" data-section="4">
+    <div class="mini-scenes">
+
+        <!-- Mini-Scene A: Themes -->
+        <div class="mini-scene reveal">
+            <div class="mini-scene-narrative">
+                <h3 class="mini-scene-title accent-green">Themes</h3>
+                <p class="mini-scene-desc">Save your styles as a theme. Use them everywhere.</p>
+            </div>
+            <div class="mini-scene-visual">
+                <div class="mini-card theme-card">
+                    <div class="theme-card-header">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/>
+                            <path d="M5 6h6M5 8h4M5 10h5" stroke="currentColor" stroke-width="1" opacity="0.6"/>
+                        </svg>
+                        hiring-theme.yaml
+                    </div>
+                    <div class="theme-targets">
+                        <div class="theme-target">
+                            <span class="theme-arrow">&rarr;</span> product-launch.yaml
+                        </div>
+                        <div class="theme-target">
+                            <span class="theme-arrow">&rarr;</span> social-campaign.yaml
+                        </div>
+                        <div class="theme-target">
+                            <span class="theme-arrow">&rarr;</span> brand-refresh.yaml
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mini-Scene B: Locks -->
+        <div class="mini-scene reveal">
+            <div class="mini-scene-narrative">
+                <h3 class="mini-scene-title accent-amber">Locked Values</h3>
+                <p class="mini-scene-desc">Lock a value. Export only what you need.</p>
+            </div>
+            <div class="mini-scene-visual">
+                <div class="mini-card lock-card">
+                    <div class="lock-chips">
+                        <span class="lock-chip locked">
+                            <span class="lock-icon">&#x1f512;</span> winter
+                        </span>
+                        <span class="lock-chip">spring</span>
+                        <span class="lock-chip">summer</span>
+                        <span class="lock-chip">autumn</span>
+                    </div>
+                    <div class="lock-counter">
+                        <span class="strike">16</span>
+                        <span class="arrow">&rarr;</span>
+                        <span class="result">4 prompts</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mini-Scene C: Operations -->
+        <div class="mini-scene reveal">
+            <div class="mini-scene-narrative">
+                <h3 class="mini-scene-title accent-purple">Operations</h3>
+                <p class="mini-scene-desc">Same prompt, different client. Swap values per variant.</p>
+            </div>
+            <div class="mini-scene-visual">
+                <div class="mini-card ops-card">
+                    <div class="ops-toggle" id="ops-toggle">
+                        <button class="ops-toggle-btn active" data-variant="acme">ACME</button>
+                        <button class="ops-toggle-btn" data-variant="zenlife">ZenLife</button>
+                    </div>
+                    <div class="ops-preview" id="ops-preview">
+                        Create a bold, <span class="ops-highlight">industrial</span> campaign for <span class="ops-highlight">ACME Corp</span> targeting <span class="ops-highlight">engineers</span>.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<!-- ============================== -->
+<!-- SECTION 5: SCALE               -->
+<!-- ============================== -->
+<section class="section" data-testid="section-5" data-section="5">
+    <div class="split-layout">
+        <div class="narrative-col">
+            <p class="narrative-text reveal">
+                8 wildcards &times; 6 values each.
+            </p>
+            <p class="narrative-text reveal reveal-delay-1">
+                That's <span class="accent-amber">1,679,616</span> combinations.
+            </p>
+            <p class="narrative-text reveal reveal-delay-2">
+                Bucketing shows <span class="accent-blue">9 at a time</span>. Navigate the space without drowning in it.
+            </p>
+        </div>
+        <div class="sticky-col">
+            <div style="text-align:center;width:100%;max-width:440px;">
+                <div class="big-counter" id="big-counter">0</div>
+                <div class="navigator-mockup" id="scale-nav">
+                    <div class="nav-btn">&lsaquo;</div>
+                    <div class="nav-label">Showing <span class="range">1&ndash;9</span> of 1,679,616</div>
+                    <div class="nav-btn">&rsaquo;</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ============================== -->
+<!-- SECTION 6: CLOSE               -->
+<!-- ============================== -->
+<section class="section section-close" data-testid="section-6" data-section="6">
+    <h2 class="close-headline reveal">One prompt. Every combination.</h2>
+    <p class="close-subline reveal reveal-delay-1">Self-hosted. No accounts. Your data stays yours.</p>
+    <div class="cta-group reveal reveal-delay-2">
+        <a href="#" class="cta-btn cta-primary" data-testid="cta-get-started">Get Started</a>
+        <a href="#" class="cta-btn cta-secondary" data-testid="cta-cookbook">Read the Cookbook</a>
+    </div>
+    <div class="footer-links reveal reveal-delay-3">
+        <a href="#">GitHub</a>
+        <span class="dot">&middot;</span>
+        <a href="#">Docs</a>
+        <span class="dot">&middot;</span>
+        <a href="#">Discord</a>
+    </div>
+</section>
+
+<script>
+/* ── IntersectionObserver: Reveal on Scroll ── */
+(function() {
+    'use strict';
+
+    // Track which sections are currently visible
+    const visibleSections = new Set();
+
+    // Reveal elements when they enter viewport
+    const revealObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+            }
+        });
+    }, {
+        threshold: 0.15,
+        rootMargin: '0px 0px -60px 0px'
+    });
+
+    document.querySelectorAll('.reveal').forEach(el => {
+        revealObserver.observe(el);
+    });
+
+    // Section-level observer for triggering mockup animations
+    const sectionObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            const sectionNum = entry.target.dataset.section;
+            if (entry.isIntersecting) {
+                visibleSections.add(sectionNum);
+                onSectionEnter(sectionNum);
+            } else {
+                visibleSections.delete(sectionNum);
+            }
+            updateBackgroundLayers();
+        });
+    }, {
+        threshold: 0.3
+    });
+
+    document.querySelectorAll('[data-section]').forEach(el => {
+        sectionObserver.observe(el);
+    });
+
+    // ── Background Layer Control ──
+    function updateBackgroundLayers() {
+        const maxVisible = Math.max(0, ...Array.from(visibleSections).map(Number));
+        document.body.classList.toggle('show-dots', maxVisible >= 3);
+        document.body.classList.toggle('show-grain', maxVisible >= 5);
+    }
+
+    // ── Section Enter Handlers ──
+    const triggered = new Set();
+
+    function onSectionEnter(num) {
+        if (triggered.has(num)) return;
+        triggered.add(num);
+
+        switch (num) {
+            case '1': animateBeforeMockup(); break;
+            case '2': animateTurnMockup(); break;
+            case '3': animateOutputMockup(); break;
+            case '5': animateScaleCounter(); break;
+        }
+    }
+
+    // ── Section 1: Before — Stacking Prompts ──
+    function animateBeforeMockup() {
+        const lines = document.querySelectorAll('#before-mockup .prompt-line');
+        const counter = document.getElementById('stack-counter');
+        const panel = document.getElementById('before-mockup');
+
+        panel.classList.add('active');
+
+        lines.forEach((line, i) => {
+            setTimeout(() => {
+                line.classList.add('visible');
+                // Fade earlier lines
+                if (i > 4) {
+                    lines[i - 5].classList.add('faded');
+                }
+            }, i * 220);
+        });
+
+        setTimeout(() => {
+            counter.classList.add('visible');
+        }, lines.length * 220 + 300);
+    }
+
+    // ── Section 2: The Turn — Wildcard Transformation ──
+    function animateTurnMockup() {
+        const styleWord = document.getElementById('turn-style');
+        const seasonWord = document.getElementById('turn-season');
+        const popover = document.getElementById('season-popover');
+        const comboCounter = document.getElementById('combo-counter');
+        const panel = document.getElementById('turn-mockup');
+
+        panel.classList.add('active');
+
+        // Phase 1: Highlight "watercolor"
+        setTimeout(() => {
+            styleWord.style.transition = 'all var(--motion-medium) ease-in-out';
+            styleWord.style.color = 'var(--color-blue)';
+            styleWord.style.fontWeight = '600';
+        }, 500);
+
+        // Phase 2: Transform to chip
+        setTimeout(() => {
+            styleWord.outerHTML = '<span class="chip highlight">__style__</span>';
+        }, 1200);
+
+        // Phase 3: Highlight "autumn"
+        setTimeout(() => {
+            seasonWord.style.transition = 'all var(--motion-medium) ease-in-out';
+            seasonWord.style.color = 'var(--color-blue)';
+            seasonWord.style.fontWeight = '600';
+        }, 1800);
+
+        // Phase 4: Transform to chip
+        setTimeout(() => {
+            seasonWord.outerHTML = '<span class="chip highlight">__season__</span>';
+        }, 2500);
+
+        // Phase 5: Show popover
+        setTimeout(() => {
+            popover.classList.add('visible');
+        }, 3200);
+
+        // Phase 6: Show combo counter
+        setTimeout(() => {
+            comboCounter.classList.add('visible');
+        }, 3800);
+    }
+
+    // ── Section 3: Output — Fan Out List ──
+    function animateOutputMockup() {
+        const items = document.querySelectorAll('#output-list li');
+        const chips = document.getElementById('output-chips');
+        const panel = document.getElementById('output-mockup');
+
+        panel.classList.add('active');
+
+        items.forEach((item, i) => {
+            setTimeout(() => {
+                item.classList.add('visible');
+                // Highlight item #7 (index 6)
+                if (i === 6) {
+                    item.classList.add('highlighted');
+                }
+            }, i * 80);
+        });
+
+        setTimeout(() => {
+            chips.classList.add('visible');
+        }, items.length * 80 + 400);
+    }
+
+    // ── Section 5: Scale — Counter Animation ──
+    function animateScaleCounter() {
+        const el = document.getElementById('big-counter');
+        const nav = document.getElementById('scale-nav');
+        const target = 1679616;
+        const duration = 2200;
+        const startTime = performance.now();
+
+        function easeOutExpo(t) {
+            return t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
+        }
+
+        function tick(now) {
+            const elapsed = now - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = easeOutExpo(progress);
+            const current = Math.round(eased * target);
+            el.textContent = current.toLocaleString();
+
+            if (progress < 1) {
+                requestAnimationFrame(tick);
+            } else {
+                el.textContent = target.toLocaleString();
+                // Show navigator after counter finishes
+                setTimeout(() => {
+                    nav.classList.add('visible');
+                }, 400);
+            }
+        }
+
+        requestAnimationFrame(tick);
+    }
+
+    // ── Section 4: Operations Toggle ──
+    const opsToggle = document.getElementById('ops-toggle');
+    const opsPreview = document.getElementById('ops-preview');
+
+    if (opsToggle) {
+        const variants = {
+            acme: 'Create a bold, <span class="ops-highlight">industrial</span> campaign for <span class="ops-highlight">ACME Corp</span> targeting <span class="ops-highlight">engineers</span>.',
+            zenlife: 'Create a calm, <span class="ops-highlight">organic</span> campaign for <span class="ops-highlight">ZenLife</span> targeting <span class="ops-highlight">wellness seekers</span>.'
+        };
+
+        opsToggle.addEventListener('click', (e) => {
+            const btn = e.target.closest('.ops-toggle-btn');
+            if (!btn) return;
+
+            const variant = btn.dataset.variant;
+
+            // Update active state
+            opsToggle.querySelectorAll('.ops-toggle-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            // Fade out, swap, fade in
+            opsPreview.style.opacity = '0';
+            setTimeout(() => {
+                opsPreview.innerHTML = variants[variant];
+                opsPreview.style.opacity = '1';
+            }, 200);
+        });
+    }
+
+})();
+</script>
+
+</body>
+</html>
