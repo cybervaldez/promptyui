@@ -67,6 +67,11 @@ PU.actions = {
             }
         }
 
+        // Show empty state if no job ended up active
+        if (!PU.state.activeJobId) {
+            PU.editor.showEmptyState();
+        }
+
         // Sync URL after init — clears stale params (e.g. focus path that failed to restore)
         PU.actions.updateUrl();
 
