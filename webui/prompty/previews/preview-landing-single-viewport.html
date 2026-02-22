@@ -454,14 +454,19 @@ body {
     overflow: visible;
     outline: none;
 }
-.q-block-edit .ql-editor.ql-blank::before { color: var(--text-muted); font-style: normal; }
+.q-block-edit .ql-editor.ql-blank::before {
+    content: attr(data-placeholder);
+    color: var(--text-muted);
+    font-style: italic;
+    pointer-events: none;
+}
 
 .q-add-block {
-    padding: 0.6em 0;
+    padding: 0.4em 0.2em;
     margin-top: 0.3em;
-    text-align: center;
     color: var(--text-muted);
     font-size: clamp(0.8rem, 1.6vw, 0.95rem);
+    font-style: italic;
     cursor: pointer;
     border-radius: 4px;
     transition: color 0.2s, background 0.2s;
@@ -635,7 +640,7 @@ body {
 
     <div class="quill-editor-area" data-testid="quill-editor-area">
         <div class="quill-blocks" id="quill-blocks"></div>
-        <div class="q-add-block" id="q-add-block">+ new block</div>
+        <div class="q-add-block" id="q-add-block">Write your first prompt...</div>
     </div>
 
     <div class="quill-formula-area">
@@ -1174,7 +1179,9 @@ var qState = {
     nextId: 0,
     chipRegistry: {},
     _addingChild: false,
-    _lastEditedBlock: null
+    _lastEditedBlock: null,
+    _userEdited: false,
+    _recalcDirty: false
 };
 
 var qBlocksEl = document.getElementById('quill-blocks');
@@ -1277,6 +1284,13 @@ function convertQWildcards(quill) {
 
 /* ── Recalculate formula + odometer for Quill section ── */
 function qRecalc() {
+    // Defer recalc while editing — flush when idle (clearEditFocus)
+    if (document.querySelector('.q-block.editing')) {
+        qState._recalcDirty = true;
+        return;
+    }
+    qState._recalcDirty = false;
+
     qFormulaEl.innerHTML = '';
     var total = 1;
     var terms = []; // { label, count, color }
@@ -1360,7 +1374,7 @@ function buildBlockView(block) {
     if (block.depth > 0) {
         viewEl.style.paddingLeft = (block.depth * 2) + 'ch';
         var conn = document.createElement('span');
-        conn.className = 'tree-connector';
+        conn.className = 'tree-connector tree-active';
         conn.textContent = '\u2514\u2500\u2500 ';
         block._connector = conn;
         viewEl.appendChild(conn);
@@ -1419,11 +1433,12 @@ function buildBlockView(block) {
     }
 
     updateQConnectors();
-    qRecalc();
+    // Only update composition when block has content (skip empty/uncommitted blocks)
+    if (serialized) qRecalc();
 }
 
 /* ── Create a Quill-backed block ── */
-function createQBlock(initialText, depth, wildcardValues) {
+function createQBlock(initialText, depth, wildcardValues, placeholder) {
     var id = qState.nextId++;
     if (typeof depth === 'boolean') depth = depth ? 1 : 0; // backwards compat
 
@@ -1443,7 +1458,7 @@ function createQBlock(initialText, depth, wildcardValues) {
     var editConn = null;
     if (depth > 0) {
         editConn = document.createElement('span');
-        editConn.className = 'q-edit-connector';
+        editConn.className = 'q-edit-connector tree-active';
         editConn.style.paddingLeft = (depth * 2) + 'ch';
         editConn.textContent = '\u2514\u2500\u2500 ';
         editEl.appendChild(editConn);
@@ -1459,7 +1474,7 @@ function createQBlock(initialText, depth, wildcardValues) {
     if (!initialText.replace(/\u200B/g, '').trim()) actionsBar.style.display = 'none';
 
     var actionDefs = [
-        { label: '\u23CE Block', kbd: 'Ctrl+Enter', fn: 'sibling' },
+        { label: '\u23CE Sibling', kbd: 'Ctrl+Enter', fn: 'sibling' },
         { label: '\u21B3 Child', kbd: 'Tab', fn: 'child' },
         { label: '\u2295 Dup', kbd: 'Ctrl+Shift+D', fn: 'duplicate' }
     ];
@@ -1478,7 +1493,7 @@ function createQBlock(initialText, depth, wildcardValues) {
     var quill = new Quill(quillContainer, {
         theme: 'snow',
         modules: { toolbar: false },
-        placeholder: ''
+        placeholder: placeholder || ''
     });
 
     var wcParsed = parseQWildcards(initialText);
@@ -1651,7 +1666,7 @@ function findSubtreeEnd(block) {
 }
 
 /* ── Shared helper: finish source edit and insert new block ── */
-function _finishAndInsert(sourceBlock, insertIdx, newDepth, wildcardValues) {
+function _finishAndInsert(sourceBlock, insertIdx, newDepth, wildcardValues, placeholder) {
     qState._addingChild = true;
     qState._lastEditedBlock = sourceBlock;
     syncRegistryToBlocks();
@@ -1660,7 +1675,7 @@ function _finishAndInsert(sourceBlock, insertIdx, newDepth, wildcardValues) {
     clearEditFocus();
     buildBlockView(sourceBlock);
 
-    var newBlock = createQBlock('', newDepth, wildcardValues);
+    var newBlock = createQBlock('', newDepth, wildcardValues, placeholder);
     // Remove from default append position
     var pushIdx = qState.blocks.indexOf(newBlock);
     if (pushIdx !== -1) qState.blocks.splice(pushIdx, 1);
@@ -1681,14 +1696,14 @@ function _finishAndInsert(sourceBlock, insertIdx, newDepth, wildcardValues) {
 function addSiblingBlock(sourceBlock) {
     var text = serializeQuill(sourceBlock.quill).replace(/\u200B/g, '').trim();
     if (!text) return;
-    _finishAndInsert(sourceBlock, findSubtreeEnd(sourceBlock), sourceBlock.depth, null);
+    _finishAndInsert(sourceBlock, findSubtreeEnd(sourceBlock), sourceBlock.depth, null, 'Write a sibling prompt...');
 }
 
 /* ── Add child block at depth+1, right after source ── */
 function addChildBlock(sourceBlock) {
     var text = serializeQuill(sourceBlock.quill).replace(/\u200B/g, '').trim();
     if (!text) return;
-    _finishAndInsert(sourceBlock, qState.blocks.indexOf(sourceBlock) + 1, sourceBlock.depth + 1, null);
+    _finishAndInsert(sourceBlock, qState.blocks.indexOf(sourceBlock) + 1, sourceBlock.depth + 1, null, 'Write a child prompt...');
 }
 
 /* ── Duplicate block (copy wildcards, clear text) at same depth ── */
@@ -1700,7 +1715,7 @@ function duplicateBlock(sourceBlock) {
         wv = {};
         sourceBlock.wildcards.forEach(function(wc) { wv[wc.name] = wc.values.slice(); });
     }
-    _finishAndInsert(sourceBlock, findSubtreeEnd(sourceBlock), sourceBlock.depth, wv);
+    _finishAndInsert(sourceBlock, findSubtreeEnd(sourceBlock), sourceBlock.depth, wv, 'Edit this variation...');
 }
 
 /* ── Tree isolation focus — ancestors, descendants, siblings, and prior block visible, rest hidden ── */
@@ -1726,23 +1741,14 @@ function applyEditFocus(activeBlock) {
     var priorBlock = qState._lastEditedBlock;
 
     qState.blocks.forEach(function(b) {
-        // Connector highlighting: active block + ancestors + descendants get yellow connectors
-        var inActiveTree = (b === activeBlock || ancestorIds[b.id] || descendantIds[b.id]);
-        if (b._connector) b._connector.classList.toggle('tree-active', inActiveTree);
-        if (b._editConnector) b._editConnector.classList.toggle('tree-active', inActiveTree);
+        b.lineEl.classList.remove('tree-hidden');
 
         if (b === activeBlock) {
-            b.lineEl.classList.remove('tree-hidden');
             b.lineEl.style.opacity = '';
         } else if (ancestorIds[b.id]) {
-            b.lineEl.classList.remove('tree-hidden');
             b.lineEl.style.opacity = '0.9';
-        } else if (descendantIds[b.id] || siblingIds[b.id] || b === priorBlock) {
-            b.lineEl.classList.remove('tree-hidden');
-            b.lineEl.style.opacity = '0.4';
         } else {
-            b.lineEl.style.opacity = '';
-            b.lineEl.classList.add('tree-hidden');
+            b.lineEl.style.opacity = '0.4';
         }
     });
 
@@ -1754,12 +1760,19 @@ function clearEditFocus() {
     qState.blocks.forEach(function(b) {
         b.lineEl.style.opacity = '';
         b.lineEl.classList.remove('tree-hidden');
-        if (b._connector) b._connector.classList.remove('tree-active');
-        if (b._editConnector) b._editConnector.classList.remove('tree-active');
     });
 
     var addBtn = document.getElementById('q-add-block');
-    if (addBtn) addBtn.style.display = '';
+    if (addBtn) {
+        addBtn.style.display = '';
+        if (!qState._userEdited) {
+            qState._userEdited = true;
+            addBtn.textContent = '+ click to write another prompt';
+        }
+    }
+
+    // Flush deferred recalc now that we're idle
+    if (qState._recalcDirty) qRecalc();
 }
 
 /* ── Switch block to edit mode ── */
@@ -1785,7 +1798,18 @@ function switchToEdit(block, opts) {
         }
     }
     block.lineEl.classList.add('editing');
-    if (!skipIsolation) applyEditFocus(block);
+    var hasChildren = getChildrenOf(block).length > 0;
+    if (!skipIsolation && hasChildren) {
+        applyEditFocus(block);
+    } else {
+        // Light fade: dim all other blocks to 0.4, no tree-hidden
+        qState.blocks.forEach(function(b) {
+            b.lineEl.classList.remove('tree-hidden');
+            b.lineEl.style.opacity = (b === block) ? '' : '0.4';
+        });
+        var ab = document.getElementById('q-add-block');
+        if (ab) ab.style.display = 'none';
+    }
     block.quill.focus();
     block.quill.setSelection(block.quill.getLength() - 1, 0);
 
@@ -1858,7 +1882,7 @@ function initQuillSection() {
     var addBlockBtn = document.getElementById('q-add-block');
     addBlockBtn.addEventListener('click', function() {
         addBlockBtn.style.display = 'none';
-        var newBlock = createQBlock('', 0, null);
+        var newBlock = createQBlock('', 0, null, 'Type a prompt, use __name__ for wildcards...');
         qBlocksEl.appendChild(newBlock.lineEl);
         updateQConnectors();
         switchToEdit(newBlock, { skipIsolation: true });
