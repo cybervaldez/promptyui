@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shortcut Bar V2 — More Compact Variations</title>
+<style>
+:root {
+    --bg-deep: #0a0a0a;
+    --bg-surface: #161b22;
+    --bg-elevated: #1c2128;
+    --text-primary: #e6edf3;
+    --text-secondary: #8b949e;
+    --text-muted: #484f58;
+    --accent-amber: #ff6b35;
+    --reel-label: #e8943a;
+    --reel-value: #529CCA;
+    --font-mono: 'Courier New', Courier, monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    padding: 2rem;
+    line-height: 1.6;
+}
+
+h1 {
+    font-size: 14px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 0.5rem;
+}
+
+.subtitle {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-bottom: 2rem;
+    line-height: 1.8;
+}
+
+.variation {
+    margin-bottom: 3rem;
+}
+
+.variation-header {
+    display: flex;
+    align-items: baseline;
+    gap: 1em;
+    margin-bottom: 0.5rem;
+}
+
+.variation-label {
+    font-size: 11px;
+    color: var(--reel-value);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    flex-shrink: 0;
+}
+
+.variation-desc {
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
+.device-row {
+    display: flex;
+    gap: 2rem;
+    align-items: flex-start;
+    margin-top: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.device-label {
+    font-size: 9px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.3rem;
+}
+
+/* ── Simulated editor block ── */
+.sim-block {
+    background: var(--bg-surface);
+    border-radius: 3px;
+    position: relative;
+    padding: 0.6em 0.8em 1.6em;
+    min-width: 360px;
+}
+
+.sim-block.mobile {
+    min-width: 260px;
+    max-width: 300px;
+}
+
+.sim-text {
+    color: var(--text-secondary);
+    font-size: clamp(0.85rem, 1.8vw, 1.05rem);
+    line-height: 2.4em;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.sim-text .wc {
+    color: var(--reel-value);
+    background: var(--bg-elevated);
+    padding: 0.1em 0.4em;
+    border-radius: 2px;
+    font-size: 0.9em;
+}
+
+/* ── Gradient border ── */
+.sim-block::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--reel-value), transparent);
+    opacity: 0.4;
+}
+
+/* ── Shared micro-type ── */
+[class^="bar-"] .act {
+    letter-spacing: 0.03em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* ═══════════════════════════════════════
+   [CURRENT] — F variation (reference)
+   ═══════════════════════════════════════ */
+.bar-current {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%) translateY(50%);
+    display: flex;
+    gap: 0.5em;
+    z-index: 4;
+    white-space: nowrap;
+}
+.bar-current .act {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--text-secondary);
+    background: var(--bg-surface);
+    padding: 0.2em 0.5em;
+    border-radius: 2px;
+    cursor: pointer;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 0.3em;
+    transition: color 0.15s;
+}
+.bar-current .act:hover { color: var(--reel-value); }
+.bar-current .hint {
+    font-size: 7px;
+    color: var(--text-muted);
+    text-transform: none;
+}
+
+/* ═══════════════════════════════════════
+   [G] ICON-ONLY (3 glyphs, no text)
+   ═══════════════════════════════════════ */
+.bar-g {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%) translateY(50%);
+    display: flex;
+    gap: 0.35em;
+    z-index: 4;
+    white-space: nowrap;
+}
+.bar-g .act {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    background: var(--bg-surface);
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s;
+}
+.bar-g .act:hover { color: var(--reel-value); background: var(--bg-elevated); }
+.bar-g .act[title]::after { content: none; }
+
+/* ═══════════════════════════════════════
+   [H] PIPE-SEPARATED GLYPH+LABEL
+   ═══════════════════════════════════════ */
+.bar-h {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%) translateY(50%);
+    display: flex;
+    gap: 0;
+    z-index: 4;
+    align-items: center;
+    white-space: nowrap;
+    background: var(--bg-surface);
+    border-radius: 3px;
+    overflow: hidden;
+}
+.bar-h .act {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--text-secondary);
+    padding: 0.25em 0.5em;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: color 0.15s, background 0.15s;
+}
+.bar-h .act:hover { color: var(--reel-value); background: var(--bg-elevated); }
+.bar-h .pipe {
+    color: var(--text-muted);
+    font-size: 10px;
+    opacity: 0.3;
+    line-height: 1;
+    user-select: none;
+}
+
+/* ═══════════════════════════════════════
+   [I] MINIMAL DOTS — glyphs on hover
+   ═══════════════════════════════════════ */
+.bar-i {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%) translateY(50%);
+    display: flex;
+    gap: 0.5em;
+    z-index: 4;
+    white-space: nowrap;
+    align-items: center;
+}
+.bar-i .act {
+    font-family: var(--font-mono);
+    font-size: 0;
+    color: var(--text-muted);
+    background: var(--bg-surface);
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    border: 1px solid var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+.bar-i:hover .act {
+    width: auto;
+    height: auto;
+    font-size: 8px;
+    padding: 0.2em 0.5em;
+    border-radius: 2px;
+    border-color: transparent;
+    text-transform: uppercase;
+}
+.bar-i:hover .act:hover {
+    color: var(--reel-value);
+    background: var(--bg-elevated);
+}
+/* Mobile: always expanded */
+.bar-i.mobile-mode .act {
+    width: auto;
+    height: auto;
+    font-size: 8px;
+    padding: 0.2em 0.5em;
+    border-radius: 2px;
+    border-color: transparent;
+    text-transform: uppercase;
+}
+
+/* ═══════════════════════════════════════
+   [J] UNDERLINE TABS
+   ═══════════════════════════════════════ */
+.bar-j {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%) translateY(50%);
+    display: flex;
+    gap: 0;
+    z-index: 4;
+    white-space: nowrap;
+    align-items: stretch;
+}
+.bar-j .act {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--text-muted);
+    background: var(--bg-surface);
+    padding: 0.25em 0.6em;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: color 0.15s;
+    border-bottom: 1px solid transparent;
+    display: flex;
+    align-items: center;
+    gap: 0.25em;
+}
+.bar-j .act:hover {
+    color: var(--reel-value);
+    border-bottom-color: var(--reel-value);
+}
+.bar-j .kc {
+    font-size: 7px;
+    color: var(--text-muted);
+    opacity: 0.5;
+}
+
+/* ═══════════════════════════════════════
+   [K] FLOATING MICRO-BAR (single row, borderless)
+   ═══════════════════════════════════════ */
+.bar-k {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%) translateY(50%);
+    display: flex;
+    gap: 0.3em;
+    z-index: 4;
+    white-space: nowrap;
+    align-items: center;
+    background: var(--bg-elevated);
+    border-radius: 999px;
+    padding: 0.15em 0.4em;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+.bar-k .act {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--text-secondary);
+    padding: 0.15em 0.4em;
+    border-radius: 999px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: color 0.15s, background 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 0.2em;
+}
+.bar-k .act:hover { color: var(--reel-value); background: rgba(82,156,202,0.1); }
+.bar-k .hint {
+    font-size: 7px;
+    color: var(--text-muted);
+    text-transform: none;
+}
+
+/* ═══════════════════════════════════════
+   [L] SINGLE CHARACTER BADGES
+   ═══════════════════════════════════════ */
+.bar-l {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%) translateY(50%);
+    display: flex;
+    gap: 0.3em;
+    z-index: 4;
+    white-space: nowrap;
+    align-items: center;
+}
+.bar-l .act {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--text-muted);
+    background: var(--bg-elevated);
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s;
+    border: 1px solid rgba(72,79,88,0.3);
+}
+.bar-l .act:hover {
+    color: var(--reel-value);
+    border-color: var(--reel-value);
+}
+
+/* ═══════════════════════════════════════
+   [M] SLASH-SEPARATED (compact inline)
+   ═══════════════════════════════════════ */
+.bar-m {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%) translateY(50%);
+    display: flex;
+    gap: 0;
+    z-index: 4;
+    align-items: center;
+    white-space: nowrap;
+}
+.bar-m .act {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--text-muted);
+    padding: 0.15em 0.35em;
+    cursor: pointer;
+    transition: color 0.15s;
+    background: var(--bg-surface);
+}
+.bar-m .act:hover { color: var(--reel-value); }
+.bar-m .slash {
+    color: var(--text-muted);
+    font-size: 9px;
+    opacity: 0.25;
+    background: var(--bg-surface);
+    user-select: none;
+}
+
+/* ═══════════════════════════════════════
+   [N] TOOLBAR CHIP — bg strip with icon+text
+   ═══════════════════════════════════════ */
+.bar-n {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%) translateY(50%);
+    display: inline-flex;
+    gap: 0;
+    z-index: 4;
+    white-space: nowrap;
+    background: var(--bg-surface);
+    border: 1px solid rgba(72,79,88,0.25);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.bar-n .act {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--text-secondary);
+    padding: 0.3em 0.55em;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: color 0.15s, background 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 0.25em;
+    border-right: 1px solid rgba(72,79,88,0.2);
+}
+.bar-n .act:last-child { border-right: none; }
+.bar-n .act:hover { color: var(--reel-value); background: var(--bg-elevated); }
+.bar-n .hint {
+    font-size: 7px;
+    color: var(--text-muted);
+    text-transform: none;
+}
+</style>
+</head>
+<body>
+
+<h1>Shortcut Bar V2 — Compact Variations</h1>
+<p class="subtitle">
+    Goal: smaller bar, mobile-optimized, keyboard hints only on desktop.<br>
+    All bars are vertically centered on the gradient border.
+</p>
+
+<!-- ── CURRENT (reference — variation F) ── -->
+<div class="variation">
+    <div class="variation-header">
+        <span class="variation-label">Current (F)</span>
+        <span class="variation-desc">Inline hint + glyph label — baseline reference</span>
+    </div>
+    <div class="device-row">
+        <div>
+            <div class="device-label">Desktop</div>
+            <div class="sim-block">
+                <div class="sim-text">a photo of <span class="wc">__season__</span> landscape</div>
+                <div class="bar-current">
+                    <span class="act"><span class="hint">Ctrl+↵</span> ↵ New</span>
+                    <span class="act"><span class="hint">Tab</span> ↳ Nest</span>
+                    <span class="act"><span class="hint">⌘D</span> ⊕ Copy</span>
+                </div>
+            </div>
+        </div>
+        <div>
+            <div class="device-label">Mobile</div>
+            <div class="sim-block mobile">
+                <div class="sim-text">a photo of <span class="wc">__season__</span></div>
+                <div class="bar-current">
+                    <span class="act">↵ New</span>
+                    <span class="act">↳ Nest</span>
+                    <span class="act">⊕ Copy</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── G: ICON-ONLY ── -->
+<div class="variation">
+    <div class="variation-header">
+        <span class="variation-label">[G] Icon-Only</span>
+        <span class="variation-desc">Three tiny squares with glyphs — tooltip on hover. Most compact.</span>
+    </div>
+    <div class="device-row">
+        <div>
+            <div class="device-label">Desktop / Mobile</div>
+            <div class="sim-block">
+                <div class="sim-text">a photo of <span class="wc">__season__</span> landscape</div>
+                <div class="bar-g">
+                    <span class="act" title="New sibling (Ctrl+Enter)">↵</span>
+                    <span class="act" title="Nest as child (Tab)">↳</span>
+                    <span class="act" title="Duplicate (⌘D)">⊕</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── H: PIPE-SEPARATED UNIFIED BAR ── -->
+<div class="variation">
+    <div class="variation-header">
+        <span class="variation-label">[H] Pipe Bar</span>
+        <span class="variation-desc">Single surface strip, pipe separators — same on all screens</span>
+    </div>
+    <div class="device-row">
+        <div>
+            <div class="device-label">Desktop / Mobile</div>
+            <div class="sim-block">
+                <div class="sim-text">a photo of <span class="wc">__season__</span> landscape</div>
+                <div class="bar-h">
+                    <span class="act">↵ New</span>
+                    <span class="pipe">|</span>
+                    <span class="act">↳ Nest</span>
+                    <span class="pipe">|</span>
+                    <span class="act">⊕ Copy</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── I: MINIMAL DOTS ── -->
+<div class="variation">
+    <div class="variation-header">
+        <span class="variation-label">[I] Dot Expand</span>
+        <span class="variation-desc">3 dots at rest, expands to labels on hover. Desktop: hover expand. Mobile: always expanded.</span>
+    </div>
+    <div class="device-row">
+        <div>
+            <div class="device-label">Desktop (hover me)</div>
+            <div class="sim-block">
+                <div class="sim-text">a photo of <span class="wc">__season__</span> landscape</div>
+                <div class="bar-i">
+                    <span class="act">↵ New</span>
+                    <span class="act">↳ Nest</span>
+                    <span class="act">⊕ Copy</span>
+                </div>
+            </div>
+        </div>
+        <div>
+            <div class="device-label">Mobile (always expanded)</div>
+            <div class="sim-block mobile">
+                <div class="sim-text">a photo of <span class="wc">__season__</span></div>
+                <div class="bar-i mobile-mode">
+                    <span class="act">↵ New</span>
+                    <span class="act">↳ Nest</span>
+                    <span class="act">⊕ Copy</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── J: UNDERLINE TABS ── -->
+<div class="variation">
+    <div class="variation-header">
+        <span class="variation-label">[J] Underline Tabs</span>
+        <span class="variation-desc">Flat tabs with underline accent on hover. Keycaps on desktop, glyphs on mobile.</span>
+    </div>
+    <div class="device-row">
+        <div>
+            <div class="device-label">Desktop</div>
+            <div class="sim-block">
+                <div class="sim-text">a photo of <span class="wc">__season__</span> landscape</div>
+                <div class="bar-j">
+                    <span class="act"><span class="kc">^↵</span> New</span>
+                    <span class="act"><span class="kc">⇥</span> Nest</span>
+                    <span class="act"><span class="kc">⌘D</span> Copy</span>
+                </div>
+            </div>
+        </div>
+        <div>
+            <div class="device-label">Mobile</div>
+            <div class="sim-block mobile">
+                <div class="sim-text">a photo of <span class="wc">__season__</span></div>
+                <div class="bar-j">
+                    <span class="act">↵ New</span>
+                    <span class="act">↳ Nest</span>
+                    <span class="act">⊕ Copy</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── K: FLOATING MICRO-BAR ── -->
+<div class="variation">
+    <div class="variation-header">
+        <span class="variation-label">[K] Pill Bar</span>
+        <span class="variation-desc">Rounded floating strip with shadow. Desktop shows hints.</span>
+    </div>
+    <div class="device-row">
+        <div>
+            <div class="device-label">Desktop</div>
+            <div class="sim-block">
+                <div class="sim-text">a photo of <span class="wc">__season__</span> landscape</div>
+                <div class="bar-k">
+                    <span class="act"><span class="hint">^↵</span> New</span>
+                    <span class="act"><span class="hint">⇥</span> Nest</span>
+                    <span class="act"><span class="hint">⌘D</span> Copy</span>
+                </div>
+            </div>
+        </div>
+        <div>
+            <div class="device-label">Mobile</div>
+            <div class="sim-block mobile">
+                <div class="sim-text">a photo of <span class="wc">__season__</span></div>
+                <div class="bar-k">
+                    <span class="act">↵ New</span>
+                    <span class="act">↳ Nest</span>
+                    <span class="act">⊕ Copy</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── L: SINGLE CHARACTER BADGES ── -->
+<div class="variation">
+    <div class="variation-header">
+        <span class="variation-label">[L] Badge Grid</span>
+        <span class="variation-desc">3 square badges with single glyphs — ultra compact, tooltip-dependent</span>
+    </div>
+    <div class="device-row">
+        <div>
+            <div class="device-label">Desktop / Mobile</div>
+            <div class="sim-block">
+                <div class="sim-text">a photo of <span class="wc">__season__</span> landscape</div>
+                <div class="bar-l">
+                    <span class="act" title="New sibling">↵</span>
+                    <span class="act" title="Nest child">↳</span>
+                    <span class="act" title="Duplicate">⊕</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── M: SLASH-SEPARATED ── -->
+<div class="variation">
+    <div class="variation-header">
+        <span class="variation-label">[M] Slash Compact</span>
+        <span class="variation-desc">Slash-separated glyph labels — tiny inline feel, code aesthetic</span>
+    </div>
+    <div class="device-row">
+        <div>
+            <div class="device-label">Desktop / Mobile</div>
+            <div class="sim-block">
+                <div class="sim-text">a photo of <span class="wc">__season__</span> landscape</div>
+                <div class="bar-m">
+                    <span class="act">↵ new</span>
+                    <span class="slash">/</span>
+                    <span class="act">↳ nest</span>
+                    <span class="slash">/</span>
+                    <span class="act">⊕ copy</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── N: TOOLBAR CHIP ── -->
+<div class="variation">
+    <div class="variation-header">
+        <span class="variation-label">[N] Toolbar Chip</span>
+        <span class="variation-desc">Connected button group with dividers. Desktop: hints. Mobile: glyphs only.</span>
+    </div>
+    <div class="device-row">
+        <div>
+            <div class="device-label">Desktop</div>
+            <div class="sim-block">
+                <div class="sim-text">a photo of <span class="wc">__season__</span> landscape</div>
+                <div class="bar-n">
+                    <span class="act"><span class="hint">^↵</span> New</span>
+                    <span class="act"><span class="hint">⇥</span> Nest</span>
+                    <span class="act"><span class="hint">⌘D</span> Copy</span>
+                </div>
+            </div>
+        </div>
+        <div>
+            <div class="device-label">Mobile</div>
+            <div class="sim-block mobile">
+                <div class="sim-text">a photo of <span class="wc">__season__</span></div>
+                <div class="bar-n">
+                    <span class="act">↵ New</span>
+                    <span class="act">↳ Nest</span>
+                    <span class="act">⊕ Copy</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

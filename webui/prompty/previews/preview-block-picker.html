@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Block Picker Variations — Ctrl+Enter Action Picker</title>
+<style>
+:root {
+    --bg-deep: #0a0a0a;
+    --bg-surface: #161b22;
+    --bg-elevated: #1c2128;
+    --text-primary: #e6edf3;
+    --text-secondary: #8b949e;
+    --text-muted: #484f58;
+    --accent-green: #3fb950;
+    --reel-label: #e8943a;
+    --reel-value: #529CCA;
+    --reel-bg: rgba(82, 156, 202, 0.08);
+    --font-mono: 'Courier New', Courier, monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: var(--font-mono);
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    padding: 2rem 2.5rem;
+    line-height: 1.6;
+}
+
+h1 {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    font-weight: 400;
+    margin-bottom: 0.3rem;
+}
+h1 span { color: var(--reel-value); }
+
+.page-sub {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-bottom: 3rem;
+    max-width: 60ch;
+    line-height: 1.6;
+}
+
+/* ── Section chrome ── */
+.var-section {
+    margin-bottom: 4.5rem;
+    position: relative;
+}
+.var-label {
+    font-size: 0.65rem;
+    color: var(--reel-label);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 0.4rem;
+}
+.var-desc {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-bottom: 1.2rem;
+    max-width: 56ch;
+    line-height: 1.55;
+}
+
+hr.sep {
+    border: none;
+    border-top: 1px solid rgba(72, 79, 88, 0.25);
+    margin: 0 0 4.5rem;
+}
+
+/* ── Shared mock editor block ── */
+.mock-editor {
+    background: var(--bg-surface);
+    border: 1px solid rgba(72, 79, 88, 0.35);
+    border-radius: 8px;
+    padding: 1.4rem 1.8rem;
+    max-width: 560px;
+    position: relative;
+}
+
+.mock-line {
+    font-size: 0.92rem;
+    line-height: 2.5em;
+    color: var(--text-primary);
+    white-space: nowrap;
+    position: relative;
+}
+
+.mock-chip {
+    display: inline-block;
+    position: relative;
+    vertical-align: middle;
+    padding: 0 8px;
+    border-radius: 4px;
+    background: var(--reel-bg);
+    height: 1.6em;
+    line-height: 1.6em;
+}
+.mock-chip .chip-label {
+    position: absolute;
+    top: -1.2em;
+    left: 0; right: 0;
+    text-align: center;
+    color: var(--reel-label);
+    font-size: 0.5em;
+    pointer-events: none;
+}
+.mock-chip .chip-value {
+    color: var(--reel-value);
+}
+
+/* Editing glow border */
+.mock-editor.editing {
+    border-image: linear-gradient(90deg, var(--reel-value) 0%, var(--reel-label) 100%) 1;
+}
+
+/* Bottom gradient border (for hint area) */
+.mock-editor .gradient-border {
+    position: absolute;
+    bottom: 0;
+    left: 10%;
+    right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--reel-value), var(--reel-label), transparent);
+    opacity: 0.5;
+}
+
+/* Tree connector */
+.tree-conn { color: var(--text-muted); user-select: none; }
+.child-indent { padding-left: 2ch; }
+
+/* Sticky dot */
+.sticky-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--reel-value);
+    margin-right: 0.4em;
+    vertical-align: middle;
+}
+.sticky-dot.hidden { visibility: hidden; }
+
+/* ══════════════════════════════════════
+   VARIATION 1: Horizontal Pill Bar
+   ══════════════════════════════════════ */
+
+.v1-pills {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    margin-top: 0.6rem;
+    position: relative;
+    z-index: 2;
+}
+.v1-pill {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    padding: 0.25em 0.9em;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.12s ease;
+    border: 1px solid var(--text-muted);
+    background: transparent;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+.v1-pill:hover {
+    border-color: var(--reel-value);
+    color: var(--reel-value);
+}
+.v1-pill.active {
+    background: var(--reel-value);
+    border-color: var(--reel-value);
+    color: var(--bg-deep);
+    font-weight: 700;
+}
+.v1-pill .pill-num {
+    font-size: 0.6em;
+    opacity: 0.6;
+    margin-right: 0.3em;
+}
+.v1-pill.active .pill-num { opacity: 0.8; }
+
+/* ══════════════════════════════════════
+   VARIATION 2: Vertical Mini-Menu
+   ══════════════════════════════════════ */
+
+.v2-menu {
+    position: absolute;
+    left: 1.8rem;
+    bottom: -0.4rem;
+    transform: translateY(100%);
+    background: var(--bg-elevated);
+    border: 1px solid rgba(72, 79, 88, 0.5);
+    border-radius: 6px;
+    padding: 0.35rem 0;
+    min-width: 180px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    z-index: 10;
+}
+.v2-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    padding: 0.35em 0.8em;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+    position: relative;
+}
+.v2-item:hover {
+    background: rgba(82, 156, 202, 0.08);
+    color: var(--text-primary);
+}
+.v2-item.active {
+    color: var(--text-primary);
+}
+.v2-item.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 4px;
+    bottom: 4px;
+    width: 2px;
+    background: var(--reel-value);
+    border-radius: 1px;
+}
+.v2-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5em;
+    height: 1.5em;
+    border-radius: 3px;
+    background: rgba(72, 79, 88, 0.3);
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+.v2-item.active .v2-num {
+    background: rgba(82, 156, 202, 0.15);
+    color: var(--reel-value);
+}
+.v2-item:hover .v2-num {
+    background: rgba(82, 156, 202, 0.12);
+    color: var(--reel-value);
+}
+.v2-desc {
+    font-size: 0.58rem;
+    color: var(--text-muted);
+    margin-left: auto;
+    padding-left: 1em;
+}
+
+/* ══════════════════════════════════════
+   VARIATION 3: Morphing Hint
+   ══════════════════════════════════════ */
+
+.v3-hint-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    z-index: 5;
+}
+.v3-line-left, .v3-line-right {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--reel-value));
+    opacity: 0.4;
+}
+.v3-line-right {
+    background: linear-gradient(90deg, var(--reel-label), transparent);
+}
+.v3-option {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    color: var(--text-muted);
+    padding: 0.2em 0.7em;
+    cursor: pointer;
+    transition: color 0.12s;
+    white-space: nowrap;
+    position: relative;
+}
+.v3-option:hover {
+    color: var(--text-primary);
+}
+.v3-option.active {
+    color: var(--reel-value);
+    font-weight: 700;
+}
+.v3-option.active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 20%;
+    right: 20%;
+    height: 2px;
+    background: var(--reel-value);
+    border-radius: 1px;
+}
+.v3-sep {
+    color: var(--text-muted);
+    opacity: 0.3;
+    font-size: 0.7rem;
+    padding: 0 0.1em;
+}
+
+/* ══════════════════════════════════════
+   VARIATION 4: Ghost Block Preview
+   ══════════════════════════════════════ */
+
+.v4-ghost-area {
+    margin-top: 0.3rem;
+    border-top: 1px dashed rgba(72, 79, 88, 0.3);
+    padding-top: 0.2rem;
+    position: relative;
+}
+.v4-ghost-block {
+    display: none;
+    line-height: 2.4em;
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    opacity: 0.6;
+    position: relative;
+    border-left: 2px solid var(--reel-value);
+    padding-left: 0.8ch;
+    animation: v4-fadein 0.15s ease;
+}
+.v4-ghost-block.visible { display: block; }
+
+@keyframes v4-fadein {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 0.6; transform: translateY(0); }
+}
+
+.v4-ghost-block .ghost-text {
+    font-style: italic;
+    color: var(--text-muted);
+}
+.v4-ghost-block .ghost-chip {
+    display: inline-block;
+    padding: 0 6px;
+    border-radius: 3px;
+    background: rgba(82, 156, 202, 0.06);
+    border: 1px dashed rgba(82, 156, 202, 0.2);
+    color: var(--reel-value);
+    opacity: 0.5;
+    font-size: 0.85em;
+    vertical-align: middle;
+}
+.v4-mode-label {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.6rem;
+    color: var(--reel-value);
+    background: var(--bg-surface);
+    padding: 0.15em 0.5em;
+    border-radius: 3px;
+    border: 1px solid rgba(82, 156, 202, 0.2);
+}
+.v4-mode-label kbd {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    color: var(--text-secondary);
+    background: var(--bg-elevated);
+    border: 1px solid var(--text-muted);
+    border-bottom: 2px solid var(--text-muted);
+    border-radius: 2px;
+    padding: 0 0.2em;
+    margin-right: 0.3em;
+    display: inline-block;
+    vertical-align: middle;
+    line-height: 1.3;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.04), inset 0 1px 0 rgba(255,255,255,0.03);
+}
+.v4-cycle-hint {
+    text-align: right;
+    font-size: 0.58rem;
+    color: var(--text-muted);
+    margin-top: 0.2rem;
+    padding-right: 0.2em;
+}
+.v4-cycle-hint span { cursor: pointer; }
+.v4-cycle-hint span:hover { color: var(--reel-value); }
+
+/* ══════════════════════════════════════
+   VARIATION 5: Floating Tag Strip
+   ══════════════════════════════════════ */
+
+.v5-tags {
+    position: absolute;
+    right: -0.5rem;
+    top: 50%;
+    transform: translate(100%, -50%);
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    z-index: 5;
+}
+.v5-tag {
+    font-family: var(--font-mono);
+    font-size: 0.58rem;
+    padding: 0.2em 0.5em;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.12s ease;
+    white-space: nowrap;
+    border: 1px solid rgba(72, 79, 88, 0.35);
+    background: var(--bg-elevated);
+    color: var(--text-muted);
+    text-align: center;
+    min-width: 5.5em;
+}
+.v5-tag:hover {
+    border-color: var(--reel-value);
+    color: var(--text-secondary);
+}
+.v5-tag.active {
+    border-color: var(--reel-value);
+    background: rgba(82, 156, 202, 0.12);
+    color: var(--reel-value);
+    font-weight: 700;
+}
+.v5-tag .tag-num {
+    opacity: 0.5;
+    margin-right: 0.2em;
+    font-size: 0.9em;
+}
+.v5-tag.active .tag-num { opacity: 0.7; }
+</style>
+</head>
+<body>
+
+<h1>Ctrl+Enter Block Picker — <span>5 Variations</span></h1>
+<p class="page-sub">Each variation shows the same picker concept: press Ctrl+Enter to choose between New Line, Nest Child, or Fork. The last choice is sticky (shown with a dot or highlight). Click options to change the sticky default.</p>
+
+<!-- ════════════════════════════════════════════════════
+     VARIATION 1: Horizontal Pill Bar
+     ════════════════════════════════════════════════════ -->
+<section class="var-section" id="var1">
+    <div class="var-label">Variation 1 — Horizontal Pill Bar</div>
+    <div class="var-desc">Three pills in a row below the editing block. The sticky default is filled solid, others are outlined. Replaces the hint area. Click a pill to set sticky default.</div>
+
+    <div class="mock-editor editing">
+        <div class="mock-line">A cabin in the forest with <span class="mock-chip"><span class="chip-label">lighting</span><span class="chip-value">natural</span></span> lighting</div>
+        <div class="gradient-border"></div>
+        <div class="v1-pills" data-group="v1">
+            <button class="v1-pill active" onclick="v1Pick(this)"><span class="pill-num">1</span>New Line</button>
+            <button class="v1-pill" onclick="v1Pick(this)"><span class="pill-num">2</span>Nest Child</button>
+            <button class="v1-pill" onclick="v1Pick(this)"><span class="pill-num">3</span>Fork</button>
+        </div>
+    </div>
+</section>
+
+<hr class="sep">
+
+<!-- ════════════════════════════════════════════════════
+     VARIATION 2: Vertical Mini-Menu
+     ════════════════════════════════════════════════════ -->
+<section class="var-section" id="var2">
+    <div class="var-label">Variation 2 — Vertical Mini-Menu</div>
+    <div class="var-desc">A small dropdown with numbered items. The sticky default has a left accent bar and dot. Feels like a command palette. Click an item to set sticky default.</div>
+
+    <div class="mock-editor editing" style="margin-bottom: 8rem;">
+        <div class="mock-line">A cabin in the forest with <span class="mock-chip"><span class="chip-label">lighting</span><span class="chip-value">natural</span></span> lighting</div>
+        <div class="gradient-border"></div>
+
+        <div class="v2-menu">
+            <div class="v2-item active" onclick="v2Pick(this)">
+                <span class="sticky-dot"></span>
+                <span class="v2-num">1</span>
+                New Line
+                <span class="v2-desc">sibling</span>
+            </div>
+            <div class="v2-item" onclick="v2Pick(this)">
+                <span class="sticky-dot hidden"></span>
+                <span class="v2-num">2</span>
+                Nest Child
+                <span class="v2-desc">depth+1</span>
+            </div>
+            <div class="v2-item" onclick="v2Pick(this)">
+                <span class="sticky-dot hidden"></span>
+                <span class="v2-num">3</span>
+                Fork
+                <span class="v2-desc">clone wc</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<hr class="sep">
+
+<!-- ════════════════════════════════════════════════════
+     VARIATION 3: Morphing Hint
+     ════════════════════════════════════════════════════ -->
+<section class="var-section" id="var3">
+    <div class="var-label">Variation 3 — Morphing Hint</div>
+    <div class="var-desc">No popup — the hint transforms in-place into a 3-option selector on the gradient border. The active choice is highlighted with an underline accent. Click to change.</div>
+
+    <div class="mock-editor editing" style="overflow: visible;">
+        <div class="mock-line">A cabin in the forest with <span class="mock-chip"><span class="chip-label">lighting</span><span class="chip-value">natural</span></span> lighting</div>
+
+        <div class="v3-hint-bar">
+            <span class="v3-line-left"></span>
+            <span class="v3-option active" onclick="v3Pick(this)">New Line</span>
+            <span class="v3-sep">|</span>
+            <span class="v3-option" onclick="v3Pick(this)">Nest Child</span>
+            <span class="v3-sep">|</span>
+            <span class="v3-option" onclick="v3Pick(this)">Fork</span>
+            <span class="v3-line-right"></span>
+        </div>
+    </div>
+</section>
+
+<hr class="sep">
+
+<!-- ════════════════════════════════════════════════════
+     VARIATION 4: Ghost Block Preview
+     ════════════════════════════════════════════════════ -->
+<section class="var-section" id="var4">
+    <div class="var-label">Variation 4 — Ghost Block Preview</div>
+    <div class="var-desc">No menu — the actual result appears as a ghost preview. Click the mode labels or the hint text to cycle between New Line, Nest Child, and Fork. You see exactly what you'll get.</div>
+
+    <div class="mock-editor editing">
+        <div class="mock-line">A cabin in the forest with <span class="mock-chip"><span class="chip-label">lighting</span><span class="chip-value">natural</span></span> lighting</div>
+
+        <div class="v4-ghost-area">
+            <!-- Ghost: New Line (sibling at same depth) -->
+            <div class="v4-ghost-block visible" data-mode="line">
+                <span class="ghost-text">type here...</span>
+                <span class="v4-mode-label"><kbd>Tab</kbd> New Line</span>
+            </div>
+            <!-- Ghost: Nest Child (indented with connector) -->
+            <div class="v4-ghost-block" data-mode="child">
+                <span style="padding-left:2ch"><span class="tree-conn">&#9492;&#9472;&#9472; </span><span class="ghost-text">type here...</span></span>
+                <span class="v4-mode-label"><kbd>Tab</kbd> Nest Child</span>
+            </div>
+            <!-- Ghost: Fork (wildcards copied, text cleared) -->
+            <div class="v4-ghost-block" data-mode="fork">
+                <span class="ghost-text">... </span><span class="ghost-chip">lighting</span>
+                <span class="v4-mode-label"><kbd>Tab</kbd> Fork</span>
+            </div>
+
+            <div class="v4-cycle-hint">
+                <span onclick="v4Cycle()">click or press Tab to cycle</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<hr class="sep">
+
+<!-- ════════════════════════════════════════════════════
+     VARIATION 5: Floating Tag Strip
+     ════════════════════════════════════════════════════ -->
+<section class="var-section" id="var5">
+    <div class="var-label">Variation 5 — Floating Tag Strip</div>
+    <div class="var-desc">Ultra-minimal — three tiny tags stacked on the right edge. The active tag is highlighted. Almost invisible until you need it. Click a tag to set sticky default.</div>
+
+    <div class="mock-editor editing" style="overflow: visible; max-width: 480px;">
+        <div class="mock-line">A cabin in the forest with <span class="mock-chip"><span class="chip-label">lighting</span><span class="chip-value">natural</span></span> lighting</div>
+        <div class="gradient-border"></div>
+
+        <div class="v5-tags">
+            <div class="v5-tag active" onclick="v5Pick(this)"><span class="tag-num">1</span>Line</div>
+            <div class="v5-tag" onclick="v5Pick(this)"><span class="tag-num">2</span>Nest</div>
+            <div class="v5-tag" onclick="v5Pick(this)"><span class="tag-num">3</span>Fork</div>
+        </div>
+    </div>
+</section>
+
+<script>
+/* ── Variation 1: Pill Bar ── */
+function v1Pick(el) {
+    el.parentElement.querySelectorAll('.v1-pill').forEach(function(p) { p.classList.remove('active'); });
+    el.classList.add('active');
+}
+
+/* ── Variation 2: Vertical Menu ── */
+function v2Pick(el) {
+    el.parentElement.querySelectorAll('.v2-item').forEach(function(item) {
+        item.classList.remove('active');
+        item.querySelector('.sticky-dot').classList.add('hidden');
+    });
+    el.classList.add('active');
+    el.querySelector('.sticky-dot').classList.remove('hidden');
+}
+
+/* ── Variation 3: Morphing Hint ── */
+function v3Pick(el) {
+    el.parentElement.querySelectorAll('.v3-option').forEach(function(o) { o.classList.remove('active'); });
+    el.classList.add('active');
+}
+
+/* ── Variation 4: Ghost Block Preview ── */
+var v4Modes = ['line', 'child', 'fork'];
+var v4Current = 0;
+
+function v4Cycle() {
+    v4Current = (v4Current + 1) % v4Modes.length;
+    var ghosts = document.querySelectorAll('.v4-ghost-block');
+    ghosts.forEach(function(g) { g.classList.remove('visible'); });
+    document.querySelector('.v4-ghost-block[data-mode="' + v4Modes[v4Current] + '"]').classList.add('visible');
+}
+
+// Click mode labels to cycle too
+document.querySelectorAll('.v4-mode-label').forEach(function(label) {
+    label.style.cursor = 'pointer';
+    label.addEventListener('click', v4Cycle);
+});
+
+/* ── Variation 5: Floating Tags ── */
+function v5Pick(el) {
+    el.parentElement.querySelectorAll('.v5-tag').forEach(function(t) { t.classList.remove('active'); });
+    el.classList.add('active');
+}
+</script>
+
+</body>
+</html>

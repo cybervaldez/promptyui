@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sibling Insert Patterns — Pick One</title>
+<style>
+:root {
+    --bg-deep: #0a0a0a;
+    --bg-surface: #161b22;
+    --bg-elevated: #1c2128;
+    --text-primary: #e6edf3;
+    --text-secondary: #8b949e;
+    --text-muted: #484f58;
+    --accent-green: #3fb950;
+    --accent-amber: #ff6b35;
+    --accent-blue: #58a6ff;
+    --reel-label: #e8943a;
+    --reel-value: #529CCA;
+    --reel-bg: rgba(82, 156, 202, 0.08);
+    --font-mono: 'Courier New', Courier, monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: var(--font-mono);
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    padding: 2rem;
+}
+
+h1 {
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+    font-weight: 400;
+}
+h1 span { color: var(--reel-value); }
+
+.subtitle {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 3rem;
+}
+
+/* ── Shared block styles ── */
+.demo-section {
+    margin-bottom: 4rem;
+    position: relative;
+}
+
+.demo-label {
+    font-size: 0.7rem;
+    color: var(--reel-label);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 0.5rem;
+}
+
+.demo-desc {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 1.5rem;
+    max-width: 50ch;
+    line-height: 1.5;
+}
+
+.editor-area {
+    background: var(--bg-surface);
+    border: 1px solid rgba(72, 79, 88, 0.3);
+    border-radius: 8px;
+    padding: 1.5rem 2rem;
+    max-width: 600px;
+}
+
+.block-line {
+    font-size: 0.95rem;
+    line-height: 2.4em;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    position: relative;
+}
+
+.block-line .reel {
+    display: inline-block;
+    position: relative;
+    vertical-align: middle;
+    padding: 0 8px;
+    border-radius: 4px;
+    background: var(--reel-bg);
+    height: 1.6em;
+    line-height: 1.6em;
+}
+
+.block-line .reel-label {
+    color: var(--reel-label);
+    font-size: 0.55em;
+    position: absolute;
+    top: -1.3em;
+    left: 0;
+    right: 0;
+    text-align: center;
+    pointer-events: none;
+}
+
+.block-line .reel-value {
+    color: var(--reel-value);
+}
+
+.tree-conn {
+    color: var(--text-muted);
+    user-select: none;
+}
+
+.child-line {
+    padding-left: 2ch;
+}
+
+.grandchild-line {
+    padding-left: 4ch;
+}
+
+.divider {
+    border: none;
+    border-top: 1px solid rgba(72, 79, 88, 0.3);
+    margin: 3rem 0;
+}
+
+/* ══════════════════════════════════════
+   PATTERN A: Insert Line (Notion-style)
+   ══════════════════════════════════════ */
+
+.pattern-a .block-wrapper {
+    position: relative;
+}
+
+.pattern-a .insert-zone {
+    position: relative;
+    height: 0;
+    overflow: visible;
+}
+
+.pattern-a .insert-trigger {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -8px;
+    height: 16px;
+    cursor: pointer;
+    z-index: 5;
+}
+
+.pattern-a .insert-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 2px;
+    background: var(--reel-value);
+    opacity: 0;
+    transition: opacity 0.15s;
+    border-radius: 1px;
+}
+
+.pattern-a .insert-btn {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--reel-value);
+    color: var(--bg-deep);
+    border: none;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s, transform 0.15s;
+    z-index: 6;
+}
+
+.pattern-a .insert-trigger:hover ~ .insert-line,
+.pattern-a .insert-btn:hover ~ .insert-line {
+    opacity: 1;
+}
+
+.pattern-a .insert-trigger:hover ~ .insert-btn,
+.pattern-a .insert-btn:hover {
+    opacity: 1;
+}
+
+.pattern-a .insert-btn:hover {
+    transform: translate(-50%, -50%) scale(1.15);
+}
+
+/* Depth-aware insert lines */
+.pattern-a .insert-zone.depth-1 .insert-line,
+.pattern-a .insert-zone.depth-1 .insert-trigger {
+    left: 2ch;
+}
+.pattern-a .insert-zone.depth-2 .insert-line,
+.pattern-a .insert-zone.depth-2 .insert-trigger {
+    left: 4ch;
+}
+
+/* ══════════════════════════════════════
+   PATTERN B: Gutter Plus
+   ══════════════════════════════════════ */
+
+.pattern-b .block-wrapper {
+    position: relative;
+}
+
+.pattern-b .gutter-zone {
+    position: relative;
+    height: 0;
+    overflow: visible;
+}
+
+.pattern-b .gutter-trigger {
+    position: absolute;
+    left: -2rem;
+    top: -10px;
+    width: 2rem;
+    height: 20px;
+    cursor: pointer;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pattern-b .gutter-btn {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid transparent;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.pattern-b .gutter-trigger:hover .gutter-btn,
+.pattern-b .block-wrapper:hover > .gutter-zone .gutter-btn {
+    opacity: 1;
+    color: var(--text-secondary);
+    border-color: var(--text-muted);
+}
+
+.pattern-b .gutter-btn:hover {
+    opacity: 1;
+    color: var(--reel-value);
+    border-color: var(--reel-value);
+    background: rgba(82, 156, 202, 0.1);
+}
+
+/* Also show a subtle line on gutter hover */
+.pattern-b .gutter-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 1px;
+    background: var(--text-muted);
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.pattern-b .gutter-trigger:hover ~ .gutter-line {
+    opacity: 0.4;
+}
+
+/* ══════════════════════════════════════
+   PATTERN C: Block Tail Zone
+   ══════════════════════════════════════ */
+
+.pattern-c .block-wrapper {
+    position: relative;
+}
+
+.pattern-c .tail-zone {
+    position: relative;
+    height: 0;
+    overflow: visible;
+}
+
+.pattern-c .tail-hint {
+    position: absolute;
+    left: 50%;
+    top: -2px;
+    transform: translateX(-50%);
+    font-size: 9px;
+    color: var(--text-muted);
+    background: var(--bg-surface);
+    padding: 0 0.5em;
+    white-space: nowrap;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s;
+    z-index: 5;
+    letter-spacing: 0.02em;
+}
+
+.pattern-c .tail-trigger {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -8px;
+    height: 16px;
+    cursor: pointer;
+    z-index: 4;
+}
+
+.pattern-c .tail-trigger:hover ~ .tail-hint {
+    opacity: 1;
+}
+
+.pattern-c .tail-hint:hover {
+    opacity: 1;
+    color: var(--reel-value);
+}
+
+.pattern-c .tail-hint kbd {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--text-secondary);
+    background: var(--bg-elevated);
+    border: 1px solid var(--text-muted);
+    border-bottom: 2px solid var(--text-muted);
+    border-radius: 2px;
+    padding: 0 0.2em;
+    margin: 0 0.05em;
+    display: inline-block;
+    vertical-align: middle;
+    line-height: 1.3;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.04), inset 0 1px 0 rgba(255,255,255,0.03);
+}
+
+/* Gradient border between blocks on hover */
+.pattern-c .tail-border {
+    position: absolute;
+    left: 10%;
+    right: 10%;
+    top: 0;
+    height: 1px;
+    opacity: 0;
+    transition: opacity 0.2s;
+    background: linear-gradient(90deg, transparent, var(--reel-value), transparent);
+}
+
+.pattern-c .tail-trigger:hover ~ .tail-border,
+.pattern-c .tail-hint:hover ~ .tail-border {
+    opacity: 0.5;
+}
+
+/* ══════════════════════════════════════
+   PATTERN D: Keyboard-First with Ghost
+   ══════════════════════════════════════ */
+
+.pattern-d .block-wrapper {
+    position: relative;
+}
+
+.pattern-d .block-line {
+    cursor: text;
+}
+
+.pattern-d .block-line.active {
+    color: var(--text-primary);
+}
+
+.pattern-d .ghost-line {
+    height: 0;
+    overflow: hidden;
+    transition: height 0.2s ease, opacity 0.2s ease;
+    opacity: 0;
+}
+
+.pattern-d .ghost-line.visible {
+    height: 2.4em;
+    opacity: 1;
+}
+
+.pattern-d .ghost-content {
+    line-height: 2.4em;
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 0.85rem;
+    border-left: 2px solid var(--reel-value);
+    padding-left: 0.8ch;
+    opacity: 0.5;
+}
+
+.pattern-d .kbd-hint {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 9px;
+    color: var(--text-muted);
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.pattern-d .block-line.active .kbd-hint {
+    opacity: 1;
+}
+
+.pattern-d .kbd-hint kbd {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--text-secondary);
+    background: var(--bg-elevated);
+    border: 1px solid var(--text-muted);
+    border-bottom: 2px solid var(--text-muted);
+    border-radius: 2px;
+    padding: 0 0.2em;
+    display: inline-block;
+    vertical-align: middle;
+    line-height: 1.3;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.04), inset 0 1px 0 rgba(255,255,255,0.03);
+}
+
+/* ══════════════════════════════════════
+   PATTERN E: Hybrid — Insert Line + Keyboard
+   ══════════════════════════════════════ */
+
+.pattern-e .block-wrapper {
+    position: relative;
+}
+
+.pattern-e .insert-zone {
+    position: relative;
+    height: 0;
+    overflow: visible;
+}
+
+.pattern-e .insert-trigger {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -8px;
+    height: 16px;
+    cursor: pointer;
+    z-index: 5;
+}
+
+.pattern-e .insert-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, var(--reel-value) 15%, var(--reel-value) 85%, transparent 100%);
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.pattern-e .insert-label {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 9px;
+    color: var(--reel-value);
+    background: var(--bg-surface);
+    padding: 0 0.6em;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 6;
+    cursor: pointer;
+}
+
+.pattern-e .insert-trigger:hover ~ .insert-line,
+.pattern-e .insert-label:hover ~ .insert-line {
+    opacity: 0.6;
+}
+
+.pattern-e .insert-trigger:hover ~ .insert-label,
+.pattern-e .insert-label:hover {
+    opacity: 1;
+}
+
+.pattern-e .insert-label kbd {
+    font-family: var(--font-mono);
+    font-size: 7px;
+    color: var(--text-secondary);
+    background: var(--bg-elevated);
+    border: 1px solid var(--text-muted);
+    border-bottom: 2px solid var(--text-muted);
+    border-radius: 2px;
+    padding: 0 0.15em;
+    margin: 0 0.05em;
+    display: inline-block;
+    vertical-align: middle;
+    line-height: 1.3;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.04), inset 0 1px 0 rgba(255,255,255,0.03);
+}
+
+/* Depth-aware */
+.pattern-e .insert-zone.depth-1 .insert-line,
+.pattern-e .insert-zone.depth-1 .insert-trigger {
+    left: 2ch;
+}
+</style>
+</head>
+<body>
+
+<h1>Sibling Insert Patterns — <span>hover between blocks</span></h1>
+<p class="subtitle">Each pattern shows a different way to insert a new sibling block between existing blocks. Hover the gaps to see the affordance.</p>
+
+<!-- ════════════════════════════════════════════════════
+     PATTERN A: Insert Line (Notion-style)
+     ════════════════════════════════════════════════════ -->
+<section class="demo-section pattern-a">
+    <div class="demo-label">Pattern A — Insert Line</div>
+    <div class="demo-desc">A thin blue line with a centered + button appears between blocks on hover. Respects depth — insert zones between children stay indented.</div>
+
+    <div class="editor-area">
+        <div class="block-wrapper">
+            <div class="block-line">A cabin in the forest with <span class="reel"><span class="reel-label">lighting</span><span class="reel-value">natural</span></span> lighting</div>
+        </div>
+
+        <!-- Insert zone between root blocks -->
+        <div class="insert-zone">
+            <div class="insert-trigger"></div>
+            <div class="insert-line"></div>
+            <button class="insert-btn">+</button>
+        </div>
+
+        <div class="block-wrapper">
+            <div class="block-line child-line"><span class="tree-conn">&#9500;&#9472;&#9472; </span>during <span class="reel"><span class="reel-label">time</span><span class="reel-value">golden hour</span></span></div>
+        </div>
+
+        <!-- Insert zone between children (indented) -->
+        <div class="insert-zone depth-1">
+            <div class="insert-trigger"></div>
+            <div class="insert-line"></div>
+            <button class="insert-btn">+</button>
+        </div>
+
+        <div class="block-wrapper">
+            <div class="block-line child-line"><span class="tree-conn">&#9492;&#9472;&#9472; </span>with <span class="reel"><span class="reel-label">mood</span><span class="reel-value">peaceful</span></span> atmosphere</div>
+        </div>
+
+        <!-- Insert zone after last block -->
+        <div class="insert-zone">
+            <div class="insert-trigger"></div>
+            <div class="insert-line"></div>
+            <button class="insert-btn">+</button>
+        </div>
+
+        <div class="block-wrapper">
+            <div class="block-line">A city skyline at <span class="reel"><span class="reel-label">time</span><span class="reel-value">twilight</span></span></div>
+        </div>
+
+        <div class="insert-zone">
+            <div class="insert-trigger"></div>
+            <div class="insert-line"></div>
+            <button class="insert-btn">+</button>
+        </div>
+
+        <div class="block-wrapper">
+            <div class="block-line">An ocean shore with <span class="reel"><span class="reel-label">weather</span><span class="reel-value">misty</span></span> weather</div>
+        </div>
+    </div>
+</section>
+
+<hr class="divider">
+
+<!-- ════════════════════════════════════════════════════
+     PATTERN B: Gutter Plus
+     ════════════════════════════════════════════════════ -->
+<section class="demo-section pattern-b">
+    <div class="demo-label">Pattern B — Gutter Plus</div>
+    <div class="demo-desc">A small + button appears in the left gutter between blocks. Larger click target than a thin line. Hover the left edge between blocks.</div>
+
+    <div class="editor-area" style="padding-left: 3rem;">
+        <div class="block-wrapper">
+            <div class="block-line">A cabin in the forest with <span class="reel"><span class="reel-label">lighting</span><span class="reel-value">natural</span></span> lighting</div>
+        </div>
+
+        <div class="gutter-zone">
+            <div class="gutter-trigger"><button class="gutter-btn">+</button></div>
+            <div class="gutter-line"></div>
+        </div>
+
+        <div class="block-wrapper">
+            <div class="block-line child-line"><span class="tree-conn">&#9500;&#9472;&#9472; </span>during <span class="reel"><span class="reel-label">time</span><span class="reel-value">golden hour</span></span></div>
+        </div>
+
+        <div class="gutter-zone">
+            <div class="gutter-trigger"><button class="gutter-btn">+</button></div>
+            <div class="gutter-line"></div>
+        </div>
+
+        <div class="block-wrapper">
+            <div class="block-line child-line"><span class="tree-conn">&#9492;&#9472;&#9472; </span>with <span class="reel"><span class="reel-label">mood</span><span class="reel-value">peaceful</span></span> atmosphere</div>
+        </div>
+
+        <div class="gutter-zone">
+            <div class="gutter-trigger"><button class="gutter-btn">+</button></div>
+            <div class="gutter-line"></div>
+        </div>
+
+        <div class="block-wrapper">
+            <div class="block-line">A city skyline at <span class="reel"><span class="reel-label">time</span><span class="reel-value">twilight</span></span></div>
+        </div>
+
+        <div class="gutter-zone">
+            <div class="gutter-trigger"><button class="gutter-btn">+</button></div>
+            <div class="gutter-line"></div>
+        </div>
+
+        <div class="block-wrapper">
+            <div class="block-line">An ocean shore with <span class="reel"><span class="reel-label">weather</span><span class="reel-value">misty</span></span> weather</div>
+        </div>
+    </div>
+</section>
+
+<hr class="divider">
+
+<!-- ════════════════════════════════════════════════════
+     PATTERN C: Block Tail Zone
+     ════════════════════════════════════════════════════ -->
+<section class="demo-section pattern-c">
+    <div class="demo-label">Pattern C — Block Tail Zone</div>
+    <div class="demo-desc">Reuses your existing "Add Child" hint pattern. A small text label appears between blocks on hover, centered on a gradient border. Consistent with the existing UI language.</div>
+
+    <div class="editor-area">
+        <div class="block-wrapper">
+            <div class="block-line">A cabin in the forest with <span class="reel"><span class="reel-label">lighting</span><span class="reel-value">natural</span></span> lighting</div>
+        </div>
+
+        <div class="tail-zone">
+            <div class="tail-trigger"></div>
+            <span class="tail-hint"><kbd>Enter</kbd> Add Block</span>
+            <div class="tail-border"></div>
+        </div>
+
+        <div class="block-wrapper">
+            <div class="block-line child-line"><span class="tree-conn">&#9500;&#9472;&#9472; </span>during <span class="reel"><span class="reel-label">time</span><span class="reel-value">golden hour</span></span></div>
+        </div>
+
+        <div class="tail-zone">
+            <div class="tail-trigger"></div>
+            <span class="tail-hint"><kbd>Enter</kbd> Add Block</span>
+            <div class="tail-border"></div>
+        </div>
+
+        <div class="block-wrapper">
+            <div class="block-line child-line"><span class="tree-conn">&#9492;&#9472;&#9472; </span>with <span class="reel"><span class="reel-label">mood</span><span class="reel-value">peaceful</span></span> atmosphere</div>
+        </div>
+
+        <div class="tail-zone">
+            <div class="tail-trigger"></div>
+            <span class="tail-hint"><kbd>Enter</kbd> Add Block</span>
+            <div class="tail-border"></div>
+        </div>
+
+        <div class="block-wrapper">
+            <div class="block-line">A city skyline at <span class="reel"><span class="reel-label">time</span><span class="reel-value">twilight</span></span></div>
+        </div>
+
+        <div class="tail-zone">
+            <div class="tail-trigger"></div>
+            <span class="tail-hint"><kbd>Enter</kbd> Add Block</span>
+            <div class="tail-border"></div>
+        </div>
+
+        <div class="block-wrapper">
+            <div class="block-line">An ocean shore with <span class="reel"><span class="reel-label">weather</span><span class="reel-value">misty</span></span> weather</div>
+        </div>
+    </div>
+</section>
+
+<hr class="divider">
+
+<!-- ════════════════════════════════════════════════════
+     PATTERN D: Keyboard-First with Ghost Line
+     ════════════════════════════════════════════════════ -->
+<section class="demo-section pattern-d">
+    <div class="demo-label">Pattern D — Keyboard-First with Ghost</div>
+    <div class="demo-desc">Click a block to select it. A ghost line shows where Enter will insert. Minimal UI — the affordance is the cursor blinking at the end of the active line. Click the first block to see the ghost.</div>
+
+    <div class="editor-area">
+        <div class="block-wrapper">
+            <div class="block-line active" onclick="toggleGhost(this)">A cabin in the forest with <span class="reel"><span class="reel-label">lighting</span><span class="reel-value">natural</span></span> lighting<span class="kbd-hint"><kbd>Enter</kbd> new line</span></div>
+        </div>
+
+        <div class="ghost-line visible" id="ghost-d1">
+            <div class="ghost-content">type here...</div>
+        </div>
+
+        <div class="block-wrapper">
+            <div class="block-line child-line" onclick="toggleGhost(this)"><span class="tree-conn">&#9500;&#9472;&#9472; </span>during <span class="reel"><span class="reel-label">time</span><span class="reel-value">golden hour</span></span><span class="kbd-hint"><kbd>Enter</kbd> new line</span></div>
+        </div>
+
+        <div class="ghost-line" id="ghost-d2">
+            <div class="ghost-content">type here...</div>
+        </div>
+
+        <div class="block-wrapper">
+            <div class="block-line child-line" onclick="toggleGhost(this)"><span class="tree-conn">&#9492;&#9472;&#9472; </span>with <span class="reel"><span class="reel-label">mood</span><span class="reel-value">peaceful</span></span> atmosphere<span class="kbd-hint"><kbd>Enter</kbd> new line</span></div>
+        </div>
+
+        <div class="ghost-line" id="ghost-d3">
+            <div class="ghost-content">type here...</div>
+        </div>
+
+        <div class="block-wrapper">
+            <div class="block-line" onclick="toggleGhost(this)">A city skyline at <span class="reel"><span class="reel-label">time</span><span class="reel-value">twilight</span></span><span class="kbd-hint"><kbd>Enter</kbd> new line</span></div>
+        </div>
+
+        <div class="ghost-line" id="ghost-d4">
+            <div class="ghost-content">type here...</div>
+        </div>
+
+        <div class="block-wrapper">
+            <div class="block-line" onclick="toggleGhost(this)">An ocean shore with <span class="reel"><span class="reel-label">weather</span><span class="reel-value">misty</span></span> weather<span class="kbd-hint"><kbd>Enter</kbd> new line</span></div>
+        </div>
+    </div>
+</section>
+
+<hr class="divider">
+
+<!-- ════════════════════════════════════════════════════
+     PATTERN E: Hybrid — Gradient Line + Inline Label
+     ════════════════════════════════════════════════════ -->
+<section class="demo-section pattern-e">
+    <div class="demo-label">Pattern E — Hybrid (Gradient Line + Label)</div>
+    <div class="demo-desc">Combines the gradient line from Pattern A with the text label from Pattern C. A fading line appears with a centered label showing the keyboard shortcut. Hover between blocks.</div>
+
+    <div class="editor-area">
+        <div class="block-wrapper">
+            <div class="block-line">A cabin in the forest with <span class="reel"><span class="reel-label">lighting</span><span class="reel-value">natural</span></span> lighting</div>
+        </div>
+
+        <div class="insert-zone">
+            <div class="insert-trigger"></div>
+            <div class="insert-line"></div>
+            <span class="insert-label"><kbd>Enter</kbd> Add Block</span>
+        </div>
+
+        <div class="block-wrapper">
+            <div class="block-line child-line"><span class="tree-conn">&#9500;&#9472;&#9472; </span>during <span class="reel"><span class="reel-label">time</span><span class="reel-value">golden hour</span></span></div>
+        </div>
+
+        <div class="insert-zone depth-1">
+            <div class="insert-trigger"></div>
+            <div class="insert-line"></div>
+            <span class="insert-label"><kbd>Enter</kbd> Add Block</span>
+        </div>
+
+        <div class="block-wrapper">
+            <div class="block-line child-line"><span class="tree-conn">&#9492;&#9472;&#9472; </span>with <span class="reel"><span class="reel-label">mood</span><span class="reel-value">peaceful</span></span> atmosphere</div>
+        </div>
+
+        <div class="insert-zone">
+            <div class="insert-trigger"></div>
+            <div class="insert-line"></div>
+            <span class="insert-label"><kbd>Enter</kbd> Add Block</span>
+        </div>
+
+        <div class="block-wrapper">
+            <div class="block-line">A city skyline at <span class="reel"><span class="reel-label">time</span><span class="reel-value">twilight</span></span></div>
+        </div>
+
+        <div class="insert-zone">
+            <div class="insert-trigger"></div>
+            <div class="insert-line"></div>
+            <span class="insert-label"><kbd>Enter</kbd> Add Block</span>
+        </div>
+
+        <div class="block-wrapper">
+            <div class="block-line">An ocean shore with <span class="reel"><span class="reel-label">weather</span><span class="reel-value">misty</span></span> weather</div>
+        </div>
+    </div>
+</section>
+
+<script>
+// Pattern D: toggle ghost line on click
+function toggleGhost(lineEl) {
+    // Remove active from all
+    document.querySelectorAll('.pattern-d .block-line').forEach(function(el) {
+        el.classList.remove('active');
+    });
+    document.querySelectorAll('.pattern-d .ghost-line').forEach(function(el) {
+        el.classList.remove('visible');
+    });
+    // Activate clicked
+    lineEl.classList.add('active');
+    var ghost = lineEl.closest('.block-wrapper').nextElementSibling;
+    if (ghost && ghost.classList.contains('ghost-line')) {
+        ghost.classList.add('visible');
+    }
+}
+</script>
+
+</body>
+</html>

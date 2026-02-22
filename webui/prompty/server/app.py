@@ -88,6 +88,8 @@ class PUHandler(http.server.SimpleHTTPRequestHandler):
             extensions.handle_extension_get(self, ext_path, params)
         elif path == '/' or path == '/index.html':
             self.serve_index()
+        elif path == '/demo' or path == '/demo.html':
+            self.serve_template('demo.html')
         else:
             # Serve static files
             super().do_GET()
@@ -132,20 +134,22 @@ class PUHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json({'error': 'Not found'}, 404)
 
     def serve_index(self):
-        """Serve the main HTML page with cache busting."""
-        index_path = self.jm_dir / 'templates' / 'index.html'
+        """Serve the main HTML page."""
+        self.serve_template('index.html')
 
-        if index_path.exists():
+    def serve_template(self, filename):
+        """Serve an HTML template with cache busting."""
+        template_path = self.jm_dir / 'templates' / filename
+
+        if template_path.exists():
             self.send_response(200)
             self.send_header('Content-Type', 'text/html')
             self.end_headers()
 
             try:
-                content = index_path.read_text()
+                content = template_path.read_text()
 
                 # Add cache busters to JS files
-                js_dir = self.jm_dir / 'js'
-
                 def add_cache_buster(match):
                     src = match.group(1)
                     js_file = self.jm_dir / src.split('?')[0]
@@ -160,7 +164,7 @@ class PUHandler(http.server.SimpleHTTPRequestHandler):
             except (BrokenPipeError, ConnectionResetError):
                 pass
         else:
-            self.send_error(404, "index.html not found")
+            self.send_error(404, f"{filename} not found")
 
 
 class ThreadedHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):

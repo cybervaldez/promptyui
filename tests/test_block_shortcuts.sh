@@ -66,7 +66,7 @@ HAS_DUP=$(agent-browser eval '!!document.querySelector(".q-block-action[data-act
 [ "$HAS_DUP" = "true" ] && log_pass "Duplicate action button exists" || log_fail "Duplicate action button missing"
 
 # Finish edit (press Enter)
-agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}))' 2>/dev/null
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))' 2>/dev/null
 sleep 0.5
 
 # ============================================================================
@@ -83,11 +83,11 @@ agent-browser eval '
 sleep 0.5
 
 # Check actions bar is visible when block has content
-BAR_DISPLAY=$(agent-browser eval '
+BAR_VISIBLE=$(agent-browser eval '
     var bar = document.querySelector(".q-block.editing .q-block-actions");
-    bar ? getComputedStyle(bar).display : "missing"
-' 2>/dev/null | tr -d '"')
-[ "$BAR_DISPLAY" = "flex" ] && log_pass "Actions bar visible when block has content" || log_fail "Actions bar display: $BAR_DISPLAY"
+    bar ? bar.classList.contains("visible") : false
+' 2>/dev/null)
+[ "$BAR_VISIBLE" = "true" ] && log_pass "Actions bar visible when block has content" || log_fail "Actions bar not visible"
 
 # Clear content and check
 agent-browser eval '
@@ -99,9 +99,9 @@ sleep 0.3
 
 BAR_HIDDEN=$(agent-browser eval '
     var bar = document.querySelector(".q-block.editing .q-block-actions");
-    bar ? bar.style.display : "missing"
-' 2>/dev/null | tr -d '"')
-[ "$BAR_HIDDEN" = "none" ] && log_pass "Actions bar hidden when block is empty" || log_fail "Actions bar display when empty: $BAR_HIDDEN"
+    bar ? !bar.classList.contains("visible") : false
+' 2>/dev/null)
+[ "$BAR_HIDDEN" = "true" ] && log_pass "Actions bar hidden when block is empty" || log_fail "Actions bar still visible when empty"
 
 # Restore text and finish
 agent-browser eval '
@@ -110,7 +110,7 @@ agent-browser eval '
     quill.setText("restored text", "user");
 ' 2>/dev/null
 sleep 0.3
-agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}))' 2>/dev/null
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))' 2>/dev/null
 sleep 0.5
 
 # ============================================================================
@@ -408,7 +408,7 @@ ACTIVE_OPACITY=$(agent-browser eval '
 [ -z "$ACTIVE_OPACITY" ] && log_pass "Active block at full opacity" || log_fail "Active block opacity: '$ACTIVE_OPACITY' (expected empty/full)"
 
 # Childless block uses light fade — edit child (leaf, no children)
-agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}))' 2>/dev/null
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))' 2>/dev/null
 sleep 0.5
 
 agent-browser eval 'qState.blocks[1].viewEl.click()' 2>/dev/null
@@ -418,7 +418,7 @@ LIGHT_FADE_PARENT=$(agent-browser eval 'qState.blocks[0].lineEl.style.opacity' 2
 [ "$LIGHT_FADE_PARENT" = "0.4" ] && log_pass "Childless block: others faded to 0.4" || log_fail "Childless block: parent opacity '$LIGHT_FADE_PARENT' (expected 0.4)"
 
 # Finish editing
-agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}))' 2>/dev/null
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))' 2>/dev/null
 sleep 0.5
 
 # ============================================================================
@@ -510,7 +510,7 @@ UNRELATED_NOT_HIDDEN=$(agent-browser eval '
 [ "$UNRELATED_NOT_HIDDEN" = "true" ] && log_pass "Unrelated block not tree-hidden (clickable)" || log_fail "Unrelated block is tree-hidden"
 
 # Finish editing
-agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}))' 2>/dev/null
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))' 2>/dev/null
 sleep 0.5
 
 # ============================================================================
@@ -608,7 +608,7 @@ B1_OPACITY=$(agent-browser eval 'qState.blocks[1].lineEl.style.opacity' 2>/dev/n
 [ -z "$B1_OPACITY" ] && log_pass "Blur race: active block at full opacity" || log_fail "Blur race: active opacity '$B1_OPACITY'"
 
 # Finish editing
-agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}))' 2>/dev/null
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))' 2>/dev/null
 sleep 0.5
 
 # ============================================================================
@@ -641,7 +641,7 @@ agent-browser eval '
 sleep 0.3
 
 # Finish grandchild
-agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}))' 2>/dev/null
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))' 2>/dev/null
 sleep 0.5
 
 # Now edit root (index 0) — both child and grandchild are descendants
@@ -663,7 +663,7 @@ GRAND_HIDDEN=$(agent-browser eval 'qState.blocks[2].lineEl.classList.contains("t
 [ "$GRAND_HIDDEN" = "false" ] && log_pass "Grandchild not tree-hidden" || log_fail "Grandchild is tree-hidden"
 
 # Finish editing
-agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}))' 2>/dev/null
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))' 2>/dev/null
 sleep 0.5
 
 # ============================================================================
@@ -692,7 +692,7 @@ sleep 0.3
 
 agent-browser eval '
     document.querySelector(".q-block.editing .ql-editor").dispatchEvent(
-        new KeyboardEvent("keydown", {key: "Enter", bubbles: true})
+        new KeyboardEvent("keydown", {key: "Escape", bubbles: true})
     )
 ' 2>/dev/null
 sleep 0.5
@@ -716,47 +716,60 @@ ACTIVE_OP=$(agent-browser eval 'qState.blocks[2].lineEl.style.opacity' 2>/dev/nu
 [ -z "$ACTIVE_OP" ] && log_pass "Active block (depth 2) at full opacity" || log_fail "Active opacity: '$ACTIVE_OP'"
 
 # Finish editing
-agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}))' 2>/dev/null
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))' 2>/dev/null
 sleep 0.5
 
 # ============================================================================
-# TEST 16: Yellow connectors on active tree
+# TEST 16: Yellow connectors on active block + ancestors only
 # ============================================================================
 echo ""
-log_info "TEST 16: Yellow connectors on active tree"
+log_info "TEST 16: Yellow connectors on active block + ancestors"
 
-# Connectors are always yellow (tree-active) for all tree blocks — check at idle
 # Finish any editing first
 EDITING_NOW=$(agent-browser eval '!!document.querySelector(".q-block.editing")' 2>/dev/null)
 if [ "$EDITING_NOW" = "true" ]; then
-    agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}))' 2>/dev/null
+    agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))' 2>/dev/null
     sleep 0.5
 fi
 
-# All connectors at any depth should have tree-active (yellow)
-CONN_ALL_YELLOW=$(agent-browser eval '
-    var allYellow = true;
+# At idle, no connectors should be yellow
+CONN_IDLE=$(agent-browser eval '
+    var anyYellow = false;
     qState.blocks.forEach(function(b) {
-        if (b._connector && !b._connector.classList.contains("tree-active")) allYellow = false;
+        if (b._connector && b._connector.classList.contains("tree-active")) anyYellow = true;
     });
-    allYellow
+    anyYellow
 ' 2>/dev/null)
-[ "$CONN_ALL_YELLOW" = "true" ] && log_pass "All connectors always yellow (tree-active)" || log_fail "Some connectors missing tree-active"
+[ "$CONN_IDLE" = "false" ] && log_pass "Connectors not yellow at idle" || log_fail "Connectors yellow at idle"
 
-# Connectors persist after edit (no clearing)
+# Edit grandchild (block[2], depth 2) — its connector + ancestors should be yellow
 agent-browser eval 'qState.blocks[2].viewEl.click()' 2>/dev/null
 sleep 0.5
-agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}))' 2>/dev/null
+
+CONN_ACTIVE=$(agent-browser eval '
+    var b2 = qState.blocks[2];
+    b2._connector && b2._connector.classList.contains("tree-active")
+' 2>/dev/null)
+[ "$CONN_ACTIVE" = "true" ] && log_pass "Active block connector yellow" || log_fail "Active block connector not yellow"
+
+CONN_ANCESTOR=$(agent-browser eval '
+    var b1 = qState.blocks[1];
+    b1._connector && b1._connector.classList.contains("tree-active")
+' 2>/dev/null)
+[ "$CONN_ANCESTOR" = "true" ] && log_pass "Ancestor connector yellow" || log_fail "Ancestor connector not yellow"
+
+# Exit edit — connectors should clear
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))' 2>/dev/null
 sleep 0.5
 
-CONN_PERSIST=$(agent-browser eval '
-    var allYellow = true;
+CONN_CLEARED=$(agent-browser eval '
+    var anyYellow = false;
     qState.blocks.forEach(function(b) {
-        if (b._connector && !b._connector.classList.contains("tree-active")) allYellow = false;
+        if (b._connector && b._connector.classList.contains("tree-active")) anyYellow = true;
     });
-    allYellow
+    anyYellow
 ' 2>/dev/null)
-[ "$CONN_PERSIST" = "true" ] && log_pass "Connectors persist yellow after exit edit" || log_fail "Connectors lost tree-active after exit"
+[ "$CONN_CLEARED" = "false" ] && log_pass "Connectors cleared after exit edit" || log_fail "Connectors still yellow after exit"
 
 # ============================================================================
 # TEST 17: Ghost system fully removed
@@ -829,7 +842,7 @@ IS_DIRTY=$(agent-browser eval 'qState._recalcDirty' 2>/dev/null)
 [ "$IS_DIRTY" = "true" ] && log_pass "Recalc deferred (dirty flag set) while editing" || log_pass "No recalc needed during edit (clean)"
 
 # Finish editing — should flush recalc
-agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}))' 2>/dev/null
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))' 2>/dev/null
 sleep 0.5
 
 DIRTY_AFTER=$(agent-browser eval 'qState._recalcDirty' 2>/dev/null)
@@ -905,7 +918,7 @@ agent-browser eval '
 ' 2>/dev/null
 sleep 0.3
 
-agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}))' 2>/dev/null
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))' 2>/dev/null
 sleep 0.5
 
 ADD_VISIBLE_AFTER=$(agent-browser eval '
@@ -946,7 +959,7 @@ NEW_PH=$(agent-browser eval '
     var editing = document.querySelector(".q-block.editing .ql-editor");
     editing ? editing.getAttribute("data-placeholder") : "none"
 ' 2>/dev/null | tr -d '"')
-[ "$NEW_PH" = "Type a prompt, use __name__ for wildcards..." ] && log_pass "New block placeholder set" || log_fail "New block placeholder: '$NEW_PH'"
+[ "$NEW_PH" = "Write a prompt..." ] && log_pass "New block placeholder set" || log_fail "New block placeholder: '$NEW_PH'"
 
 # Type text and finish
 agent-browser eval '
@@ -955,7 +968,7 @@ agent-browser eval '
     quill.setText("root prompt", "user");
 ' 2>/dev/null
 sleep 0.3
-agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}))' 2>/dev/null
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))' 2>/dev/null
 sleep 0.5
 
 # 21b: Sibling placeholder (Ctrl+Enter on root block)
@@ -972,10 +985,10 @@ SIB_PH=$(agent-browser eval '
     var editing = document.querySelector(".q-block.editing .ql-editor");
     editing ? editing.getAttribute("data-placeholder") : "none"
 ' 2>/dev/null | tr -d '"')
-[ "$SIB_PH" = "Write a sibling prompt..." ] && log_pass "Sibling placeholder set" || log_fail "Sibling placeholder: '$SIB_PH'"
+[ "$SIB_PH" = "Another prompt..." ] && log_pass "Sibling placeholder set" || log_fail "Sibling placeholder: '$SIB_PH'"
 
 # Finish sibling edit
-agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}))' 2>/dev/null
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))' 2>/dev/null
 sleep 0.5
 
 # 21c: Child placeholder (Tab on root block)
@@ -992,10 +1005,10 @@ CHILD_PH=$(agent-browser eval '
     var editing = document.querySelector(".q-block.editing .ql-editor");
     editing ? editing.getAttribute("data-placeholder") : "none"
 ' 2>/dev/null | tr -d '"')
-[ "$CHILD_PH" = "Write a child prompt..." ] && log_pass "Child placeholder set" || log_fail "Child placeholder: '$CHILD_PH'"
+[ "$CHILD_PH" = "Add a variation..." ] && log_pass "Child placeholder set" || log_fail "Child placeholder: '$CHILD_PH'"
 
 # Finish child edit
-agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}))' 2>/dev/null
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))' 2>/dev/null
 sleep 0.5
 
 # 21d: Duplicate placeholder (Ctrl+Shift+D on root block)
@@ -1012,7 +1025,7 @@ DUP_PH=$(agent-browser eval '
     var editing = document.querySelector(".q-block.editing .ql-editor");
     editing ? editing.getAttribute("data-placeholder") : "none"
 ' 2>/dev/null | tr -d '"')
-[ "$DUP_PH" = "Edit this variation..." ] && log_pass "Duplicate placeholder set" || log_fail "Duplicate placeholder: '$DUP_PH'"
+[ "$DUP_PH" = "Edit this copy..." ] && log_pass "Duplicate placeholder set" || log_fail "Duplicate placeholder: '$DUP_PH'"
 
 # ============================================================================
 # TEST 22: Composition stable until block is accepted
@@ -1042,7 +1055,7 @@ agent-browser eval '
     quill.setText("accepted block", "user");
 ' 2>/dev/null
 sleep 0.3
-agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}))' 2>/dev/null
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))' 2>/dev/null
 sleep 0.5
 
 # NOW composition should update
@@ -1071,7 +1084,7 @@ ODO_SIB_EDITING=$(agent-browser eval 'document.getElementById("quill-count").tex
 [ "$ODO_IDLE" = "$ODO_SIB_EDITING" ] && log_pass "Composition stable during sibling edit" || log_fail "Composition changed during sibling edit: '$ODO_IDLE' -> '$ODO_SIB_EDITING'"
 
 # Dismiss empty sibling (Enter on empty = remove)
-agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}))' 2>/dev/null
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))' 2>/dev/null
 sleep 0.5
 
 # ============================================================================
