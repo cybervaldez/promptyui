@@ -1,0 +1,916 @@
+#!/bin/bash
+# ============================================================================
+# E2E Test Suite: Direct Shortcut Block Actions & Tree Isolation
+# ============================================================================
+# Tests the 3 keyboard shortcuts (Ctrl+Enter sibling, Tab child,
+# Ctrl+Shift+D duplicate), their tappable label equivalents, and the
+# tree isolation focus mode (ancestors 0.9, siblings/children/prior 0.4,
+# unrelated hidden).
+#
+# Usage: ./tests/test_block_shortcuts.sh [--port 8085]
+# ============================================================================
+
+set +e
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/lib/test_utils.sh"
+
+PORT="8085"
+[[ "$1" == "--port" ]] && PORT="$2"
+[[ "$1" =~ ^[0-9]+$ ]] && PORT="$1"
+
+BASE_URL="http://localhost:$PORT"
+LANDING_URL="$BASE_URL/previews/preview-landing-single-viewport.html"
+
+setup_cleanup
+
+print_header "Direct Shortcut Block Actions & Tree Isolation"
+
+# ============================================================================
+# PREREQ
+# ============================================================================
+log_info "PREREQUISITES"
+
+if wait_for_server "$BASE_URL/"; then
+    log_pass "Server is running"
+else
+    log_fail "Server not running"
+    exit 1
+fi
+
+agent-browser open "$LANDING_URL" 2>/dev/null
+sleep 2
+
+# ============================================================================
+# TEST 1: Actions bar renders with 3 buttons when editing
+# ============================================================================
+echo ""
+log_info "TEST 1: Actions bar renders with 3 buttons when editing"
+
+# Click first block to edit
+agent-browser eval 'document.querySelector(".q-block .q-block-view").click()' 2>/dev/null
+sleep 0.5
+
+ACTIONS_BAR=$(agent-browser eval '!!document.querySelector(".q-block.editing .q-block-actions")' 2>/dev/null)
+[ "$ACTIONS_BAR" = "true" ] && log_pass "Actions bar visible when editing" || log_fail "Actions bar not found"
+
+ACTION_COUNT=$(agent-browser eval 'document.querySelectorAll(".q-block.editing .q-block-action").length' 2>/dev/null)
+[ "$ACTION_COUNT" = "3" ] && log_pass "3 action buttons present" || log_fail "Expected 3 action buttons, got: $ACTION_COUNT"
+
+# Check data-action attributes
+HAS_SIBLING=$(agent-browser eval '!!document.querySelector(".q-block-action[data-action=\"sibling\"]")' 2>/dev/null)
+HAS_CHILD=$(agent-browser eval '!!document.querySelector(".q-block-action[data-action=\"child\"]")' 2>/dev/null)
+HAS_DUP=$(agent-browser eval '!!document.querySelector(".q-block-action[data-action=\"duplicate\"]")' 2>/dev/null)
+[ "$HAS_SIBLING" = "true" ] && log_pass "Sibling action button exists" || log_fail "Sibling action button missing"
+[ "$HAS_CHILD" = "true" ] && log_pass "Child action button exists" || log_fail "Child action button missing"
+[ "$HAS_DUP" = "true" ] && log_pass "Duplicate action button exists" || log_fail "Duplicate action button missing"
+
+# Finish edit (press Enter)
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}))' 2>/dev/null
+sleep 0.5
+
+# ============================================================================
+# TEST 2: Actions bar hidden on empty block
+# ============================================================================
+echo ""
+log_info "TEST 2: Actions bar hidden on empty block"
+
+# Create a scenario: edit a block, clear text, check actions bar
+agent-browser eval '
+    var view = document.querySelector(".q-block .q-block-view");
+    view.click();
+' 2>/dev/null
+sleep 0.5
+
+# Check actions bar is visible when block has content
+BAR_DISPLAY=$(agent-browser eval '
+    var bar = document.querySelector(".q-block.editing .q-block-actions");
+    bar ? getComputedStyle(bar).display : "missing"
+' 2>/dev/null | tr -d '"')
+[ "$BAR_DISPLAY" = "flex" ] && log_pass "Actions bar visible when block has content" || log_fail "Actions bar display: $BAR_DISPLAY"
+
+# Clear content and check
+agent-browser eval '
+    var editor = document.querySelector(".q-block.editing .ql-editor");
+    var quill = Quill.find(editor.parentNode);
+    quill.setText("", "user");
+' 2>/dev/null
+sleep 0.3
+
+BAR_HIDDEN=$(agent-browser eval '
+    var bar = document.querySelector(".q-block.editing .q-block-actions");
+    bar ? bar.style.display : "missing"
+' 2>/dev/null | tr -d '"')
+[ "$BAR_HIDDEN" = "none" ] && log_pass "Actions bar hidden when block is empty" || log_fail "Actions bar display when empty: $BAR_HIDDEN"
+
+# Restore text and finish
+agent-browser eval '
+    var editor = document.querySelector(".q-block.editing .ql-editor");
+    var quill = Quill.find(editor.parentNode);
+    quill.setText("restored text", "user");
+' 2>/dev/null
+sleep 0.3
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}))' 2>/dev/null
+sleep 0.5
+
+# ============================================================================
+# TEST 3: Ctrl+Enter creates sibling block at same depth
+# ============================================================================
+echo ""
+log_info "TEST 3: Ctrl+Enter creates sibling block at same depth"
+
+# Reload for clean state
+agent-browser open "$LANDING_URL" 2>/dev/null
+sleep 2
+
+BLOCKS_BEFORE=$(agent-browser eval 'qState.blocks.length' 2>/dev/null)
+
+# Click first block (depth 0) to edit
+agent-browser eval 'document.querySelector(".q-block .q-block-view").click()' 2>/dev/null
+sleep 0.5
+
+SOURCE_DEPTH=$(agent-browser eval 'qState.blocks[0].depth' 2>/dev/null)
+
+# Press Ctrl+Enter
+agent-browser eval '
+    document.querySelector(".q-block.editing .ql-editor").dispatchEvent(
+        new KeyboardEvent("keydown", {key: "Enter", ctrlKey: true, bubbles: true})
+    )
+' 2>/dev/null
+sleep 0.8
+
+BLOCKS_AFTER=$(agent-browser eval 'qState.blocks.length' 2>/dev/null)
+NEW_COUNT=$((BLOCKS_AFTER - BLOCKS_BEFORE))
+[ "$NEW_COUNT" = "1" ] && log_pass "Ctrl+Enter created 1 new block" || log_fail "Expected 1 new block, created: $NEW_COUNT"
+
+# The new block should now be editing
+NEW_EDITING=$(agent-browser eval '!!document.querySelector(".q-block.editing")' 2>/dev/null)
+[ "$NEW_EDITING" = "true" ] && log_pass "New block is in edit mode" || log_fail "New block not in edit mode"
+
+# Check new block depth matches source (sibling)
+NEW_DEPTH=$(agent-browser eval '
+    var editing = document.querySelector(".q-block.editing");
+    var id = editing.getAttribute("data-block-id");
+    var block = qState.blocks.find(function(b) { return b.id == id; });
+    block ? block.depth : -1
+' 2>/dev/null)
+[ "$NEW_DEPTH" = "$SOURCE_DEPTH" ] && log_pass "Sibling has same depth ($NEW_DEPTH)" || log_fail "Sibling depth $NEW_DEPTH != source $SOURCE_DEPTH"
+
+# Escape to cancel empty block
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))' 2>/dev/null
+sleep 0.5
+
+# ============================================================================
+# TEST 4: Tab creates child block at depth+1
+# ============================================================================
+echo ""
+log_info "TEST 4: Tab creates child block at depth+1"
+
+# Reload for clean state
+agent-browser open "$LANDING_URL" 2>/dev/null
+sleep 2
+
+# Click first block (depth 0)
+agent-browser eval 'document.querySelector(".q-block .q-block-view").click()' 2>/dev/null
+sleep 0.5
+
+BLOCKS_BEFORE=$(agent-browser eval 'qState.blocks.length' 2>/dev/null)
+SOURCE_DEPTH=$(agent-browser eval '
+    var editing = document.querySelector(".q-block.editing");
+    var id = editing.getAttribute("data-block-id");
+    var block = qState.blocks.find(function(b) { return b.id == id; });
+    block ? block.depth : -1
+' 2>/dev/null)
+
+# Press Tab
+agent-browser eval '
+    document.querySelector(".q-block.editing .ql-editor").dispatchEvent(
+        new KeyboardEvent("keydown", {key: "Tab", bubbles: true})
+    )
+' 2>/dev/null
+sleep 0.8
+
+BLOCKS_AFTER=$(agent-browser eval 'qState.blocks.length' 2>/dev/null)
+NEW_COUNT=$((BLOCKS_AFTER - BLOCKS_BEFORE))
+[ "$NEW_COUNT" = "1" ] && log_pass "Tab created 1 new block" || log_fail "Expected 1 new block, created: $NEW_COUNT"
+
+# Check new block depth = source + 1
+CHILD_DEPTH=$(agent-browser eval '
+    var editing = document.querySelector(".q-block.editing");
+    var id = editing.getAttribute("data-block-id");
+    var block = qState.blocks.find(function(b) { return b.id == id; });
+    block ? block.depth : -1
+' 2>/dev/null)
+
+EXPECTED_DEPTH=$((SOURCE_DEPTH + 1))
+[ "$CHILD_DEPTH" = "$EXPECTED_DEPTH" ] && log_pass "Child at depth+1 ($CHILD_DEPTH)" || log_fail "Child depth $CHILD_DEPTH != expected $EXPECTED_DEPTH"
+
+# Escape
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))' 2>/dev/null
+sleep 0.5
+
+# ============================================================================
+# TEST 5: Ctrl+Shift+D duplicates block with wildcards
+# ============================================================================
+echo ""
+log_info "TEST 5: Ctrl+Shift+D duplicates block with wildcards"
+
+# Reload for clean state
+agent-browser open "$LANDING_URL" 2>/dev/null
+sleep 2
+
+# Get source block wildcard info before duplicate
+SOURCE_WC_NAMES=$(agent-browser eval '
+    qState.blocks[0].wildcards.map(function(w) { return w.name; }).sort().join(",")
+' 2>/dev/null | tr -d '"')
+
+SOURCE_DEPTH=$(agent-browser eval 'qState.blocks[0].depth' 2>/dev/null)
+BLOCKS_BEFORE=$(agent-browser eval 'qState.blocks.length' 2>/dev/null)
+
+# Click first block to edit
+agent-browser eval 'document.querySelector(".q-block .q-block-view").click()' 2>/dev/null
+sleep 0.5
+
+# Press Ctrl+Shift+D
+agent-browser eval '
+    document.querySelector(".q-block.editing .ql-editor").dispatchEvent(
+        new KeyboardEvent("keydown", {key: "d", ctrlKey: true, shiftKey: true, bubbles: true})
+    )
+' 2>/dev/null
+sleep 0.8
+
+BLOCKS_AFTER=$(agent-browser eval 'qState.blocks.length' 2>/dev/null)
+NEW_COUNT=$((BLOCKS_AFTER - BLOCKS_BEFORE))
+[ "$NEW_COUNT" = "1" ] && log_pass "Ctrl+Shift+D created 1 new block" || log_fail "Expected 1 new block, created: $NEW_COUNT"
+
+# Check dup has same depth
+DUP_DEPTH=$(agent-browser eval '
+    var editing = document.querySelector(".q-block.editing");
+    var id = editing.getAttribute("data-block-id");
+    var block = qState.blocks.find(function(b) { return b.id == id; });
+    block ? block.depth : -1
+' 2>/dev/null)
+[ "$DUP_DEPTH" = "$SOURCE_DEPTH" ] && log_pass "Duplicate has same depth ($DUP_DEPTH)" || log_fail "Dup depth $DUP_DEPTH != source $SOURCE_DEPTH"
+
+# Check dup text is empty (text cleared on duplicate)
+DUP_TEXT=$(agent-browser eval '
+    var editing = document.querySelector(".q-block.editing");
+    var id = editing.getAttribute("data-block-id");
+    var block = qState.blocks.find(function(b) { return b.id == id; });
+    block ? serializeQuill(block.quill).replace(/\u200B/g, "").trim() : "MISSING"
+' 2>/dev/null | tr -d '"')
+[ -z "$DUP_TEXT" ] && log_pass "Duplicate has empty text" || log_fail "Duplicate text not empty: '$DUP_TEXT'"
+
+# Check dup has wildcard chips from chipRegistry (inherited from source)
+DUP_REGISTRY=$(agent-browser eval '
+    var names = Object.keys(qState.chipRegistry).sort().join(",");
+    names
+' 2>/dev/null | tr -d '"')
+[ -n "$DUP_REGISTRY" ] && log_pass "Chip registry has wildcards: $DUP_REGISTRY" || log_fail "Chip registry empty after dup"
+
+# Escape
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))' 2>/dev/null
+sleep 0.5
+
+# ============================================================================
+# TEST 6: Tappable labels trigger same actions
+# ============================================================================
+echo ""
+log_info "TEST 6: Tappable action labels (click)"
+
+# Reload
+agent-browser open "$LANDING_URL" 2>/dev/null
+sleep 2
+
+BLOCKS_BEFORE=$(agent-browser eval 'qState.blocks.length' 2>/dev/null)
+
+# Edit first block
+agent-browser eval 'document.querySelector(".q-block .q-block-view").click()' 2>/dev/null
+sleep 0.5
+
+# Click the "child" tappable label
+agent-browser eval '
+    document.querySelector(".q-block-action[data-action=\"child\"]").click()
+' 2>/dev/null
+sleep 0.8
+
+BLOCKS_AFTER=$(agent-browser eval 'qState.blocks.length' 2>/dev/null)
+NEW_COUNT=$((BLOCKS_AFTER - BLOCKS_BEFORE))
+[ "$NEW_COUNT" = "1" ] && log_pass "Tappable child label created block" || log_fail "Tappable child: expected 1 new, got $NEW_COUNT"
+
+CHILD_DEPTH=$(agent-browser eval '
+    var editing = document.querySelector(".q-block.editing");
+    var id = editing.getAttribute("data-block-id");
+    var block = qState.blocks.find(function(b) { return b.id == id; });
+    block ? block.depth : -1
+' 2>/dev/null)
+[ "$CHILD_DEPTH" = "1" ] && log_pass "Tappable child created at depth 1" || log_fail "Tappable child depth: $CHILD_DEPTH"
+
+# Escape and try sibling label
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))' 2>/dev/null
+sleep 0.5
+
+BLOCKS_BEFORE=$(agent-browser eval 'qState.blocks.length' 2>/dev/null)
+
+# Edit first block again
+agent-browser eval 'document.querySelector(".q-block .q-block-view").click()' 2>/dev/null
+sleep 0.5
+
+# Click sibling label
+agent-browser eval '
+    document.querySelector(".q-block-action[data-action=\"sibling\"]").click()
+' 2>/dev/null
+sleep 0.8
+
+BLOCKS_AFTER=$(agent-browser eval 'qState.blocks.length' 2>/dev/null)
+NEW_COUNT=$((BLOCKS_AFTER - BLOCKS_BEFORE))
+[ "$NEW_COUNT" = "1" ] && log_pass "Tappable sibling label created block" || log_fail "Tappable sibling: expected 1 new, got $NEW_COUNT"
+
+# Escape
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))' 2>/dev/null
+sleep 0.5
+
+# ============================================================================
+# TEST 7: Shortcuts do nothing on empty block
+# ============================================================================
+echo ""
+log_info "TEST 7: Shortcuts do nothing on empty block"
+
+# Reload
+agent-browser open "$LANDING_URL" 2>/dev/null
+sleep 2
+
+# Edit the child block (depth 1) and clear it
+agent-browser eval '
+    var childView = document.querySelectorAll(".q-block .q-block-view")[1];
+    childView.click();
+' 2>/dev/null
+sleep 0.5
+
+agent-browser eval '
+    var editor = document.querySelector(".q-block.editing .ql-editor");
+    var quill = Quill.find(editor.parentNode);
+    quill.setText("", "user");
+' 2>/dev/null
+sleep 0.3
+
+BLOCKS_BEFORE=$(agent-browser eval 'qState.blocks.length' 2>/dev/null)
+
+# Try Ctrl+Enter on empty block
+agent-browser eval '
+    document.querySelector(".q-block.editing .ql-editor").dispatchEvent(
+        new KeyboardEvent("keydown", {key: "Enter", ctrlKey: true, bubbles: true})
+    )
+' 2>/dev/null
+sleep 0.5
+
+BLOCKS_AFTER=$(agent-browser eval 'qState.blocks.length' 2>/dev/null)
+[ "$BLOCKS_AFTER" = "$BLOCKS_BEFORE" ] && log_pass "Ctrl+Enter on empty block: no new block" || log_fail "Ctrl+Enter on empty created block ($BLOCKS_BEFORE -> $BLOCKS_AFTER)"
+
+# Try Tab on empty block
+agent-browser eval '
+    document.querySelector(".q-block.editing .ql-editor").dispatchEvent(
+        new KeyboardEvent("keydown", {key: "Tab", bubbles: true})
+    )
+' 2>/dev/null
+sleep 0.5
+
+BLOCKS_AFTER2=$(agent-browser eval 'qState.blocks.length' 2>/dev/null)
+[ "$BLOCKS_AFTER2" = "$BLOCKS_BEFORE" ] && log_pass "Tab on empty block: no new block" || log_fail "Tab on empty created block ($BLOCKS_BEFORE -> $BLOCKS_AFTER2)"
+
+# Escape to discard empty block
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))' 2>/dev/null
+sleep 0.5
+
+# ============================================================================
+# TEST 8: Tree isolation — ancestors at 0.9 opacity
+# ============================================================================
+echo ""
+log_info "TEST 8: Tree isolation — ancestors at 0.9 opacity"
+
+# Reload
+agent-browser open "$LANDING_URL" 2>/dev/null
+sleep 2
+
+# Click the child block (depth 1) to edit — block index 1
+agent-browser eval '
+    var childView = document.querySelectorAll(".q-block .q-block-view")[1];
+    childView.click();
+' 2>/dev/null
+sleep 0.5
+
+# Parent block (depth 0) should be at 0.9 opacity
+PARENT_OPACITY=$(agent-browser eval '
+    qState.blocks[0].lineEl.style.opacity
+' 2>/dev/null | tr -d '"')
+[ "$PARENT_OPACITY" = "0.9" ] && log_pass "Ancestor at 0.9 opacity" || log_fail "Ancestor opacity: '$PARENT_OPACITY' (expected 0.9)"
+
+# The child being edited should have no opacity override (full)
+ACTIVE_OPACITY=$(agent-browser eval '
+    var editing = document.querySelector(".q-block.editing");
+    editing.style.opacity
+' 2>/dev/null | tr -d '"')
+[ -z "$ACTIVE_OPACITY" ] && log_pass "Active block at full opacity" || log_fail "Active block opacity: '$ACTIVE_OPACITY' (expected empty/full)"
+
+# Finish editing
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}))' 2>/dev/null
+sleep 0.5
+
+# ============================================================================
+# TEST 9: Tree isolation — siblings faded at 0.4
+# ============================================================================
+echo ""
+log_info "TEST 9: Tree isolation — siblings faded at 0.4"
+
+# Reload and create a sibling structure: root has 2 children
+agent-browser open "$LANDING_URL" 2>/dev/null
+sleep 2
+
+# Edit child block (index 1), press Ctrl+Enter to add sibling
+agent-browser eval '
+    var childView = document.querySelectorAll(".q-block .q-block-view")[1];
+    childView.click();
+' 2>/dev/null
+sleep 0.5
+
+agent-browser eval '
+    document.querySelector(".q-block.editing .ql-editor").dispatchEvent(
+        new KeyboardEvent("keydown", {key: "Enter", ctrlKey: true, bubbles: true})
+    )
+' 2>/dev/null
+sleep 0.8
+
+# Now editing the new sibling. Type text to make it real.
+agent-browser eval '
+    var editor = document.querySelector(".q-block.editing .ql-editor");
+    var quill = Quill.find(editor.parentNode);
+    quill.setText("sibling text for test", "user");
+' 2>/dev/null
+sleep 0.3
+
+# The original child (now a sibling of the new block) should be at 0.4
+SIBLING_OPACITY=$(agent-browser eval '
+    // The editing block is the new sibling; the original child is its sibling
+    var editingEl = document.querySelector(".q-block.editing");
+    var editingId = parseInt(editingEl.getAttribute("data-block-id"));
+    var editingBlock = qState.blocks.find(function(b) { return b.id === editingId; });
+    // Find the other child of same parent (the original child)
+    var parent = null;
+    for (var p = qState.blocks.indexOf(editingBlock) - 1; p >= 0; p--) {
+        if (qState.blocks[p].depth < editingBlock.depth) { parent = qState.blocks[p]; break; }
+    }
+    if (!parent) "no_parent";
+    else {
+        var siblings = [];
+        for (var i = qState.blocks.indexOf(parent) + 1; i < qState.blocks.length; i++) {
+            if (qState.blocks[i].depth <= parent.depth) break;
+            if (qState.blocks[i].depth === parent.depth + 1 && qState.blocks[i] !== editingBlock) {
+                siblings.push(qState.blocks[i]);
+            }
+        }
+        siblings.length > 0 ? siblings[0].lineEl.style.opacity : "no_sibling"
+    }
+' 2>/dev/null | tr -d '"')
+[ "$SIBLING_OPACITY" = "0.4" ] && log_pass "Sibling at 0.4 opacity" || log_fail "Sibling opacity: '$SIBLING_OPACITY' (expected 0.4)"
+
+# Escape
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))' 2>/dev/null
+sleep 0.5
+
+# ============================================================================
+# TEST 10: Tree isolation — unrelated blocks hidden
+# ============================================================================
+echo ""
+log_info "TEST 10: Tree isolation — unrelated blocks hidden"
+
+# Reload and add a second root block (depth 0) so we have unrelated blocks
+agent-browser open "$LANDING_URL" 2>/dev/null
+sleep 2
+
+# Create a root-level block at depth 0 via JS (persistent input creates depth 1)
+agent-browser eval '
+    var b = createQBlock("unrelated root block", 0, null);
+    document.getElementById("quill-blocks").appendChild(b.lineEl);
+' 2>/dev/null
+sleep 0.5
+
+BLOCK_COUNT=$(agent-browser eval 'qState.blocks.length' 2>/dev/null)
+log_info "Block count after adding root: $BLOCK_COUNT"
+
+# Now edit the original child (index 1, depth 1 under first root)
+agent-browser eval '
+    qState.blocks[1].viewEl.click();
+' 2>/dev/null
+sleep 0.5
+
+# The unrelated root block (last block, depth 0) should be tree-hidden
+UNRELATED_HIDDEN=$(agent-browser eval '
+    var lastBlock = qState.blocks[qState.blocks.length - 1];
+    lastBlock.lineEl.classList.contains("tree-hidden")
+' 2>/dev/null)
+[ "$UNRELATED_HIDDEN" = "true" ] && log_pass "Unrelated block has tree-hidden class" || log_fail "Unrelated block not hidden: $UNRELATED_HIDDEN"
+
+# And its computed opacity should be 0 (from CSS !important)
+UNRELATED_OPACITY=$(agent-browser eval '
+    var lastBlock = qState.blocks[qState.blocks.length - 1];
+    getComputedStyle(lastBlock.lineEl).opacity
+' 2>/dev/null | tr -d '"')
+[ "$UNRELATED_OPACITY" = "0" ] && log_pass "Unrelated block opacity is 0" || log_fail "Unrelated block opacity: $UNRELATED_OPACITY (expected 0)"
+
+# Finish editing
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}))' 2>/dev/null
+sleep 0.5
+
+# ============================================================================
+# TEST 11: Tree isolation clears on exit edit
+# ============================================================================
+echo ""
+log_info "TEST 11: Tree isolation clears on exit edit"
+
+# All blocks should have no tree-hidden and default opacity after exiting edit
+ALL_CLEAR=$(agent-browser eval '
+    var allClear = true;
+    qState.blocks.forEach(function(b) {
+        if (b.lineEl.classList.contains("tree-hidden")) allClear = false;
+        if (b.lineEl.style.opacity !== "") allClear = false;
+    });
+    allClear
+' 2>/dev/null)
+[ "$ALL_CLEAR" = "true" ] && log_pass "All blocks restored after exit edit" || log_fail "Blocks not fully restored after exit"
+
+# ============================================================================
+# TEST 12: Prior active block stays visible after shortcut
+# ============================================================================
+echo ""
+log_info "TEST 12: Prior active block visible after shortcut"
+
+# Reload
+agent-browser open "$LANDING_URL" 2>/dev/null
+sleep 2
+
+# Edit root block (index 0), Ctrl+Enter for sibling
+agent-browser eval '
+    qState.blocks[0].viewEl.click();
+' 2>/dev/null
+sleep 0.5
+
+SOURCE_ID=$(agent-browser eval '
+    var editing = document.querySelector(".q-block.editing");
+    editing.getAttribute("data-block-id")
+' 2>/dev/null | tr -d '"')
+
+agent-browser eval '
+    document.querySelector(".q-block.editing .ql-editor").dispatchEvent(
+        new KeyboardEvent("keydown", {key: "Enter", ctrlKey: true, bubbles: true})
+    )
+' 2>/dev/null
+sleep 0.8
+
+# Source block should be visible (not tree-hidden) at 0.4
+PRIOR_HIDDEN=$(agent-browser eval '
+    var srcBlock = qState.blocks.find(function(b) { return b.id == '"$SOURCE_ID"'; });
+    srcBlock.lineEl.classList.contains("tree-hidden")
+' 2>/dev/null)
+[ "$PRIOR_HIDDEN" = "false" ] && log_pass "Prior block not hidden after shortcut" || log_fail "Prior block hidden: $PRIOR_HIDDEN"
+
+PRIOR_OPACITY=$(agent-browser eval '
+    var srcBlock = qState.blocks.find(function(b) { return b.id == '"$SOURCE_ID"'; });
+    srcBlock.lineEl.style.opacity
+' 2>/dev/null | tr -d '"')
+[ "$PRIOR_OPACITY" = "0.4" ] && log_pass "Prior block at 0.4 opacity" || log_fail "Prior block opacity: '$PRIOR_OPACITY' (expected 0.4)"
+
+# Escape
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))' 2>/dev/null
+sleep 0.5
+
+# ============================================================================
+# TEST 13: Click-to-edit switch preserves isolation (blur race fix)
+# ============================================================================
+echo ""
+log_info "TEST 13: Click-to-edit switch preserves isolation (blur race)"
+
+# Reload
+agent-browser open "$LANDING_URL" 2>/dev/null
+sleep 2
+
+# Edit block 0 — do NOT finish it
+agent-browser eval 'qState.blocks[0].viewEl.click()' 2>/dev/null
+sleep 0.5
+
+# Directly click block 1 while block 0 is still editing
+agent-browser eval 'qState.blocks[1].viewEl.click()' 2>/dev/null
+sleep 0.8
+
+# After 800ms (well past the old 200ms blur timeout), isolation should persist
+B0_STATE=$(agent-browser eval '
+    var b = qState.blocks[0];
+    b.lineEl.style.opacity + "|" + b.lineEl.classList.contains("tree-hidden") + "|" + b.lineEl.classList.contains("editing")
+' 2>/dev/null | tr -d '"')
+# Block 0 is the ancestor of block 1 — should be at 0.9, not hidden, not editing
+echo "$B0_STATE" | grep -q "0.9|false|false" && log_pass "Blur race: ancestor at 0.9 after click switch" || log_fail "Blur race: ancestor state '$B0_STATE' (expected 0.9|false|false)"
+
+B1_EDITING=$(agent-browser eval 'qState.blocks[1].lineEl.classList.contains("editing")' 2>/dev/null)
+[ "$B1_EDITING" = "true" ] && log_pass "Blur race: new block is editing" || log_fail "Blur race: new block not editing"
+
+B1_OPACITY=$(agent-browser eval 'qState.blocks[1].lineEl.style.opacity' 2>/dev/null | tr -d '"')
+[ -z "$B1_OPACITY" ] && log_pass "Blur race: active block at full opacity" || log_fail "Blur race: active opacity '$B1_OPACITY'"
+
+# Finish editing
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}))' 2>/dev/null
+sleep 0.5
+
+# ============================================================================
+# TEST 14: Descendants (grandchildren+) visible at 0.4
+# ============================================================================
+echo ""
+log_info "TEST 14: Descendants (grandchildren) at 0.4 opacity"
+
+# Reload
+agent-browser open "$LANDING_URL" 2>/dev/null
+sleep 2
+
+# Edit child (index 1), add a grandchild via Tab
+agent-browser eval 'qState.blocks[1].viewEl.click()' 2>/dev/null
+sleep 0.5
+
+agent-browser eval '
+    document.querySelector(".q-block.editing .ql-editor").dispatchEvent(
+        new KeyboardEvent("keydown", {key: "Tab", bubbles: true})
+    )
+' 2>/dev/null
+sleep 0.8
+
+# Type text in grandchild so it persists
+agent-browser eval '
+    var editor = document.querySelector(".q-block.editing .ql-editor");
+    var quill = Quill.find(editor.parentNode);
+    quill.setText("grandchild block", "user");
+' 2>/dev/null
+sleep 0.3
+
+# Finish grandchild
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}))' 2>/dev/null
+sleep 0.5
+
+# Now edit root (index 0) — both child and grandchild are descendants
+agent-browser eval 'qState.blocks[0].viewEl.click()' 2>/dev/null
+sleep 0.5
+
+# Child (index 1) should be at 0.4
+CHILD_OPACITY=$(agent-browser eval 'qState.blocks[1].lineEl.style.opacity' 2>/dev/null | tr -d '"')
+[ "$CHILD_OPACITY" = "0.4" ] && log_pass "Child (depth 1) at 0.4" || log_fail "Child opacity: '$CHILD_OPACITY' (expected 0.4)"
+
+# Grandchild (index 2) should also be at 0.4
+GRANDCHILD_OPACITY=$(agent-browser eval 'qState.blocks[2].lineEl.style.opacity' 2>/dev/null | tr -d '"')
+[ "$GRANDCHILD_OPACITY" = "0.4" ] && log_pass "Grandchild (depth 2) at 0.4" || log_fail "Grandchild opacity: '$GRANDCHILD_OPACITY' (expected 0.4)"
+
+# Neither should be hidden
+CHILD_HIDDEN=$(agent-browser eval 'qState.blocks[1].lineEl.classList.contains("tree-hidden")' 2>/dev/null)
+GRAND_HIDDEN=$(agent-browser eval 'qState.blocks[2].lineEl.classList.contains("tree-hidden")' 2>/dev/null)
+[ "$CHILD_HIDDEN" = "false" ] && log_pass "Child not tree-hidden" || log_fail "Child is tree-hidden"
+[ "$GRAND_HIDDEN" = "false" ] && log_pass "Grandchild not tree-hidden" || log_fail "Grandchild is tree-hidden"
+
+# Finish editing
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}))' 2>/dev/null
+sleep 0.5
+
+# ============================================================================
+# TEST 15: Deep ancestor chain — all ancestors at 0.9
+# ============================================================================
+echo ""
+log_info "TEST 15: Deep ancestor chain — all ancestors at 0.9"
+
+# Continuing from TEST 14 state: blocks are root(0), child(1), grandchild(2)
+# Add great-grandchild (depth 3) from grandchild
+agent-browser eval 'qState.blocks[2].viewEl.click()' 2>/dev/null
+sleep 0.5
+
+agent-browser eval '
+    document.querySelector(".q-block.editing .ql-editor").dispatchEvent(
+        new KeyboardEvent("keydown", {key: "Tab", bubbles: true})
+    )
+' 2>/dev/null
+sleep 0.8
+
+agent-browser eval '
+    var q = Quill.find(document.querySelector(".q-block.editing .ql-editor").parentNode);
+    q.setText("great-grandchild", "user");
+' 2>/dev/null
+sleep 0.3
+
+agent-browser eval '
+    document.querySelector(".q-block.editing .ql-editor").dispatchEvent(
+        new KeyboardEvent("keydown", {key: "Enter", bubbles: true})
+    )
+' 2>/dev/null
+sleep 0.5
+
+# Now edit great-grandchild (deepest block, index 3)
+agent-browser eval 'qState.blocks[3].viewEl.click()' 2>/dev/null
+sleep 0.5
+
+# All 3 ancestors should be at 0.9
+A0_OPACITY=$(agent-browser eval 'qState.blocks[0].lineEl.style.opacity' 2>/dev/null | tr -d '"')
+A1_OPACITY=$(agent-browser eval 'qState.blocks[1].lineEl.style.opacity' 2>/dev/null | tr -d '"')
+A2_OPACITY=$(agent-browser eval 'qState.blocks[2].lineEl.style.opacity' 2>/dev/null | tr -d '"')
+[ "$A0_OPACITY" = "0.9" ] && log_pass "Root ancestor (depth 0) at 0.9" || log_fail "Root ancestor opacity: '$A0_OPACITY' (expected 0.9)"
+[ "$A1_OPACITY" = "0.9" ] && log_pass "Child ancestor (depth 1) at 0.9" || log_fail "Child ancestor opacity: '$A1_OPACITY' (expected 0.9)"
+[ "$A2_OPACITY" = "0.9" ] && log_pass "Grandchild ancestor (depth 2) at 0.9" || log_fail "Grandchild ancestor opacity: '$A2_OPACITY' (expected 0.9)"
+
+# Active block (depth 3) at full
+ACTIVE_OP=$(agent-browser eval 'qState.blocks[3].lineEl.style.opacity' 2>/dev/null | tr -d '"')
+[ -z "$ACTIVE_OP" ] && log_pass "Active block (depth 3) at full opacity" || log_fail "Active opacity: '$ACTIVE_OP'"
+
+# Finish editing
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}))' 2>/dev/null
+sleep 0.5
+
+# ============================================================================
+# TEST 16: Yellow connectors on active tree
+# ============================================================================
+echo ""
+log_info "TEST 16: Yellow connectors on active tree"
+
+# Edit great-grandchild again
+agent-browser eval 'qState.blocks[3].viewEl.click()' 2>/dev/null
+sleep 0.5
+
+# Connectors in the active tree (ancestors + active) should have tree-active class
+CONN1=$(agent-browser eval '
+    var c = qState.blocks[1]._connector;
+    c ? c.classList.contains("tree-active") : "no-conn"
+' 2>/dev/null | tr -d '"')
+CONN2=$(agent-browser eval '
+    var c = qState.blocks[2]._connector;
+    c ? c.classList.contains("tree-active") : "no-conn"
+' 2>/dev/null | tr -d '"')
+CONN3=$(agent-browser eval '
+    var c = qState.blocks[3]._connector;
+    c ? c.classList.contains("tree-active") : "no-conn"
+' 2>/dev/null | tr -d '"')
+[ "$CONN1" = "true" ] && log_pass "Child connector (depth 1) has tree-active" || log_fail "Child connector: $CONN1"
+[ "$CONN2" = "true" ] && log_pass "Grandchild connector (depth 2) has tree-active" || log_fail "Grandchild connector: $CONN2"
+[ "$CONN3" = "true" ] && log_pass "Great-grandchild connector (depth 3) has tree-active" || log_fail "Great-grandchild connector: $CONN3"
+
+# Finish editing and check connectors cleared
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}))' 2>/dev/null
+sleep 0.5
+
+CONN_CLEARED=$(agent-browser eval '
+    var any = false;
+    qState.blocks.forEach(function(b) {
+        if (b._connector && b._connector.classList.contains("tree-active")) any = true;
+    });
+    !any
+' 2>/dev/null)
+[ "$CONN_CLEARED" = "true" ] && log_pass "Connectors cleared after exit edit" || log_fail "Connectors not cleared"
+
+# ============================================================================
+# TEST 17: Ghost system fully removed
+# ============================================================================
+echo ""
+log_info "TEST 17: Ghost system fully removed"
+
+HAS_GHOST_CSS=$(agent-browser eval '
+    var sheets = document.styleSheets;
+    var found = false;
+    for (var s = 0; s < sheets.length; s++) {
+        try {
+            var rules = sheets[s].cssRules;
+            for (var r = 0; r < rules.length; r++) {
+                if (rules[r].selectorText && rules[r].selectorText.indexOf("q-block--ghost") !== -1) found = true;
+            }
+        } catch(e) {}
+    }
+    found
+' 2>/dev/null)
+[ "$HAS_GHOST_CSS" = "false" ] && log_pass "No ghost CSS rules remain" || log_fail "Ghost CSS rules still present"
+
+HAS_GHOST_STATE=$(agent-browser eval '
+    typeof qState._ghostBlock === "undefined" && typeof qState._ghostTyped === "undefined" && typeof qState._lastBlockAction === "undefined"
+' 2>/dev/null)
+[ "$HAS_GHOST_STATE" = "true" ] && log_pass "No ghost state properties remain" || log_fail "Ghost state properties still exist"
+
+HAS_GHOST_FN=$(agent-browser eval '
+    typeof createGhostBlock === "undefined" && typeof confirmGhost === "undefined" && typeof cancelGhost === "undefined" && typeof cycleGhostMode === "undefined"
+' 2>/dev/null)
+[ "$HAS_GHOST_FN" = "true" ] && log_pass "No ghost functions remain" || log_fail "Ghost functions still defined"
+
+# ============================================================================
+# TEST 18: New action functions exist
+# ============================================================================
+echo ""
+log_info "TEST 18: New action functions exist"
+
+HAS_SIBLING_FN=$(agent-browser eval 'typeof addSiblingBlock === "function"' 2>/dev/null)
+[ "$HAS_SIBLING_FN" = "true" ] && log_pass "addSiblingBlock function exists" || log_fail "addSiblingBlock missing"
+
+HAS_CHILD_FN=$(agent-browser eval 'typeof addChildBlock === "function"' 2>/dev/null)
+[ "$HAS_CHILD_FN" = "true" ] && log_pass "addChildBlock function exists" || log_fail "addChildBlock missing"
+
+HAS_DUP_FN=$(agent-browser eval 'typeof duplicateBlock === "function"' 2>/dev/null)
+[ "$HAS_DUP_FN" = "true" ] && log_pass "duplicateBlock function exists" || log_fail "duplicateBlock missing"
+
+HAS_HELPER=$(agent-browser eval 'typeof _finishAndInsert === "function"' 2>/dev/null)
+[ "$HAS_HELPER" = "true" ] && log_pass "_finishAndInsert helper exists" || log_fail "_finishAndInsert missing"
+
+# ============================================================================
+# TEST 19: Click-to-add target (+ new block)
+# ============================================================================
+echo ""
+log_info "TEST 19: Click-to-add target (+ new block)"
+
+# Reload for clean state
+agent-browser open "$LANDING_URL" 2>/dev/null
+sleep 2
+
+# 19a: Target visible on page load
+ADD_VISIBLE=$(agent-browser eval '
+    var btn = document.getElementById("q-add-block");
+    btn && getComputedStyle(btn).display !== "none"
+' 2>/dev/null)
+[ "$ADD_VISIBLE" = "true" ] && log_pass "+ new block target visible on page load" || log_fail "+ new block target not visible"
+
+BLOCKS_BEFORE=$(agent-browser eval 'qState.blocks.length' 2>/dev/null)
+
+# 19b: Click target creates root block in edit mode
+agent-browser eval 'document.getElementById("q-add-block").click()' 2>/dev/null
+sleep 0.8
+
+BLOCKS_AFTER=$(agent-browser eval 'qState.blocks.length' 2>/dev/null)
+NEW_COUNT=$((BLOCKS_AFTER - BLOCKS_BEFORE))
+[ "$NEW_COUNT" = "1" ] && log_pass "Click target created 1 new block" || log_fail "Expected 1 new block, got: $NEW_COUNT"
+
+NEW_DEPTH=$(agent-browser eval '
+    var editing = document.querySelector(".q-block.editing");
+    var id = editing ? editing.getAttribute("data-block-id") : null;
+    var block = id ? qState.blocks.find(function(b) { return b.id == id; }) : null;
+    block ? block.depth : -1
+' 2>/dev/null)
+[ "$NEW_DEPTH" = "0" ] && log_pass "New block is root (depth 0)" || log_fail "New block depth: $NEW_DEPTH (expected 0)"
+
+NEW_EDITING=$(agent-browser eval '!!document.querySelector(".q-block.editing")' 2>/dev/null)
+[ "$NEW_EDITING" = "true" ] && log_pass "New block is in edit mode" || log_fail "New block not in edit mode"
+
+# 19c: No isolation — all existing blocks remain visible (no tree-hidden)
+NO_ISOLATION=$(agent-browser eval '
+    var anyHidden = false;
+    var anyDimmed = false;
+    qState.blocks.forEach(function(b) {
+        if (!b.lineEl.classList.contains("editing")) {
+            if (b.lineEl.classList.contains("tree-hidden")) anyHidden = true;
+            if (b.lineEl.style.opacity !== "") anyDimmed = true;
+        }
+    });
+    !anyHidden && !anyDimmed
+' 2>/dev/null)
+[ "$NO_ISOLATION" = "true" ] && log_pass "No isolation: all blocks visible at full opacity" || log_fail "Isolation applied to + new block edit"
+
+# 19d: Target hidden while editing
+ADD_HIDDEN=$(agent-browser eval '
+    var btn = document.getElementById("q-add-block");
+    btn ? btn.style.display : "missing"
+' 2>/dev/null | tr -d '"')
+[ "$ADD_HIDDEN" = "none" ] && log_pass "Target hidden while editing" || log_fail "Target display while editing: '$ADD_HIDDEN' (expected none)"
+
+# 19d: Target reappears after finishing edit — type text then Enter
+agent-browser eval '
+    var editor = document.querySelector(".q-block.editing .ql-editor");
+    var quill = Quill.find(editor.parentNode);
+    quill.setText("new root block", "user");
+' 2>/dev/null
+sleep 0.3
+
+agent-browser eval 'document.querySelector(".q-block.editing .ql-editor").dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}))' 2>/dev/null
+sleep 0.5
+
+ADD_VISIBLE_AFTER=$(agent-browser eval '
+    var btn = document.getElementById("q-add-block");
+    btn && (btn.style.display === "" || btn.style.display === "block")
+' 2>/dev/null)
+[ "$ADD_VISIBLE_AFTER" = "true" ] && log_pass "Target reappears after finishing edit" || log_fail "Target not visible after edit"
+
+# 19e: No persistent Quill elements remain
+NO_PERSISTENT=$(agent-browser eval '
+    !document.querySelector(".q-persistent-input") && !document.getElementById("quill-persistent-editor")
+' 2>/dev/null)
+[ "$NO_PERSISTENT" = "true" ] && log_pass "No persistent Quill elements remain" || log_fail "Persistent Quill elements still present"
+
+# No persistentQuill in state
+NO_PERSISTENT_STATE=$(agent-browser eval 'typeof qState.persistentQuill === "undefined"' 2>/dev/null)
+[ "$NO_PERSISTENT_STATE" = "true" ] && log_pass "No persistentQuill in state" || log_fail "persistentQuill still in state"
+
+# ============================================================================
+# CLEANUP
+# ============================================================================
+echo ""
+log_info "CLEANUP"
+
+agent-browser close 2>/dev/null
+log_pass "Browser closed"
+
+# ============================================================================
+# SUMMARY
+# ============================================================================
+print_summary
+exit $?

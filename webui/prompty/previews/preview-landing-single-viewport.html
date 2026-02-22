@@ -56,6 +56,10 @@ body {
 .tree-connector {
     color: var(--text-muted);
     user-select: none;
+    transition: color 0.3s ease;
+}
+.tree-connector.tree-active {
+    color: var(--reel-label);
 }
 
 /* ── Inline reel ── */
@@ -369,26 +373,37 @@ body {
     background: linear-gradient(to right, transparent, var(--reel-value), transparent);
     opacity: 0.4;
 }
-.q-block.editing .q-add-child-hint {
+.q-block.editing .q-block-actions {
     position: absolute;
-    bottom: -0.55em;
+    bottom: -0.8em;
     left: 50%;
     transform: translateX(-50%);
+    display: flex;
+    gap: 0.6em;
+    z-index: 4;
+    white-space: nowrap;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+.q-block-action {
+    font-family: var(--font-mono);
     font-size: 9px;
     color: var(--text-secondary);
     background: var(--bg-surface);
-    padding: 0 0.4em;
-    white-space: nowrap;
+    padding: 0.3em 0.6em;
+    border-radius: 2px;
     cursor: pointer;
-    z-index: 4;
     letter-spacing: 0.02em;
-    transition: color 0.15s;
     line-height: 1.5;
+    min-height: 28px;
+    display: flex;
+    align-items: center;
+    touch-action: manipulation;
+    transition: color 0.15s, background 0.15s;
 }
-.q-block.editing .q-add-child-hint:hover {
-    color: var(--reel-value);
-}
-.q-block.editing .q-add-child-hint kbd {
+.q-block-action:hover { color: var(--reel-value); }
+.q-block-action:active { background: rgba(82, 156, 202, 0.1); }
+.q-block-action kbd {
     font-family: var(--font-mono);
     font-size: 8px;
     color: var(--text-secondary);
@@ -403,6 +418,11 @@ body {
     line-height: 1.3;
     box-shadow: 0 1px 0 rgba(255,255,255,0.04), inset 0 1px 0 rgba(255,255,255,0.03);
 }
+.q-block.tree-hidden {
+    opacity: 0 !important;
+    pointer-events: none;
+}
+
 .q-edit-connector {
     color: var(--text-muted);
     user-select: none;
@@ -410,6 +430,10 @@ body {
     line-height: 2.6em;
     flex-shrink: 0;
     margin-right: 0.5ch;
+    transition: color 0.3s ease;
+}
+.q-edit-connector.tree-active {
+    color: var(--reel-label);
 }
 
 .q-quill-wrap { flex: 1; min-width: 0; }
@@ -432,28 +456,25 @@ body {
 }
 .q-block-edit .ql-editor.ql-blank::before { color: var(--text-muted); font-style: normal; }
 
-.q-persistent-input {
-    margin-top: 0.5em;
-    padding-top: 0.5em;
-    border-top: 1px dashed rgba(72, 79, 88, 0.3);
-}
-.q-persistent-input .ql-container.ql-snow {
-    border: 1px dashed rgba(72, 79, 88, 0.4);
+.q-add-block {
+    padding: 0.6em 0;
+    margin-top: 0.3em;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: clamp(0.8rem, 1.6vw, 0.95rem);
+    cursor: pointer;
     border-radius: 4px;
-    font-family: var(--font-mono);
-    font-size: clamp(0.85rem, 1.8vw, 1.1rem);
-    background: transparent;
-    overflow: visible;
+    transition: color 0.2s, background 0.2s;
+    user-select: none;
+    letter-spacing: 0.03em;
 }
-.q-persistent-input .ql-editor {
-    color: var(--text-primary);
-    padding: 0.4em 0.6em;
-    min-height: 2em;
-    line-height: 2em;
-    caret-color: var(--accent-amber);
-    overflow: visible;
+.q-add-block:hover {
+    color: var(--text-secondary);
+    background: rgba(72, 79, 88, 0.1);
 }
-.q-persistent-input .ql-editor.ql-blank::before { color: var(--text-muted); font-style: normal; }
+.q-add-block:active {
+    background: rgba(82, 156, 202, 0.08);
+}
 
 .ql-wildcard-chip {
     display: inline-block;
@@ -570,6 +591,23 @@ body {
     margin-top: 2.5rem;
 }
 .quill-count { font-size: clamp(2rem, 5vw, 3.5rem); }
+.q-save-continue-btn {
+    margin-top: 1rem;
+    padding: 0.5em 1.6em;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    background: var(--bg-elevated);
+    border: 1px solid var(--text-muted);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+.q-save-continue-btn:hover {
+    background: rgba(82, 156, 202, 0.12);
+    border-color: var(--reel-value);
+    color: var(--reel-value);
+}
 
 /* ── Responsive ── */
 @media (max-width: 768px) {
@@ -597,15 +635,14 @@ body {
 
     <div class="quill-editor-area" data-testid="quill-editor-area">
         <div class="quill-blocks" id="quill-blocks"></div>
-        <div class="q-persistent-input">
-            <div id="quill-persistent-editor"></div>
-        </div>
+        <div class="q-add-block" id="q-add-block">+ new block</div>
     </div>
 
     <div class="quill-formula-area">
         <div class="demo-formula" id="quill-formula"></div>
         <div class="demo-count quill-count" id="quill-count" data-testid="quill-count"></div>
         <div class="math-label visible" id="quill-label">compositions</div>
+        <button class="q-save-continue-btn" id="quill-save-btn" data-testid="quill-save-btn">Save Current and Continue</button>
     </div>
 </section>
 
@@ -802,13 +839,44 @@ function openPopover(reelEl, fromClick) {
     var rect = reelEl.getBoundingClientRect();
     popoverEl.style.display = 'block';
 
-    // Measure popover width, then clamp to viewport edges (12px margin)
+    // Measure popover dimensions
     var popW = popoverEl.offsetWidth;
-    var left = Math.max(12, Math.min(rect.left, window.innerWidth - popW - 12));
+    var popH = popoverEl.offsetHeight;
+    var vw = window.innerWidth;
+    var vh = window.innerHeight;
+    var margin = 12;
+
+    // Horizontal: align to left or right corner of the chip
+    // based on which side has more room
+    var chipCenterX = rect.left + rect.width / 2;
+    var left;
+    if (chipCenterX < vw / 2) {
+        // Chip is in the left half — align popover's left edge to chip's left
+        left = rect.left;
+    } else {
+        // Chip is in the right half — align popover's right edge to chip's right
+        left = rect.right - popW;
+    }
+    // Clamp to viewport edges
+    left = Math.max(margin, Math.min(left, vw - popW - margin));
+
+    // Vertical: always UNDER the chip
+    var top = rect.bottom + 8;
+    // If it would overflow the viewport bottom, scroll it into view after positioning
+    // but never flip above — always stay below
+    if (top + popH > vh - margin) {
+        top = Math.max(rect.bottom + 4, vh - popH - margin);
+    }
+
     popoverEl.style.left = left + 'px';
-    popoverEl.style.top = (rect.bottom + 8) + 'px';
+    popoverEl.style.top = top + 'px';
 
     renderPopoverContent();
+
+    // If popover extends below viewport, scroll it into view
+    if (top + popH > vh) {
+        popoverEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
 }
 
 function closePopover() {
@@ -1103,10 +1171,10 @@ var qState = {
     blocks: [],
     prevOdo: 0,
     colorIdx: 0,
-    persistentQuill: null,
     nextId: 0,
     chipRegistry: {},
-    _addingChild: false
+    _addingChild: false,
+    _lastEditedBlock: null
 };
 
 var qBlocksEl = document.getElementById('quill-blocks');
@@ -1385,12 +1453,25 @@ function createQBlock(initialText, depth, wildcardValues) {
     quillContainer.className = 'q-quill-wrap';
     editEl.appendChild(quillContainer);
 
-    // Floating hint on the gradient border
-    var hint = document.createElement('span');
-    hint.className = 'q-add-child-hint';
-    hint.innerHTML = '<kbd>Ctrl</kbd>+<kbd>Enter</kbd> Add Child';
-    if (!initialText.replace(/\u200B/g, '').trim()) hint.style.display = 'none';
-    editEl.appendChild(hint);
+    // Action buttons on the gradient border
+    var actionsBar = document.createElement('div');
+    actionsBar.className = 'q-block-actions';
+    if (!initialText.replace(/\u200B/g, '').trim()) actionsBar.style.display = 'none';
+
+    var actionDefs = [
+        { label: '\u23CE Block', kbd: 'Ctrl+Enter', fn: 'sibling' },
+        { label: '\u21B3 Child', kbd: 'Tab', fn: 'child' },
+        { label: '\u2295 Dup', kbd: 'Ctrl+Shift+D', fn: 'duplicate' }
+    ];
+    actionDefs.forEach(function(def) {
+        var btn = document.createElement('span');
+        btn.className = 'q-block-action';
+        btn.setAttribute('data-action', def.fn);
+        var kbdParts = def.kbd.split('+');
+        btn.innerHTML = kbdParts.map(function(k) { return '<kbd>' + k + '</kbd>'; }).join('+') + ' ' + def.label;
+        actionsBar.appendChild(btn);
+    });
+    editEl.appendChild(actionsBar);
 
     blockEl.appendChild(editEl);
 
@@ -1422,9 +1503,9 @@ function createQBlock(initialText, depth, wildcardValues) {
     quill.on('text-change', function(delta, oldDelta, source) {
         if (source !== 'user') return;
         convertQWildcards(quill);
-        // Toggle add-child hint visibility based on content
+        // Toggle actions bar visibility based on content
         var text = serializeQuill(quill).replace(/\u200B/g, '').trim();
-        hint.style.display = text ? '' : 'none';
+        actionsBar.style.display = text ? '' : 'none';
     });
 
     // Show popover when cursor lands adjacent to a wildcard chip
@@ -1496,11 +1577,27 @@ function createQBlock(initialText, depth, wildcardValues) {
         switchToEdit(block);
     });
 
-    hint.addEventListener('click', function(e) {
-        e.stopPropagation();
-        var text = serializeQuill(block.quill).replace(/\u200B/g, '').trim();
+    // Action dispatch for actions bar buttons
+    function actionDispatch(actionName, b) {
+        var text = serializeQuill(b.quill).replace(/\u200B/g, '').trim();
         if (!text) return;
-        addChildFromBlock(block);
+        if (actionName === 'sibling') addSiblingBlock(b);
+        else if (actionName === 'child') addChildBlock(b);
+        else if (actionName === 'duplicate') duplicateBlock(b);
+    }
+
+    // Prevent mousedown on actions bar from blurring the Quill editor
+    actionsBar.addEventListener('mousedown', function(e) { e.preventDefault(); e.stopPropagation(); });
+    actionsBar.addEventListener('touchstart', function(e) { e.preventDefault(); e.stopPropagation(); }, { passive: false });
+    actionsBar.addEventListener('touchend', function(e) {
+        e.preventDefault(); e.stopPropagation();
+        var btn = e.target.closest('.q-block-action');
+        if (btn) actionDispatch(btn.getAttribute('data-action'), block);
+    });
+    actionsBar.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var btn = e.target.closest('.q-block-action');
+        if (btn) actionDispatch(btn.getAttribute('data-action'), block);
     });
 
     qState.blocks.push(block);
@@ -1543,112 +1640,157 @@ function getAncestors(block) {
     return ancestors;
 }
 
-/* ── Add child block from edit mode ── */
-function addChildFromBlock(sourceBlock) {
-    // Prevent blur race: mark that we're adding a child
-    qState._addingChild = true;
+/* ── Find index after last descendant of a block (for sibling insertion) ── */
+function findSubtreeEnd(block) {
+    var idx = qState.blocks.indexOf(block);
+    var end = idx + 1;
+    while (end < qState.blocks.length && qState.blocks[end].depth > block.depth) {
+        end++;
+    }
+    return end;
+}
 
-    // Finish editing the source block first
+/* ── Shared helper: finish source edit and insert new block ── */
+function _finishAndInsert(sourceBlock, insertIdx, newDepth, wildcardValues) {
+    qState._addingChild = true;
+    qState._lastEditedBlock = sourceBlock;
     syncRegistryToBlocks();
     sourceBlock._prevWildcards = sourceBlock.wildcards.slice();
     sourceBlock.lineEl.classList.remove('editing');
     clearEditFocus();
     buildBlockView(sourceBlock);
 
-    // New child is one level deeper than the source
-    var childDepth = sourceBlock.depth + 1;
-
-    // Insert as first child: right after the source block
-    var sourceIdx = qState.blocks.indexOf(sourceBlock);
-    var insertIdx = sourceIdx + 1;
-
-    // Create a new empty child block at the correct depth
-    var newBlock = createQBlock('', childDepth, null);
-
-    // createQBlock pushes to the end — remove first so insertIdx stays valid
+    var newBlock = createQBlock('', newDepth, wildcardValues);
+    // Remove from default append position
     var pushIdx = qState.blocks.indexOf(newBlock);
     if (pushIdx !== -1) qState.blocks.splice(pushIdx, 1);
-
-    // Insert into DOM at the correct position
+    if (newBlock.lineEl.parentNode) newBlock.lineEl.parentNode.removeChild(newBlock.lineEl);
+    // Insert at correct position
     var refBlock = qState.blocks[insertIdx];
-    if (refBlock) {
-        qBlocksEl.insertBefore(newBlock.lineEl, refBlock.lineEl);
-    } else {
-        qBlocksEl.appendChild(newBlock.lineEl);
-    }
-
-    // Insert at correct position in array
+    if (refBlock) qBlocksEl.insertBefore(newBlock.lineEl, refBlock.lineEl);
+    else qBlocksEl.appendChild(newBlock.lineEl);
     qState.blocks.splice(insertIdx, 0, newBlock);
-
     updateQConnectors();
-
-    // Use rAF to ensure DOM is ready before focusing the new editor
     requestAnimationFrame(function() {
         qState._addingChild = false;
         switchToEdit(newBlock);
     });
 }
 
-/* ── Depth-based focus fade ── */
+/* ── Add sibling block at same depth, after subtree ── */
+function addSiblingBlock(sourceBlock) {
+    var text = serializeQuill(sourceBlock.quill).replace(/\u200B/g, '').trim();
+    if (!text) return;
+    _finishAndInsert(sourceBlock, findSubtreeEnd(sourceBlock), sourceBlock.depth, null);
+}
+
+/* ── Add child block at depth+1, right after source ── */
+function addChildBlock(sourceBlock) {
+    var text = serializeQuill(sourceBlock.quill).replace(/\u200B/g, '').trim();
+    if (!text) return;
+    _finishAndInsert(sourceBlock, qState.blocks.indexOf(sourceBlock) + 1, sourceBlock.depth + 1, null);
+}
+
+/* ── Duplicate block (copy wildcards, clear text) at same depth ── */
+function duplicateBlock(sourceBlock) {
+    var text = serializeQuill(sourceBlock.quill).replace(/\u200B/g, '').trim();
+    if (!text) return;
+    var wv = null;
+    if (sourceBlock.wildcards.length > 0) {
+        wv = {};
+        sourceBlock.wildcards.forEach(function(wc) { wv[wc.name] = wc.values.slice(); });
+    }
+    _finishAndInsert(sourceBlock, findSubtreeEnd(sourceBlock), sourceBlock.depth, wv);
+}
+
+/* ── Tree isolation focus — ancestors, descendants, siblings, and prior block visible, rest hidden ── */
 function applyEditFocus(activeBlock) {
-    var activeIdx = qState.blocks.indexOf(activeBlock);
-    var childCount = 0;
-
-    // Build set of ancestor indices (entire parent tree stays visible)
     var ancestors = getAncestors(activeBlock);
-    var ancestorSet = {};
-    ancestors.forEach(function(a) {
-        ancestorSet[qState.blocks.indexOf(a)] = true;
-    });
+    var ancestorIds = {};
+    ancestors.forEach(function(a) { ancestorIds[a.id] = true; });
+    // All descendants (children, grandchildren, etc.) via subtree range
+    var activeIdx = qState.blocks.indexOf(activeBlock);
+    var subtreeEnd = findSubtreeEnd(activeBlock);
+    var descendantIds = {};
+    for (var d = activeIdx + 1; d < subtreeEnd; d++) {
+        descendantIds[qState.blocks[d].id] = true;
+    }
+    // Siblings: other children of the same parent (faded, not hidden)
+    var parent = findParentBlock(activeBlock);
+    var siblingIds = {};
+    if (parent) {
+        getChildrenOf(parent).forEach(function(s) {
+            if (s !== activeBlock) siblingIds[s.id] = true;
+        });
+    }
+    var priorBlock = qState._lastEditedBlock;
 
-    qState.blocks.forEach(function(b, i) {
+    qState.blocks.forEach(function(b) {
+        // Connector highlighting: active block + ancestors + descendants get yellow connectors
+        var inActiveTree = (b === activeBlock || ancestorIds[b.id] || descendantIds[b.id]);
+        if (b._connector) b._connector.classList.toggle('tree-active', inActiveTree);
+        if (b._editConnector) b._editConnector.classList.toggle('tree-active', inActiveTree);
+
         if (b === activeBlock) {
+            b.lineEl.classList.remove('tree-hidden');
             b.lineEl.style.opacity = '';
-            return;
-        }
-        // Keep entire ancestor chain visible
-        if (ancestorSet[i]) {
-            b.lineEl.style.opacity = '';
-            return;
-        }
-        // Determine if this block is a descendant of the active block
-        var isDescendant = (i > activeIdx) && (b.depth > activeBlock.depth);
-        if (isDescendant) {
-            // Check there's no block at same or shallower depth between active and this
-            var broken = false;
-            for (var j = activeIdx + 1; j < i; j++) {
-                if (qState.blocks[j].depth <= activeBlock.depth) { broken = true; break; }
-            }
-            if (broken) isDescendant = false;
-        }
-
-        if (isDescendant) {
-            childCount++;
-            var opacity = Math.max(0.5 - (childCount - 1) * 0.1, 0.15);
-            b.lineEl.style.opacity = opacity;
+        } else if (ancestorIds[b.id]) {
+            b.lineEl.classList.remove('tree-hidden');
+            b.lineEl.style.opacity = '0.9';
+        } else if (descendantIds[b.id] || siblingIds[b.id] || b === priorBlock) {
+            b.lineEl.classList.remove('tree-hidden');
+            b.lineEl.style.opacity = '0.4';
         } else {
-            b.lineEl.style.opacity = 0.25;
+            b.lineEl.style.opacity = '';
+            b.lineEl.classList.add('tree-hidden');
         }
     });
+
+    var addBtn = document.getElementById('q-add-block');
+    if (addBtn) addBtn.style.display = 'none';
 }
 
 function clearEditFocus() {
     qState.blocks.forEach(function(b) {
         b.lineEl.style.opacity = '';
+        b.lineEl.classList.remove('tree-hidden');
+        if (b._connector) b._connector.classList.remove('tree-active');
+        if (b._editConnector) b._editConnector.classList.remove('tree-active');
     });
+
+    var addBtn = document.getElementById('q-add-block');
+    if (addBtn) addBtn.style.display = '';
 }
 
 /* ── Switch block to edit mode ── */
-function switchToEdit(block) {
+function switchToEdit(block, opts) {
+    var skipIsolation = opts && opts.skipIsolation;
     closePopover();
+    // Immediately finish any previously-editing block (prevents blur race)
+    var prev = qState.blocks.find(function(b) { return b !== block && b.lineEl.classList.contains('editing'); });
+    if (prev) {
+        qState._lastEditedBlock = prev;
+        syncRegistryToBlocks();
+        var prevText = serializeQuill(prev.quill).replace(/\u200B/g, '').trim();
+        if (!prevText) {
+            prev.lineEl.remove();
+            var idx = qState.blocks.indexOf(prev);
+            if (idx !== -1) qState.blocks.splice(idx, 1);
+            updateQConnectors();
+            qRecalc();
+        } else {
+            prev._prevWildcards = prev.wildcards.slice();
+            prev.lineEl.classList.remove('editing');
+            buildBlockView(prev);
+        }
+    }
     block.lineEl.classList.add('editing');
-    applyEditFocus(block);
+    if (!skipIsolation) applyEditFocus(block);
     block.quill.focus();
     block.quill.setSelection(block.quill.getLength() - 1, 0);
 
     function finishEdit() {
         if (!block.lineEl.classList.contains('editing')) return;
-        clearEditFocus();
         syncRegistryToBlocks();
         var serialized = serializeQuill(block.quill).replace(/\u200B/g, '').trim();
         if (!serialized) {
@@ -1657,20 +1799,27 @@ function switchToEdit(block) {
             var idx = qState.blocks.indexOf(block);
             if (idx !== -1) qState.blocks.splice(idx, 1);
             updateQConnectors();
+            // Only clear isolation if no other block took over editing
+            if (!document.querySelector('.q-block.editing')) clearEditFocus();
             qRecalc();
             return;
         }
         block._prevWildcards = block.wildcards.slice();
         block.lineEl.classList.remove('editing');
         buildBlockView(block);
+        // Only clear isolation if no other block took over editing
+        if (!document.querySelector('.q-block.editing')) clearEditFocus();
     }
 
     var keyHandler = function(e) {
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-            e.preventDefault();
-            var text = serializeQuill(block.quill).replace(/\u200B/g, '').trim();
-            if (!text) return; // prevent add child when empty
-            cleanup(); addChildFromBlock(block); return;
+            e.preventDefault(); cleanup(); addSiblingBlock(block); return;
+        }
+        if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
+            e.preventDefault(); cleanup(); addChildBlock(block); return;
+        }
+        if (e.key === 'd' && (e.ctrlKey || e.metaKey) && e.shiftKey) {
+            e.preventDefault(); cleanup(); duplicateBlock(block); return;
         }
         if (e.key === 'Enter') { e.preventDefault(); cleanup(); finishEdit(); }
         else if (e.key === 'Escape') { cleanup(); finishEdit(); }
@@ -1706,32 +1855,14 @@ function initQuillSection() {
     );
     qBlocksEl.appendChild(childBlock.lineEl);
 
-    var persistentContainer = document.getElementById('quill-persistent-editor');
-    var persistentQuill = new Quill(persistentContainer, {
-        theme: 'snow',
-        modules: { toolbar: false },
-        placeholder: 'type text, use __double_underscores__ for wildcards'
-    });
-
-    persistentQuill.on('text-change', function(delta, oldDelta, source) {
-        if (source !== 'user') return;
-        setTimeout(function() { convertQWildcards(persistentQuill); }, 0);
-    });
-
-    persistentQuill.root.addEventListener('keydown', function(e) {
-        if (e.key !== 'Enter') return;
-        e.preventDefault();
-        var serialized = serializeQuill(persistentQuill);
-        if (!serialized.trim()) return;
-
-        updateQConnectors();
-        var newBlock = createQBlock(serialized, true, null);
+    var addBlockBtn = document.getElementById('q-add-block');
+    addBlockBtn.addEventListener('click', function() {
+        addBlockBtn.style.display = 'none';
+        var newBlock = createQBlock('', 0, null);
         qBlocksEl.appendChild(newBlock.lineEl);
         updateQConnectors();
-        persistentQuill.setText('', 'silent');
+        switchToEdit(newBlock, { skipIsolation: true });
     });
-
-    qState.persistentQuill = persistentQuill;
 }
 
 /* ══════════════════════════════════════════════════
