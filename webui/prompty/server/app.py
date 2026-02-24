@@ -2,7 +2,7 @@
 PromptyUI Server Application
 
 HTTP server for the PromptyUI UI.
-Runs on port 8085 (separate from WebUI v4 on 8084).
+Runs on port 8085 (started via ./start-prompty.sh).
 """
 
 import http.server
@@ -239,7 +239,7 @@ def main():
     parser.add_argument('--port', type=int, default=8085, help='Port to run on (default: 8085)')
     args = parser.parse_args()
 
-    # Always kill running instances on startup (consistent with WebUI v4)
+    # Always kill running instances on startup (prevents port conflicts)
     _kill_running_instances(args.port)
 
     server = create_app(args.port)

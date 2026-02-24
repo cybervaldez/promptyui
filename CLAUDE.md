@@ -19,8 +19,8 @@ See `docs/composition-model.md` for the complete reference.
 - **Bucket**: Contiguous window of values. `wildcards_max: 3` splits a 10-value wildcard into 4 buckets. Composition navigator moves between buckets (coarse), dropdowns pick within a bucket (fine).
 - **Operation**: Named value-replacement mapping (a type of build hook) applied per-window, enabling localization, A/B testing, and cherry-picking. The operation's filename is its **variant family** name — it labels the output batch.
 - **Composition ID**: Numeric index into the Cartesian product. Odometer algorithm decomposes ID into per-wildcard value indices.
-- **Hook**: System lifecycle script (`hooks.yaml`, per job). Fires at a specific stage: JOB_START → NODE_START → ANNOTATIONS_RESOLVE → IMAGE_GENERATION → NODE_END → JOB_END. IMAGE_GENERATION is just a hook point — a user-supplied script does the actual work.
-- **Mod**: User extension script (`mods.yaml`, global). Same execution mechanism as hooks (`_execute_single_hook`), but fires at MODS_PRE/MODS_POST with stage, scope, and filter guards. Priority: job disable > auto_run > job enable.
+- **Hook**: Script configured in `hooks.yaml` (per job). The engine is dumb: `execute_hook(name, ctx)` runs whatever scripts are under that key. Stage names (`pre`, `generate`, `post`, `node_start`, etc.) are caller conventions, not engine code.
+- **Mod**: Script configured in `mods.yaml` (global). Same execution path as hooks, but with guards (stage, scope, filters) checked before execution. Priority: job disable > auto_run > job enable.
 
 ## Hook Locations
 
@@ -70,16 +70,11 @@ jobs/*.yaml          ext/*.yaml          operations/*.yaml    mods.yaml
 build-job.py -----> src/jobs.py ---------> src/hooks.py -----> output files
                     (Cartesian product)     (HookPipeline)
                          |                      |
-                         v                 Generation-time lifecycle:
-webui/prompty/js/ -----> Browser UI        JOB_START → NODE_START →
-(client-side odometer    (preview,          ANNOTATIONS_RESOLVE →
- mirrors the build math)  navigate,          MODS_PRE → IMAGE_GENERATION →
-                          export)             MODS_POST → NODE_END → JOB_END
-                         |
-              ┌──────────┼──────────┐
-              v          v          v
-         Editor       Build      Render       (conceptual UI locations)
-         hooks        hooks      hooks
+                         v                 Pure hook-based engine:
+webui/prompty/js/ -----> Browser UI        execute_hook(name, ctx)
+(client-side odometer    (preview,          Conventions: node_start → resolve →
+ mirrors the build math)  navigate,          pre → generate → post → node_end
+                          export)
         (canvas)    (pipeline)  (output)
 ```
 

@@ -565,7 +565,7 @@ Examples:
 
     # Handle --process-queue flag (WebUI resume)
     if args.process_queue:
-        sys.path.insert(0, str(Path.cwd() / 'webui' / 'v4'))
+        sys.path.insert(0, str(Path.cwd() / 'webui' / 'prompty'))
         from server.generate_list import GenerateList
 
         job_dir = Path.cwd() / 'jobs' / args.job

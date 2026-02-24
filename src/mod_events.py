@@ -33,12 +33,12 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 
 
-# Global reference to event manager (set by start.py)
+# Global reference to event manager (set by webui/prompty/start.py)
 _event_manager = None
 
 
 def set_event_manager(manager):
-    """Set the global event manager (called by start.py on init)."""
+    """Set the global event manager (called by webui/prompty/start.py on init)."""
     global _event_manager
     _event_manager = manager
 
@@ -77,7 +77,7 @@ def emit_mod_event(mod_id: str, action: str, data: Dict[str, Any]) -> bool:
 
 
 def _write_pending_event(mod_id: str, action: str, data: Dict[str, Any]):
-    """Write event to a pending file for pickup by start.py."""
+    """Write event to a pending file for pickup by the PromptyUI server."""
     # This allows mods running in separate processes (like run_job.py)
     # to still emit events that the WebUI can pick up
     pending_dir = Path('/tmp/prompt-generator-mod-events')

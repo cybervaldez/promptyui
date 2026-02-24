@@ -22,7 +22,7 @@ log_test() { echo -e "  [TEST] $1"; }
 
 # Server check with retry
 wait_for_server() {
-    local url="${1:-$BASE_URL/api/jm/jobs}"
+    local url="${1:-$BASE_URL/api/pu/jobs}"
     local max=10
     local i=1
     while [ $i -le $max ]; do

@@ -5,10 +5,9 @@ PromptyUI - Entry Point
 Start the PromptyUI server on port 8085.
 
 Usage:
-    python webui/jm/start.py
-    python webui/jm/start.py --port 8086
-
-This server is completely separate from WebUI v4 (port 8084).
+    python webui/prompty/start.py
+    python webui/prompty/start.py --port 8086
+    ./start-prompty.sh              # recommended
 """
 
 import sys

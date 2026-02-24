@@ -265,6 +265,155 @@ Switch modes from the prompt header dropdown. The visualizer doesn't change the 
 
 ---
 
+## "I want PromptyUI to generate images, not just export text"
+
+**The pipeline:** PromptyUI handles the Cartesian explosion. Your script handles one image at a time.
+
+```yaml
+# jobs/product-shoots/hooks.yaml
+hooks:
+  pre:
+    - script: hooks/token_budget_check.py
+  generate:
+    - script: hooks/comfyui_generate.py
+      params:
+        workflow: product_photo_v3.json
+        output_dir: outputs/product-shoots
+  post:
+    - script: hooks/watermark_and_catalog.py
+  node_end:
+    - script: hooks/upload_to_cdn.py
+```
+
+Your `generate` script receives `context['resolved_text']`, `context['prompt_id']`, and `context['composition_id']`. It sends the prompt to ComfyUI (or DALL-E, or Stable Diffusion), waits for the image, and returns:
+
+```python
+def execute(context, params):
+    image_path = send_to_comfyui(context['resolved_text'], params['workflow'])
+    return { 'status': 'success', 'data': { 'image_path': image_path } }
+```
+
+The `pre` hook checks token budget before wasting a GPU call. The `post` hook adds watermarks. The `node_end` hook bulk-uploads to CDN when all compositions for a block are done.
+
+**The engine doesn't care** what your `generate` script does. It could call ComfyUI, copy a file, or hit an external API. The stage name is a convention — `execute_hook('generate', ctx)` just runs whatever's configured.
+
+---
+
+## "I want quality gates that reject prompts before generation"
+
+**The problem:** You're generating 500 images but some prompts have debug text, exceed token limits, or are missing required annotations.
+
+**The fix:** Add a `pre` hook that validates before `generate` runs:
+
+```yaml
+hooks:
+  pre:
+    - script: hooks/quality_gate.py
+      params:
+        max_tokens: 300
+        banned_phrases: ["test", "placeholder", "TODO"]
+        require_annotations: ["output_format"]
+```
+
+```python
+def execute(context, params):
+    text = context['resolved_text']
+    tokens = count_tokens(text)
+    if tokens > params['max_tokens']:
+        return { 'status': 'error', 'message': f'Token budget exceeded: {tokens}/{params["max_tokens"]}' }
+    for phrase in params.get('banned_phrases', []):
+        if phrase.lower() in text.lower():
+            return { 'status': 'error', 'message': f'Banned phrase found: {phrase}' }
+    return { 'status': 'success' }
+```
+
+Error = block fails cleanly. Remaining compositions for that block are skipped, children are blocked. No GPU wasted.
+
+---
+
+## "I want translations without maintaining translated prompts"
+
+**The problem:** You maintain the same prompt in 4 languages. You edit the English version, then forget to update Japanese.
+
+**The fix:** One English source of truth + a translator mod:
+
+```yaml
+# mods.yaml
+mods:
+  prompt-translator:
+    script: ./mods/prompt_translator.py
+    stage: [build, pre]
+    auto_run: true
+    params:
+      languages: [ja, es, fr, de]
+      cache_dir: .cache/translations
+```
+
+At `build` time (`stage: build`), the translator pre-computes translations and caches them. At `pre` (generation time), it swaps English for the target language from cache — instant, no API call.
+
+**One mod, two invocation paths.** The mod checks `context['hook']` to distinguish: `hook == 'mods_build'` → precompute. `hook == 'pre'` → swap from cache.
+
+---
+
+## "I want to auto-flag bad generations"
+
+**The problem:** You generated 500 images. 30 have distorted faces, 12 are low quality. You don't want to review all 500.
+
+**The fix:** A `post` hook that classifies each output:
+
+```yaml
+hooks:
+  post:
+    - script: hooks/visual_qa.py
+      params:
+        min_aesthetic_score: 6.0
+        check_faces: true
+```
+
+```python
+def execute(context, params):
+    image_path = context.get('image_path')  # from generate hook's data
+    score = aesthetic_scorer(image_path)
+    flags = []
+    if score < params['min_aesthetic_score']:
+        flags.append('low_quality')
+    if params.get('check_faces') and detect_distorted_faces(image_path):
+        flags.append('distorted_face')
+    if flags:
+        return { 'status': 'error', 'data': { 'score': score, 'flags': flags } }
+    return { 'status': 'success', 'data': { 'score': score } }
+```
+
+**Error = children blocked.** If the parent "character portrait" produced a distorted face, there's no point generating the "character in action scene" children from it. Failure is path-scoped.
+
+---
+
+## "I want to A/B test aesthetic directions at scale"
+
+**The setup:** Same prompt, same wildcards, different aesthetic direction via operations:
+
+```yaml
+# operations/ab-warm-tones.yaml
+mappings:
+  lighting:
+    natural: warm golden hour
+    studio: warm studio with orange gels
+  mood:
+    neutral: cozy and inviting
+
+# operations/ab-cool-tones.yaml
+mappings:
+  lighting:
+    natural: cool overcast daylight
+    studio: cool studio with blue gels
+  mood:
+    neutral: crisp and modern
+```
+
+Select `ab-warm-tones` in the build flow → export 500 images. Switch to `ab-cool-tones` → export 500 more. **Same prompt, zero duplication.** Show both sets to the client. The operation's filename becomes the variant family label in the output.
+
+---
+
 ## How it all fits together
 
 ```
@@ -308,8 +457,8 @@ with __wildcards__                 as separate prompts
 | **Build hook** | A hook in the build flow diagram — transforms the pipeline (operations, quality gates). |
 | **Render hook** | A hook on resolved output — fires per composition (annotation alerts, token budget). |
 | **Operation** | A build hook that remaps values. "casual" → "corporate" without editing the prompt. |
-| **Hook** | A system lifecycle script (`hooks.yaml`). Fires at specific generation-time stages (NODE_START, IMAGE_GENERATION, etc.). IMAGE_GENERATION is just a hook point — a user-supplied script does the work. |
-| **Mod** | A user extension script (`mods.yaml`). Same mechanism as hooks, but fires at MODS_PRE/MODS_POST with stage, scope, and filter guards. Can also run at build time (`stage: build`). |
+| **Hook** | A script in `hooks.yaml`. The engine is dumb: `execute_hook(name, ctx)` runs whatever's configured. Stage names (`pre`, `generate`, `post`) are conventions, not engine code. |
+| **Mod** | A script in `mods.yaml`. Same execution path as hooks, but with guards (stage, scope, filters). Can also run at build time (`stage: build`). |
 | **Lock** | Pin a wildcard value (Ctrl+Click). Limits the output to only compositions with that value. |
 | **Focus** | Bulb toggle that dims blocks not using a wildcard. Filters your attention. |
 | **Push to Theme** | Sync your local wildcard edits back to the shared theme file. |

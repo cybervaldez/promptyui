@@ -173,7 +173,7 @@ PU.state = {
 
     // Preview/resolution state (odometer + wildcard selections)
     previewMode: {
-        compositionId: 99,    // Default composition (matching v4 default)
+        compositionId: 99,    // Default composition ID
         extTextMax: 1,        // Bucket size limit for ext_text (user-controlled)
         extTextCount: 1,      // Actual ext_text count (computed from loaded data)
         wildcardsMax: 0,      // 0 = use actual wildcard counts, >0 = override all wildcard counts

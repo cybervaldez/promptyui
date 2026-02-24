@@ -447,11 +447,12 @@ body { background: #111; color: var(--text); font-family: var(--body); font-size
 <div class="page-header">
     <div class="page-title">Build Flow Diagram: Depth-First Single Cursor</div>
     <div class="page-subtitle">
-        One GPU, one image at a time. Full hook lifecycle per composition:
-        <code style="color:var(--text2)">node_start</code> &rarr; <code style="color:var(--text2)">annotations_resolve</code> (once per block) &rarr;
-        <code style="color:var(--accent)">mods_pre</code> &rarr; <code style="color:var(--orange)">image_generation</code> &rarr; <code style="color:var(--accent)">mods_post</code> (per composition) &rarr;
-        <code style="color:var(--text2)">node_end</code> (once per block).
-        Depth-first order. Failure is path-scoped.
+        One GPU, one composition at a time. Pure hook-based pipeline &mdash;
+        <code style="color:var(--text2)">execute_hook(name, ctx)</code> runs whatever scripts are configured in <code style="color:var(--accent)">hooks.yaml</code>.
+        Block-level: <code style="color:var(--text2)">node_start</code> &rarr; <code style="color:var(--text2)">resolve</code> (once, cached) &rarr;
+        Per-composition: <code style="color:var(--accent)">pre</code> &rarr; <code style="color:var(--orange)">generate</code> &rarr; <code style="color:var(--accent)">post</code> &rarr;
+        Block-level: <code style="color:var(--text2)">node_end</code> (once).
+        Stage names are conventions, not engine code. Depth-first order. Failure is path-scoped.
         <br>Uses <code style="color:var(--accent)">ext-sourcing-strategy</code> prompt data (822 compositions).
     </div>
 </div>
@@ -653,16 +654,25 @@ body { background: #111; color: var(--text); font-family: var(--body); font-size
 
 <script>
 /**
- * Build Flow Diagram — Depth-First Single Cursor with Hook Lifecycle
+ * Build Flow Diagram — Depth-First Single Cursor, Pure Hook-Based Pipeline
+ *
+ * Architecture:
+ *   The engine is dumb: execute_hook(name, ctx) → look up hooks.yaml → run scripts.
+ *   Stage names (pre, generate, post) are CALLER CONVENTIONS, not engine code.
+ *   The engine doesn't know or care what the names mean — it just executes
+ *   whatever scripts are configured under that key in hooks.yaml.
+ *
+ *   Mods are hooks with guards (stage, scope, filters). Guards are checked
+ *   at config level before execution — no if/elif branching in the engine.
  *
  * Execution model:
- *   - One GPU, one image at a time — only queue ordering matters
+ *   - One GPU, one composition at a time — only queue ordering matters
  *   - Depth-first: each variation completes its full path before the next starts
- *   - Full hook lifecycle per entry:
- *       Block-level (fire once):  node_start → annotations_resolve
- *       Per-composition:          mods_pre → image_generation → mods_post
- *       Block-level (fire once):  node_end
- *   - annotations_resolve result is cached — applies to all compositions in that block
+ *   - Hook lifecycle per entry:
+ *       Block-level (fire once):  execute_hook('node_start') → execute_hook('resolve') [cached]
+ *       Per-composition:          execute_hook('pre') → execute_hook('generate') → execute_hook('post')
+ *       Block-level (fire once):  execute_hook('node_end')
+ *   - 'resolve' result is cached — applies to all compositions in that block
  *   - Failure is path-scoped: remaining entries for that block skipped, children blocked
  *   - Hook receives parent's result as context (parentResult)
  *
@@ -678,16 +688,16 @@ body { background: #111; color: var(--text); font-family: var(--body); font-size
  */
 
 // ── Simulated Hook Stage ─────────────────────────────────
-// Each lifecycle stage is a separate async call with its own timing.
-// In production, these map to pipeline.execute_hook() calls.
-// The image_generation stage is where a user-supplied script runs
-// (e.g., ComfyUI renderer, PyTorch model, external API).
+// Each stage is a separate async call with its own timing.
+// In production: pipeline.execute_hook(name, ctx) → look up hooks.yaml → run scripts.
+// The engine doesn't special-case any stage name. 'generate' typically runs
+// a user-supplied script (ComfyUI workflow, PyTorch model, external API).
 
 function simulateHookStage(stage, ctx) {
     const start = performance.now();
     const simFail = document.getElementById('simFail').checked;
 
-    // Failure happens at image_generation stage (the GPU call)
+    // Failure happens at 'generate' stage (the GPU/API call)
     const shouldFail = simFail
         && stage === 'gen'
         && ctx.blockId === 'block-0-0'
@@ -696,10 +706,10 @@ function simulateHookStage(stage, ctx) {
     // Timing per stage — reflects real-world relative costs
     const timings = {
         node_start: 5,
-        ann: 10 + Math.random() * 20,        // annotations_resolve: LLM rewrite, etc.
-        pre: 2 + Math.random() * 5,           // mods_pre: translator, validator
-        gen: 15 + Math.random() * 60,          // image_generation: GPU / API call
-        post: 2 + Math.random() * 5,           // mods_post: error_logger, quality check
+        ann: 10 + Math.random() * 20,        // resolve: annotations rewrite, etc.
+        pre: 2 + Math.random() * 5,           // pre: hooks with guards (translator, validator)
+        gen: 15 + Math.random() * 60,          // generate: user-supplied script (GPU / API call)
+        post: 2 + Math.random() * 5,           // post: hooks with guards (error_logger, quality check)
         node_end: 5,
     };
 
@@ -751,8 +761,8 @@ let blockedBlocks = new Set(); // blocks blocked by parent failure
 let blockCompletedMap = {};    // blockId → count of completed compositions
 let blockStartTimes = {};      // blockId → performance.now() when first entered
 let currentBlockId = null;     // the block the cursor is currently on
-let visitedBlocks = new Set(); // blocks that have had node_start + annotations_resolve
-let annotationsCache = {};     // blockId → cached annotations_resolve context
+let visitedBlocks = new Set(); // blocks that have had node_start + resolve
+let annotationsCache = {};     // blockId → cached resolve result
 
 function getBlockDef(id) {
     return BLOCK_DEFS.find(b => b.id === id);
@@ -887,9 +897,9 @@ function handleBlockFailure(blockId, idx, result) {
 
 // ── Depth-First Queue Processor ────────────────────────────
 // Single cursor: processes one entry at a time.
-// Runs the full hook lifecycle per entry:
-//   Block-level (once):   node_start → annotations_resolve (cached)
-//   Per-composition:      mods_pre → image_generation → mods_post
+// Runs the hook lifecycle per entry (all via execute_hook):
+//   Block-level (once):   node_start → resolve (cached)
+//   Per-composition:      pre → generate → post
 //   Block-level (once):   node_end (when last composition completes)
 
 async function processQueue() {
@@ -950,7 +960,7 @@ async function processQueue() {
             let r = await simulateHookStage('node_start', hookCtx);
             if (stopRequested) break;
 
-            // annotations_resolve — cached for all subsequent compositions
+            // execute_hook('resolve') — cached for all subsequent compositions
             setStage(blockId, 'ann');
             r = await simulateHookStage('ann', hookCtx);
             if (stopRequested) break;
@@ -964,7 +974,7 @@ async function processQueue() {
 
         // ── Per-composition hooks ──
 
-        // mods_pre
+        // execute_hook('pre') — hooks with guards (translator, validator, etc.)
         setStage(blockId, 'pre');
         let stageResult = await simulateHookStage('pre', hookCtx);
         if (stopRequested) break;
@@ -974,7 +984,7 @@ async function processQueue() {
             continue;
         }
 
-        // image_generation (the main work — user-supplied hook script)
+        // execute_hook('generate') — user-supplied script (the main work)
         setStage(blockId, 'gen');
         stageResult = await simulateHookStage('gen', hookCtx);
         if (stopRequested) break;
@@ -984,7 +994,7 @@ async function processQueue() {
             continue;
         }
 
-        // mods_post
+        // execute_hook('post') — hooks with guards (error_logger, quality check, etc.)
         setStage(blockId, 'post');
         stageResult = await simulateHookStage('post', hookCtx);
         if (stopRequested) break;
@@ -1152,7 +1162,7 @@ async function resumeRun() {
     runState = 'running';
     currentBlockId = null;
     // NOTE: visitedBlocks and annotationsCache are preserved —
-    // node_start/annotations_resolve do NOT re-fire on resume
+    // node_start/resolve do NOT re-fire on resume
     updateButtonUI();
 
     const statusEl = document.getElementById('runStatus');

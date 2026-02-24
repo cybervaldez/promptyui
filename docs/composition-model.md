@@ -377,44 +377,44 @@ Editor hooks (while writing)
                     → Output
 ```
 
-### Generation-time lifecycle (hooks + mods)
+### Generation-time lifecycle (pure hook-based pipeline)
 
-The three hook locations above (editor/build/render) are a **conceptual** framework for where hooks appear in the UI. At generation time, a separate **lifecycle pipeline** (`src/hooks.py`) orchestrates the actual execution. This is where mods live.
+The engine (`src/hooks.py`) is dumb: `execute_hook(name, ctx)` looks up `hooks.yaml` and `mods.yaml`, merges scripts, checks guards, and executes. **Stage names are caller conventions, not engine code.** The engine doesn't know what `pre`, `generate`, or `post` mean — it just runs whatever scripts are configured under that key.
 
 ```
-JOB_START
+job_start
 │
-├─ NODE_START              ← once per block (first visit)
-│  └─ ANNOTATIONS_RESOLVE  ← once per block (cached for all compositions)
+├─ node_start           ← once per block (first visit)
+│  └─ resolve           ← once per block (cached for all compositions)
 │     │
-│     ├─ MODS_PRE          ← per composition (user mods with stage=pre)
-│     ├─ IMAGE_GENERATION   ← per composition (user-supplied script)
-│     ├─ MODS_POST         ← per composition (user mods with stage=post)
+│     ├─ pre            ← per composition (hooks + mods with guards)
+│     ├─ generate       ← per composition (user-supplied script)
+│     ├─ post           ← per composition (hooks + mods with guards)
 │     │
 │     ├─ (next composition of same block...)
 │     │
-│     └─ NODE_END          ← once per block (after last composition)
+│     └─ node_end       ← once per block (after last composition)
 │
 ├─ (next block...)
 │
-JOB_END
+job_end
 
-ERROR                      ← on any failure, at any stage
+error                   ← on any failure, at any stage
 ```
 
-**Key distinction:** `IMAGE_GENERATION` is not a built-in function — it's a hook point. A user-supplied Python script (configured in `hooks.yaml`) does the actual work. This means any external tool (Stable Diffusion, DALL-E, a file copier) can plug in.
+**Key distinction:** `generate` is just a hook name — not a built-in function. A user-supplied Python script (configured in `hooks.yaml`) does the actual work. Any external tool (ComfyUI, DALL-E, a file copier) can plug in. You could even rename it — the engine doesn't care.
 
 ### Hooks vs Mods
 
-Hooks and mods use the **same execution mechanism** — both call `_execute_single_hook()` which loads a Python script and calls its `execute(context, params)` function. The difference is configuration and filtering:
+Both use the **same execution path** — `_execute_single_hook()` loads a Python script and calls `execute(context, params)`. Mods are hooks with guards:
 
 | | Hooks | Mods |
 |---|---|---|
 | **Configured in** | `hooks.yaml` (per job) | `mods.yaml` (global) |
-| **Fire at** | Any lifecycle point | `MODS_PRE` and `MODS_POST` only |
-| **Filtering** | None (always fire) | Stage, scope, address_index, config_index |
+| **Fire at** | Any hook name | Any hook name (self-filter via guards) |
+| **Guards** | None (always fire) | Stage, scope, address_index, config_index |
 | **Enable/disable** | Present = active | Per-prompt via `jobs.yaml` enable/disable |
-| **Purpose** | System lifecycle (start, end, generation) | User extensions (translate, log, inject) |
+| **Purpose** | System lifecycle (start, generate, end) | User extensions (translate, log, inject) |
 
 A mod is a hook with guardrails. Both return the same `HookResult`:
 
@@ -455,7 +455,7 @@ mods:
     auto_run: true            # enabled by default
 ```
 
-**Stage values:** `pre` | `post` | `both` (generation-time). `build` is a separate invocation path — mods with `stage: build` or `stage: [build, pre]` run once per prompt during `build-checkpoints.py`, not during generation. The mod script checks `context['hook']` to distinguish (e.g., `hook == 'mods_build'` vs `hook == 'mods_pre'`).
+**Stage guard values:** `pre` | `post` | `both` (generation-time hook names). `build` is a separate invocation path — mods with `stage: build` or `stage: [build, pre]` run once per prompt during `build-checkpoints.py`, not during generation. The mod script checks `context['hook']` to distinguish (e.g., `hook == 'mods_build'` vs `hook == 'pre'`).
 
 Per-prompt enable/disable in `jobs.yaml`:
 
@@ -503,7 +503,7 @@ Key additions:
 - **`_block_path`** — new field in `build_jobs()` output identifying each entry's block (e.g., `"0"`, `"0.0"`, `"1"`)
 - **Path-scoped failure** — when a block fails, remaining compositions are skipped and children are blocked. Siblings and other root paths continue
 - **Block state machine** — `UNSEEN → ACTIVE → PARTIAL → ... → COMPLETE`. `node_start` fires on first visit, `node_end` on last composition
-- **`annotations_resolve` caching** — fires once per block, result cached for all subsequent compositions
+- **`resolve` caching** — fires once per block, result cached for all subsequent compositions
 
 ---
 
@@ -644,8 +644,8 @@ project/
 | **Window** | The slice of values visible in the current bucket (`[start, start + wcMax - 1]`) |
 | **wcMax** | `wildcards_max` — the bucket size for wildcards |
 | **extTextMax** | `ext_text_max` — the bucket size for extension text lists |
-| **Hook** | A system lifecycle script configured in `hooks.yaml`. Fires at a specific lifecycle point (JOB_START, NODE_START, IMAGE_GENERATION, etc.) |
-| **Mod** | A user extension script configured in `mods.yaml`. Same execution mechanism as hooks, but fires at MODS_PRE/MODS_POST with stage, scope, and filter guards |
+| **Hook** | A script configured in `hooks.yaml`. The engine is dumb: `execute_hook(name, ctx)` runs whatever's configured. Stage names (`pre`, `generate`, `post`) are conventions |
+| **Mod** | A script configured in `mods.yaml`. Same execution path as hooks, but with guards (stage, scope, filters) checked before execution |
 | **HookResult** | Return value from any hook/mod script: `{ status, data, modify_context, error, message }` |
 | **parent_result** | (Planned) Context key containing parent block's `HookResult.data`, passed to child block hooks |
 | **TreeExecutor** | (Planned) Block-aware depth-first execution engine. Replaces the flat job list with ordered per-block traversal |

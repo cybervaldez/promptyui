@@ -86,7 +86,7 @@ def execute(context):
             'data': {'translated_paths': len(translations)}
         }
     
-    elif hook == 'mods_pre':
+    elif hook == 'pre':
         # PRE STAGE: Apply translation before generation
         ui_params = context.get('ui_params', {})
         target_lang = ui_params.get('language', 'en')

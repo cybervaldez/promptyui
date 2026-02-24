@@ -1,41 +1,42 @@
 #!/usr/bin/env python3
 """
-Hooks Engine - Core pipeline for executing lifecycle hooks and mods.
+Hooks Engine - Pure hook-based pipeline for executing lifecycle scripts.
 
-This is the generation-time hook infrastructure. For the conceptual
-hook locations in the UI (editor/build/render), see docs/composition-model.md.
+ARCHITECTURE:
+  The engine is dumb: execute_hook(name, ctx) → look up config → run scripts.
+  Stage names are CALLER CONVENTIONS, not engine code. The engine doesn't know
+  or care what the names mean — it just executes whatever scripts are configured
+  under that key in hooks.yaml/mods.yaml.
 
-LIFECYCLE STAGES (per block):
-  1. JOB_START           - once per job
-  2. NODE_START          - once per block (first visit)
-  3. ANNOTATIONS_RESOLVE - once per block (cached for all compositions)
-     Context: { prompt_id, text, annotations }
-     Can modify: annotations (dict), text (string)
-  4. MODS_PRE            - per composition (user mods, stage=pre)
-  5. IMAGE_GENERATION    - per composition (user-supplied script)
-  6. MODS_POST           - per composition (user mods, stage=post)
-  7. NODE_END            - once per block (after last composition)
-  8. JOB_END             - once per job
-  9. ERROR               - on any failure
+  Mods are hooks with guards (stage, scope, filters). Guards are checked at
+  config level before execution — no if/elif branching in the engine.
 
-HOOKS vs MODS:
-  Both use the same execution mechanism (_execute_single_hook → execute(context, params)).
-  - Hooks: system lifecycle scripts in hooks.yaml (per job). Fire at specific stages.
-  - Mods:  user extension scripts in mods.yaml (global). Two invocation paths:
-           1. Generation-time: MODS_PRE/MODS_POST (stage: pre/post/both)
-           2. Build-time: mods_build (stage: build), runs once per prompt in build-checkpoints.py
-           Guards: execution_scope (checkpoint/image), filters (config_index, address_index).
-           Enable/disable per prompt in jobs.yaml.
+HOOK LIFECYCLE (conventions — defined by the caller, not the engine):
+  Block-level (fire once):   node_start → resolve (cached)
+  Per-composition:           pre → generate → post
+  Block-level (fire once):   node_end
+  Job-level:                 job_start (before all), job_end (after all), error (on failure)
 
-  IMAGE_GENERATION is just a hook point — it's not built-in. A user-supplied script
-  (e.g., Stable Diffusion wrapper, API caller, file copier) does the actual work.
+  'generate' is where a user-supplied script runs (e.g., ComfyUI workflow,
+  API caller, file copier). It's not built-in — just a hook name.
+
+  'pre' and 'post' are where mods (hooks with guards) typically run:
+  translator, validator, error_logger, quality check, etc.
+
+CONFIG:
+  hooks.yaml (per job) — system lifecycle scripts
+  mods.yaml (global) — user extension scripts with guards:
+    - stage: pre | post | both | build (build = build-checkpoints.py, not generation-time)
+    - execution_scope: checkpoint | image
+    - filters: config_index, address_index
+    - Enable/disable per prompt in jobs.yaml
 
 PLANNED (TreeExecutor):
   - Depth-first single-cursor execution: one composition at a time, depth-first block order
   - parent_result: context key with parent block's HookResult.data for child hooks
   - _block_path: new field in build_jobs() output for block identity (e.g., "0", "0.0")
   - Path-scoped failure: block failure skips remaining compositions, blocks children
-  - annotations_resolve caching: fire once per block, cache for all compositions
+  - 'resolve' caching: fire once per block, cache for all compositions
   See webui/prompty/previews/preview-build-flow-diagram.html for the visual model.
 """
 
@@ -97,55 +98,56 @@ class HookPipeline:
         self.mods_config = mods_config or {}
         self._loaded_scripts = {}
     
-    def execute_hook(self, hook_name: str, context: dict, 
-                     node_mods: List[str] = None) -> HookResult:
+    def execute_hook(self, hook_name: str, context: dict) -> HookResult:
         """
-        Execute a lifecycle hook.
-        
+        Execute all scripts configured under a hook name.
+
+        The engine is dumb — it looks up hooks_config[hook_name] and mods_config,
+        merges them, checks guards, and executes. No knowledge of stage semantics.
+
         Args:
-            hook_name: One of job_start, node_start, mods_pre, image_generation, 
-                       mods_post, node_end, job_end, error
+            hook_name: Any string key (e.g., 'pre', 'generate', 'post', 'node_start').
+                       Convention, not enforced by the engine.
             context: Execution context data
-            node_mods: List of mod names to execute (for mods_pre, mods_post)
-        
+
         Returns:
             HookResult with status and any modifications
         """
         import os
         debug = os.environ.get('WEBUI_DEBUG') == '1'
-        
+
         # Add hook name to context
         ctx = {**context, 'hook': hook_name}
-        
+
         # Debug: Log hook point entry
         if debug:
             print(f"\n{'='*60}")
-            print(f"🔧 HOOK POINT: {hook_name}")
+            print(f"HOOK: {hook_name}")
             print(f"{'='*60}")
-        
+
         execution_order = 0
         last_data = {}  # Track data from last hook execution
-        
-        # Execute system hooks for this point
+
+        # 1. Execute system hooks from hooks.yaml
         system_hooks = self.hooks_config.get(hook_name, [])
         for hook_conf in system_hooks:
             execution_order += 1
             script_path = hook_conf.get('script', 'unknown')
-            
+
             if debug:
                 print(f"\n  #{execution_order} HOOK: {Path(script_path).name}")
                 print(f"     Path: {script_path}")
-            
+
             result = self._execute_single_hook(hook_conf, ctx)
-            
+
             if debug:
                 status_icon = '✅' if result.status == STATUS_SUCCESS else '❌' if result.status == STATUS_ERROR else '⏭️'
                 print(f"     {status_icon} Status: {result.status}")
                 if result.data:
-                    print(f"     📦 Data: {result.data}")
+                    print(f"     Data: {result.data}")
                 if result.modify_context:
-                    print(f"     🔄 Modified: {list(result.modify_context.keys())}")
-            
+                    print(f"     Modified: {list(result.modify_context.keys())}")
+
             if result.status == STATUS_ERROR:
                 self._handle_error(hook_name, result, ctx)
                 return result
@@ -155,101 +157,99 @@ class HookPipeline:
             # Preserve data from hook result
             if result.data:
                 last_data = result.data
-        
-        # For mods_pre and mods_post, also execute user mods
-        if hook_name == 'mods_pre' and node_mods:
-            result = self._execute_mods(node_mods, 'pre', ctx, execution_order, debug)
+
+        # 2. Execute mods from mods.yaml (hooks with guards)
+        # Mods self-filter via guards — the engine just runs them all
+        enabled_mods = ctx.get('enabled_mods', [])
+        if enabled_mods:
+            result = self._execute_mods(enabled_mods, hook_name, ctx, execution_order, debug)
             if result.status == STATUS_ERROR:
                 return result
-            ctx.update(result.modify_context)
-        
-        elif hook_name == 'mods_post' and node_mods:
-            result = self._execute_mods(node_mods, 'post', ctx, execution_order, debug)
-            if result.status == STATUS_ERROR:
-                return result
-            ctx.update(result.modify_context)
-        
+            ctx.update(result.modify_context or {})
+
         if debug:
             print(f"{'='*60}\n")
-        
+
         return HookResult(STATUS_SUCCESS, data=last_data, modify_context=ctx)
     
-    def _execute_mods(self, mod_names: List[str], stage: str, context: dict, 
+    def _execute_mods(self, mod_names: List[str], hook_name: str, context: dict,
                        start_order: int = 0, debug: bool = False) -> HookResult:
-        """Execute user mods for a given stage."""
+        """Execute user mods, checking guards against the current hook name.
+
+        Mods self-filter: each mod's 'stage' guard is checked against hook_name.
+        No special-casing of any hook name in the engine.
+        """
         ctx = {**context}
         execution_order = start_order
-        
+
         for mod_name in mod_names:
             mod_conf = self.mods_config.get(mod_name)
             if not mod_conf:
                 continue
-            
+
             execution_order += 1
-            
-            # Check stage (supports string or list)
+
+            # Guard: stage match (mod declares which hook names it runs at)
             mod_stage = mod_conf.get('stage', 'both')
             if isinstance(mod_stage, list):
-                # List of stages: check if current stage is in the list
-                stage_match = stage in mod_stage or 'both' in mod_stage
+                stage_match = hook_name in mod_stage or 'both' in mod_stage
             else:
-                # Single stage: exact match or 'both'
-                stage_match = mod_stage == 'both' or mod_stage == stage
-            
+                stage_match = mod_stage == 'both' or mod_stage == hook_name
+
             if not stage_match:
                 if debug:
                     print(f"\n  #{execution_order} MOD: {mod_name}")
-                    print(f"     ⏭️  SKIPPED: stage={mod_stage} but executing={stage}")
+                    print(f"     SKIPPED: stage={mod_stage} but hook={hook_name}")
                 continue
-            
-            # Check execution scope
+
+            # Guard: execution scope
             scope = mod_conf.get('execution_scope', 'checkpoint')
             is_checkpoint_execution = ctx.get('is_checkpoint_execution', False)
-            
+
             if scope == 'checkpoint' and not is_checkpoint_execution:
                 if debug:
                     print(f"\n  #{execution_order} MOD: {mod_name}")
-                    print(f"     ⏭️  SKIPPED: scope=checkpoint but is_checkpoint_execution=False")
+                    print(f"     SKIPPED: scope=checkpoint but is_checkpoint_execution=False")
                 continue
             if scope == 'image' and is_checkpoint_execution:
                 if debug:
                     print(f"\n  #{execution_order} MOD: {mod_name}")
-                    print(f"     ⏭️  SKIPPED: scope=image but is_checkpoint_execution=True")
+                    print(f"     SKIPPED: scope=image but is_checkpoint_execution=True")
                 continue
-            
-            # Check filters
+
+            # Guard: filters
             if not self._check_filters(mod_conf, ctx):
                 if debug:
                     print(f"\n  #{execution_order} MOD: {mod_name}")
-                    print(f"     ⏭️  SKIPPED: filter check failed")
+                    print(f"     SKIPPED: filter check failed")
                 continue
-            
+
             if debug:
                 print(f"\n  #{execution_order} MOD: {mod_name}")
-                print(f"     Stage: {stage} | Scope: {scope}")
-                print(f"     ✓ Filters passed")
+                print(f"     Hook: {hook_name} | Scope: {scope}")
+                print(f"     Guards passed")
                 print(f"     Path: {mod_conf.get('script', 'unknown')}")
-            
-            # Execute mod
+
+            # Execute mod (same path as any hook)
             result = self._execute_single_hook(mod_conf, ctx)
-            
+
             if debug:
                 status_icon = '✅' if result.status == STATUS_SUCCESS else '❌' if result.status == STATUS_ERROR else '⏭️'
                 print(f"     {status_icon} Status: {result.status}")
                 if result.data:
-                    print(f"     📦 Data: {result.data}")
+                    print(f"     Data: {result.data}")
                 if result.modify_context:
-                    print(f"     🔄 Modified: {list(result.modify_context.keys())}")
-            
+                    print(f"     Modified: {list(result.modify_context.keys())}")
+
             if result.status == STATUS_ERROR:
                 return result
             if result.status == STATUS_SKIP:
                 continue
-            
+
             # Apply context modifications
             if result.modify_context:
                 ctx.update(result.modify_context)
-        
+
         return HookResult(STATUS_SUCCESS, modify_context=ctx)
     
     def _check_filters(self, mod_conf: dict, context: dict) -> bool:

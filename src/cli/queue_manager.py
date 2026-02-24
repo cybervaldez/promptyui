@@ -30,7 +30,7 @@ def add_to_queue(args, items: list, title: str, shutdown_event=None) -> Optional
         tuple: (generate_list, batch, items) if --start-worker is set, None otherwise
     """
     # Import GenerateList
-    sys.path.insert(0, str(Path.cwd() / 'webui' / 'v4'))
+    sys.path.insert(0, str(Path.cwd() / 'webui' / 'prompty'))
     try:
         from server.generate_list import GenerateList
     except ImportError as e:

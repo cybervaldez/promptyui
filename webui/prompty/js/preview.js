@@ -181,7 +181,7 @@ PU.preview = {
 
 
     /**
-     * Generate semantic node ID matching v4's path format.
+     * Generate semantic node ID from edit path (e.g., "0" → "node-0").
      * Exposed as shared method for use by focus mode's editPathToSemanticPath.
      *
      * Format:
