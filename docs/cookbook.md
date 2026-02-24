@@ -98,7 +98,7 @@ A __tone__ product shot of __product__ for the __brand__ campaign
 - `tone`: neutral, energetic, minimal
 - `brand`: generic
 
-**Then you create operation files:**
+**Then you create operations** (a type of build hook — value replacement):
 
 ```yaml
 # operations/client-acme.yaml
@@ -119,6 +119,8 @@ mappings:
 **You get:** Select `client-acme` → export ACME batch. Select `client-zen` → export ZenLife batch. One prompt, zero duplication.
 
 **Also works for:** Localization (swap English values for Spanish), A/B testing (swap key phrases between variants), seasonal campaigns (swap "summer" vocabulary for "winter").
+
+**How it fits:** Operations are **build hooks** — they appear in the build flow diagram and transform the pipeline before compositions resolve.
 
 ---
 
@@ -283,8 +285,10 @@ with __wildcards__                 as separate prompts
          ├── Locks (pin specific values for targeted export)
          │     └── Only Gen Z + professional? Lock them, export 12.
          │
-         ├── Operations (swap values per client/locale/variant)
-         │     └── One prompt → ACME batch, ZenLife batch, Spanish batch
+         ├── Hooks (extend the pipeline at three locations)
+         │     ├── Editor hooks: UI widgets, token counters while editing
+         │     ├── Build hooks: operations, quality gates when assembling
+         │     └── Render hooks: annotations, validation when output resolves
          │
          └── Export (YAML or txt, to file or download)
                └── Every composition has a unique ID — deterministic, reproducible
@@ -300,7 +304,12 @@ with __wildcards__                 as separate prompts
 | **Theme** | A YAML file in `ext/` with reusable text and wildcards. Reference it from any prompt. |
 | **Composition** | One specific combination of wildcard values. Addressed by an integer ID. |
 | **Bucket** | A window of wildcard values. `wildcards_max: 3` shows 3 values at a time. |
-| **Operation** | A YAML file that remaps values. "casual" → "corporate" without editing the prompt. |
+| **Editor hook** | A hook in the prompt editor — adds UI elements while you write (token counter, live preview). |
+| **Build hook** | A hook in the build flow diagram — transforms the pipeline (operations, quality gates). |
+| **Render hook** | A hook on resolved output — fires per composition (annotation alerts, token budget). |
+| **Operation** | A build hook that remaps values. "casual" → "corporate" without editing the prompt. |
+| **Hook** | A system lifecycle script (`hooks.yaml`). Fires at specific generation-time stages (NODE_START, IMAGE_GENERATION, etc.). IMAGE_GENERATION is just a hook point — a user-supplied script does the work. |
+| **Mod** | A user extension script (`mods.yaml`). Same mechanism as hooks, but fires at MODS_PRE/MODS_POST with stage, scope, and filter guards. Can also run at build time (`stage: build`). |
 | **Lock** | Pin a wildcard value (Ctrl+Click). Limits the output to only compositions with that value. |
 | **Focus** | Bulb toggle that dims blocks not using a wildcard. Filters your attention. |
 | **Push to Theme** | Sync your local wildcard edits back to the shared theme file. |

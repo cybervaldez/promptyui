@@ -177,24 +177,25 @@ class SegmentRegistry:
         return f'__{wc_name}__'  # Return placeholder if not found
 
 
-def build_composition(ext_indices: Dict[str, int], wc_usage: Dict[str, Any]) -> dict:
+def build_composition(ext_indices: Dict[str, int], wc_usage: Dict[str, Any], annotations: Optional[Dict[str, Any]] = None) -> dict:
     """
     Build minimal composition from ext_indices and wildcard usage.
-    
+
     Converts the tracking data from job building into the minimal
     format stored in JSON for reconstruction.
-    
+
     Args:
         ext_indices: Dict mapping ext_name -> 1-based index used
         wc_usage: Dict mapping wildcard_name -> {value, index} or index
-        
+        annotations: Optional dict of merged annotations for this variation
+
     Returns:
-        Composition dict with 'ext' and 'wc' keys
-        
+        Composition dict with 'ext', 'wc', and optionally 'ann' keys
+
     Example:
         ext_indices = {'mature-themes': 3, 'intimate-scenarios': 1}
         wc_usage = {'theme_type': {'value': 'boudoir', 'index': 1}}
-        
+
         # Returns:
         {
             'ext': [['intimate-scenarios', 0], ['mature-themes', 2]],
@@ -224,10 +225,13 @@ def build_composition(ext_indices: Dict[str, int], wc_usage: Dict[str, Any]) -> 
         else:
             wc_data[wc_name] = {'index': 0, 'value': ''}
     
-    return {
+    result = {
         'ext': ext_refs,
         'wc': wc_data
     }
+    if annotations:
+        result['ann'] = annotations
+    return result
 
 
 def reconstruct_template(composition: dict, registry: SegmentRegistry, delimiter: str = ', ') -> str:

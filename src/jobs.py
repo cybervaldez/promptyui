@@ -65,6 +65,14 @@ AI ASSISTANT NOTES:
 - Stores _original_template and _wildcards for batch tracking
 - Jobs are sorted by LoRA signature for optimal model loading
 - Resolution expressions are stored as-is for runtime evaluation
+
+PLANNED (TreeExecutor integration):
+- _block_path field: Each job entry will include a block path string (e.g., "0", "0.0", "1.0")
+  identifying which prompt block it belongs to. This enables depth-first ordering and
+  block-level lifecycle hooks (node_start/node_end fire once per block, not per composition).
+- Annotations merge: Currently parent→child via {**b_annotations, **s_annotations}.
+  TreeExecutor will pass parent's HookResult.data as parent_result in context.
+- See src/hooks.py docstring for the full planned lifecycle.
 """
 
 import sys
@@ -84,15 +92,15 @@ from src.exceptions import ExtensionError, WildcardError
 def build_text_variations(items, ext_texts, ext_text_max, wildcards_max, wildcard_lookup, current_level=0, default_leaf=False):
     """
     Recursively build text variations from nested content/after structure.
-    
-    Returns lists of tuples: (text, template, ext_indices_dict, wildcard_indices_dict, wildcard_positions_dict, is_checkpoint)
+
+    Returns lists of tuples: (text, template, ext_indices_dict, wildcard_indices_dict, wildcard_positions_dict, is_checkpoint, annotations)
     """
     import re
     from itertools import product
     
     if not items:
         # Base case: empty list returns empty text (is_checkpoint defaults to False for empty)
-        return [('', '', {}, {}, {}, False)]
+        return [('', '', {}, {}, {}, False, {})]
     
     results = []
     
@@ -101,16 +109,19 @@ def build_text_variations(items, ext_texts, ext_text_max, wildcards_max, wildcar
         base = []
         item_level = current_level + 1
         
+        # Extract annotations for this item (opaque metadata dict)
+        item_annotations = item.get('annotations', {}) or {}
+
         if 'content' in item:
             content_text = item['content']
-            
+
             # Find wildcards in content
             wildcard_names = re.findall(r'__([a-zA-Z0-9_-]+)__', content_text)
             unique_wildcards = sorted(list(set(wildcard_names)))
-            
+
             # Record their positions (level)
             wc_positions = {wc_name: item_level for wc_name in unique_wildcards}
-            
+
             if unique_wildcards and wildcard_lookup:
                 # EXPAND wildcards as separate variations
                 values_map = {}
@@ -124,43 +135,43 @@ def build_text_variations(items, ext_texts, ext_text_max, wildcards_max, wildcar
                         values_map[wc_name] = [(v, i) for i, v in enumerate(wc_values)]
 
                 lists_to_product = [values_map[wc_name] for wc_name in unique_wildcards]
-                
+
                 for combo in product(*lists_to_product):
                     expanded_text = content_text
                     wc_indices = {}
-                    
+
                     for i, wc_name in enumerate(unique_wildcards):
                         value, idx = combo[i]
                         expanded_text = expanded_text.replace(f'__{wc_name}__', value)
                         if idx >= 0:
                             wc_indices[wc_name] = idx
-                    
+
                     # Template preserves content_text (unresolved)
                     # is_checkpoint=False for content items (they don't have explicit checkpoint control)
-                    base.append((expanded_text, content_text, {}, wc_indices, wc_positions, False))
+                    base.append((expanded_text, content_text, {}, wc_indices, wc_positions, False, item_annotations))
             else:
                 # is_checkpoint=False for simple content
-                base.append((content_text, content_text, {}, {}, wc_positions, False))
+                base.append((content_text, content_text, {}, {}, wc_positions, False, item_annotations))
             
         elif 'ext_text' in item:
             ext_name = item['ext_text']
             values = ext_texts.get(ext_name, [])
-            
+
             if not values:
                 print(f"   ⚠️ Warning: ext_text '{ext_name}' not found or empty")
-                base = [('', '', {}, {}, {}, False)]
+                base = [('', '', {}, {}, {}, False, item_annotations)]
             else:
                 if ext_text_max > 0 and len(values) > ext_text_max:
                     values = [(values[i], i) for i in range(ext_text_max)]
                 else:
                     values = [(v, i) for i, v in enumerate(values)]
-                
+
                 new_base = []
                 for v, idx in values:
                     wildcard_names = re.findall(r'__([a-zA-Z0-9_-]+)__', v)
                     unique_wildcards = sorted(list(set(wildcard_names)))
                     wc_positions = {wc_name: item_level for wc_name in unique_wildcards}
-                    
+
                     if unique_wildcards and wildcard_lookup:
                         values_map = {}
                         for wc_name in unique_wildcards:
@@ -171,9 +182,9 @@ def build_text_variations(items, ext_texts, ext_text_max, wildcards_max, wildcar
                                 if wildcards_max > 0 and len(wc_values) > wildcards_max:
                                     wc_values = wc_values[:wildcards_max]
                                 values_map[wc_name] = [(val, i) for i, val in enumerate(wc_values)]
-                        
+
                         lists_to_product = [values_map[wc_name] for wc_name in unique_wildcards]
-                        
+
                         for combo in product(*lists_to_product):
                             expanded_text = v
                             wc_indices = {}
@@ -184,11 +195,11 @@ def build_text_variations(items, ext_texts, ext_text_max, wildcards_max, wildcar
                                     wc_indices[wc_name] = wc_idx
                             # Use 'v' as template (preserves its wildcards)
                             # is_checkpoint=False initially, will be determined after 'after' processing
-                            new_base.append((expanded_text, v, {ext_name: idx + 1}, wc_indices, wc_positions, False))
+                            new_base.append((expanded_text, v, {ext_name: idx + 1}, wc_indices, wc_positions, False, item_annotations))
                     else:
                         # is_checkpoint=False initially
-                        new_base.append((v, v, {ext_name: idx + 1}, {}, wc_positions, False))
-                
+                        new_base.append((v, v, {ext_name: idx + 1}, {}, wc_positions, False, item_annotations))
+
                 base = new_base
         else:
             # Invalid item - skip
@@ -204,17 +215,20 @@ def build_text_variations(items, ext_texts, ext_text_max, wildcards_max, wildcar
             
             # Cartesian product: each base × each suffix
             new_base = []
-            for b_text, b_tpl, b_indices, b_wc_indices, b_wc_positions, b_is_leaf in base:
-                for s_text, s_tpl, s_indices, s_wc_indices, s_wc_positions, s_is_leaf in suffixes:
+            for b_text, b_tpl, b_indices, b_wc_indices, b_wc_positions, b_is_leaf, b_annotations in base:
+                for s_text, s_tpl, s_indices, s_wc_indices, s_wc_positions, s_is_leaf, s_annotations in suffixes:
                     # Merge ext indices from both
                     merged_indices = {**b_indices, **s_indices}
-                    
+
                     # Merge wildcard indices from both
                     merged_wc_indices = {**b_wc_indices, **s_wc_indices}
-                    
+
                     # Merge wildcard positions (later levels override earlier if same name)
                     merged_wc_positions = {**b_wc_positions, **s_wc_positions}
-                    
+
+                    # Merge annotations: parent first, child wins on conflict
+                    merged_annotations = {**b_annotations, **s_annotations}
+
                     # Smart spacing: ensure space between concatenated texts to prevent
                     # wildcard collision (e.g., __foo____bar__ becoming one invalid wildcard)
                     if b_text and s_text:
@@ -226,7 +240,7 @@ def build_text_variations(items, ext_texts, ext_text_max, wildcards_max, wildcar
                             combined = b_text + s_text
                     else:
                         combined = b_text + s_text
-                        
+
                     # Smart spacing for TEMPLATE (same logic)
                     if b_tpl and s_tpl:
                         if not b_tpl.rstrip().endswith((',', ' ', '\n', '\t')) and \
@@ -236,16 +250,16 @@ def build_text_variations(items, ext_texts, ext_text_max, wildcards_max, wildcar
                             combined_tpl = b_tpl + s_tpl
                     else:
                         combined_tpl = b_tpl + s_tpl
-                    
+
                     # Combined items inherit suffix's checkpoint status (deeper items control)
-                    new_base.append((combined, combined_tpl, merged_indices, merged_wc_indices, merged_wc_positions, s_is_leaf))
+                    new_base.append((combined, combined_tpl, merged_indices, merged_wc_indices, merged_wc_positions, s_is_leaf, merged_annotations))
             
             # If explicit 'checkpoint: true' requested (or default is true), keep the base items as valid outputs too
             # This allows generating the parent prompt (e.g. "waving") AND its children ("waving sitting")
             item_is_leaf = item.get('checkpoint', default_leaf)
             if item_is_leaf:
                 # Mark base items as checkpoint and include them
-                base_as_leaf = [(t, tpl, ei, wi, wp, True) for t, tpl, ei, wi, wp, _ in base]
+                base_as_leaf = [(t, tpl, ei, wi, wp, True, ann) for t, tpl, ei, wi, wp, _, ann in base]
                 # Include both parent (checkpoint) and children (non-checkpoint unless they set checkpoint: true)
                 base = base_as_leaf + new_base
             else:
@@ -256,11 +270,11 @@ def build_text_variations(items, ext_texts, ext_text_max, wildcards_max, wildcar
             # Terminal nodes default to checkpoint=True (generate images)
             # Use explicit checkpoint: false to suppress generation at terminal
             item_is_leaf = item.get('checkpoint', True)  # Changed: terminals auto-checkpoint
-            base = [(t, tpl, ei, wi, wp, item_is_leaf) for t, tpl, ei, wi, wp, _ in base]
+            base = [(t, tpl, ei, wi, wp, item_is_leaf, ann) for t, tpl, ei, wi, wp, _, ann in base]
         
         results.extend(base)
     
-    return results if results else [('', '', {}, {}, {}, False)]
+    return results if results else [('', '', {}, {}, {}, False, {})]
 
 
 
@@ -678,7 +692,7 @@ def build_jobs(task_conf, lora_root, range_increment, prompts_delimiter, global_
             unresolved_nested_templates = [v[0] for v in variations]  # These ARE resolved now
             
             # Build usage tracking from the explicit wildcard indices
-            for text, _, ext_indices, wc_indices, wc_positions, is_checkpoint in variations:
+            for text, _, ext_indices, wc_indices, wc_positions, is_checkpoint, _ann in variations:
                 if wc_indices:
                     # Convert to the format expected by wildcard_usage_by_resolved
                     usage_dict = {}
@@ -693,13 +707,14 @@ def build_jobs(task_conf, lora_root, range_increment, prompts_delimiter, global_
                             usage_dict[wc_name] = {'value': f'__{wc_name}__', 'index': wc_idx + 1}
                     wildcard_usage_by_resolved[text] = usage_dict
             
-            # Unpack variations - now 6-tuples (text, template, ext, wc, pos, is_checkpoint)
-            text_combinations = [(text,) for text, _, _, _, _, _ in variations]
-            unresolved_nested_templates = [tpl for _, tpl, _, _, _, _ in variations]
-            ext_indices_list = [ext_indices for _, _, ext_indices, _, _, _ in variations]
-            wildcard_indices_list = [wc_indices for _, _, _, wc_indices, _, _ in variations]
-            wildcard_positions_list = [wc_pos for _, _, _, _, wc_pos, _ in variations]
-            is_leaf_list = [is_checkpoint for _, _, _, _, _, is_checkpoint in variations]
+            # Unpack variations - now 7-tuples (text, template, ext, wc, pos, is_checkpoint, annotations)
+            text_combinations = [(text,) for text, _, _, _, _, _, _ in variations]
+            unresolved_nested_templates = [tpl for _, tpl, _, _, _, _, _ in variations]
+            ext_indices_list = [ext_indices for _, _, ext_indices, _, _, _, _ in variations]
+            wildcard_indices_list = [wc_indices for _, _, _, wc_indices, _, _, _ in variations]
+            wildcard_positions_list = [wc_pos for _, _, _, _, wc_pos, _, _ in variations]
+            is_leaf_list = [is_checkpoint for _, _, _, _, _, is_checkpoint, _ in variations]
+            annotations_list = [ann for _, _, _, _, _, _, ann in variations]
             print(f"   📋 Generated {len(text_combinations)} nested text variations")
         
         else:
@@ -708,6 +723,7 @@ def build_jobs(task_conf, lora_root, range_increment, prompts_delimiter, global_
             wildcard_indices_list = None   # Not tracked in old format
             wildcard_positions_list = None  # Not tracked in old format
             is_leaf_list = None  # Not tracked in old format
+            annotations_list = None  # Not tracked in old format
             
             if not sorted_keys:
                 text_combinations = [[""]]
@@ -782,7 +798,13 @@ def build_jobs(task_conf, lora_root, range_increment, prompts_delimiter, global_
             # Add is_checkpoint status for per-variation checkpoint control
             if is_leaf_list and text_var_idx <= len(is_leaf_list):
                 new_p_entry['_is_leaf'] = is_leaf_list[text_var_idx - 1]
-            
+
+            # Store merged annotations for this variation
+            if nested_text_items and annotations_list and text_var_idx <= len(annotations_list):
+                ann = annotations_list[text_var_idx - 1]
+                if ann:
+                    new_p_entry['_annotations'] = ann
+
             new_expanded_prompts.append(new_p_entry)
             
         expanded_prompts.extend(new_expanded_prompts)

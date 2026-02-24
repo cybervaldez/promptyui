@@ -40,8 +40,24 @@ PU.actions = {
             if (rightPanel) rightPanel.style.transition = '';
         }));
 
+        // Show loading skeleton while jobs load
+        PU.sidebar.showLoadingSkeleton();
+
         // Then load jobs (which may select a job and populate dropdowns)
         await PU.sidebar.init();
+
+        // Remove skeleton and check layout
+        PU.sidebar.hideLoadingSkeleton();
+
+        if (!PU.state.activeJobId) {
+            // No job selected — expand sidebar to fill screen.
+            // Editor + right panel are hidden via CSS data-layout="no-job".
+            PU.actions.setExpandedLayout(true);
+            // Clear any persisted collapsed state so the sidebar is visible
+            if (PU.state.ui.leftSidebarCollapsed) {
+                PU.sidebar.expand();
+            }
+        }
 
         // Restore focus mode from URL (blocks are rendered after sidebar.init)
         if (PU.state.focusMode.pendingPath) {
@@ -67,11 +83,6 @@ PU.actions = {
             }
         }
 
-        // Show empty state if no job ended up active
-        if (!PU.state.activeJobId) {
-            PU.editor.showEmptyState();
-        }
-
         // Sync URL after init — clears stale params (e.g. focus path that failed to restore)
         PU.actions.updateUrl();
 
@@ -80,6 +91,9 @@ PU.actions = {
 
         // Init global dropdown close handler (once)
         PU.preview.initDropdownCloseHandler();
+
+        // Init responsive panel behavior
+        PU.responsive.init();
 
         console.log('PromptyUI initialized');
     },
@@ -190,6 +204,24 @@ PU.actions = {
         }
     },
 
+    /**
+     * Toggle expanded sidebar layout (no job selected).
+     */
+    setExpandedLayout(expanded) {
+        const main = document.querySelector('.pu-main');
+        if (!main) return;
+        if (expanded) {
+            main.dataset.layout = 'no-job';
+        } else {
+            delete main.dataset.layout;
+            // Force sidebar visible — collapsed state may have been
+            // persisted while no-job CSS was masking it
+            if (PU.state.ui.leftSidebarCollapsed) {
+                PU.sidebar.expand();
+            }
+        }
+    },
+
     // ============================================
     // Section Toggle Actions
     // ============================================
@@ -197,15 +229,6 @@ PU.actions = {
     toggleSection(section) {
         PU.state.ui.sectionsCollapsed[section] = !PU.state.ui.sectionsCollapsed[section];
         PU.helpers.saveUIState();
-    },
-
-    toggleDefaults() {
-        PU.state.ui.sectionsCollapsed.defaults = !PU.state.ui.sectionsCollapsed.defaults;
-
-        const form = document.querySelector('[data-testid="pu-defaults-form"]');
-        if (form) {
-            form.classList.toggle('collapsed', PU.state.ui.sectionsCollapsed.defaults);
-        }
     },
 
     // ============================================
@@ -232,6 +255,14 @@ PU.actions = {
     },
 
     async selectJob(jobId, updateUrl = true) {
+        // Collapse expanded sidebar layout when a job is selected
+        PU.actions.setExpandedLayout(false);
+
+        // On mobile, auto-close sidebar overlay after selecting a job
+        if (PU.responsive && PU.responsive.isMobile()) {
+            PU.responsive.closePanel('pu-sidebar');
+        }
+
         // Check if full job details are loaded (prompts should be objects, not strings)
         const existingJob = PU.state.jobs[jobId];
         const needsFullLoad = !existingJob ||
@@ -257,14 +288,18 @@ PU.actions = {
         PU.state.activeJobId = jobId;
         PU.state.ui.jobsExpanded[jobId] = true;
 
-        // Auto-select first prompt if none selected
+        // Auto-select first prompt if none selected or current prompt doesn't belong to this job
         const job = PU.state.jobs[jobId];
         if (job && job.prompts && job.prompts.length > 0) {
             const firstPromptId = typeof job.prompts[0] === 'string'
                 ? job.prompts[0]
                 : job.prompts[0].id;
 
-            if (!PU.state.activePromptId) {
+            const currentPromptInJob = PU.state.activePromptId && job.prompts.some(p =>
+                (typeof p === 'string' ? p : p.id) === PU.state.activePromptId
+            );
+
+            if (!PU.state.activePromptId || !currentPromptInJob) {
                 PU.state.activePromptId = firstPromptId;
             }
         }
@@ -285,7 +320,7 @@ PU.actions = {
             PU.state.previewMode.wildcardsMax = p?.wildcards_max ?? j?.defaults?.wildcards_max ?? 0;
         }
 
-        // Load operations for this job (Phase 2)
+        // Load operations (build hooks) for this job
         await PU.rightPanel.loadOperations();
 
         // Load session state (initial load — set baseline, hydrate non-URL fields)
@@ -351,10 +386,14 @@ PU.actions = {
 
     selectDefaults(jobId) {
         PU.actions.selectJob(jobId);
-        // Scroll to defaults toolbar
-        const toolbar = document.querySelector('[data-testid="pu-defaults-toolbar"]');
-        if (toolbar) {
-            toolbar.scrollIntoView({ behavior: 'smooth' });
+        // Ensure right panel is visible and scroll to defaults section
+        const defaults = document.querySelector('[data-testid="pu-rp-defaults"]');
+        if (defaults) {
+            // Uncollapse if collapsed
+            if (defaults.classList.contains('collapsed')) {
+                PU.rightPanel.toggleDefaults();
+            }
+            defaults.scrollIntoView({ behavior: 'smooth' });
         }
     },
 
@@ -543,9 +582,12 @@ PU.actions = {
         const menu = document.querySelector('.pu-add-menu');
         if (menu) {
             if (show === undefined) {
-                menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+                const opening = menu.style.display === 'none';
+                menu.style.display = opening ? 'block' : 'none';
+                if (opening) PU.overlay.showOverlay();
             } else {
                 menu.style.display = show ? 'block' : 'none';
+                if (show) PU.overlay.showOverlay();
             }
         }
     },
@@ -603,11 +645,97 @@ Need more help? Check docs/creating_jobs.md`);
 };
 
 // ============================================
+// Responsive panel management (mobile/tablet)
+// ============================================
+PU.responsive = {
+    _mobileQuery: null,
+    _tabletQuery: null,
+
+    /** True when viewport is mobile (<768px). */
+    isMobile() {
+        return PU.responsive._mobileQuery?.matches ?? false;
+    },
+
+    /** True when viewport is tablet (768-1024px). */
+    isTablet() {
+        return PU.responsive._tabletQuery?.matches ?? false;
+    },
+
+    /** True when either panel should use overlay behavior. */
+    isOverlay() {
+        return PU.responsive.isMobile() || PU.responsive.isTablet();
+    },
+
+    /** Initialize matchMedia listeners and touch gestures. */
+    init() {
+        PU.responsive._mobileQuery = window.matchMedia('(max-width: 767px)');
+        PU.responsive._tabletQuery = window.matchMedia('(min-width: 768px) and (max-width: 1024px)');
+
+        // Wire backdrop click
+        const backdrop = document.querySelector('[data-testid="pu-backdrop"]');
+        if (backdrop) {
+            backdrop.addEventListener('click', () => {
+                PU.responsive.closePanels();
+            });
+        }
+
+        // Wire popup overlay click (dismiss all popups)
+        const popupOverlay = document.querySelector('[data-testid="pu-popup-overlay"]');
+        if (popupOverlay) {
+            popupOverlay.addEventListener('click', () => {
+                PU.overlay.dismissAll();
+            });
+        }
+
+    },
+
+    /** Open a panel as overlay (adds pu-panel-open + shows backdrop). */
+    openPanel(panelTestId) {
+        const panel = document.querySelector(`[data-testid="${panelTestId}"]`);
+        if (!panel) return;
+        panel.classList.add('pu-panel-open');
+        PU.responsive._showBackdrop();
+    },
+
+    /** Close a specific panel overlay. */
+    closePanel(panelTestId) {
+        const panel = document.querySelector(`[data-testid="${panelTestId}"]`);
+        if (!panel) return;
+        panel.classList.remove('pu-panel-open');
+        // Hide backdrop only if no panels are open
+        if (!document.querySelector('.pu-panel-open')) {
+            PU.responsive._hideBackdrop();
+        }
+    },
+
+    /** Close all overlay panels. */
+    closePanels() {
+        document.querySelectorAll('.pu-panel-open').forEach(el => {
+            el.classList.remove('pu-panel-open');
+        });
+        PU.responsive._hideBackdrop();
+    },
+
+    _showBackdrop() {
+        const backdrop = document.querySelector('[data-testid="pu-backdrop"]');
+        if (backdrop) backdrop.classList.add('visible');
+    },
+
+    _hideBackdrop() {
+        const backdrop = document.querySelector('[data-testid="pu-backdrop"]');
+        if (backdrop) backdrop.classList.remove('visible');
+    }
+};
+
+// ============================================
 // Initialize on DOM ready
 // ============================================
 document.addEventListener('DOMContentLoaded', () => {
     PU.actions.init();
 });
+
+// Register add menu as a popover overlay
+PU.overlay.registerPopover('addMenu', () => PU.actions.toggleAddMenu(false));
 
 // Close dropdowns when clicking outside
 document.addEventListener('click', (e) => {
@@ -649,6 +777,13 @@ document.addEventListener('click', (e) => {
 
 // Handle keyboard shortcuts
 document.addEventListener('keydown', (e) => {
+    // Cmd/Ctrl+S — save prompt
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        PU.editor.savePrompt();
+        return;
+    }
+
     // [ — toggle left sidebar (skip if typing in input/textarea/contenteditable)
     if (e.key === '[' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         const tag = (e.target.tagName || '').toLowerCase();

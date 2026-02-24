@@ -10,11 +10,9 @@ PU.editor = {
      * Show editor for a prompt
      */
     async showPrompt(jobId, promptId) {
-        const emptyState = document.querySelector('[data-testid="pu-editor-empty"]');
         const content = document.querySelector('[data-testid="pu-editor-content"]');
         const noPrompts = document.querySelector('[data-testid="pu-editor-no-prompts"]');
 
-        if (emptyState) emptyState.style.display = 'none';
         if (noPrompts) noPrompts.style.display = 'none';
         if (content) content.style.display = 'flex';
 
@@ -22,71 +20,28 @@ PU.editor = {
         const titleEl = document.querySelector('[data-testid="pu-editor-title"]');
         if (titleEl) titleEl.textContent = promptId;
 
-        // Update defaults toolbar
-        PU.editor.updateDefaultsToolbar(jobId);
-
         // Update visualizer selector
         PU.editor.updateVisualizerSelector();
 
         // Render blocks with resolved content
         await PU.editor.renderBlocks(jobId, promptId);
 
+        // Update save state indicator
+        PU.editor.updateHeaderSaveState();
+
         // Sync right panel
         PU.rightPanel.render();
-    },
-
-    /**
-     * Show empty state (no job selected)
-     */
-    showEmptyState() {
-        const emptyState = document.querySelector('[data-testid="pu-editor-empty"]');
-        const content = document.querySelector('[data-testid="pu-editor-content"]');
-        const noPrompts = document.querySelector('[data-testid="pu-editor-no-prompts"]');
-
-        if (emptyState) emptyState.style.display = 'flex';
-        if (content) content.style.display = 'none';
-        if (noPrompts) noPrompts.style.display = 'none';
     },
 
     /**
      * Show no-prompts state (job selected but 0 prompts)
      */
     showNoPromptsState() {
-        const emptyState = document.querySelector('[data-testid="pu-editor-empty"]');
         const content = document.querySelector('[data-testid="pu-editor-content"]');
         const noPrompts = document.querySelector('[data-testid="pu-editor-no-prompts"]');
 
-        if (emptyState) emptyState.style.display = 'none';
         if (content) content.style.display = 'none';
         if (noPrompts) noPrompts.style.display = 'flex';
-    },
-
-    /**
-     * Update defaults toolbar
-     */
-    updateDefaultsToolbar(jobId) {
-        const job = PU.helpers.getActiveJob();
-        if (!job) return;
-
-        const defaults = job.defaults || {};
-
-        // Check if extensions exist
-        const tree = PU.state.globalExtensions.tree;
-        const hasExtensions = tree && Object.keys(tree).filter(k => k !== '_files').length > 0;
-
-        // Toggle ext row vs "no extensions" message
-        const extRow = document.querySelector('[data-testid="pu-defaults-ext-row"]');
-        const noExtMsg = document.querySelector('[data-testid="pu-defaults-no-ext"]');
-        if (extRow) extRow.style.display = hasExtensions ? '' : 'none';
-        if (noExtMsg) noExtMsg.style.display = hasExtensions ? 'none' : '';
-
-        // Update ext dropdown only when extensions exist
-        if (hasExtensions) {
-            const extSelect = document.querySelector('[data-testid="pu-defaults-ext"]');
-            if (extSelect) {
-                PU.editor.populateExtDropdown(extSelect, defaults.ext || 'defaults');
-            }
-        }
     },
 
     /**
@@ -223,7 +178,7 @@ PU.editor = {
         const container = document.querySelector('[data-testid="pu-blocks-container"]');
         if (!container) { PU.editor._wildcardToBlocks = map; return; }
 
-        // Phase 1: Scan data-wc spans in rendered blocks (covers wildcards in content)
+        // Step 1: Scan data-wc spans in rendered blocks (covers wildcards in content)
         container.querySelectorAll('[data-wc]').forEach(span => {
             const block = span.closest('.pu-block');
             if (block && block.dataset.path !== undefined) {
@@ -233,7 +188,7 @@ PU.editor = {
             }
         });
 
-        // Phase 2: Map theme wildcards to their ext_text block paths.
+        // Step 2: Map theme wildcards to their ext_text block paths.
         // Theme wildcards may not appear as __name__ in any content block,
         // but they're still associated with the ext_text block that sources them.
         const prompt = PU.helpers.getActivePrompt();
@@ -298,6 +253,11 @@ PU.editor = {
                 }
             });
         });
+
+        // Restore open annotation editors after DOM rebuild
+        if (PU.annotations && PU.annotations._openEditors.size > 0) {
+            PU.annotations.restoreOpenEditors();
+        }
     },
 
     /**
@@ -323,6 +283,58 @@ PU.editor = {
     },
 
     /**
+     * Update header save state indicator
+     */
+    updateHeaderSaveState() {
+        const el = document.querySelector('[data-testid="pu-prompt-save-state"]');
+        if (!el) return;
+        const isDirty = !!PU.state.modifiedJobs[PU.state.activeJobId];
+        el.style.display = isDirty ? 'inline-flex' : 'none';
+        const badge = el.querySelector('[data-testid="pu-save-badge"]');
+        if (badge && isDirty) {
+            badge.textContent = '(modified)';
+            badge.classList.remove('pu-saved');
+        }
+    },
+
+    /**
+     * Save prompt to disk
+     */
+    async savePrompt() {
+        const jobId = PU.state.activeJobId;
+        if (!jobId) return;
+        const jobData = PU.state.modifiedJobs[jobId];
+        if (!jobData) {
+            PU.actions.showToast('No changes to save', 'info');
+            return;
+        }
+
+        const btn = document.querySelector('[data-testid="pu-save-btn"]');
+        if (btn) btn.disabled = true;
+
+        try {
+            const result = await PU.api.exportJob(jobId, { save_to_file: true, job_data: jobData });
+            if (result.success) {
+                delete PU.state.modifiedJobs[jobId];
+                // Flash saved badge
+                const badge = document.querySelector('[data-testid="pu-save-badge"]');
+                if (badge) {
+                    badge.textContent = '(saved)';
+                    badge.classList.add('pu-saved');
+                    setTimeout(() => PU.editor.updateHeaderSaveState(), 2000);
+                }
+                PU.actions.showToast(`Saved to ${result.path}`, 'success');
+            } else {
+                PU.actions.showToast(result.error || 'Save failed', 'error');
+            }
+        } catch (e) {
+            PU.actions.showToast('Save failed: ' + e.message, 'error');
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    },
+
+    /**
      * Update block content — updates state then re-renders
      */
     updateBlockContent(path, content) {
@@ -340,6 +352,7 @@ PU.editor = {
 
         // Update right panel with wildcards
         PU.rightPanel.render();
+        PU.editor.updateHeaderSaveState();
     },
 
     /**
@@ -438,6 +451,7 @@ PU.editor = {
                 PU.blocks.deleteBlockAtPath(prompt.text, path);
                 PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
                 PU.state.selectedBlockPath = null;
+                PU.editor.updateHeaderSaveState();
             };
 
             // Animate exit before removing

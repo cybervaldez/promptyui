@@ -236,7 +236,7 @@ EXT_TREE_EMPTY=$(agent-browser eval "
 if [ "$EXT_TREE_EMPTY" = "true" ]; then
     # ext/ is empty — ext row should be hidden
     EXT_ROW_HIDDEN=$(agent-browser eval "
-        var row = document.querySelector('[data-testid=\"pu-defaults-ext-row\"]');
+        var row = document.querySelector('[data-testid=\"pu-rp-defaults-ext-row\"]');
         !!(row && row.style.display === 'none')
     " 2>/dev/null)
     if [ "$EXT_ROW_HIDDEN" = "true" ]; then
@@ -258,7 +258,7 @@ if [ "$EXT_TREE_EMPTY" = "true" ]; then
 else
     # ext/ has content — ext row should be visible
     EXT_ROW_VISIBLE=$(agent-browser eval "
-        var row = document.querySelector('[data-testid=\"pu-defaults-ext-row\"]');
+        var row = document.querySelector('[data-testid=\"pu-rp-defaults-ext-row\"]');
         !!(row && row.style.display !== 'none')
     " 2>/dev/null)
     if [ "$EXT_ROW_VISIBLE" = "true" ]; then

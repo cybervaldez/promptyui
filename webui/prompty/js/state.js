@@ -8,6 +8,72 @@
 const PU = window.PU || {};
 
 /**
+ * Overlay Registry — central dismiss-all for popups, modals, panels.
+ * Every overlay registers its close function. Openers call dismissAll()
+ * before showing themselves to enforce mutual exclusion.
+ *
+ * Two layers:
+ *   popover — lightweight (context menu, swap dropdown, add menu, etc.)
+ *   modal   — heavyweight (move-to-theme, save-as-theme, export, ext picker, focus)
+ *
+ * dismissAll() closes everything. dismissPopovers() closes only the popover layer.
+ */
+PU.overlay = {
+    _popovers: [],   // [{name, close}]
+    _modals: [],      // [{name, close}]
+
+    /** Register a popover-layer overlay. */
+    registerPopover(name, closeFn) {
+        PU.overlay._popovers.push({ name, close: closeFn });
+    },
+
+    /** Register a modal-layer overlay. */
+    registerModal(name, closeFn) {
+        PU.overlay._modals.push({ name, close: closeFn });
+    },
+
+    /** Show the popup backdrop overlay. */
+    showOverlay() {
+        const el = document.querySelector('[data-testid="pu-popup-overlay"]');
+        if (el) el.classList.add('visible');
+    },
+
+    /** Hide the popup backdrop overlay and clear sticky hover state. */
+    hideOverlay() {
+        const el = document.querySelector('[data-testid="pu-popup-overlay"]');
+        if (el) el.classList.remove('visible');
+
+        // Clear lingering context-active marks
+        document.querySelectorAll('.pu-ctx-active').forEach(b => b.classList.remove('pu-ctx-active'));
+
+        // Absorb the dismiss click: block pointer-events on the editor
+        // so the click/touch-end doesn't bleed through to a block behind
+        // the overlay, which would immediately trigger a new hover state.
+        const blocks = document.querySelector('[data-testid="pu-blocks-container"]');
+        if (blocks) {
+            blocks.style.pointerEvents = 'none';
+            setTimeout(() => { blocks.style.pointerEvents = ''; }, 80);
+        }
+    },
+
+    /** Close all popovers (lightweight overlays). */
+    dismissPopovers() {
+        for (const entry of PU.overlay._popovers) {
+            entry.close();
+        }
+        PU.overlay.hideOverlay();
+    },
+
+    /** Close everything — popovers + modals + responsive panels on mobile. */
+    dismissAll() {
+        PU.overlay.dismissPopovers();
+        for (const entry of PU.overlay._modals) {
+            entry.close();
+        }
+    }
+};
+
+/**
  * Application State
  */
 PU.state = {
@@ -69,9 +135,9 @@ PU.state = {
     // Build Composition panel state
     buildComposition: {
         visible: false,
-        operations: [],              // Available operation file names
-        activeOperation: null,       // Currently selected operation name
-        activeOperationData: null,   // Loaded operation YAML content
+        operations: [],              // Available build hook (operation) file names
+        activeOperation: null,       // Currently selected operation (build hook) name
+        activeOperationData: null,   // Loaded operation (build hook) YAML content
         generating: false            // Loading state for Export button
     },
 
@@ -101,7 +167,8 @@ PU.state = {
         contextMenu: { visible: false, path: null, isTheme: false },
         saveModal: { visible: false, blockPath: null },
         moveToThemeModal: { visible: false, blockPath: null, blockIndex: null },
-        pushToThemePopover: { visible: false, wildcardName: null }
+        pushToThemePopover: { visible: false, wildcardName: null },
+        sourceDropdown: { visible: false, path: null, currentSource: null }
     },
 
     // Preview/resolution state (odometer + wildcard selections)
@@ -401,7 +468,7 @@ PU.helpers = {
  */
 PU.api = {
     /**
-     * Load operations list for a job
+     * Load operations (build hooks) list for a job
      */
     async loadOperations(jobId) {
         const data = await PU.api.get(`/api/pu/job/${encodeURIComponent(jobId)}/operations`);

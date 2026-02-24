@@ -8,7 +8,7 @@ PU.blocks = {
     /**
      * Render a block (content or ext_text)
      */
-    renderBlock(item, path, depth = 0, resolutions) {
+    renderBlock(item, path, depth = 0, resolutions, meta = {}) {
         const isSelected = PU.state.selectedBlockPath === path;
         const pathId = path.replace(/\./g, '-');
         const isChild = depth > 0;
@@ -25,7 +25,9 @@ PU.blocks = {
         // Path divider for child blocks in animated modes (sits above block-body, like a diagram edge label)
         // In compact mode, path is rendered as inline badge inside content instead
         if (isChild && viz !== 'compact') {
-            html += `<div class="pu-path-divider" data-testid="pu-path-divider-${pathId}"><span class="pu-path-label" data-testid="pu-block-path-${pathId}"><span class="pu-child-arrow">\u21B3</span>${path}</span><button class="pu-inline-action pu-path-delete" data-testid="pu-block-delete-btn-${pathId}" tabindex="-1" onclick="event.stopPropagation(); PU.actions.deleteBlock('${path}')" title="Delete block"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button></div>`;
+            const divSrcSuffix = PU.blocks._renderSourceSuffix(item);
+            const divSrcType = PU.blocks._getSourceType(item);
+            html += `<div class="pu-path-divider" data-testid="pu-path-divider-${pathId}"><span class="pu-path-label" data-testid="pu-block-path-${pathId}" data-has-source data-source-type="${divSrcType}" onclick="event.stopPropagation(); PU.themes.openSourceDropdown(event, '${PU.blocks.escapeAttr(path)}')"><span class="pu-child-arrow">\u21B3</span>${path}${divSrcSuffix}</span><button class="pu-inline-action pu-path-delete" data-testid="pu-block-delete-btn-${pathId}" tabindex="-1" onclick="event.stopPropagation(); PU.actions.deleteBlock('${path}')" title="Delete block"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button></div>`;
         }
 
         // Body wrapper: contains header/path + content + toolbar (not children)
@@ -34,29 +36,29 @@ PU.blocks = {
         if (isChild) {
             // Path rendered in pu-path-divider (animated) or inline badge (compact) — no separate element here
         } else {
-            // Root blocks: full header
-            html += `
-                <div class="pu-block-header">
-                    <span class="pu-block-toggle expanded"
-                          onclick="PU.actions.toggleBlock('${path}')">&#9654;</span>
-                    <span class="pu-block-path" data-testid="pu-block-path-${pathId}">Path: ${path}</span>`;
-
-            if ('content' in item) {
-                html += `<span class="pu-block-type">content</span>`;
-            } else if ('ext_text' in item) {
-                html += `<span class="pu-block-type">ext_text</span>`;
+            // Root blocks: headerless compact (like children, no header bar)
+            if (viz !== 'compact') {
+                // Animated root: path divider without child arrow
+                const divSrcSuffix = PU.blocks._renderSourceSuffix(item);
+                const divSrcType = PU.blocks._getSourceType(item);
+                html += `<div class="pu-path-divider pu-root-divider" data-testid="pu-path-divider-${pathId}">
+                    <span class="pu-path-label" data-testid="pu-block-path-${pathId}"
+                        data-has-source data-source-type="${divSrcType}"
+                        onclick="event.stopPropagation(); PU.themes.openSourceDropdown(event, '${PU.blocks.escapeAttr(path)}')">${path}${divSrcSuffix}</span>
+                    <button class="pu-inline-action pu-path-delete" data-testid="pu-block-delete-btn-${pathId}" tabindex="-1"
+                        onclick="event.stopPropagation(); PU.actions.deleteBlock('${path}')" title="Delete block">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+                    </button></div>`;
             }
-
-            html += `
-                </div>`;
+            // Compact root: path hint rendered inline inside content (see renderContentBlock/renderExtTextBlock)
         }
 
         const resolution = resolutions ? resolutions.get(path) : null;
 
         if ('content' in item) {
-            html += PU.blocks.renderContentBlock(item, path, pathId, resolution, depth);
+            html += PU.blocks.renderContentBlock(item, path, pathId, resolution, depth, meta);
         } else if ('ext_text' in item) {
-            html += PU.blocks.renderExtTextBlock(item, path, pathId, resolution, depth);
+            html += PU.blocks.renderExtTextBlock(item, path, pathId, resolution, depth, meta);
         }
 
         // Right-edge actions are now rendered inside .pu-block-content (see renderContentBlock/renderExtTextBlock)
@@ -68,14 +70,17 @@ PU.blocks = {
             html += `<div class="pu-block-children">`;
             item.after.forEach((child, idx) => {
                 const childPath = `${path}.${idx}`;
-                html += PU.blocks.renderBlock(child, childPath, depth + 1, resolutions);
+                html += PU.blocks.renderBlock(child, childPath, depth + 1, resolutions, {
+                    isLast: idx === item.after.length - 1,
+                    siblingCount: item.after.length
+                });
             });
             html += `</div>`;
         }
 
         // Nest button at bottom of block (visible on hover) — root blocks only
         if (!isChild) {
-            html += `<div class="pu-nest-action"><button class="pu-nest-btn" data-testid="pu-nest-btn-${pathId}" onclick="PU.actions.addNestedBlock('${path}')" title="Add nested block">+ Add Child</button><button class="pu-nest-btn pu-nest-theme-btn" data-testid="pu-nest-theme-btn-${pathId}" onclick="PU.themes.addThemeAsChild('${path}')" title="Insert theme as child">+ Insert Theme</button></div>`;
+            html += `<div class="pu-nest-action"><button class="pu-nest-btn" data-testid="pu-nest-btn-${pathId}" onclick="PU.actions.addNestedBlock('${path}')" title="Add nested block">+ Add Child</button><button class="pu-nest-btn pu-nest-theme-btn" data-testid="pu-nest-theme-btn-${pathId}" onclick="PU.themes.addThemeAsChild('${path}', this)" title="Insert theme as child">+ Insert Theme</button></div>`;
         }
 
         html += `</div>`;
@@ -92,6 +97,24 @@ PU.blocks = {
     },
 
     /**
+     * Render source suffix — inline separator + source label + arrow for path badges.
+     * Returns inner HTML to be appended inside a path element (pu-block-path, pu-path-label, pu-child-path-hint).
+     */
+    _renderSourceSuffix(item) {
+        if ('ext_text' in item) {
+            const extName = item.ext_text || '';
+            const shortName = PU.blocks.escapeHtml(extName.split('/').pop() || extName);
+            return `<span class="pu-path-source-sep">&middot;</span><span class="pu-path-source" data-source-type="theme">${shortName}</span><span class="pu-path-source-arrow">&#9662;</span>`;
+        }
+        return `<span class="pu-path-source-sep">&middot;</span><span class="pu-path-source" data-source-type="content">content</span><span class="pu-path-source-arrow">&#9662;</span>`;
+    },
+
+    /** Get source type string for data attributes */
+    _getSourceType(item) {
+        return ('ext_text' in item) ? 'theme' : 'content';
+    },
+
+    /**
      * Render inline dice button that flows after content text (hover-only, animated modes only)
      */
     _renderInlineDice(pathId) {
@@ -101,53 +124,71 @@ PU.blocks = {
     },
 
     /**
-     * Render inline pencil+delete that flows after content text (compact mode only)
+     * Render right-edge horizontal actions for compact mode (pencil + annotate + delete)
      */
-    _renderInlineCompactActions(path, pathId) {
+    _renderInlineCompactActions(path, pathId, isChild = false, item = null, isExtText = false) {
         const viz = PU.state.previewMode.visualizer;
         if (viz !== 'compact') return '';
-        return `<span class="pu-inline-actions pu-compact-actions"><button class="pu-inline-action pu-inline-edit" data-testid="pu-block-edit-btn-${pathId}" tabindex="-1" onclick="event.stopPropagation(); PU.actions.selectBlock('${path}'); PU.focus.enter('${path}')" title="Edit block"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button><button class="pu-inline-action pu-inline-delete" data-testid="pu-block-delete-btn-${pathId}" tabindex="-1" onclick="event.stopPropagation(); PU.actions.deleteBlock('${path}')" title="Delete block"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button></span>`;
+        const hasAnn = item && item.annotations && Object.keys(item.annotations).length > 0;
+        const moveBtn = (!isChild && !isExtText) ? `<button class="pu-inline-action pu-inline-move" data-testid="pu-block-move-btn-${pathId}" tabindex="-1" onclick="event.stopPropagation(); PU.moveToTheme.open('${path}')" title="Move block to reusable theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></button>` : '';
+        const annotateBtn = `<button class="pu-inline-action pu-inline-annotate${hasAnn ? ' has-annotations' : ''}" data-testid="pu-block-annotate-btn-${pathId}" tabindex="-1" onclick="event.stopPropagation(); PU.annotations.toggleEditor('${path}')" title="Annotate block"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></button>`;
+        const deleteBtn = isChild ? '' : `<button class="pu-inline-action pu-inline-delete" data-testid="pu-block-delete-btn-${pathId}" tabindex="-1" onclick="event.stopPropagation(); PU.actions.deleteBlock('${path}')" title="Delete block"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>`;
+        const moreBtn = `<button class="pu-inline-action block-more" onclick="event.stopPropagation(); PU.themes.openContextMenu(event, '${path}', ${isExtText})" data-testid="pu-block-more-${pathId}" tabindex="-1" title="More actions">&#8943;</button>`;
+        return `<div class="pu-compact-right-actions"><button class="pu-inline-action pu-inline-edit" data-testid="pu-block-edit-btn-${pathId}" tabindex="-1" onclick="event.stopPropagation(); PU.actions.selectBlock('${path}'); PU.focus.enter('${path}')" title="Edit block"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>${annotateBtn}${moveBtn}${deleteBtn}${moreBtn}</div>`;
     },
 
     /**
-     * Render right-edge actions (pencil always; delete only for root blocks; move for eligible content blocks)
+     * Render right-edge actions (pencil always; annotate; delete only for root blocks; move for eligible content blocks)
      */
-    _renderRightEdgeActions(path, pathId, isChild = false, canMove = false) {
+    _renderRightEdgeActions(path, pathId, isChild = false, canMove = false, item = null) {
+        const isExtText = item && 'ext_text' in item;
         const moveBtn = canMove ? `<button class="pu-inline-action pu-inline-move" data-testid="pu-block-move-btn-${pathId}" tabindex="-1" onclick="event.stopPropagation(); PU.moveToTheme.open('${path}')" title="Move block to reusable theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></button>` : '';
+        const hasAnn = item && item.annotations && Object.keys(item.annotations).length > 0;
+        const annotateBtn = `<button class="pu-inline-action pu-inline-annotate${hasAnn ? ' has-annotations' : ''}" data-testid="pu-block-annotate-btn-${pathId}" tabindex="-1" onclick="event.stopPropagation(); PU.annotations.toggleEditor('${path}')" title="Annotate block"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></button>`;
         const deleteBtn = isChild ? '' : `<button class="pu-inline-action pu-inline-delete" data-testid="pu-block-delete-btn-${pathId}" tabindex="-1" onclick="event.stopPropagation(); PU.actions.deleteBlock('${path}')" title="Delete block"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>`;
-        return `<div class="pu-right-edge-actions">${moveBtn}<button class="pu-inline-action pu-inline-edit" data-testid="pu-block-edit-btn-${pathId}" tabindex="-1" onclick="event.stopPropagation(); PU.actions.selectBlock('${path}'); PU.focus.enter('${path}')" title="Edit block"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>${deleteBtn}</div>`;
+        const moreBtn = `<button class="pu-inline-action block-more" onclick="event.stopPropagation(); PU.themes.openContextMenu(event, '${path}', ${!!isExtText})" data-testid="pu-block-more-${pathId}" tabindex="-1" title="More actions">&#8943;</button>`;
+        return `<div class="pu-right-edge-actions">${moveBtn}<button class="pu-inline-action pu-inline-edit" data-testid="pu-block-edit-btn-${pathId}" tabindex="-1" onclick="event.stopPropagation(); PU.actions.selectBlock('${path}'); PU.focus.enter('${path}')" title="Edit block"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>${annotateBtn}${deleteBtn}${moreBtn}</div>`;
     },
 
     /**
      * Render content input block with resolved text and inline dropdowns
      */
-    renderContentBlock(item, path, pathId, resolution, depth = 0) {
+    renderContentBlock(item, path, pathId, resolution, depth = 0, meta = {}) {
         const content = item.content || '';
         const viz = PU.state.previewMode.visualizer;
         const vizClass = viz !== 'compact' ? ' pu-block-visualizer' : '';
         const inlineDice = PU.blocks._renderInlineDice(pathId);
-        const inlineCompact = PU.blocks._renderInlineCompactActions(path, pathId);
-        const moreBtn = (viz === 'compact') ? `<button class="block-more" onclick="PU.themes.openContextMenu(event, '${path}', false)" data-testid="pu-block-more-${pathId}">&#8943;</button>` : '';
-        const hasChildren = item.after && item.after.length > 0;
         const isChild = depth > 0;
+        const inlineCompact = PU.blocks._renderInlineCompactActions(path, pathId, isChild, item, false);
+        const hasChildren = item.after && item.after.length > 0;
         const parentConnector = hasChildren
             ? '<span class="pu-parent-connector"><span class="pu-parent-connector-line"></span><span class="pu-parent-connector-arrow">&#9662;</span></span>'
             : '';
         const nestConnector = !hasChildren ? PU.blocks._renderNestConnector(path, pathId) : '';
 
-        // Inline path badge for compact mode child blocks (replaces path divider)
-        const inlinePathHint = (isChild && viz === 'compact')
-            ? `<span class="pu-child-path-hint" data-testid="pu-child-path-hint-${pathId}"><span class="pu-child-arrow">\u21B3</span>${path}</span>`
+        // Tree connector for compact mode child blocks (demo-style ├── / └──)
+        const treeConnector = (isChild && viz === 'compact')
+            ? `<span class="pu-tree-connector" data-testid="pu-tree-connector-${pathId}">${meta.isLast ? '\u2514\u2500\u2500 ' : '\u251C\u2500\u2500 '}</span>`
+            : '';
+        // Path badge for compact mode blocks (after tree connector) — source integrated
+        // Roots also get inline path hints in compact mode (headerless design)
+        const compactSrcSuffix = (viz === 'compact') ? PU.blocks._renderSourceSuffix(item) : '';
+        const compactSrcType = (viz === 'compact') ? PU.blocks._getSourceType(item) : '';
+        const pathTestId = isChild ? `pu-child-path-hint-${pathId}` : `pu-block-path-${pathId}`;
+        const inlinePathHint = (viz === 'compact')
+            ? `<span class="pu-child-path-hint" data-testid="${pathTestId}" data-has-source data-source-type="${compactSrcType}" onclick="event.stopPropagation(); PU.themes.openSourceDropdown(event, '${PU.blocks.escapeAttr(path)}')">${path}${compactSrcSuffix}</span>`
             : '';
 
         // Right-edge actions (animated modes only) — inside content div for proper centering
-        const canMove = !hasChildren; // Content blocks without children can be moved to theme
-        const rightEdge = (viz !== 'compact') ? PU.blocks._renderRightEdgeActions(path, pathId, isChild, canMove) : '';
+        const canMove = !isChild; // Root content blocks can be moved to theme (parents too — children stay attached)
+        const rightEdge = (viz !== 'compact') ? PU.blocks._renderRightEdgeActions(path, pathId, isChild, canMove, item) : '';
+        const annotationBadge = PU.blocks._renderAnnotationBadge(item, path, pathId);
 
         if (resolution) {
             return `
                 <div class="pu-block-content" data-testid="pu-block-input-${pathId}" data-path="${path}">
-                    <div class="pu-resolved-text${vizClass}">${inlinePathHint}${resolution.resolvedHtml}${inlineDice}${inlineCompact}${moreBtn}${parentConnector}${nestConnector}</div>
+                    <div class="pu-resolved-text${vizClass}">${treeConnector}${inlinePathHint}${resolution.resolvedHtml}${annotationBadge}${inlineDice}${parentConnector}${nestConnector}</div>
+                    ${inlineCompact}
                     ${rightEdge}
                 </div>
             `;
@@ -156,7 +197,8 @@ PU.blocks = {
         // Fallback: show escaped raw text (loading state or no resolution)
         return `
             <div class="pu-block-content" data-testid="pu-block-input-${pathId}" data-path="${path}">
-                <div class="pu-resolved-text">${inlinePathHint}${PU.blocks.escapeHtml(content)}${inlineDice}${inlineCompact}${moreBtn}${parentConnector}${nestConnector}</div>
+                <div class="pu-resolved-text">${treeConnector}${inlinePathHint}${PU.blocks.escapeHtml(content)}${annotationBadge}${inlineDice}${parentConnector}${nestConnector}</div>
+                ${inlineCompact}
                 ${rightEdge}
             </div>
         `;
@@ -165,57 +207,53 @@ PU.blocks = {
     /**
      * Render ext_text reference block (theme block)
      */
-    renderExtTextBlock(item, path, pathId, resolution, depth = 0) {
+    renderExtTextBlock(item, path, pathId, resolution, depth = 0, meta = {}) {
         const extName = item.ext_text || '';
-        const extMax = item.ext_text_max;
         const viz = PU.state.previewMode.visualizer;
         const vizClass = viz !== 'compact' ? ' pu-block-visualizer' : '';
         const isChild = depth > 0;
-        const shortName = extName.split('/').pop() || extName;
+        const isExtText = true;
 
-        const resolvedContent = resolution
-            ? `<div class="pu-resolved-text${vizClass}">${resolution.resolvedHtml}</div>`
-            : '';
+        const resolvedHtml = resolution ? resolution.resolvedHtml : '';
         const accumulatedHtml = resolution ? PU.blocks.renderAccumulatedText(resolution) : '';
-
-        // Right-edge actions (animated modes only)
-        const rightEdge = (viz !== 'compact') ? PU.blocks._renderRightEdgeActions(path, pathId, isChild) : '';
+        const annotationBadge = PU.blocks._renderAnnotationBadge(item, path, pathId);
 
         if (viz === 'compact') {
-            // Compact mode: clickable label with swap arrow, ext_text_max input, inline actions, context menu
-            const extMaxInput = `<label class="pu-theme-max-label">max: <input type="number" min="0" value="${extMax || 0}" onclick="event.stopPropagation()" onchange="PU.actions.updateExtTextMax('${path}', this.value)"></label>`;
-            const inlineCompact = PU.blocks._renderInlineCompactActions(path, pathId);
-            const moreBtn = `<button class="block-more" onclick="PU.themes.openContextMenu(event, '${path}', true)" data-testid="pu-theme-more-${pathId}">&#8943;</button>`;
+            const treeConnector = isChild
+                ? `<span class="pu-tree-connector" data-testid="pu-tree-connector-${pathId}">${meta.isLast ? '\u2514\u2500\u2500 ' : '\u251C\u2500\u2500 '}</span>`
+                : '';
+            // Roots also get inline path hints in compact mode (headerless design)
+            const extSrcSuffix = PU.blocks._renderSourceSuffix(item);
+            const extSrcType = PU.blocks._getSourceType(item);
+            const extPathTestId = isChild ? `pu-child-path-hint-${pathId}` : `pu-block-path-${pathId}`;
+            const inlinePathHint = `<span class="pu-child-path-hint" data-testid="${extPathTestId}" data-has-source data-source-type="${extSrcType}" onclick="event.stopPropagation(); PU.themes.openSourceDropdown(event, '${PU.blocks.escapeAttr(path)}')">${path}${extSrcSuffix}</span>`;
+            const inlineCompact = PU.blocks._renderInlineCompactActions(path, pathId, isChild, item, isExtText);
+            const hasChildren = item.after && item.after.length > 0;
+            const parentConnector = hasChildren
+                ? '<span class="pu-parent-connector"><span class="pu-parent-connector-line"></span><span class="pu-parent-connector-arrow">&#9662;</span></span>'
+                : '';
+            const nestConnector = !hasChildren ? PU.blocks._renderNestConnector(path, pathId) : '';
 
             return `
-                <div class="pu-block-content pu-theme-block">
-                    <div class="pu-theme-ref" data-testid="pu-theme-ref-${pathId}">
-                        <div class="pu-theme-label clickable" onclick="PU.themes.openSwapDropdown(event, '${path}', '${PU.blocks.escapeAttr(extName)}')"
-                             data-testid="pu-theme-label-${pathId}">
-                            <span class="pu-theme-icon">&#128230;</span>
-                            <span class="pu-theme-name">${PU.blocks.escapeHtml(shortName)}</span>
-                            <span class="pu-theme-swap-arrow">&#9662;</span>
-                        </div>
-                        ${extMaxInput}
-                        ${inlineCompact}
-                        ${moreBtn}
-                    </div>
-                    ${resolvedContent}
+                <div class="pu-block-content pu-theme-block" data-testid="pu-block-input-${pathId}" data-path="${path}">
+                    <div class="pu-resolved-text">${treeConnector}${inlinePathHint}${resolvedHtml}${annotationBadge}${parentConnector}${nestConnector}</div>
+                    ${inlineCompact}
                     ${accumulatedHtml}
                 </div>
             `;
         }
 
-        // Animated modes: static purple label, no build tools
+        // Animated modes
+        const rightEdge = PU.blocks._renderRightEdgeActions(path, pathId, isChild, false, item);
+        const hasChildren = item.after && item.after.length > 0;
+        const parentConnector = hasChildren
+            ? '<span class="pu-parent-connector"><span class="pu-parent-connector-line"></span><span class="pu-parent-connector-arrow">&#9662;</span></span>'
+            : '';
+        const nestConnector = !hasChildren ? PU.blocks._renderNestConnector(path, pathId) : '';
+
         return `
-            <div class="pu-block-content pu-theme-block">
-                <div class="pu-theme-ref" data-testid="pu-theme-ref-${pathId}">
-                    <div class="pu-theme-label">
-                        <span class="pu-theme-icon">&#128230;</span>
-                        <span class="pu-theme-name">${PU.blocks.escapeHtml(shortName)}</span>
-                    </div>
-                </div>
-                ${resolvedContent}
+            <div class="pu-block-content pu-theme-block" data-testid="pu-block-input-${pathId}" data-path="${path}">
+                <div class="pu-resolved-text${vizClass}">${resolvedHtml}${annotationBadge}${parentConnector}${nestConnector}</div>
                 ${accumulatedHtml}
                 ${rightEdge}
             </div>
@@ -1182,6 +1220,74 @@ PU.blocks = {
     /**
      * Add nested block at path
      */
+    // =========================================================================
+    // ANNOTATION CRUD HELPERS
+    // =========================================================================
+
+    /**
+     * Get annotations for a block at path
+     * @returns {Object|null}
+     */
+    getAnnotations(textArray, path) {
+        const block = PU.blocks.findBlockByPath(textArray, path);
+        if (!block) return null;
+        return block.annotations || null;
+    },
+
+    /**
+     * Set annotations (replace entire dict) for a block at path
+     */
+    setAnnotations(textArray, path, annotations) {
+        const block = PU.blocks.findBlockByPath(textArray, path);
+        if (!block) return;
+        if (annotations && Object.keys(annotations).length > 0) {
+            block.annotations = annotations;
+        } else {
+            delete block.annotations;
+        }
+    },
+
+    /**
+     * Set a single annotation key/value
+     */
+    setAnnotation(textArray, path, key, value) {
+        const block = PU.blocks.findBlockByPath(textArray, path);
+        if (!block) return;
+        if (!block.annotations) block.annotations = {};
+        block.annotations[key] = value;
+    },
+
+    /**
+     * Remove a single annotation key; cleans up if empty
+     */
+    removeAnnotation(textArray, path, key) {
+        const block = PU.blocks.findBlockByPath(textArray, path);
+        if (!block || !block.annotations) return;
+        delete block.annotations[key];
+        if (Object.keys(block.annotations).length === 0) {
+            delete block.annotations;
+        }
+    },
+
+    /**
+     * Check if block has annotations
+     * @returns {boolean}
+     */
+    hasAnnotations(textArray, path) {
+        const block = PU.blocks.findBlockByPath(textArray, path);
+        return !!(block && block.annotations && Object.keys(block.annotations).length > 0);
+    },
+
+    /**
+     * Render annotation badge (small purple tag icon with count)
+     */
+    _renderAnnotationBadge(item, path, pathId) {
+        const ann = item.annotations;
+        if (!ann || Object.keys(ann).length === 0) return '';
+        const count = Object.keys(ann).length;
+        return `<span class="pu-annotation-badge" data-testid="pu-ann-badge-${pathId}" title="${count} annotation${count !== 1 ? 's' : ''}" onclick="event.stopPropagation(); PU.annotations.toggleEditor('${path}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg><span class="pu-ann-count">${count}</span></span>`;
+    },
+
     addNestedBlockAtPath(textArray, parentPath, blockType) {
         const block = blockType === 'ext_text'
             ? { ext_text: '' }

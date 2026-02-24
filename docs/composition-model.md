@@ -1,6 +1,6 @@
 # Composition Model
 
-How prompts, wildcards, ext_text, buckets, and operations work together to generate prompt variations at scale.
+How prompts, wildcards, ext_text, buckets, and hooks work together to generate prompt variations at scale.
 
 ---
 
@@ -27,11 +27,11 @@ At 36, this is manageable. But real prompts have 5-10 wildcards with 5-20 values
 
 You can't generate 600K prompts. You can't review them. You can't navigate them one by one.
 
-The composition model solves this with **three independent layers** that each reduce or reshape the space:
+The composition model solves this with **three independent layers plus hooks** that each reduce or reshape the space:
 
 ```
-STRUCTURE ──> BATCHING ──> TRANSFORMS ──> CARTESIAN PRODUCT ──> OUTPUT
-(what)        (how much)   (which values)  (enumerate)          (files)
+WILDCARDS + EXT_TEXT ──> BUCKETS ──> HOOKS ──> CARTESIAN PRODUCT ──> OUTPUT
+(what)                   (how much)  (extend)  (enumerate)           (files)
 ```
 
 ---
@@ -246,24 +246,55 @@ So `wildcards_max: 3` with `seniority(5)` → build uses only `[Junior, Mid-leve
 
 ---
 
-## Layer 4: Operations (Value Transforms)
+## Layer 4: Hooks
 
-> **Status: Planned** — Operations are designed but not yet implemented.
+Hooks extend the pipeline at **three locations**, named by where they appear in the UI. A beginner reads the name and knows exactly where to look.
+
+```
+┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐
+│   EDITOR HOOK   │      │   BUILD HOOK    │      │  RENDER HOOK    │
+│   ✏️ editing     │      │   🔨 assembling  │      │  ▶️ resolving    │
+│                 │      │                 │      │                 │
+│ Lives in the    │ ──→  │ Lives in the    │ ──→  │ Lives on the    │
+│ prompt editor   │      │ flow diagram    │      │ resolved output │
+│                 │      │                 │      │                 │
+│ Examples:       │      │ Examples:       │      │ Examples:       │
+│ • Token counter │      │ • Operations    │      │ • Annotations   │
+│ • UI widgets    │      │ • Quality gates │      │ • Validation    │
+│ • Live preview  │      │ • Template merge│      │ • Token budget  │
+│ • Inline alerts │      │ • Filter combos │      │ • A/B variants  │
+└─────────────────┘      └─────────────────┘      └─────────────────┘
+```
+
+### Editor hooks
+
+Editor hooks inject UI elements into the **prompt editor canvas** — they run while you're writing and editing blocks.
+
+| Hook | What it does |
+|------|-------------|
+| Token counter | Shows live token count as you type |
+| UI widget | Custom input element inside a block |
+| Live preview | Real-time preview of resolved output |
+| Inline alert | Contextual warnings or info badges |
+
+Editor hooks don't change the composition space. They enhance the editing experience.
+
+### Build hooks
+
+Build hooks transform the **pipeline structure** — they run when the build flow diagram is assembled. The most common build hook is an **operation** (value replacement).
+
+#### Operations (value replacement)
 
 Operations are **named YAML files** that replace wildcard values within a bucket window. They're applied after bucketing, before the Cartesian product.
 
-### The problem operations solve
-
-With buckets, your window is always a **contiguous range** of values. But sometimes you want non-contiguous selections:
+**The problem operations solve:** With buckets, your window is always a contiguous range. But sometimes you want non-contiguous selections:
 
 ```
 seniority values: [Junior, Mid-level, Senior, Staff, Principal]
 You want: [Junior, Senior, Principal]  — not contiguous!
 ```
 
-Filtering (selecting/deselecting individual values) creates a second mental model layered on top of buckets. Operations keep the bucket as the only model by **replacing** values within a window.
-
-### How operations work
+Operations keep the bucket as the only model by **replacing** values within a window:
 
 ```
 Window (wcMax=3): [Junior, Mid-level, Senior]
@@ -275,9 +306,7 @@ Operation "senior-focus":
 Effective window: [Junior, Staff, Principal]
 ```
 
-The composition count stays the same (3 values in the window). Only the content changes.
-
-### Operation YAML
+**Operation YAML:**
 
 ```yaml
 # operations/english-to-japan.yaml
@@ -293,56 +322,202 @@ mappings:
     investors: "投資家"
 ```
 
-### The three-layer pipeline with operations
+**The pipeline with a build hook (operation):**
 
 ```
-Prompt YAML          Buckets              Operation            Output
+Prompt YAML          Buckets              Build Hook           Output
 ┌─────────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
-│ tone(5)     │    │ window [0:3] │    │ map:         │    │ 3 x 4 = 12  │
+│ tone(5)     │    │ window [0:3] │    │ operation:   │    │ 3 x 4 = 12  │
 │ audience(4) │ →  │ tone: 3 vals │ →  │ formal→丁寧  │ →  │ compositions │
 │ ext_text(6) │    │ aud: 4 vals  │    │ casual→普通  │    │ with Japanese │
 │             │    │ ext: 3 vals  │    │              │    │ tone values   │
 └─────────────┘    └──────────────┘    └──────────────┘    └──────────────┘
-   STRUCTURE          BATCHING           TRANSFORM           PRODUCT
+   L1+L2              L3: BUCKETS        L4: BUILD HOOK       OUTPUT
 ```
 
-### Variant families
-
-An operation's filename is its **variant family** name. Applying different operations to the same prompt produces distinct variant families:
+**Variant families:** An operation's filename is its **variant family** name. Applying different operations produces distinct variant families:
 
 ```
 operations/english.yaml       → variant family "english"       → 12 EN compositions
 operations/japanese.yaml      → variant family "japanese"      → 12 JP compositions
-operations/formal-only.yaml   → variant family "formal-only"   → 12 FO compositions
 ```
 
-The variant family name labels the output batch, making exports self-describing and diffable.
+#### Other build hooks
 
-### Operation use cases
+| Hook | What it does |
+|------|-------------|
+| Quality gate | Skip nonsense combinations (e.g., `formal` + `meme`) |
+| Template merge | Inject shared system prompt before expansion |
+| Filter | Exclude specific wildcard combinations from the space |
+| Custom resolver | Dynamic wildcard values (e.g., today's date) |
 
-| Use case | Operation name | What it does |
-|----------|---------------|--------------|
-| Localization | `english-to-japan` | Translates wildcard values |
-| Brand voice | `brand-acme-corp` | Replaces generic tones with brand-specific language |
-| A/B testing | `devil-advocate` | Inverts intent to test prompt robustness |
-| Client customization | `client-globex` | Swaps industry/audience values for a specific client |
-| Cherry-picking | `senior-focus` | Replaces junior values with senior ones |
+Build hooks appear as nodes in the build flow diagram, showing how they transform the pipeline.
 
-Operations are saved in an `operations/` folder, git-tracked, and diffable. They compose with any prompt — write the structure once, apply unlimited operations.
+### Render hooks
+
+Render hooks fire when a **specific composition resolves** — they react to the output of one path through the composition space.
+
+| Hook | What it does |
+|------|-------------|
+| Annotation alert | Shows block annotations when a leaf is reached |
+| Token budget | Warns if resolved text exceeds a token limit |
+| A/B variant | Splits output between variant A and B per composition ID |
+| Output validation | Checks resolved text against rules or patterns |
+
+Render hooks appear **below leaf nodes** in the build flow diagram. They don't change the composition space — they react to individual instances.
+
+### Hook lifecycle
+
+```
+Editor hooks (while writing)
+    → Structure finalized
+        → Build hooks (pressing Build — flow diagram)
+            → Composition space assembled
+                → Render hooks (navigating/exporting — per composition)
+                    → Output
+```
+
+### Generation-time lifecycle (hooks + mods)
+
+The three hook locations above (editor/build/render) are a **conceptual** framework for where hooks appear in the UI. At generation time, a separate **lifecycle pipeline** (`src/hooks.py`) orchestrates the actual execution. This is where mods live.
+
+```
+JOB_START
+│
+├─ NODE_START              ← once per block (first visit)
+│  └─ ANNOTATIONS_RESOLVE  ← once per block (cached for all compositions)
+│     │
+│     ├─ MODS_PRE          ← per composition (user mods with stage=pre)
+│     ├─ IMAGE_GENERATION   ← per composition (user-supplied script)
+│     ├─ MODS_POST         ← per composition (user mods with stage=post)
+│     │
+│     ├─ (next composition of same block...)
+│     │
+│     └─ NODE_END          ← once per block (after last composition)
+│
+├─ (next block...)
+│
+JOB_END
+
+ERROR                      ← on any failure, at any stage
+```
+
+**Key distinction:** `IMAGE_GENERATION` is not a built-in function — it's a hook point. A user-supplied Python script (configured in `hooks.yaml`) does the actual work. This means any external tool (Stable Diffusion, DALL-E, a file copier) can plug in.
+
+### Hooks vs Mods
+
+Hooks and mods use the **same execution mechanism** — both call `_execute_single_hook()` which loads a Python script and calls its `execute(context, params)` function. The difference is configuration and filtering:
+
+| | Hooks | Mods |
+|---|---|---|
+| **Configured in** | `hooks.yaml` (per job) | `mods.yaml` (global) |
+| **Fire at** | Any lifecycle point | `MODS_PRE` and `MODS_POST` only |
+| **Filtering** | None (always fire) | Stage, scope, address_index, config_index |
+| **Enable/disable** | Present = active | Per-prompt via `jobs.yaml` enable/disable |
+| **Purpose** | System lifecycle (start, end, generation) | User extensions (translate, log, inject) |
+
+A mod is a hook with guardrails. Both return the same `HookResult`:
+
+```python
+def execute(context, params=None):
+    return {
+        'status': 'success',     # or 'error', 'skip'
+        'data': {...},           # passed to next stage
+        'modify_context': {...}, # merged into pipeline context
+        'message': 'optional',
+    }
+```
+
+### Mod configuration
+
+Mods are defined in the global `mods.yaml` at project root:
+
+```yaml
+defaults:
+  auto_run: false            # global default for auto-enabling
+
+mods:
+  error-logger:
+    type: script
+    script: ./mods/error_logger.py
+    execution_scope: image    # checkpoint | image | both
+    stage: post               # pre | post | both
+    params:
+      max_items: 50
+    filters:
+      config_index: [0, 1]    # only run on these config indices
+      address_index: [1, 2]   # only run on these address indices
+
+  prompt-translator:
+    type: script
+    script: ./mods/prompt_translator.py
+    stage: [build, pre]       # build-time precompute + generation-time apply
+    auto_run: true            # enabled by default
+```
+
+**Stage values:** `pre` | `post` | `both` (generation-time). `build` is a separate invocation path — mods with `stage: build` or `stage: [build, pre]` run once per prompt during `build-checkpoints.py`, not during generation. The mod script checks `context['hook']` to distinguish (e.g., `hook == 'mods_build'` vs `hook == 'mods_pre'`).
+
+Per-prompt enable/disable in `jobs.yaml`:
+
+```yaml
+prompts:
+  - id: "my-prompt"
+    mods:
+      enable: ["prompt-translator"]
+      disable: ["error-logger"]
+```
+
+Priority resolution: `job disable > global auto_run > job enable`
+
+### Existing mod scripts
+
+| Mod | Stage | Scope | Pattern |
+|-----|-------|-------|---------|
+| `error_logger.py` | post | image | Captures generation errors, logs to UI sidebar |
+| `prompt_translator.py` | build + pre | — | Pre-computes translations at build time, applies at generation |
+| `config_injector.py` | build | — | Injects computed metadata (hash, timestamps) into prompt.json |
+| `favorites.py` | — | job | UI bookmark — saves selected artifacts to job-level storage |
+
+### Depth-first execution (planned)
+
+The current `build_jobs()` produces a flat list. The planned **TreeExecutor** adds block-aware depth-first ordering:
+
+```
+Block 0 (root, 12 compositions)
+  ├─ comp 0 → hooks → done
+  ├─ comp 1 → hooks → done
+  │   └─ Block 0.0 (child, 12 compositions)
+  │       ├─ comp 0 → hooks → done
+  │       ...
+  │   └─ Block 0.1 (child, 36 compositions)
+  │       ├─ comp 0 → hooks → done
+  │       ...
+  ├─ comp 2 → hooks → done
+  ...
+Block 1 (root, 6 compositions)
+  ...
+```
+
+Key additions:
+- **`parent_result`** — context key containing the parent block's `HookResult.data`, so child hooks can read parent output
+- **`_block_path`** — new field in `build_jobs()` output identifying each entry's block (e.g., `"0"`, `"0.0"`, `"1"`)
+- **Path-scoped failure** — when a block fails, remaining compositions are skipped and children are blocked. Siblings and other root paths continue
+- **Block state machine** — `UNSEEN → ACTIVE → PARTIAL → ... → COMPLETE`. `node_start` fires on first visit, `node_end` on last composition
+- **`annotations_resolve` caching** — fires once per block, result cached for all subsequent compositions
 
 ---
 
 ## Batch Export
 
-Operations enable systematic batch export of massive composition spaces.
+Build hooks (operations) enable systematic batch export of massive composition spaces.
 
-### Without operations
+### Without build hooks
 
 ```
 360K compositions → export all → one giant batch → one set of values
 ```
 
-### With operations
+### With build hooks (operations)
 
 ```
 360K compositions ÷ 729 per bucket = ~500 bucket-compositions
@@ -366,7 +541,9 @@ Each layer is independent and optional:
 | Wildcards | `wildcards:` in prompt | Required | Defines dimensions |
 | ext_text | `ext_text:` in text blocks | Optional | Adds dimensions from themes |
 | Buckets | `wildcards_max:` / `ext_text_max:` | 0 (no bucketing) | Windows the space |
-| Operations | `operations/*.yaml` | None (raw values) | Transforms values |
+| Editor hooks | Editor hook config | None | Enhance editing experience |
+| Build hooks | `operations/*.yaml`, hook config | None | Transform the pipeline |
+| Render hooks | Block annotations, hook config | None | React to resolved output |
 
 ### Example: Full pipeline
 
@@ -390,17 +567,19 @@ Each layer is independent and optional:
       text: ["personalized", "automated", "hybrid"]
 ```
 
-**Layer 1 (Structure):** 4 local wildcards + 1 theme wildcard (seniority) + 6 ext_text values
+**Layer 1 (Wildcards):** 4 local wildcards: channel(4), count(3), approach(3), plus the prompt structure.
 
-**Layer 2 (Batching):** `wildcards_max: 3` reduces each dimension:
+**Layer 2 (ext_text):** `ext_text: "hiring/roles"` adds 6 text values + seniority(5) wildcard from theme. Total dimensions: 6 × 4 × 3 × 3 × 5 = 1,080 compositions.
+
+**Layer 3 (Buckets):** `wildcards_max: 3` reduces each dimension:
 ```
 ext_text: ceil(6/3) = 2, channel: ceil(4/3) = 2, count: 1, approach: 1, seniority: ceil(5/3) = 2
 Total: 2 x 2 x 1 x 1 x 2 = 8 bucket-compositions
 ```
 
-**Layer 3 (Transforms):** Apply `operations/english-to-japan.yaml` to replace values in the current window.
+**Layer 4 (Hooks):** Apply `operations/english-to-japan.yaml` (a build hook) to replace values in the current window. Editor hooks may have added UI widgets during editing. Render hooks fire per-composition for annotation alerts or validation.
 
-**Layer 4 (Product):** Generate 3 x 3 x 3 x 3 x 3 = 243 compositions per bucket, with operation-modified values.
+**Output:** Generate 3 × 3 × 3 × 3 × 3 = 243 compositions per bucket, with hook-modified values.
 
 ---
 
@@ -408,10 +587,17 @@ Total: 2 x 2 x 1 x 1 x 2 = 8 bucket-compositions
 
 ```
 project/
+├── mods.yaml                      # Global mod definitions (stage, scope, filters)
+├── mods/                          # Mod scripts (user extensions)
+│   ├── error_logger.py            # Post-generation error logging
+│   ├── prompt_translator.py       # Build+pre translation pattern
+│   ├── config_injector.py         # Build-time metadata injection
+│   └── favorites.py               # UI bookmark mod
 ├── jobs/
 │   └── hiring-templates/
-│       ├── jobs.yaml              # Prompt definitions (Layer 1)
-│       ├── operations/            # Value transforms (Layer 3, planned)
+│       ├── jobs.yaml              # Prompt definitions (Layer 1) + per-prompt mod enable/disable
+│       ├── hooks.yaml             # Job-level hook config (lifecycle scripts)
+│       ├── operations/            # Build hooks: value replacement mappings
 │       │   ├── english-to-japan.yaml
 │       │   └── brand-acme.yaml
 │       └── outputs/               # Generated files
@@ -424,6 +610,11 @@ project/
 │   │   └── frameworks.yaml       # 5 frameworks + evaluation wildcards
 │   └── professional/
 │       └── tones.yaml            # 4 tones + audience wildcard
+├── src/
+│   ├── hooks.py                   # HookPipeline — generation-time lifecycle engine
+│   ├── jobs.py                    # build_jobs() — Cartesian product engine
+│   ├── variant.py                 # build_variant_structure() — build orchestrator
+│   └── segments.py                # SegmentRegistry — ext/wildcard lookups
 └── webui/prompty/                 # Web UI
     └── js/
         ├── preview.js            # Odometer, bucketing, composition math
@@ -445,8 +636,16 @@ project/
 | **ext_text** | Extension text block — a list of text values loaded from a theme file |
 | **Theme** | A YAML file in `ext/` providing text values and wildcards |
 | **Theme wildcard** | A wildcard that comes from a theme file (not defined in the prompt) |
-| **Operation** | A named value-replacement mapping applied to a bucket window |
+| **Editor hook** | A hook in the prompt editor — injects UI elements while writing (token counter, widgets, alerts) |
+| **Build hook** | A hook in the build flow diagram — transforms the pipeline structure (operations, quality gates, filters) |
+| **Render hook** | A hook on composition output — fires when a composition resolves (annotations, validation, A/B splits) |
+| **Operation** | A type of build hook — a named value-replacement mapping applied to a bucket window |
 | **Variant family** | The operation's filename/title — labels the output batch (e.g., `operations/english-to-japan.yaml` → variant family "english-to-japan") |
 | **Window** | The slice of values visible in the current bucket (`[start, start + wcMax - 1]`) |
 | **wcMax** | `wildcards_max` — the bucket size for wildcards |
 | **extTextMax** | `ext_text_max` — the bucket size for extension text lists |
+| **Hook** | A system lifecycle script configured in `hooks.yaml`. Fires at a specific lifecycle point (JOB_START, NODE_START, IMAGE_GENERATION, etc.) |
+| **Mod** | A user extension script configured in `mods.yaml`. Same execution mechanism as hooks, but fires at MODS_PRE/MODS_POST with stage, scope, and filter guards |
+| **HookResult** | Return value from any hook/mod script: `{ status, data, modify_context, error, message }` |
+| **parent_result** | (Planned) Context key containing parent block's `HookResult.data`, passed to child block hooks |
+| **TreeExecutor** | (Planned) Block-aware depth-first execution engine. Replaces the flat job list with ordered per-block traversal |

@@ -19,6 +19,7 @@ PORT="8085"
 [[ "$1" =~ ^[0-9]+$ ]] && PORT="$1"
 
 BASE_URL="http://localhost:$PORT"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 setup_cleanup  # Trap-based cleanup ensures browser closes on exit
 
@@ -58,21 +59,25 @@ agent-browser close 2>/dev/null
 sleep 0.5
 
 # ============================================================================
-# TEST 2: Move button hidden for blocks with children
+# TEST 2: Move button visible on parent blocks (blocks with children)
 # ============================================================================
 echo ""
-log_info "TEST 2: Move button hidden for parent blocks"
+log_info "TEST 2: Move button visible on parent blocks"
 
 agent-browser open "$BASE_URL/?job=hiring-templates&prompt=nested-job-brief&viz=typewriter" 2>/dev/null
 sleep 3
 
-# nested-job-brief block 1 has after: children — should NOT have move button
+# nested-job-brief block 1 has after: children — should NOW have move button (parents allowed)
 HAS_MOVE_BTN_1=$(agent-browser eval "!!document.querySelector('[data-testid=\"pu-block-move-btn-1\"]')" 2>/dev/null)
-[ "$HAS_MOVE_BTN_1" = "false" ] && log_pass "No move button on parent block (block 1)" || log_fail "Move button incorrectly shown on parent block 1"
+[ "$HAS_MOVE_BTN_1" = "true" ] && log_pass "Move button visible on parent block (block 1)" || log_fail "Move button missing on parent block 1"
 
-# Block 0 (root, no children) — should have move button
+# Block 0 (root, no children) — should also have move button
 HAS_MOVE_BTN_0=$(agent-browser eval "!!document.querySelector('[data-testid=\"pu-block-move-btn-0\"]')" 2>/dev/null)
 [ "$HAS_MOVE_BTN_0" = "true" ] && log_pass "Move button present on childless root block (block 0)" || log_fail "Move button missing on childless root block 0"
+
+# Child blocks (e.g. 1.0) should NOT have move button
+HAS_MOVE_CHILD=$(agent-browser eval "!!document.querySelector('[data-testid=\"pu-block-move-btn-1-0\"]')" 2>/dev/null)
+[ "$HAS_MOVE_CHILD" = "false" ] && log_pass "No move button on child block (1.0)" || log_fail "Move button incorrectly shown on child block 1.0"
 
 agent-browser close 2>/dev/null
 sleep 0.5
@@ -100,7 +105,7 @@ echo "$PREVIEW_TEXT" | grep -q "Write a job posting" && log_pass "Preview shows 
 
 # Theme name should be pre-filled with ext prefix
 THEME_VAL=$(agent-browser eval "document.querySelector('[data-testid=\"pu-mtt-theme-name\"]')?.value" 2>/dev/null | tr -d '"')
-[ "$THEME_VAL" = "hiring/" ] && log_pass "Theme name pre-filled with ext prefix" || log_fail "Theme name value: $THEME_VAL"
+echo "$THEME_VAL" | grep -q "^hiring/" && log_pass "Theme name pre-filled with ext prefix + smart name: $THEME_VAL" || log_fail "Theme name value: $THEME_VAL"
 
 # Scope radios should exist
 HAS_SCOPE=$(agent-browser eval "!!document.querySelector('[data-testid=\"pu-mtt-scope\"]')" 2>/dev/null)
@@ -284,11 +289,11 @@ echo ""
 log_info "TEST 9: API integration - move to theme"
 
 # Clean up any leftover theme from previous test runs
-THEME_FILE="/home/cybervaldez/ai/cybervaldez/promptyui/ext/hiring/mtt-ui-test.yaml"
+THEME_FILE="$PROJECT_ROOT/ext/hiring/mtt-ui-test.yaml"
 rm -f "$THEME_FILE" 2>/dev/null
 
 # Also restore jobs.yaml if it was modified by a previous failed run
-JOBS_YAML="/home/cybervaldez/ai/cybervaldez/promptyui/jobs/hiring-templates/jobs.yaml"
+JOBS_YAML="$PROJECT_ROOT/jobs/hiring-templates/jobs.yaml"
 BACKUP_FILES=$(ls "$JOBS_YAML".backup.* 2>/dev/null | tail -1)
 
 agent-browser open "$BASE_URL/?job=hiring-templates&prompt=job-posting&viz=typewriter" 2>/dev/null
@@ -328,6 +333,190 @@ BLOCK_TYPE=$(agent-browser eval "
 # Verify the ext_text reference
 EXT_REF=$(agent-browser eval "PU.helpers.getActivePrompt()?.text?.[0]?.ext_text" 2>/dev/null | tr -d '"')
 [ "$EXT_REF" = "hiring/mtt-ui-test" ] && log_pass "ext_text reference correct" || log_fail "ext_text ref: $EXT_REF"
+
+agent-browser close 2>/dev/null
+sleep 0.5
+
+# Restore jobs.yaml after TEST 9's move, so subsequent tests see original data
+LATEST_BACKUP=$(ls "$JOBS_YAML".backup.* 2>/dev/null | tail -1)
+if [ -n "$LATEST_BACKUP" ]; then
+    cp "$LATEST_BACKUP" "$JOBS_YAML"
+    rm -f "$JOBS_YAML".backup.* 2>/dev/null
+fi
+rm -f "$THEME_FILE" 2>/dev/null
+sleep 0.5
+
+# ============================================================================
+# TEST 10: Smart naming — theme input pre-filled with suggested name
+# ============================================================================
+echo ""
+log_info "TEST 10: Smart naming pre-fill"
+
+agent-browser open "$BASE_URL/?job=hiring-templates&prompt=job-posting&viz=typewriter" 2>/dev/null
+sleep 3
+
+# Open modal for block 0: "Write a job posting for a __role__ position"
+# Expected smart name: "job-posting" (after stripping filler: "write a job posting for a" → "job posting" → "job-posting")
+agent-browser eval "PU.moveToTheme.open('0')" 2>/dev/null
+sleep 1
+
+THEME_VAL=$(agent-browser eval "document.querySelector('[data-testid=\"pu-mtt-theme-name\"]')?.value" 2>/dev/null | tr -d '"')
+# Should start with ext prefix and end with a smart name (not just the prefix)
+echo "$THEME_VAL" | grep -q "hiring/" && log_pass "Theme name has ext prefix" || log_fail "Theme name missing prefix: $THEME_VAL"
+
+# Should be longer than just "hiring/" — smart name appended
+[ ${#THEME_VAL} -gt 7 ] && log_pass "Smart name appended (value: $THEME_VAL)" || log_fail "No smart name appended, value: $THEME_VAL"
+
+agent-browser close 2>/dev/null
+sleep 0.5
+
+# ============================================================================
+# TEST 11: Compact mode — move button visible on root content blocks
+# ============================================================================
+echo ""
+log_info "TEST 11: Compact mode move button"
+
+agent-browser open "$BASE_URL/?job=hiring-templates&prompt=nested-job-brief&viz=compact" 2>/dev/null
+sleep 3
+
+# Root content block 0 — should have move button in compact mode
+HAS_MOVE_COMPACT=$(agent-browser eval "!!document.querySelector('[data-testid=\"pu-block-move-btn-0\"]')" 2>/dev/null)
+[ "$HAS_MOVE_COMPACT" = "true" ] && log_pass "Move button visible on root block in compact mode" || log_fail "Move button missing in compact mode for block 0"
+
+# Root content block 1 (parent) — should also have move button
+HAS_MOVE_PARENT=$(agent-browser eval "!!document.querySelector('[data-testid=\"pu-block-move-btn-1\"]')" 2>/dev/null)
+[ "$HAS_MOVE_PARENT" = "true" ] && log_pass "Move button visible on parent block in compact mode" || log_fail "Move button missing in compact mode for parent block 1"
+
+# Child block 1.0 — should NOT have move button
+HAS_MOVE_CHILD=$(agent-browser eval "!!document.querySelector('[data-testid=\"pu-block-move-btn-1-0\"]')" 2>/dev/null)
+[ "$HAS_MOVE_CHILD" = "false" ] && log_pass "No move button on child block in compact mode" || log_fail "Move button incorrectly shown on child block in compact mode"
+
+agent-browser close 2>/dev/null
+sleep 0.5
+
+# ============================================================================
+# TEST 12: Child info line — present for parent, absent for childless
+# ============================================================================
+echo ""
+log_info "TEST 12: Child info line"
+
+agent-browser open "$BASE_URL/?job=hiring-templates&prompt=nested-job-brief&viz=typewriter" 2>/dev/null
+sleep 3
+
+# Open modal for parent block 1 (has 1 child)
+agent-browser eval "PU.moveToTheme.open('1')" 2>/dev/null
+sleep 1
+
+HAS_CHILD_INFO=$(agent-browser eval "!!document.querySelector('[data-testid=\"pu-mtt-child-info\"]')" 2>/dev/null)
+[ "$HAS_CHILD_INFO" = "true" ] && log_pass "Child info line present for parent block" || log_fail "Child info line missing for parent block"
+
+CHILD_INFO_TEXT=$(agent-browser eval "document.querySelector('[data-testid=\"pu-mtt-child-info\"]')?.textContent?.trim()" 2>/dev/null | tr -d '"')
+echo "$CHILD_INFO_TEXT" | grep -q "1 child block" && log_pass "Child info shows correct count" || log_fail "Child info text: $CHILD_INFO_TEXT"
+
+# Close and open modal for childless block 0
+agent-browser eval "PU.moveToTheme.close()" 2>/dev/null
+sleep 0.5
+agent-browser eval "PU.moveToTheme.open('0')" 2>/dev/null
+sleep 1
+
+HAS_CHILD_INFO_0=$(agent-browser eval "!!document.querySelector('[data-testid=\"pu-mtt-child-info\"]')" 2>/dev/null)
+[ "$HAS_CHILD_INFO_0" = "false" ] && log_pass "No child info line for childless block" || log_fail "Child info line incorrectly shown for childless block"
+
+agent-browser close 2>/dev/null
+sleep 0.5
+
+# ============================================================================
+# TEST 13: Context menu has Edit, Annotate, Move to Theme items
+# ============================================================================
+echo ""
+log_info "TEST 13: Context menu items for touch"
+
+agent-browser open "$BASE_URL/?job=hiring-templates&prompt=nested-job-brief&viz=compact" 2>/dev/null
+sleep 3
+
+# Open context menu on root content block 0 (not a theme, not a child)
+agent-browser eval "PU.themes.openContextMenu(new MouseEvent('click', {clientX: 100, clientY: 100}), '0', false)" 2>/dev/null
+sleep 0.5
+
+# Should have Edit item
+HAS_EDIT=$(agent-browser eval "!!document.querySelector('[data-testid=\"pu-ctx-edit\"]')" 2>/dev/null)
+[ "$HAS_EDIT" = "true" ] && log_pass "Context menu has Edit item" || log_fail "Context menu missing Edit item"
+
+# Should have Annotate item
+HAS_ANN=$(agent-browser eval "!!document.querySelector('[data-testid=\"pu-ctx-annotate\"]')" 2>/dev/null)
+[ "$HAS_ANN" = "true" ] && log_pass "Context menu has Annotate item" || log_fail "Context menu missing Annotate item"
+
+# Should have Move to Theme item (root content block)
+HAS_MOVE=$(agent-browser eval "!!document.querySelector('[data-testid=\"pu-ctx-move-theme\"]')" 2>/dev/null)
+[ "$HAS_MOVE" = "true" ] && log_pass "Context menu has Move to Theme for root content block" || log_fail "Context menu missing Move to Theme"
+
+# Close and open for ext_text block — should NOT have Move to Theme
+agent-browser eval "PU.themes.closeContextMenu()" 2>/dev/null
+sleep 0.3
+agent-browser eval "PU.themes.openContextMenu(new MouseEvent('click', {clientX: 100, clientY: 100}), '0', true)" 2>/dev/null
+sleep 0.5
+
+HAS_MOVE_THEME=$(agent-browser eval "!!document.querySelector('[data-testid=\"pu-ctx-move-theme\"]')" 2>/dev/null)
+[ "$HAS_MOVE_THEME" = "false" ] && log_pass "No Move to Theme for ext_text block" || log_fail "Move to Theme incorrectly shown for ext_text"
+
+# Close and open for child block — should NOT have Move to Theme
+agent-browser eval "PU.themes.closeContextMenu()" 2>/dev/null
+sleep 0.3
+agent-browser eval "PU.themes.openContextMenu(new MouseEvent('click', {clientX: 100, clientY: 100}), '1.0', false)" 2>/dev/null
+sleep 0.5
+
+HAS_MOVE_CHILD=$(agent-browser eval "!!document.querySelector('[data-testid=\"pu-ctx-move-theme\"]')" 2>/dev/null)
+[ "$HAS_MOVE_CHILD" = "false" ] && log_pass "No Move to Theme for child block" || log_fail "Move to Theme incorrectly shown for child block"
+
+agent-browser close 2>/dev/null
+sleep 0.5
+
+# ============================================================================
+# TEST 14: Animated mode — ⋯ button present on right-edge actions
+# ============================================================================
+echo ""
+log_info "TEST 14: Animated mode more button"
+
+agent-browser open "$BASE_URL/?job=hiring-templates&prompt=nested-job-brief&viz=typewriter" 2>/dev/null
+sleep 4
+
+# Root content block 0 should have a ⋯ (more) button in right-edge actions
+HAS_MORE=$(agent-browser eval "!!document.querySelector('[data-testid=\"pu-block-more-0\"]')" 2>/dev/null)
+[ "$HAS_MORE" = "true" ] && log_pass "Animated mode: root block has ⋯ button" || log_fail "Animated mode: root block missing ⋯ button"
+
+# Also has pencil (edit) button
+HAS_EDIT=$(agent-browser eval "!!document.querySelector('[data-testid=\"pu-block-edit-btn-0\"]')" 2>/dev/null)
+[ "$HAS_EDIT" = "true" ] && log_pass "Animated mode: root block has pencil button" || log_fail "Animated mode: root block missing pencil button"
+
+# Click ⋯ to open context menu
+agent-browser eval "document.querySelector('[data-testid=\"pu-block-more-0\"]').click()" 2>/dev/null
+sleep 0.5
+
+HAS_CTX=$(agent-browser eval "!!document.querySelector('[data-testid=\"pu-theme-context-menu\"]')" 2>/dev/null)
+[ "$HAS_CTX" = "true" ] && log_pass "Context menu opens from animated mode ⋯ button" || log_fail "Context menu failed to open from animated mode"
+
+# Context menu should have Edit, Annotate, Move to Theme
+HAS_CTX_EDIT=$(agent-browser eval "!!document.querySelector('[data-testid=\"pu-ctx-edit\"]')" 2>/dev/null)
+[ "$HAS_CTX_EDIT" = "true" ] && log_pass "Animated context menu has Edit" || log_fail "Animated context menu missing Edit"
+
+HAS_CTX_ANN=$(agent-browser eval "!!document.querySelector('[data-testid=\"pu-ctx-annotate\"]')" 2>/dev/null)
+[ "$HAS_CTX_ANN" = "true" ] && log_pass "Animated context menu has Annotate" || log_fail "Animated context menu missing Annotate"
+
+HAS_CTX_MTT=$(agent-browser eval "!!document.querySelector('[data-testid=\"pu-ctx-move-theme\"]')" 2>/dev/null)
+[ "$HAS_CTX_MTT" = "true" ] && log_pass "Animated context menu has Move to Theme" || log_fail "Animated context menu missing Move to Theme"
+
+agent-browser eval "PU.themes.closeContextMenu()" 2>/dev/null
+sleep 0.3
+
+# Verify ext_text block also has ⋯ button (but context menu should NOT have Move to Theme)
+# ext-sourcing-strategy has ext_text at path 1 — use that prompt
+agent-browser close 2>/dev/null
+sleep 0.5
+agent-browser open "$BASE_URL/?job=hiring-templates&prompt=ext-sourcing-strategy&viz=reel" 2>/dev/null
+sleep 4
+
+HAS_MORE_EXT=$(agent-browser eval "!!document.querySelector('[data-testid=\"pu-block-more-1\"]')" 2>/dev/null)
+[ "$HAS_MORE_EXT" = "true" ] && log_pass "Animated mode: ext_text block has ⋯ button" || log_fail "Animated mode: ext_text block missing ⋯ button"
 
 agent-browser close 2>/dev/null
 sleep 0.5

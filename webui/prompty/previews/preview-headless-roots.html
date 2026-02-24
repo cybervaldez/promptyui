@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Headless Roots — 4 Persona Variations</title>
+<style>
+/* ── Design Tokens (from styles.css) ── */
+:root {
+    --pu-bg-primary: #191919;
+    --pu-bg-secondary: #202020;
+    --pu-bg-tertiary: #2f2f2f;
+    --pu-bg-input: #252525;
+    --pu-bg-hover: rgba(255, 255, 255, 0.04);
+    --pu-bg-selected: rgba(255, 255, 255, 0.06);
+    --pu-bg-elevated: #252525;
+    --pu-text-primary: #ebebeb;
+    --pu-text-secondary: #999999;
+    --pu-text-muted: #7a7a7a;
+    --pu-accent: #529CCA;
+    --pu-accent-bg: rgba(82, 156, 202, 0.08);
+    --pu-accent-light: rgba(82, 156, 202, 0.12);
+    --pu-success: #4daa57;
+    --pu-success-bg: rgba(77, 170, 87, 0.12);
+    --pu-warning: #cb912f;
+    --pu-warning-bg: rgba(203, 145, 47, 0.1);
+    --pu-error: #e06c75;
+    --pu-purple: #c678dd;
+    --pu-purple-bg: rgba(198, 120, 221, 0.1);
+    --pu-orange: #e8943a;
+    --pu-border: rgba(255, 255, 255, 0.06);
+    --pu-border-light: rgba(255, 255, 255, 0.09);
+    --pu-radius-sm: 3px;
+    --pu-radius: 4px;
+    --pu-radius-lg: 6px;
+    --pu-font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --pu-font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+    --pu-transition-fast: 120ms ease-out;
+    --pu-transition-normal: 200ms ease-out;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    background: #111;
+    color: var(--pu-text-primary);
+    font-family: var(--pu-font-body);
+    font-size: 14px;
+    padding: 32px;
+}
+
+/* ── Preview Layout ── */
+.preview-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+.preview-card {
+    background: var(--pu-bg-primary);
+    border: 1px solid var(--pu-border-light);
+    border-radius: 8px;
+    overflow: hidden;
+}
+.preview-card.selected {
+    border-color: var(--pu-accent);
+    box-shadow: 0 0 0 1px var(--pu-accent), 0 4px 20px rgba(82,156,202,0.15);
+}
+.preview-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: var(--pu-bg-secondary);
+    border-bottom: 1px solid var(--pu-border);
+    cursor: pointer;
+}
+.preview-label:hover { background: var(--pu-bg-tertiary); }
+.preview-radio {
+    width: 16px; height: 16px;
+    border: 2px solid var(--pu-text-muted);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+.preview-card.selected .preview-radio {
+    border-color: var(--pu-accent);
+}
+.preview-card.selected .preview-radio::after {
+    content: '';
+    width: 8px; height: 8px;
+    background: var(--pu-accent);
+    border-radius: 50%;
+}
+.preview-letter {
+    font-family: var(--pu-font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--pu-accent);
+    background: var(--pu-accent-bg);
+    padding: 2px 8px;
+    border-radius: var(--pu-radius);
+}
+.preview-name {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--pu-text-primary);
+}
+.preview-desc {
+    font-size: 11px;
+    color: var(--pu-text-muted);
+    margin-left: auto;
+}
+
+/* ── Shared: Mock Editor Frame ── */
+.mock-editor {
+    padding: 0;
+}
+
+/* ── Prompt Header ── */
+.mock-prompt-header {
+    display: flex;
+    align-items: center;
+    padding: 10px 16px;
+    background: var(--pu-bg-secondary);
+    border-bottom: 1px solid var(--pu-border);
+    gap: 8px;
+}
+.mock-prompt-label {
+    font-size: 11px;
+    color: var(--pu-text-muted);
+}
+.mock-prompt-title {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--pu-text-primary);
+    flex: 1;
+}
+.mock-viz-select {
+    padding: 2px 6px;
+    background: var(--pu-bg-input);
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius);
+    color: var(--pu-text-secondary);
+    font-size: 12px;
+    font-family: var(--pu-font-body);
+}
+
+/* ── Toolbar (Personas 2, 3, 4) ── */
+.mock-toolbar {
+    display: flex;
+    align-items: center;
+    padding: 6px 16px;
+    background: var(--pu-bg-primary);
+    border-bottom: 1px solid var(--pu-border);
+    gap: 8px;
+    min-height: 32px;
+}
+.mock-toolbar-btn {
+    font-family: var(--pu-font-body);
+    font-size: 11px;
+    color: var(--pu-text-muted);
+    background: transparent;
+    border: 1px solid var(--pu-border-light);
+    border-radius: var(--pu-radius);
+    padding: 3px 8px;
+    cursor: pointer;
+    transition: all var(--pu-transition-fast);
+}
+.mock-toolbar-btn:hover {
+    color: var(--pu-text-secondary);
+    border-color: var(--pu-text-muted);
+    background: var(--pu-bg-hover);
+}
+.mock-toolbar-sep {
+    width: 1px;
+    height: 16px;
+    background: var(--pu-border);
+    flex-shrink: 0;
+}
+.mock-toolbar-stat {
+    font-family: var(--pu-font-mono);
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    margin-left: auto;
+}
+.mock-toolbar-accent {
+    color: var(--pu-accent);
+    font-weight: 500;
+}
+
+/* ── Save badge for Persona 3 ── */
+.mock-modified-badge {
+    font-size: 10px;
+    color: var(--pu-warning);
+    background: var(--pu-warning-bg);
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-weight: 500;
+}
+.mock-save-btn {
+    font-family: var(--pu-font-body);
+    font-size: 11px;
+    color: var(--pu-accent);
+    background: var(--pu-accent-bg);
+    border: 1px solid var(--pu-accent);
+    border-radius: var(--pu-radius);
+    padding: 2px 10px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+/* ── Composition bar for Persona 4 ── */
+.mock-comp-nav {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.mock-comp-arrow {
+    font-size: 11px;
+    color: var(--pu-text-muted);
+    background: var(--pu-bg-hover);
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius-sm);
+    padding: 2px 6px;
+    cursor: pointer;
+    line-height: 1;
+}
+.mock-comp-arrow:hover {
+    color: var(--pu-text-primary);
+    border-color: var(--pu-text-muted);
+}
+.mock-comp-label {
+    font-family: var(--pu-font-mono);
+    font-size: 11px;
+    color: var(--pu-text-secondary);
+}
+.mock-comp-label strong {
+    color: var(--pu-text-primary);
+    font-weight: 600;
+}
+.mock-bucket-badge {
+    font-size: 10px;
+    color: var(--pu-purple);
+    background: var(--pu-purple-bg);
+    padding: 1px 6px;
+    border-radius: 10px;
+}
+.mock-export-btn {
+    font-family: var(--pu-font-body);
+    font-size: 10px;
+    color: var(--pu-success);
+    background: var(--pu-success-bg);
+    border: 1px solid transparent;
+    border-radius: var(--pu-radius);
+    padding: 2px 8px;
+    cursor: pointer;
+    margin-left: auto;
+}
+
+/* ── Blocks Container ── */
+.mock-blocks {
+    padding: 8px;
+}
+
+/* ── CURRENT style: Root block with heading (for "BEFORE" comparison) ── */
+.mock-root-headed {
+    background: var(--pu-bg-hover);
+    border: 1px solid transparent;
+    border-radius: var(--pu-radius-lg);
+    margin-bottom: 4px;
+}
+.mock-root-header {
+    display: flex;
+    align-items: center;
+    padding: 10px 14px;
+    padding-right: 40px;
+    background: var(--pu-bg-hover);
+    border-radius: var(--pu-radius-lg) var(--pu-radius-lg) 0 0;
+    gap: 8px;
+}
+.mock-root-toggle {
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    transform: rotate(90deg);
+}
+.mock-block-path {
+    font-family: var(--pu-font-mono);
+    font-size: 11px;
+    color: var(--pu-text-secondary);
+    background: var(--pu-bg-secondary);
+    padding: 2px 6px;
+    border-radius: var(--pu-radius);
+    cursor: pointer;
+    transition: background var(--pu-transition-fast);
+    white-space: nowrap;
+}
+.mock-block-path:hover {
+    background: var(--pu-accent-bg);
+}
+.mock-block-path[data-src="theme"]:hover {
+    background: var(--pu-purple-bg);
+}
+.mock-source-sep {
+    opacity: 0.3;
+    margin: 0 4px;
+    color: var(--pu-text-muted);
+}
+.mock-source-name {
+    font-weight: 500;
+}
+.mock-source-name.content { color: var(--pu-accent); }
+.mock-source-name.theme { color: var(--pu-purple); }
+.mock-source-arrow {
+    font-size: 9px;
+    opacity: 0.4;
+    margin-left: 3px;
+}
+.mock-header-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 4px;
+}
+.mock-header-btn {
+    font-family: var(--pu-font-body);
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    background: transparent;
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius);
+    padding: 2px 8px;
+    cursor: pointer;
+}
+.mock-header-btn:hover {
+    color: var(--pu-text-secondary);
+    border-color: var(--pu-text-muted);
+}
+
+/* ── NEW style: Compact root (same as child) ── */
+.mock-root-compact {
+    background: var(--pu-bg-hover);
+    border: 1px solid transparent;
+    border-radius: var(--pu-radius-lg);
+    margin-bottom: 4px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    position: relative;
+    transition: background var(--pu-transition-fast);
+}
+.mock-root-compact:hover {
+    background: var(--pu-bg-selected);
+}
+.mock-root-compact .mock-block-path {
+    flex-shrink: 0;
+    margin-right: 8px;
+    position: relative;
+    top: 1px;
+}
+.mock-root-text {
+    font-size: 13px;
+    color: var(--pu-text-primary);
+    line-height: 1.5;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.mock-root-text.ext {
+    color: var(--pu-text-secondary);
+    font-style: italic;
+}
+
+/* ── Root block content (for headed variant) ── */
+.mock-root-content {
+    padding: 8px 14px 10px;
+    font-size: 13px;
+    color: var(--pu-text-primary);
+    line-height: 1.5;
+}
+.mock-root-content.ext {
+    color: var(--pu-text-secondary);
+    font-style: italic;
+}
+
+/* ── Nested child (shared across all) ── */
+.mock-children {
+    margin-left: 20px;
+    padding-left: 8px;
+}
+.mock-child-divider {
+    display: flex;
+    align-items: center;
+    height: 18px;
+    margin: 0 4px;
+}
+.mock-child-label {
+    font-family: var(--pu-font-mono);
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    background: var(--pu-bg-secondary);
+    padding: 1px 6px;
+    border-radius: var(--pu-radius);
+    white-space: nowrap;
+    opacity: 0.5;
+}
+.mock-child-line {
+    flex: 1;
+    height: 1px;
+    background: var(--pu-border-light);
+    margin-left: 6px;
+}
+.mock-child-content {
+    padding: 6px 12px;
+    font-size: 12px;
+    color: var(--pu-text-secondary);
+    line-height: 1.5;
+}
+
+/* ── Hover actions (appear on compact root hover) ── */
+.mock-hover-actions {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity var(--pu-transition-fast);
+}
+.mock-root-compact:hover .mock-hover-actions {
+    opacity: 1;
+}
+.mock-hover-dot {
+    font-size: 14px;
+    color: var(--pu-text-muted);
+    cursor: pointer;
+    padding: 0 4px;
+}
+.mock-hover-dot:hover { color: var(--pu-text-primary); }
+
+/* ── Add Root Block button ── */
+.mock-add-area {
+    padding: 8px 12px 12px;
+    text-align: center;
+}
+.mock-add-btn {
+    font-family: var(--pu-font-body);
+    font-size: 12px;
+    color: var(--pu-text-muted);
+    background: transparent;
+    border: 1px dashed var(--pu-border-light);
+    border-radius: var(--pu-radius-lg);
+    padding: 6px 16px;
+    cursor: pointer;
+    transition: all var(--pu-transition-fast);
+    width: 100%;
+}
+.mock-add-btn:hover {
+    color: var(--pu-text-secondary);
+    border-color: var(--pu-text-muted);
+    background: var(--pu-bg-hover);
+}
+
+/* ── Page header ── */
+.page-header {
+    max-width: 1400px;
+    margin: 0 auto 24px;
+}
+.page-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--pu-text-primary);
+    margin-bottom: 4px;
+}
+.page-subtitle {
+    font-size: 13px;
+    color: var(--pu-text-muted);
+    margin-bottom: 16px;
+}
+
+/* ── Before/After label ── */
+.before-label {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--pu-error);
+    background: rgba(224,108,117,0.1);
+    padding: 2px 6px;
+    border-radius: var(--pu-radius-sm);
+    margin-bottom: 8px;
+}
+.after-label {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--pu-success);
+    background: rgba(77,170,87,0.1);
+    padding: 2px 6px;
+    border-radius: var(--pu-radius-sm);
+    margin-bottom: 8px;
+}
+
+/* ── Before card (full width) ── */
+.before-section {
+    max-width: 1400px;
+    margin: 0 auto 24px;
+}
+.before-card {
+    background: var(--pu-bg-primary);
+    border: 1px solid var(--pu-border-light);
+    border-radius: 8px;
+    overflow: hidden;
+    opacity: 0.7;
+}
+
+/* ── Annotation ── */
+.annotation {
+    font-size: 10px;
+    font-family: var(--pu-font-mono);
+    color: var(--pu-text-muted);
+    padding: 6px 16px;
+    background: var(--pu-bg-primary);
+    border-top: 1px solid var(--pu-border);
+    display: flex;
+    gap: 16px;
+}
+.annotation-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.annotation-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.annotation-dot.saved { background: var(--pu-success); }
+.annotation-dot.removed { background: var(--pu-error); opacity: 0.5; }
+.annotation-dot.new { background: var(--pu-accent); }
+.annotation-dot.moved { background: var(--pu-purple); }
+
+/* ── Savings indicator ── */
+.savings {
+    font-family: var(--pu-font-mono);
+    font-size: 10px;
+    color: var(--pu-success);
+    padding: 4px 16px;
+    background: var(--pu-success-bg);
+    border-top: 1px solid var(--pu-border);
+}
+</style>
+</head>
+<body>
+
+<div class="page-header">
+    <div class="page-title">Headless Roots: Pick a Variation</div>
+    <div class="page-subtitle">All 4 share the same base: root blocks render compact (like children). The heading bar is removed. Each variation differs in what replaces it. Click to select.</div>
+</div>
+
+<!-- ── BEFORE: Current state ── -->
+<div class="before-section">
+    <div class="before-label">BEFORE (CURRENT)</div>
+    <div class="before-card">
+        <div class="mock-prompt-header">
+            <span class="mock-prompt-label">PROMPT:</span>
+            <span class="mock-prompt-title">ext-sourcing-strategy</span>
+            <select class="mock-viz-select"><option>Compact</option></select>
+        </div>
+        <div class="mock-blocks">
+            <!-- Root 0: headed -->
+            <div class="mock-root-headed">
+                <div class="mock-root-header">
+                    <span class="mock-root-toggle">&#9654;</span>
+                    <span class="mock-block-path">Path: 0<span class="mock-source-sep">&middot;</span><span class="mock-source-name content">content</span><span class="mock-source-arrow">&#9662;</span></span>
+                    <span class="mock-header-actions">
+                        <button class="mock-header-btn">+ Child</button>
+                        <button class="mock-header-btn">+ Theme</button>
+                    </span>
+                </div>
+                <div class="mock-root-content">You are a senior recruiter specializing in tech talent acquisition...</div>
+                <!-- Child -->
+                <div class="mock-children">
+                    <div class="mock-child-divider">
+                        <span class="mock-child-label">&#8627; 0.0<span class="mock-source-sep">&middot;</span><span class="mock-source-name theme">roles</span><span class="mock-source-arrow">&#9662;</span></span>
+                        <span class="mock-child-line"></span>
+                    </div>
+                    <div class="mock-child-content">Software Engineer, Product Manager, Data Scientist...</div>
+                </div>
+            </div>
+            <!-- Root 1: headed -->
+            <div class="mock-root-headed">
+                <div class="mock-root-header">
+                    <span class="mock-root-toggle">&#9654;</span>
+                    <span class="mock-block-path" data-src="theme">Path: 1<span class="mock-source-sep">&middot;</span><span class="mock-source-name theme">roles</span><span class="mock-source-arrow">&#9662;</span></span>
+                    <span class="mock-header-actions">
+                        <button class="mock-header-btn">+ Child</button>
+                        <button class="mock-header-btn">+ Theme</button>
+                    </span>
+                </div>
+                <div class="mock-root-content ext">Software Engineer, Product Manager, Data Scientist, DevOps Engineer...</div>
+            </div>
+        </div>
+        <div class="mock-add-area">
+            <button class="mock-add-btn">+ Add Root Block &#9660;</button>
+        </div>
+        <div class="annotation">
+            <span class="annotation-item"><span class="annotation-dot removed"></span>40px heading per root</span>
+            <span class="annotation-item"><span class="annotation-dot removed"></span>+ Child / + Theme in heading (scope confusion)</span>
+        </div>
+    </div>
+</div>
+
+<!-- ── AFTER: 4 Variations ── -->
+<div class="after-label" style="max-width:1400px; margin: 0 auto 8px;">AFTER (PICK ONE)</div>
+
+<div class="preview-grid">
+
+    <!-- ═══════ A: Clean Canvas ═══════ -->
+    <div class="preview-card selected" data-option="A" onclick="selectCard(this)">
+        <div class="preview-label">
+            <span class="preview-radio"></span>
+            <span class="preview-letter">A</span>
+            <span class="preview-name">Clean Canvas</span>
+            <span class="preview-desc">No toolbar. Maximum space.</span>
+        </div>
+        <div class="mock-editor">
+            <div class="mock-prompt-header">
+                <span class="mock-prompt-label">PROMPT:</span>
+                <span class="mock-prompt-title">ext-sourcing-strategy</span>
+                <select class="mock-viz-select"><option>Compact</option></select>
+            </div>
+            <!-- No toolbar — straight to blocks -->
+            <div class="mock-blocks">
+                <div class="mock-root-compact">
+                    <span class="mock-block-path">0<span class="mock-source-sep">&middot;</span><span class="mock-source-name content">content</span><span class="mock-source-arrow">&#9662;</span></span>
+                    <span class="mock-root-text">You are a senior recruiter specializing in tech talent acquisition...</span>
+                    <span class="mock-hover-actions"><span class="mock-hover-dot">&#8943;</span></span>
+                </div>
+                <!-- Child of 0 -->
+                <div class="mock-children">
+                    <div class="mock-child-divider">
+                        <span class="mock-child-label">&#8627; 0.0<span class="mock-source-sep">&middot;</span><span class="mock-source-name theme">roles</span><span class="mock-source-arrow">&#9662;</span></span>
+                        <span class="mock-child-line"></span>
+                    </div>
+                    <div class="mock-child-content">Software Engineer, Product Manager, Data Scientist...</div>
+                </div>
+                <div class="mock-root-compact">
+                    <span class="mock-block-path" data-src="theme">1<span class="mock-source-sep">&middot;</span><span class="mock-source-name theme">roles</span><span class="mock-source-arrow">&#9662;</span></span>
+                    <span class="mock-root-text ext">Software Engineer, Product Manager, Data Scientist, DevOps Engineer...</span>
+                    <span class="mock-hover-actions"><span class="mock-hover-dot">&#8943;</span></span>
+                </div>
+            </div>
+            <div class="mock-add-area">
+                <button class="mock-add-btn">+ Add Root Block &#9660;</button>
+            </div>
+        </div>
+        <div class="savings">&#8593; Saves ~40px per root block. Nest actions via &#8943; menu or right-click.</div>
+    </div>
+
+    <!-- ═══════ B: Structure Toolbar ═══════ -->
+    <div class="preview-card" data-option="B" onclick="selectCard(this)">
+        <div class="preview-label">
+            <span class="preview-radio"></span>
+            <span class="preview-letter">B</span>
+            <span class="preview-name">Structure Toolbar</span>
+            <span class="preview-desc">Reorder, collapse, stats</span>
+        </div>
+        <div class="mock-editor">
+            <div class="mock-prompt-header">
+                <span class="mock-prompt-label">PROMPT:</span>
+                <span class="mock-prompt-title">ext-sourcing-strategy</span>
+                <select class="mock-viz-select"><option>Compact</option></select>
+            </div>
+            <!-- Structure toolbar -->
+            <div class="mock-toolbar">
+                <button class="mock-toolbar-btn">&#8597; Reorder</button>
+                <span class="mock-toolbar-sep"></span>
+                <button class="mock-toolbar-btn">&#9660; Collapse All</button>
+                <button class="mock-toolbar-btn">&#9650; Expand All</button>
+                <span class="mock-toolbar-stat">2 roots &middot; depth 1</span>
+            </div>
+            <div class="mock-blocks">
+                <div class="mock-root-compact">
+                    <span class="mock-block-path">0<span class="mock-source-sep">&middot;</span><span class="mock-source-name content">content</span><span class="mock-source-arrow">&#9662;</span></span>
+                    <span class="mock-root-text">You are a senior recruiter specializing in tech talent acquisition...</span>
+                    <span class="mock-hover-actions"><span class="mock-hover-dot">&#8943;</span></span>
+                </div>
+                <div class="mock-children">
+                    <div class="mock-child-divider">
+                        <span class="mock-child-label">&#8627; 0.0<span class="mock-source-sep">&middot;</span><span class="mock-source-name theme">roles</span><span class="mock-source-arrow">&#9662;</span></span>
+                        <span class="mock-child-line"></span>
+                    </div>
+                    <div class="mock-child-content">Software Engineer, Product Manager, Data Scientist...</div>
+                </div>
+                <div class="mock-root-compact">
+                    <span class="mock-block-path" data-src="theme">1<span class="mock-source-sep">&middot;</span><span class="mock-source-name theme">roles</span><span class="mock-source-arrow">&#9662;</span></span>
+                    <span class="mock-root-text ext">Software Engineer, Product Manager, Data Scientist, DevOps Engineer...</span>
+                    <span class="mock-hover-actions"><span class="mock-hover-dot">&#8943;</span></span>
+                </div>
+            </div>
+            <div class="mock-add-area">
+                <button class="mock-add-btn">+ Add Root Block &#9660;</button>
+            </div>
+        </div>
+        <div class="annotation">
+            <span class="annotation-item"><span class="annotation-dot new"></span>Prompt-level reorder mode</span>
+            <span class="annotation-item"><span class="annotation-dot new"></span>Batch collapse/expand</span>
+            <span class="annotation-item"><span class="annotation-dot new"></span>Structure stats</span>
+        </div>
+    </div>
+
+    <!-- ═══════ C: Identity Bar ═══════ -->
+    <div class="preview-card" data-option="C" onclick="selectCard(this)">
+        <div class="preview-label">
+            <span class="preview-radio"></span>
+            <span class="preview-letter">C</span>
+            <span class="preview-name">Identity Bar</span>
+            <span class="preview-desc">Save status in prompt header</span>
+        </div>
+        <div class="mock-editor">
+            <!-- Enhanced prompt header with save status -->
+            <div class="mock-prompt-header">
+                <span class="mock-prompt-label">PROMPT:</span>
+                <span class="mock-prompt-title">ext-sourcing-strategy</span>
+                <span class="mock-modified-badge">modified</span>
+                <button class="mock-save-btn">Save</button>
+                <select class="mock-viz-select"><option>Compact</option></select>
+            </div>
+            <!-- No toolbar — straight to blocks -->
+            <div class="mock-blocks">
+                <div class="mock-root-compact">
+                    <span class="mock-block-path">0<span class="mock-source-sep">&middot;</span><span class="mock-source-name content">content</span><span class="mock-source-arrow">&#9662;</span></span>
+                    <span class="mock-root-text">You are a senior recruiter specializing in tech talent acquisition...</span>
+                    <span class="mock-hover-actions"><span class="mock-hover-dot">&#8943;</span></span>
+                </div>
+                <div class="mock-children">
+                    <div class="mock-child-divider">
+                        <span class="mock-child-label">&#8627; 0.0<span class="mock-source-sep">&middot;</span><span class="mock-source-name theme">roles</span><span class="mock-source-arrow">&#9662;</span></span>
+                        <span class="mock-child-line"></span>
+                    </div>
+                    <div class="mock-child-content">Software Engineer, Product Manager, Data Scientist...</div>
+                </div>
+                <div class="mock-root-compact">
+                    <span class="mock-block-path" data-src="theme">1<span class="mock-source-sep">&middot;</span><span class="mock-source-name theme">roles</span><span class="mock-source-arrow">&#9662;</span></span>
+                    <span class="mock-root-text ext">Software Engineer, Product Manager, Data Scientist, DevOps Engineer...</span>
+                    <span class="mock-hover-actions"><span class="mock-hover-dot">&#8943;</span></span>
+                </div>
+            </div>
+            <div class="mock-add-area">
+                <button class="mock-add-btn">+ Add Root Block &#9660;</button>
+            </div>
+        </div>
+        <div class="annotation">
+            <span class="annotation-item"><span class="annotation-dot new"></span>Modified badge in header</span>
+            <span class="annotation-item"><span class="annotation-dot new"></span>Save button always visible</span>
+            <span class="annotation-item"><span class="annotation-dot saved"></span>Minimal — no new toolbar row</span>
+        </div>
+    </div>
+
+    <!-- ═══════ D: Composition Bar ═══════ -->
+    <div class="preview-card" data-option="D" onclick="selectCard(this)">
+        <div class="preview-label">
+            <span class="preview-radio"></span>
+            <span class="preview-letter">D</span>
+            <span class="preview-name">Composition Bar</span>
+            <span class="preview-desc">Comp nav + quick export</span>
+        </div>
+        <div class="mock-editor">
+            <div class="mock-prompt-header">
+                <span class="mock-prompt-label">PROMPT:</span>
+                <span class="mock-prompt-title">ext-sourcing-strategy</span>
+                <select class="mock-viz-select"><option>Compact</option></select>
+            </div>
+            <!-- Composition toolbar -->
+            <div class="mock-toolbar">
+                <div class="mock-comp-nav">
+                    <button class="mock-comp-arrow">&#9664;</button>
+                    <span class="mock-comp-label">Comp <strong>42</strong> / 120</span>
+                    <button class="mock-comp-arrow">&#9654;</button>
+                </div>
+                <span class="mock-toolbar-sep"></span>
+                <span class="mock-bucket-badge">Bucket 2 / 4</span>
+                <button class="mock-export-btn">&#8599; Export This</button>
+            </div>
+            <div class="mock-blocks">
+                <div class="mock-root-compact">
+                    <span class="mock-block-path">0<span class="mock-source-sep">&middot;</span><span class="mock-source-name content">content</span><span class="mock-source-arrow">&#9662;</span></span>
+                    <span class="mock-root-text">You are a senior recruiter specializing in tech talent acquisition...</span>
+                    <span class="mock-hover-actions"><span class="mock-hover-dot">&#8943;</span></span>
+                </div>
+                <div class="mock-children">
+                    <div class="mock-child-divider">
+                        <span class="mock-child-label">&#8627; 0.0<span class="mock-source-sep">&middot;</span><span class="mock-source-name theme">roles</span><span class="mock-source-arrow">&#9662;</span></span>
+                        <span class="mock-child-line"></span>
+                    </div>
+                    <div class="mock-child-content">Software Engineer, Product Manager, Data Scientist...</div>
+                </div>
+                <div class="mock-root-compact">
+                    <span class="mock-block-path" data-src="theme">1<span class="mock-source-sep">&middot;</span><span class="mock-source-name theme">roles</span><span class="mock-source-arrow">&#9662;</span></span>
+                    <span class="mock-root-text ext">Software Engineer, Product Manager, Data Scientist, DevOps Engineer...</span>
+                    <span class="mock-hover-actions"><span class="mock-hover-dot">&#8943;</span></span>
+                </div>
+            </div>
+            <div class="mock-add-area">
+                <button class="mock-add-btn">+ Add Root Block &#9660;</button>
+            </div>
+        </div>
+        <div class="annotation">
+            <span class="annotation-item"><span class="annotation-dot new"></span>Composition prev/next</span>
+            <span class="annotation-item"><span class="annotation-dot moved"></span>Moved from right panel</span>
+            <span class="annotation-item"><span class="annotation-dot new"></span>Quick export button</span>
+        </div>
+    </div>
+
+</div>
+
+<script>
+function selectCard(card) {
+    document.querySelectorAll('.preview-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+}
+</script>
+
+</body>
+</html>

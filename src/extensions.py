@@ -351,14 +351,15 @@ def load_and_apply_operations(job_dir, global_conf, variant_id="default"):
     """
     DEPRECATED: Legacy variant operations system removed.
 
-    Wildcard operations are now handled by the wildcard_operations module
-    and applied at generation time, not at build time.
+    Wildcard operations (build hooks) are now handled by the
+    wildcard_operations module and applied at render time (when
+    compositions resolve), not at build time.
 
     Use operations/ directory with wildcard_operations.py instead.
 
     This function is kept for backward compatibility but does nothing.
     """
-    # Legacy variants system removed - operations handled at generation time
+    # Legacy variants system removed - operations are build hooks, applied at render time
     pass
 
 

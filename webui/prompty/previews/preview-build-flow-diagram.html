@@ -1,0 +1,1224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Build Flow Diagram — Depth-First Single Cursor</title>
+<style>
+:root {
+    --bg: #191919;
+    --bg2: #202020;
+    --bg3: #2f2f2f;
+    --bg-hover: rgba(255,255,255,0.04);
+    --bg-elevated: #252525;
+    --text: #ebebeb;
+    --text2: #999;
+    --text3: #7a7a7a;
+    --accent: #529CCA;
+    --accent-bg: rgba(82,156,202,0.08);
+    --accent-border: rgba(82,156,202,0.25);
+    --purple: #c678dd;
+    --purple-bg: rgba(198,120,221,0.1);
+    --purple-border: rgba(198,120,221,0.25);
+    --orange: #e8943a;
+    --success: #4daa57;
+    --success-bg: rgba(77,170,87,0.12);
+    --warning: #cb912f;
+    --warning-bg: rgba(203,145,47,0.1);
+    --error: #e06c75;
+    --error-bg: rgba(224,108,117,0.08);
+    --border: rgba(255,255,255,0.06);
+    --border-light: rgba(255,255,255,0.09);
+    --connector: rgba(255,255,255,0.07);
+    --radius: 4px;
+    --radius-lg: 6px;
+    --mono: 'JetBrains Mono','SF Mono','Consolas',monospace;
+    --body: 'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #111; color: var(--text); font-family: var(--body); font-size: 14px; padding: 32px; }
+
+/* ── Page chrome ────────────────────────────────── */
+.page-header { max-width: 1400px; margin: 0 auto 24px; }
+.page-title { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+.page-subtitle { font-size: 13px; color: var(--text3); margin-bottom: 16px; line-height: 1.5; }
+
+.mock-modal { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; max-width: 1400px; margin: 0 auto; }
+.mock-modal-header { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:var(--bg-hover); border-bottom:1px solid var(--border); }
+.mock-modal-header h3 { font-size:15px; font-weight:500; }
+.mock-modal-close { color:var(--text3); font-size:18px; background:none; border:none; cursor:pointer; }
+.mock-modal-body { padding: 24px 20px; overflow-x: auto; }
+.mock-modal-footer { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:12px 16px; border-top:1px solid var(--border); }
+.footer-left { display:flex; gap:10px; align-items:center; flex:1; min-width:0; }
+.footer-right { display:flex; gap:8px; align-items:center; flex-shrink:0; }
+
+/* ── Buttons ────────────────────────────────────── */
+.btn-ghost { font-family:var(--body); font-size:12px; color:var(--text3); background:transparent; border:1px solid var(--border-light); border-radius:var(--radius); padding:5px 12px; cursor:pointer; }
+.btn-primary { font-family:var(--body); font-size:12px; font-weight:500; color:#fff; background:var(--accent); border:none; border-radius:var(--radius); padding:5px 16px; cursor:pointer; }
+.btn-run {
+    font-family:var(--body); font-size:12px; font-weight:600;
+    color:#fff; background:var(--success); border:none;
+    border-radius:var(--radius); padding:5px 16px; cursor:pointer;
+    min-width: 80px; transition: opacity 200ms, background 200ms;
+}
+.btn-run:hover:not(:disabled) { filter: brightness(1.1); }
+.btn-run:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-run.stop-mode { background: var(--warning); }
+
+/* ── Progress bar ───────────────────────────────── */
+.run-progress-bar {
+    flex: 1; max-width: 260px; height: 4px;
+    background: var(--bg3); border-radius: 2px; overflow: hidden;
+    opacity: 0; transition: opacity 300ms;
+}
+.run-progress-bar.visible { opacity: 1; }
+.run-progress-fill {
+    height: 100%; width: 0;
+    background: var(--success);
+    border-radius: 2px;
+    transition: width 200ms ease, background 200ms;
+}
+.run-progress-fill.has-error { background: var(--error); }
+.run-status {
+    font-family: var(--mono); font-size: 10px; color: var(--text3);
+    white-space: nowrap;
+    opacity: 0; transition: opacity 300ms;
+}
+.run-status.visible { opacity: 1; }
+.run-status.error { color: var(--error); }
+
+/* ── Simulate failure toggle ────────────────────── */
+.sim-fail {
+    display: flex; align-items: center; gap: 4px;
+    font-family: var(--mono); font-size: 10px; color: var(--text3);
+    cursor: pointer; user-select: none; white-space: nowrap;
+}
+.sim-fail input { accent-color: var(--error); width: 12px; height: 12px; }
+
+/* ══════════════════════════════════════════════════
+   HORIZONTAL TREE LAYOUT
+   Horizontal axis = execution sequence (parent → child).
+   Vertical axis = parallel paths (siblings).
+   ══════════════════════════════════════════════════ */
+.h-tree {
+    display: flex;
+    align-items: center;
+}
+
+.h-link {
+    width: 28px; height: 0;
+    border-top: 1px solid var(--border-light);
+    flex-shrink: 0;
+    transition: opacity 400ms ease, border-color 400ms ease;
+}
+
+.h-children {
+    display: flex;
+    flex-direction: column;
+}
+
+.h-children > .h-tree {
+    position: relative;
+    padding: 6px 0 6px 18px;
+}
+
+.h-children > .h-tree::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 50%;
+    width: 18px; height: 0;
+    border-top: 1px solid var(--connector);
+}
+
+.h-children > .h-tree::after {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 0;
+    border-left: 1px solid var(--connector);
+}
+.h-children > .h-tree:first-child::after { top: 50%; }
+.h-children > .h-tree:last-child::after { bottom: 50%; }
+.h-children > .h-tree:only-child::after { display: none; }
+
+/* ══════════════════════════════════════════════════
+   NODE STYLES
+   ══════════════════════════════════════════════════ */
+.mm-node {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 10px; border-radius: var(--radius);
+    font-size: 12px; white-space: nowrap; position: relative;
+    border: 1px solid transparent; cursor: default;
+    transition: opacity 400ms ease, filter 400ms ease,
+                border-color 400ms ease, background 400ms ease,
+                transform 300ms ease;
+}
+.mm-node.root {
+    font-weight: 600; font-size: 14px;
+    background: var(--bg3); border-color: var(--border-light);
+    padding: 8px 14px; border-radius: var(--radius-lg);
+}
+.mm-node.content { background: var(--accent-bg); color: var(--accent); border-color: var(--accent-border); }
+.mm-node.theme { background: var(--purple-bg); color: var(--purple); border-color: var(--purple-border); }
+.mm-node.leaf { font-size: 11px; }
+.mm-path { font-family: var(--mono); font-size: 10px; opacity: 0.5; }
+.mm-text { max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+.mm-wc { color: var(--orange); font-weight: 500; }
+
+/* ══════════════════════════════════════════════════
+   CARD MODE — blocks with dimensions zone
+   ══════════════════════════════════════════════════ */
+.mm-node.has-dims {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 0;
+    white-space: normal;
+    min-width: 160px;
+}
+.mm-card-text {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    white-space: nowrap;
+}
+.mm-dims {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px 5px;
+    border-top: 1px dashed rgba(255,255,255,0.06);
+    position: relative;
+    overflow: visible;
+}
+
+/* Wildcard pill */
+.wc-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 1px 7px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.04);
+    color: var(--text3);
+    border: 1px solid var(--border-light);
+    cursor: pointer;
+    position: relative;
+    white-space: nowrap;
+    transition: border-color 200ms;
+}
+.wc-pill.from-theme {
+    border-color: var(--purple-border);
+    color: var(--purple);
+    background: var(--purple-bg);
+}
+.wc-pill:hover { border-color: rgba(255,255,255,0.18); }
+.wc-pill.from-theme:hover { border-color: rgba(198,120,221,0.4); }
+.wc-expand-icon {
+    font-size: 8px; opacity: 0.35; margin-left: 2px;
+    transition: transform 200ms;
+}
+.wc-pill.expanded .wc-expand-icon { transform: rotate(90deg); opacity: 0.6; }
+.wc-source {
+    font-size: 7px; font-weight: 600; letter-spacing: 0.5px;
+    text-transform: uppercase; opacity: 0.45;
+    margin-left: 3px;
+}
+
+/* Per-block composition total badge */
+.mm-total {
+    font-family: var(--mono); font-size: 9px;
+    padding: 1px 5px; border-radius: 8px;
+    margin-left: auto; white-space: nowrap;
+    color: var(--text3); background: rgba(255,255,255,0.05);
+    opacity: 0.6;
+    transition: opacity 300ms;
+}
+.mm-node[data-run-state="dormant"] .mm-total,
+.mm-node[data-run-state="running"] .mm-total,
+.mm-node[data-run-state="partial"] .mm-total,
+.mm-node[data-run-state="paused"] .mm-total,
+.mm-node[data-run-state="complete"] .mm-total,
+.mm-node[data-run-state="failed"] .mm-total,
+.mm-node[data-run-state="blocked"] .mm-total { display: none; }
+
+/* Wildcard values dropdown */
+.wc-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0; z-index: 10;
+    min-width: 120px; max-width: 200px;
+    background: var(--bg2);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius);
+    padding: 4px 0;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    font-family: var(--mono);
+    font-size: 10px;
+}
+.wc-dropdown.open { display: block; }
+.wc-dropdown-item {
+    padding: 3px 10px;
+    color: var(--text2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.wc-dropdown-item:hover { background: var(--bg-hover); }
+
+/* ══════════════════════════════════════════════════
+   RUN STATES
+   ══════════════════════════════════════════════════ */
+.mm-node[data-run-state="dormant"] {
+    opacity: 0.22;
+    filter: saturate(0.2);
+}
+.mm-node[data-run-state="running"] {
+    opacity: 0.85;
+    filter: saturate(1);
+    animation: pulse-glow 1.2s ease-in-out infinite;
+}
+.mm-node[data-run-state="partial"] {
+    opacity: 0.65;
+    filter: saturate(0.8);
+    animation: none;
+}
+.mm-node[data-run-state="paused"] {
+    opacity: 0.6;
+    filter: saturate(0.6);
+    border-color: var(--warning) !important;
+}
+.mm-node[data-run-state="complete"] {
+    opacity: 1;
+    filter: saturate(1) brightness(1.05);
+    transform: scale(1.01);
+}
+.mm-node[data-run-state="failed"] {
+    opacity: 1;
+    filter: saturate(1);
+    border-color: var(--error) !important;
+    background: var(--error-bg) !important;
+    animation: none;
+}
+.mm-node[data-run-state="blocked"] {
+    opacity: 0.25;
+    filter: saturate(0.15) brightness(0.85);
+    border-style: dashed;
+    border-color: rgba(224,108,117,0.3) !important;
+}
+
+/* Dims zone inherits card state */
+.mm-node[data-run-state="dormant"] .mm-dims { opacity: 0.7; }
+.mm-node[data-run-state="running"] .mm-dims { opacity: 0.6; }
+.mm-node[data-run-state="partial"] .mm-dims { opacity: 0.7; }
+.mm-node[data-run-state="paused"] .mm-dims { opacity: 0.6; }
+.mm-node[data-run-state="complete"] .mm-dims { opacity: 0.8; }
+.mm-node[data-run-state="failed"] .mm-dims { opacity: 0.6; }
+.mm-node[data-run-state="blocked"] .mm-dims { opacity: 0.5; }
+
+@keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 0 0 transparent; }
+    50% { box-shadow: 0 0 8px 2px rgba(82,156,202,0.25); }
+}
+.mm-node.theme[data-run-state="running"] {
+    animation: pulse-glow-purple 1.2s ease-in-out infinite;
+}
+@keyframes pulse-glow-purple {
+    0%, 100% { box-shadow: 0 0 0 0 transparent; }
+    50% { box-shadow: 0 0 8px 2px rgba(198,120,221,0.25); }
+}
+
+/* Connector states */
+.h-link[data-link-state="dormant"] { opacity: 0.12; }
+.h-link[data-link-state="running"] { opacity: 0.5; }
+.h-link[data-link-state="partial"] { opacity: 0.4; }
+.h-link[data-link-state="paused"] { opacity: 0.3; border-color: var(--warning); }
+.h-link[data-link-state="complete"] { opacity: 1; }
+.h-link[data-link-state="failed"] { opacity: 0.7; border-color: var(--error); }
+.h-link[data-link-state="blocked"] { opacity: 0.08; }
+
+/* Badges */
+.mm-progress {
+    display: none;
+    font-family: var(--mono); font-size: 9px;
+    padding: 1px 6px; border-radius: 8px;
+    margin-left: 4px; white-space: nowrap;
+    background: rgba(255,255,255,0.06); color: var(--text3);
+}
+.mm-node[data-run-state="running"] .mm-progress {
+    display: inline-flex; color: var(--accent); background: var(--accent-bg);
+}
+.mm-node[data-run-state="partial"] .mm-progress {
+    display: inline-flex; color: var(--text3); background: rgba(255,255,255,0.06);
+}
+.mm-node[data-run-state="paused"] .mm-progress {
+    display: inline-flex; color: var(--warning); background: var(--warning-bg);
+}
+.mm-node[data-run-state="complete"] .mm-progress {
+    display: inline-flex; color: var(--success); background: var(--success-bg);
+}
+.mm-node[data-run-state="failed"] .mm-progress {
+    display: inline-flex; color: var(--error); background: var(--error-bg);
+}
+
+.mm-result {
+    display: none;
+    font-family: var(--mono); font-size: 9px;
+    padding: 1px 6px; border-radius: 8px;
+    margin-left: 2px; white-space: nowrap;
+    color: var(--success); background: var(--success-bg);
+}
+.mm-node[data-run-state="complete"] .mm-result { display: inline-flex; }
+
+.mm-error {
+    display: none;
+    font-family: var(--mono); font-size: 9px;
+    padding: 1px 6px; border-radius: 8px;
+    margin-left: 2px; white-space: nowrap;
+    color: var(--error); background: var(--error-bg);
+}
+.mm-node[data-run-state="failed"] .mm-error { display: inline-flex; }
+
+.mm-blocked-label {
+    display: none;
+    font-family: var(--mono); font-size: 8px;
+    padding: 1px 5px; border-radius: 6px;
+    margin-left: 4px;
+    color: rgba(224,108,117,0.6); background: rgba(224,108,117,0.06);
+    text-transform: uppercase; letter-spacing: 0.5px;
+}
+.mm-node[data-run-state="blocked"] .mm-blocked-label { display: inline-flex; }
+
+/* Hook stage indicator */
+.mm-stage {
+    display: none;
+    font-family: var(--mono); font-size: 8px;
+    padding: 1px 5px; border-radius: 6px;
+    margin-left: 3px;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    transition: color 100ms, background 100ms;
+}
+.mm-node[data-run-state="running"] .mm-stage { display: inline-flex; }
+.mm-stage[data-stage-type="start"],
+.mm-stage[data-stage-type="end"] {
+    color: var(--text3); background: rgba(255,255,255,0.04);
+}
+.mm-stage[data-stage-type="ann"] {
+    color: var(--purple); background: var(--purple-bg);
+}
+.mm-stage[data-stage-type="pre"],
+.mm-stage[data-stage-type="post"] {
+    color: var(--accent); background: var(--accent-bg);
+}
+.mm-stage[data-stage-type="gen"] {
+    color: var(--orange); background: rgba(232,148,58,0.1);
+}
+
+/* State legend */
+.state-legend {
+    display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+    padding: 10px 0 0; font-size: 11px; color: var(--text3);
+    border-top: 1px solid var(--border); margin-top: 16px;
+    opacity: 0; transition: opacity 300ms;
+}
+.state-legend.visible { opacity: 1; }
+.legend-item { display: flex; align-items: center; gap: 5px; }
+.legend-swatch {
+    width: 10px; height: 10px; border-radius: 2px;
+    border: 1px solid var(--border-light);
+}
+.legend-swatch.s-dormant { background: var(--bg3); opacity: 0.22; }
+.legend-swatch.s-running { background: var(--accent); opacity: 0.85; }
+.legend-swatch.s-partial { background: var(--accent); opacity: 0.45; }
+.legend-swatch.s-paused { background: var(--bg3); border-color: var(--warning); opacity: 0.6; }
+.legend-swatch.s-complete { background: var(--success); opacity: 1; }
+.legend-swatch.s-failed { background: var(--error-bg); border-color: var(--error); opacity: 1; }
+.legend-swatch.s-blocked { background: var(--bg3); border: 1px dashed rgba(224,108,117,0.3); opacity: 0.25; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+    <div class="page-title">Build Flow Diagram: Depth-First Single Cursor</div>
+    <div class="page-subtitle">
+        One GPU, one image at a time. Full hook lifecycle per composition:
+        <code style="color:var(--text2)">node_start</code> &rarr; <code style="color:var(--text2)">annotations_resolve</code> (once per block) &rarr;
+        <code style="color:var(--accent)">mods_pre</code> &rarr; <code style="color:var(--orange)">image_generation</code> &rarr; <code style="color:var(--accent)">mods_post</code> (per composition) &rarr;
+        <code style="color:var(--text2)">node_end</code> (once per block).
+        Depth-first order. Failure is path-scoped.
+        <br>Uses <code style="color:var(--accent)">ext-sourcing-strategy</code> prompt data (822 compositions).
+    </div>
+</div>
+
+<div class="mock-modal">
+    <div class="mock-modal-header">
+        <h3>ext-sourcing-strategy</h3>
+        <div style="display:flex; gap:8px; align-items:center;">
+            <span style="font-family:var(--mono); font-size:11px; color:var(--text3);">822 compositions</span>
+            <span class="mock-modal-close">&times;</span>
+        </div>
+    </div>
+    <div class="mock-modal-body">
+
+        <!-- ═══════ DEPTH-FIRST SINGLE CURSOR FLOW ═══════ -->
+        <div class="h-tree" id="flowTree">
+            <!-- Prompt root -->
+            <span class="mm-node root" data-run-state="idle" data-node-id="prompt">
+                ext-sourcing-strategy
+                <span class="mm-progress" data-progress></span>
+            </span>
+            <div class="h-link" data-link-for="prompt"></div>
+            <div class="h-children">
+
+                <!-- ── PATH 0: sourcing strategy ── -->
+                <div class="h-tree">
+                    <div class="mm-node content has-dims" data-run-state="idle" data-node-id="block-0">
+                        <div class="mm-card-text">
+                            <span class="mm-path">0</span>
+                            <span class="mm-text">"Create a sourcing strategy for <span class="mm-wc">__channel__</span> recruitment"</span>
+                            <span class="mm-progress" data-progress></span>
+                            <span class="mm-stage" data-stage></span>
+                            <span class="mm-result" data-result></span>
+                            <span class="mm-error" data-error></span>
+                        </div>
+                        <div class="mm-dims">
+                            <span class="wc-pill expandable" data-wc-id="wc-channel" onclick="toggleWcDropdown(this)">channel &times;12<span class="wc-expand-icon">&#9656;</span></span>
+                            <span class="mm-total">=12</span>
+                            <div class="wc-dropdown" data-dropdown-for="wc-channel">
+                                <div class="wc-dropdown-item">inbound</div>
+                                <div class="wc-dropdown-item">outbound</div>
+                                <div class="wc-dropdown-item">referral</div>
+                                <div class="wc-dropdown-item">campus</div>
+                                <div class="wc-dropdown-item">social media</div>
+                                <div class="wc-dropdown-item">job board</div>
+                                <div class="wc-dropdown-item">agency</div>
+                                <div class="wc-dropdown-item">internal mobility</div>
+                                <div class="wc-dropdown-item">freelance platform</div>
+                                <div class="wc-dropdown-item">hackathon</div>
+                                <div class="wc-dropdown-item">alumni network</div>
+                                <div class="wc-dropdown-item">conference</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="h-link" data-link-for="block-0"></div>
+                    <div class="h-children">
+
+                        <!-- Child 0.0: inherits channel from parent (no own wildcards) -->
+                        <div class="h-tree">
+                            <span class="mm-node content leaf" data-run-state="idle" data-node-id="block-0-0">
+                                <span class="mm-path">0.0</span>
+                                <span class="mm-text">"Identify top platforms for this channel"</span>
+                                <span class="mm-total">=12</span>
+                                <span class="mm-progress" data-progress></span>
+                                <span class="mm-stage" data-stage></span>
+                                <span class="mm-result" data-result></span>
+                                <span class="mm-error" data-error></span>
+                                <span class="mm-blocked-label">blocked</span>
+                            </span>
+                        </div>
+
+                        <!-- Child 0.1: inherits channel × own tone wildcard -->
+                        <div class="h-tree">
+                            <div class="mm-node content leaf has-dims" data-run-state="idle" data-node-id="block-0-1">
+                                <div class="mm-card-text">
+                                    <span class="mm-path">0.1</span>
+                                    <span class="mm-text">"Draft <span class="mm-wc">__tone__</span> outreach template"</span>
+                                    <span class="mm-progress" data-progress></span>
+                                    <span class="mm-stage" data-stage></span>
+                                    <span class="mm-result" data-result></span>
+                                    <span class="mm-error" data-error></span>
+                                    <span class="mm-blocked-label">blocked</span>
+                                </div>
+                                <div class="mm-dims">
+                                    <span class="wc-pill expandable" data-wc-id="wc-tone" onclick="toggleWcDropdown(this)">tone &times;3<span class="wc-expand-icon">&#9656;</span></span>
+                                    <span class="mm-total">=36</span>
+                                    <div class="wc-dropdown" data-dropdown-for="wc-tone">
+                                        <div class="wc-dropdown-item">professional</div>
+                                        <div class="wc-dropdown-item">casual</div>
+                                        <div class="wc-dropdown-item">persuasive</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- ── PATH 1: roles (parallel to path 0) ── -->
+                <div class="h-tree">
+                    <span class="mm-node theme" data-run-state="idle" data-node-id="block-1">
+                        <span class="mm-path">1</span>
+                        hiring/roles
+                        <span style="font-family:var(--mono);font-size:9px;opacity:0.5">&times;6</span>
+                        <span class="mm-total">=6</span>
+                        <span class="mm-progress" data-progress></span>
+                        <span class="mm-stage" data-stage></span>
+                        <span class="mm-result" data-result></span>
+                        <span class="mm-error" data-error></span>
+                    </span>
+                    <div class="h-link" data-link-for="block-1"></div>
+                    <div class="h-children">
+
+                        <!-- Child 1.0: inherits roles × own wildcards -->
+                        <div class="h-tree">
+                            <div class="mm-node content leaf has-dims" data-run-state="idle" data-node-id="block-1-0">
+                                <div class="mm-card-text">
+                                    <span class="mm-path">1.0</span>
+                                    <span class="mm-text">"For each role, suggest <span class="mm-wc">__count__</span> <span class="mm-wc">__approach__</span> outreach tactics"</span>
+                                    <span class="mm-progress" data-progress></span>
+                                    <span class="mm-stage" data-stage></span>
+                                    <span class="mm-result" data-result></span>
+                                    <span class="mm-error" data-error></span>
+                                    <span class="mm-blocked-label">blocked</span>
+                                </div>
+                                <div class="mm-dims">
+                                    <span class="wc-pill expandable" data-wc-id="wc-count" onclick="toggleWcDropdown(this)">count &times;3<span class="wc-expand-icon">&#9656;</span></span>
+                                    <span class="wc-pill expandable" data-wc-id="wc-approach" onclick="toggleWcDropdown(this)">approach &times;3<span class="wc-expand-icon">&#9656;</span></span>
+                                    <span class="wc-pill from-theme expandable" data-wc-id="wc-seniority" onclick="toggleWcDropdown(this)">seniority &times;14<span class="wc-source">ext</span><span class="wc-expand-icon">&#9656;</span></span>
+                                    <span class="mm-total">=756</span>
+                                    <div class="wc-dropdown" data-dropdown-for="wc-count">
+                                        <div class="wc-dropdown-item">2</div>
+                                        <div class="wc-dropdown-item">3</div>
+                                        <div class="wc-dropdown-item">5</div>
+                                    </div>
+                                    <div class="wc-dropdown" data-dropdown-for="wc-approach">
+                                        <div class="wc-dropdown-item">personalized</div>
+                                        <div class="wc-dropdown-item">automated</div>
+                                        <div class="wc-dropdown-item">hybrid</div>
+                                    </div>
+                                    <div class="wc-dropdown" data-dropdown-for="wc-seniority">
+                                        <div class="wc-dropdown-item">Intern</div>
+                                        <div class="wc-dropdown-item">Junior</div>
+                                        <div class="wc-dropdown-item">Mid-level</div>
+                                        <div class="wc-dropdown-item">Senior</div>
+                                        <div class="wc-dropdown-item">Staff</div>
+                                        <div class="wc-dropdown-item">Principal</div>
+                                        <div class="wc-dropdown-item">Lead</div>
+                                        <div class="wc-dropdown-item">Director</div>
+                                        <div class="wc-dropdown-item">VP</div>
+                                        <div class="wc-dropdown-item">C-Suite</div>
+                                        <div class="wc-dropdown-item">Consultant</div>
+                                        <div class="wc-dropdown-item">Contractor</div>
+                                        <div class="wc-dropdown-item">Fellow</div>
+                                        <div class="wc-dropdown-item">Apprentice</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- State legend -->
+        <div class="state-legend" id="stateLegend">
+            <span style="font-family:var(--mono); font-size:9px; letter-spacing:0.5px; text-transform:uppercase; opacity:0.4;">States:</span>
+            <span class="legend-item"><span class="legend-swatch s-dormant"></span> Dormant</span>
+            <span class="legend-item"><span class="legend-swatch s-running"></span> Running</span>
+            <span class="legend-item"><span class="legend-swatch s-partial"></span> Partial</span>
+            <span class="legend-item"><span class="legend-swatch s-paused"></span> Paused</span>
+            <span class="legend-item"><span class="legend-swatch s-complete"></span> Complete</span>
+            <span class="legend-item"><span class="legend-swatch s-failed"></span> Failed</span>
+            <span class="legend-item"><span class="legend-swatch s-blocked"></span> Blocked</span>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="mock-modal-footer">
+        <div class="footer-left">
+            <button class="btn-run" id="runBtn" onclick="onRunClick()">Run</button>
+            <div class="run-progress-bar" id="progressBar">
+                <div class="run-progress-fill" id="progressFill"></div>
+            </div>
+            <span class="run-status" id="runStatus"></span>
+        </div>
+        <div class="footer-right">
+            <label class="sim-fail" title="Block 0.0 fails at composition #5 — remaining 0.0 entries skipped, 0.1 blocked for that variation, path 1 continues">
+                <input type="checkbox" id="simFail">
+                <span>Sim failure on 0.0</span>
+            </label>
+            <button class="btn-ghost">Close</button>
+            <button class="btn-primary">Export</button>
+        </div>
+    </div>
+</div>
+
+<script>
+/**
+ * Build Flow Diagram — Depth-First Single Cursor with Hook Lifecycle
+ *
+ * Execution model:
+ *   - One GPU, one image at a time — only queue ordering matters
+ *   - Depth-first: each variation completes its full path before the next starts
+ *   - Full hook lifecycle per entry:
+ *       Block-level (fire once):  node_start → annotations_resolve
+ *       Per-composition:          mods_pre → image_generation → mods_post
+ *       Block-level (fire once):  node_end
+ *   - annotations_resolve result is cached — applies to all compositions in that block
+ *   - Failure is path-scoped: remaining entries for that block skipped, children blocked
+ *   - Hook receives parent's result as context (parentResult)
+ *
+ * State machine per block:
+ *   UNSEEN → ACTIVE → PARTIAL → ACTIVE → ... → COMPLETE
+ *             ^                   ^
+ *           node_start          (no event — already visited)
+ *                                                node_end
+ *
+ * "partial" = cursor has visited this block but moved on; more compositions pending.
+ *
+ * Button cycle: Run → Stop → Resume → Stop → ... → Run Again
+ */
+
+// ── Simulated Hook Stage ─────────────────────────────────
+// Each lifecycle stage is a separate async call with its own timing.
+// In production, these map to pipeline.execute_hook() calls.
+// The image_generation stage is where a user-supplied script runs
+// (e.g., ComfyUI renderer, PyTorch model, external API).
+
+function simulateHookStage(stage, ctx) {
+    const start = performance.now();
+    const simFail = document.getElementById('simFail').checked;
+
+    // Failure happens at image_generation stage (the GPU call)
+    const shouldFail = simFail
+        && stage === 'gen'
+        && ctx.blockId === 'block-0-0'
+        && ctx.compositionIndex === 5;
+
+    // Timing per stage — reflects real-world relative costs
+    const timings = {
+        node_start: 5,
+        ann: 10 + Math.random() * 20,        // annotations_resolve: LLM rewrite, etc.
+        pre: 2 + Math.random() * 5,           // mods_pre: translator, validator
+        gen: 15 + Math.random() * 60,          // image_generation: GPU / API call
+        post: 2 + Math.random() * 5,           // mods_post: error_logger, quality check
+        node_end: 5,
+    };
+
+    return new Promise(resolve => {
+        setTimeout(() => {
+            if (shouldFail) {
+                resolve({
+                    status: 'error',
+                    message: 'Hook timeout: render service unavailable',
+                    stage,
+                    elapsed: performance.now() - start,
+                });
+            } else {
+                resolve({
+                    status: 'success',
+                    stage,
+                    elapsed: performance.now() - start,
+                });
+            }
+        }, timings[stage] || 5);
+    });
+}
+
+// ── Block Definitions ──────────────────────────────────────
+// parentId establishes the tree. childCompositionsPerParent is how many
+// child compositions are produced per single parent variation.
+
+const BLOCK_DEFS = [
+    { id: 'block-0',   compositions: 12,  parentId: null,      childCompsPerParent: 1 },
+    { id: 'block-0-0', compositions: 12,  parentId: 'block-0', childCompsPerParent: 1 },
+    { id: 'block-0-1', compositions: 36,  parentId: 'block-0', childCompsPerParent: 3 },
+    { id: 'block-1',   compositions: 6,   parentId: null,      childCompsPerParent: 1 },
+    { id: 'block-1-0', compositions: 756, parentId: 'block-1', childCompsPerParent: 126 },
+];
+
+const TOTAL_COMPOSITIONS = 822; // 12 + 12 + 36 + 6 + 756
+
+// ── State ──────────────────────────────────────────────────
+
+let runState = 'idle';
+let stopRequested = false;
+let completedCompositions = 0;
+let completedBlocks = 0;
+let depthFirstQueue = [];     // flat ordered queue of { blockId, idx, parentKey }
+let queuePosition = 0;        // current position for stop/resume
+let variationResults = {};     // "blockId:idx" → hook result (for parent→child passing)
+let failedBlocks = new Set();  // blocks that have failed — remaining entries skipped
+let blockedBlocks = new Set(); // blocks blocked by parent failure
+let blockCompletedMap = {};    // blockId → count of completed compositions
+let blockStartTimes = {};      // blockId → performance.now() when first entered
+let currentBlockId = null;     // the block the cursor is currently on
+let visitedBlocks = new Set(); // blocks that have had node_start + annotations_resolve
+let annotationsCache = {};     // blockId → cached annotations_resolve context
+
+function getBlockDef(id) {
+    return BLOCK_DEFS.find(b => b.id === id);
+}
+
+function getChildDefs(parentId) {
+    return BLOCK_DEFS.filter(b => b.parentId === parentId);
+}
+
+// ── Depth-First Queue Builder ─────────────────────────────
+// Generates the flat execution order. For each parent variation,
+// recursively enqueue the variation itself then its children's variations.
+//
+// Example for path 0 (channel ×12):
+//   block-0 idx=0, block-0-0 idx=0, block-0-1 idx=0, block-0-1 idx=1, block-0-1 idx=2,
+//   block-0 idx=1, block-0-0 idx=1, block-0-1 idx=3, block-0-1 idx=4, block-0-1 idx=5,
+//   ...
+
+function buildDepthFirstQueue() {
+    const queue = [];
+
+    function enqueueSubtree(blockId, idx, parentKey) {
+        queue.push({ blockId, idx, parentKey });
+
+        const children = getChildDefs(blockId);
+        for (const child of children) {
+            const perParent = child.childCompsPerParent;
+            const startIdx = idx * perParent;
+            for (let c = 0; c < perParent; c++) {
+                const childIdx = startIdx + c;
+                if (childIdx < child.compositions) {
+                    enqueueSubtree(child.id, childIdx, `${blockId}:${idx}`);
+                }
+            }
+        }
+    }
+
+    // Enqueue root paths in order
+    const roots = BLOCK_DEFS.filter(b => b.parentId === null);
+    for (const root of roots) {
+        for (let i = 0; i < root.compositions; i++) {
+            enqueueSubtree(root.id, i, null);
+        }
+    }
+
+    return queue;
+}
+
+// ── DOM Helpers ────────────────────────────────────────────
+
+function setNodeState(nodeId, state) {
+    const el = document.querySelector(`[data-node-id="${nodeId}"]`);
+    if (el) el.setAttribute('data-run-state', state);
+}
+
+function setLinkState(nodeId, state) {
+    const link = document.querySelector(`.h-link[data-link-for="${nodeId}"]`);
+    if (link) link.setAttribute('data-link-state', state);
+}
+
+function updateProgress(nodeId, current, total) {
+    const el = document.querySelector(`[data-node-id="${nodeId}"] [data-progress]`);
+    if (el) el.textContent = `${current}/${total}`;
+}
+
+function setResult(nodeId, timeMs) {
+    const el = document.querySelector(`[data-node-id="${nodeId}"] [data-result]`);
+    if (el) el.textContent = `${(timeMs / 1000).toFixed(1)}s`;
+}
+
+function setError(nodeId, msg, completed, total) {
+    const el = document.querySelector(`[data-node-id="${nodeId}"] [data-error]`);
+    if (el) el.textContent = `FAIL @${completed}/${total}`;
+    const progressEl = document.querySelector(`[data-node-id="${nodeId}"] [data-progress]`);
+    if (progressEl) progressEl.textContent = `${completed}/${total}`;
+}
+
+function setStage(nodeId, stage) {
+    const el = document.querySelector(`[data-node-id="${nodeId}"] [data-stage]`);
+    if (!el) return;
+    if (stage) {
+        el.textContent = stage;
+        el.setAttribute('data-stage-type', stage);
+    } else {
+        el.textContent = '';
+        el.removeAttribute('data-stage-type');
+    }
+}
+
+function updateGlobalProgress() {
+    const pct = Math.min(100, (completedCompositions / TOTAL_COMPOSITIONS) * 100);
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('runStatus').textContent =
+        `${completedCompositions.toLocaleString()} / ${TOTAL_COMPOSITIONS.toLocaleString()}`;
+}
+
+function updatePromptProgress() {
+    const el = document.querySelector('[data-node-id="prompt"] [data-progress]');
+    if (el) el.textContent = `${completedBlocks}/${BLOCK_DEFS.length}`;
+}
+
+function sleep(ms) {
+    return new Promise(r => setTimeout(r, ms));
+}
+
+function setBlockVisual(blockId, state) {
+    setNodeState(blockId, state);
+    setLinkState(blockId, state);
+}
+
+// ── Block Failure Handler ─────────────────────────────────
+
+function handleBlockFailure(blockId, idx, result) {
+    failedBlocks.add(blockId);
+    setBlockVisual(blockId, 'failed');
+    setStage(blockId, '');
+    setError(blockId, result.message, blockCompletedMap[blockId] || 0, getBlockDef(blockId).compositions);
+    variationResults[`${blockId}:${idx}`] = result;
+
+    // Cascade: block all children recursively
+    const cascade = (parentId) => {
+        const children = getChildDefs(parentId);
+        for (const child of children) {
+            blockedBlocks.add(child.id);
+            setBlockVisual(child.id, 'blocked');
+            cascade(child.id);
+        }
+    };
+    cascade(blockId);
+    currentBlockId = null;
+}
+
+// ── Depth-First Queue Processor ────────────────────────────
+// Single cursor: processes one entry at a time.
+// Runs the full hook lifecycle per entry:
+//   Block-level (once):   node_start → annotations_resolve (cached)
+//   Per-composition:      mods_pre → image_generation → mods_post
+//   Block-level (once):   node_end (when last composition completes)
+
+async function processQueue() {
+    while (queuePosition < depthFirstQueue.length && !stopRequested) {
+        const entry = depthFirstQueue[queuePosition];
+        const { blockId, idx, parentKey } = entry;
+        const def = getBlockDef(blockId);
+
+        // Skip if this block has failed
+        if (failedBlocks.has(blockId)) {
+            queuePosition++;
+            continue;
+        }
+
+        // Skip if this block is blocked (parent failed)
+        if (blockedBlocks.has(blockId)) {
+            queuePosition++;
+            continue;
+        }
+
+        // Check if parent variation failed — block this entry's block
+        if (parentKey && failedBlocks.has(parentKey.split(':')[0])) {
+            blockedBlocks.add(blockId);
+            setBlockVisual(blockId, 'blocked');
+            queuePosition++;
+            continue;
+        }
+
+        // ── Cursor movement ──
+        if (currentBlockId !== blockId) {
+            // Previous block transitions to partial (if still in progress)
+            if (currentBlockId) {
+                const prevCompleted = blockCompletedMap[currentBlockId] || 0;
+                const prevDef = getBlockDef(currentBlockId);
+                if (prevDef && prevCompleted < prevDef.compositions && !failedBlocks.has(currentBlockId)) {
+                    setBlockVisual(currentBlockId, 'partial');
+                    setStage(currentBlockId, '');
+                }
+            }
+            currentBlockId = blockId;
+
+            if (!blockStartTimes[blockId]) {
+                blockStartTimes[blockId] = performance.now();
+            }
+
+            setBlockVisual(blockId, 'running');
+        }
+
+        const parentResult = parentKey ? (variationResults[parentKey] || null) : null;
+        const hookCtx = { blockId, compositionIndex: idx, compositionTotal: def.compositions, parentResult };
+
+        // ── Block-level hooks (fire once per block) ──
+        if (!visitedBlocks.has(blockId)) {
+            visitedBlocks.add(blockId);
+
+            // node_start
+            setStage(blockId, 'start');
+            let r = await simulateHookStage('node_start', hookCtx);
+            if (stopRequested) break;
+
+            // annotations_resolve — cached for all subsequent compositions
+            setStage(blockId, 'ann');
+            r = await simulateHookStage('ann', hookCtx);
+            if (stopRequested) break;
+            if (r.status === 'error') {
+                handleBlockFailure(blockId, idx, r);
+                queuePosition++;
+                continue;
+            }
+            annotationsCache[blockId] = r;
+        }
+
+        // ── Per-composition hooks ──
+
+        // mods_pre
+        setStage(blockId, 'pre');
+        let stageResult = await simulateHookStage('pre', hookCtx);
+        if (stopRequested) break;
+        if (stageResult.status === 'error') {
+            handleBlockFailure(blockId, idx, stageResult);
+            queuePosition++;
+            continue;
+        }
+
+        // image_generation (the main work — user-supplied hook script)
+        setStage(blockId, 'gen');
+        stageResult = await simulateHookStage('gen', hookCtx);
+        if (stopRequested) break;
+        if (stageResult.status === 'error') {
+            handleBlockFailure(blockId, idx, stageResult);
+            queuePosition++;
+            continue;
+        }
+
+        // mods_post
+        setStage(blockId, 'post');
+        stageResult = await simulateHookStage('post', hookCtx);
+        if (stopRequested) break;
+        if (stageResult.status === 'error') {
+            handleBlockFailure(blockId, idx, stageResult);
+            queuePosition++;
+            continue;
+        }
+
+        // ── Composition succeeded ──
+        setStage(blockId, '');
+        blockCompletedMap[blockId] = (blockCompletedMap[blockId] || 0) + 1;
+        completedCompositions++;
+        variationResults[`${blockId}:${idx}`] = stageResult;
+
+        updateProgress(blockId, blockCompletedMap[blockId], def.compositions);
+        updateGlobalProgress();
+
+        // ── Block complete → node_end (fire once) ──
+        if (blockCompletedMap[blockId] === def.compositions) {
+            setStage(blockId, 'end');
+            await simulateHookStage('node_end', hookCtx);
+            if (stopRequested) break;
+            setStage(blockId, '');
+
+            const wallTime = performance.now() - blockStartTimes[blockId];
+            setBlockVisual(blockId, 'complete');
+            setResult(blockId, wallTime);
+            completedBlocks++;
+            updatePromptProgress();
+            currentBlockId = null;
+        }
+
+        queuePosition++;
+    }
+
+    // If cursor was on a block when stopped, mark it paused
+    if (stopRequested && currentBlockId) {
+        const def = getBlockDef(currentBlockId);
+        const completed = blockCompletedMap[currentBlockId] || 0;
+        if (def && completed < def.compositions && !failedBlocks.has(currentBlockId)) {
+            setBlockVisual(currentBlockId, 'paused');
+            setStage(currentBlockId, '');
+        }
+    }
+}
+
+// ── Finalize Run State ────────────────────────────────────
+
+function finalizeRunState() {
+    const anyFailed = failedBlocks.size > 0;
+    const allDone = queuePosition >= depthFirstQueue.length;
+
+    if (stopRequested && !allDone) {
+        runState = 'paused';
+    } else if (allDone && anyFailed) {
+        runState = 'failed';
+        document.getElementById('progressFill').classList.add('has-error');
+        const statusEl = document.getElementById('runStatus');
+        const failNames = [...failedBlocks].join(', ');
+        statusEl.textContent = `${completedCompositions.toLocaleString()} done — failed: ${failNames}`;
+        statusEl.classList.add('error');
+    } else if (allDone) {
+        runState = 'complete';
+        document.getElementById('runStatus').textContent =
+            `${completedCompositions.toLocaleString()} done`;
+    }
+}
+
+// ── Button Handlers ────────────────────────────────────────
+
+function onRunClick() {
+    switch (runState) {
+        case 'idle':
+        case 'complete':
+        case 'failed':
+            startRun();
+            break;
+        case 'running':
+            requestStop();
+            break;
+        case 'paused':
+            resumeRun();
+            break;
+    }
+}
+
+async function startRun() {
+    stopRequested = false;
+    completedCompositions = 0;
+    completedBlocks = 0;
+    queuePosition = 0;
+    variationResults = {};
+    failedBlocks = new Set();
+    blockedBlocks = new Set();
+    blockCompletedMap = {};
+    blockStartTimes = {};
+    currentBlockId = null;
+    visitedBlocks = new Set();
+    annotationsCache = {};
+
+    depthFirstQueue = buildDepthFirstQueue();
+
+    runState = 'running';
+    updateButtonUI();
+
+    document.getElementById('progressBar').classList.add('visible');
+    const statusEl = document.getElementById('runStatus');
+    statusEl.classList.add('visible');
+    statusEl.classList.remove('error');
+    document.getElementById('progressFill').classList.remove('has-error');
+    document.getElementById('progressFill').style.width = '0%';
+    statusEl.textContent = `0 / ${TOTAL_COMPOSITIONS.toLocaleString()}`;
+    document.getElementById('stateLegend').classList.add('visible');
+
+    // Close dropdowns
+    document.querySelectorAll('.wc-dropdown.open').forEach(d => d.classList.remove('open'));
+    document.querySelectorAll('.wc-pill.expanded').forEach(p => p.classList.remove('expanded'));
+
+    // Reset all nodes
+    document.querySelectorAll('[data-run-state]').forEach(el =>
+        el.setAttribute('data-run-state', 'idle'));
+    document.querySelectorAll('[data-progress]').forEach(el => el.textContent = '');
+    document.querySelectorAll('[data-result]').forEach(el => el.textContent = '');
+    document.querySelectorAll('[data-error]').forEach(el => el.textContent = '');
+    document.querySelectorAll('[data-stage]').forEach(el => {
+        el.textContent = ''; el.removeAttribute('data-stage-type');
+    });
+    document.querySelectorAll('.h-link').forEach(el => el.removeAttribute('data-link-state'));
+
+    // Phase 1: All dormant
+    await sleep(200);
+    document.querySelectorAll('[data-run-state]').forEach(el =>
+        el.setAttribute('data-run-state', 'dormant'));
+    document.querySelectorAll('.h-link').forEach(el =>
+        el.setAttribute('data-link-state', 'dormant'));
+
+    await sleep(400);
+
+    // Phase 2: Prompt node — job_start
+    setNodeState('prompt', 'running');
+    setLinkState('prompt', 'running');
+    await sleep(300);
+    setNodeState('prompt', 'complete');
+    setLinkState('prompt', 'complete');
+
+    await sleep(200);
+
+    // Phase 3: Process depth-first queue with hook lifecycle
+    await processQueue();
+
+    finalizeRunState();
+    updateButtonUI();
+}
+
+function requestStop() {
+    stopRequested = true;
+    const btn = document.getElementById('runBtn');
+    btn.textContent = 'Stopping\u2026';
+    btn.disabled = true;
+}
+
+async function resumeRun() {
+    stopRequested = false;
+    runState = 'running';
+    currentBlockId = null;
+    // NOTE: visitedBlocks and annotationsCache are preserved —
+    // node_start/annotations_resolve do NOT re-fire on resume
+    updateButtonUI();
+
+    const statusEl = document.getElementById('runStatus');
+    statusEl.classList.remove('error');
+    statusEl.textContent = `${completedCompositions.toLocaleString()} / ${TOTAL_COMPOSITIONS.toLocaleString()}`;
+
+    // Un-pause any paused blocks visually
+    document.querySelectorAll('[data-run-state="paused"]').forEach(el =>
+        el.setAttribute('data-run-state', 'partial'));
+
+    await processQueue();
+
+    finalizeRunState();
+    updateButtonUI();
+}
+
+function updateButtonUI() {
+    const btn = document.getElementById('runBtn');
+    btn.disabled = false;
+    btn.className = 'btn-run';
+
+    switch (runState) {
+        case 'idle':
+            btn.textContent = 'Run';
+            break;
+        case 'running':
+            btn.textContent = 'Stop';
+            btn.classList.add('stop-mode');
+            break;
+        case 'paused':
+            btn.textContent = 'Resume';
+            break;
+        case 'complete':
+            btn.textContent = 'Run Again';
+            break;
+        case 'failed':
+            btn.textContent = 'Run Again';
+            break;
+    }
+}
+
+// ── Wildcard Pill Expand/Collapse ─────────────────────────
+
+function toggleWcDropdown(pill) {
+    const wcId = pill.getAttribute('data-wc-id');
+    const dropdown = document.querySelector(`.wc-dropdown[data-dropdown-for="${wcId}"]`);
+    if (!dropdown) return;
+
+    const isOpen = dropdown.classList.contains('open');
+
+    document.querySelectorAll('.wc-dropdown.open').forEach(d => d.classList.remove('open'));
+    document.querySelectorAll('.wc-pill.expanded').forEach(p => p.classList.remove('expanded'));
+
+    if (!isOpen) {
+        dropdown.classList.add('open');
+        pill.classList.add('expanded');
+    }
+}
+
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.wc-pill') && !e.target.closest('.wc-dropdown')) {
+        document.querySelectorAll('.wc-dropdown.open').forEach(d => d.classList.remove('open'));
+        document.querySelectorAll('.wc-pill.expanded').forEach(p => p.classList.remove('expanded'));
+    }
+});
+</script>
+
+</body>
+</html>

@@ -14,6 +14,32 @@ PU.sidebar = {
     },
 
     /**
+     * Show loading skeleton in jobs tree (first load only).
+     */
+    showLoadingSkeleton() {
+        const jobsTree = document.querySelector('[data-testid="pu-jobs-tree"]');
+        if (!jobsTree) return;
+        // Only show skeleton if tree has the default loading placeholder or is empty
+        if (jobsTree.children.length > 1) return;
+        jobsTree.innerHTML = `
+            <div class="pu-sidebar-skeleton" data-testid="pu-sidebar-skeleton">
+                <div class="pu-sidebar-skeleton-item" style="width:100%"></div>
+                <div class="pu-sidebar-skeleton-item"></div>
+                <div class="pu-sidebar-skeleton-item"></div>
+                <div class="pu-sidebar-skeleton-item"></div>
+            </div>
+        `;
+    },
+
+    /**
+     * Remove loading skeleton.
+     */
+    hideLoadingSkeleton() {
+        const skeleton = document.querySelector('[data-testid="pu-sidebar-skeleton"]');
+        if (skeleton) skeleton.remove();
+    },
+
+    /**
      * Load and render jobs
      */
     async loadJobs() {
@@ -172,6 +198,10 @@ PU.sidebar = {
      * Collapse the left sidebar (fully hidden).
      */
     collapse() {
+        // Block collapse when sidebar is the only visible panel (no-job mode)
+        const main = document.querySelector('.pu-main');
+        if (main && main.dataset.layout === 'no-job') return;
+
         const panel = document.querySelector('[data-testid="pu-sidebar"]');
         if (!panel) return;
         panel.classList.add('collapsed');
@@ -194,8 +224,18 @@ PU.sidebar = {
 
     /**
      * Toggle the left sidebar open/closed.
+     * On mobile/tablet, uses overlay slide-in instead of CSS collapse.
      */
     togglePanel() {
+        if (PU.responsive && PU.responsive.isOverlay()) {
+            const panel = document.querySelector('[data-testid="pu-sidebar"]');
+            if (panel && panel.classList.contains('pu-panel-open')) {
+                PU.responsive.closePanel('pu-sidebar');
+            } else {
+                PU.responsive.openPanel('pu-sidebar');
+            }
+            return;
+        }
         if (PU.state.ui.leftSidebarCollapsed) {
             PU.sidebar.expand();
         } else {

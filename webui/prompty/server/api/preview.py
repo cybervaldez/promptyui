@@ -114,16 +114,18 @@ def build_variations_recursive(items, ext_texts, wildcards, ext_text_max=0, wild
         "text": "resolved text",
         "path": "0.0.1",
         "wildcard_values": {"pose": "standing"},
-        "ext_indices": {"boss_fight": 1}
+        "ext_indices": {"boss_fight": 1},
+        "annotations": {"output_format": "markdown"}
     }
     """
     if not items:
-        return [{"text": "", "path": path_prefix, "wildcard_values": {}, "ext_indices": {}}]
+        return [{"text": "", "path": path_prefix, "wildcard_values": {}, "ext_indices": {}, "annotations": {}}]
 
     all_results = []
 
     for item_idx, item in enumerate(items):
         item_path = f"{path_prefix}.{item_idx}" if path_prefix else str(item_idx)
+        item_annotations = item.get('annotations', {}) or {}
         base_variations = []
 
         if 'content' in item:
@@ -136,7 +138,8 @@ def build_variations_recursive(items, ext_texts, wildcards, ext_text_max=0, wild
                     "text": resolved_text,
                     "path": item_path,
                     "wildcard_values": wc_values,
-                    "ext_indices": {}
+                    "ext_indices": {},
+                    "annotations": dict(item_annotations)
                 })
 
         elif 'ext_text' in item:
@@ -149,7 +152,8 @@ def build_variations_recursive(items, ext_texts, wildcards, ext_text_max=0, wild
                     "text": f"[ext_text:{ext_name} not found]",
                     "path": item_path,
                     "wildcard_values": {},
-                    "ext_indices": {}
+                    "ext_indices": {},
+                    "annotations": dict(item_annotations)
                 })
             else:
                 # Apply ext_text_max
@@ -165,7 +169,8 @@ def build_variations_recursive(items, ext_texts, wildcards, ext_text_max=0, wild
                             "text": resolved_text,
                             "path": f"{item_path}.{ext_idx}",
                             "wildcard_values": wc_values,
-                            "ext_indices": {ext_name: ext_idx + 1}
+                            "ext_indices": {ext_name: ext_idx + 1},
+                            "annotations": dict(item_annotations)
                         })
 
         # Process 'after' children
@@ -193,11 +198,15 @@ def build_variations_recursive(items, ext_texts, wildcards, ext_text_max=0, wild
                     else:
                         combined_text = base_text + after_text
 
+                    # Merge annotations: parent first, child wins
+                    merged_annotations = {**base["annotations"], **after["annotations"]}
+
                     combined.append({
                         "text": combined_text,
                         "path": after["path"],
                         "wildcard_values": {**base["wildcard_values"], **after["wildcard_values"]},
-                        "ext_indices": {**base["ext_indices"], **after["ext_indices"]}
+                        "ext_indices": {**base["ext_indices"], **after["ext_indices"]},
+                        "annotations": merged_annotations
                     })
 
             base_variations = combined

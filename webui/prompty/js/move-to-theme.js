@@ -12,6 +12,7 @@ PU.moveToTheme = {
      * Open the move-to-theme modal for a given block path.
      */
     open(blockPath) {
+        PU.overlay.dismissAll();
         const jobId = PU.state.activeJobId;
         const promptId = PU.state.activePromptId;
         if (!jobId || !promptId) {
@@ -51,7 +52,6 @@ PU.moveToTheme = {
         const block = PU.blocks.findBlockByPath(blocks, blockPath);
         if (!block || !('content' in block)) return null;
         if ('ext_text' in block) return null;
-        if (block.after && block.after.length > 0) return null;
 
         const content = block.content || '';
         const blockIndex = parseInt(blockPath.split('.')[0], 10);
@@ -85,7 +85,54 @@ PU.moveToTheme = {
             checked: !otherWcNames.has(name)
         }));
 
-        return { content, blockIndex, wildcards };
+        const childCount = (block.after && block.after.length) || 0;
+        const suggestedName = PU.moveToTheme._generateSmartName(content, blockIndex);
+        return { content, blockIndex, wildcards, childCount, suggestedName };
+    },
+
+    /**
+     * Generate a smart theme name from block content.
+     * Strips wildcards, filler words, and slugifies the result.
+     */
+    _generateSmartName(content, blockIndex) {
+        const FILLER = new Set([
+            'a', 'an', 'the', 'write', 'create', 'generate', 'make',
+            'as', 'use', 'add', 'include', 'for', 'with', 'of', 'in',
+            'to', 'and', 'that', 'is', 'are', 'be'
+        ]);
+
+        // Split at first __wildcard__
+        const wcPattern = /__[a-zA-Z0-9_-]+__/g;
+        const parts = content.split(wcPattern);
+        const wcMatches = content.match(wcPattern) || [];
+
+        // Try text before first wildcard
+        let candidate = (parts[0] || '').trim();
+
+        // If before-text has < 2 meaningful words, use text after first wildcard up to next
+        const meaningfulWords = candidate.split(/\s+/).filter(w => w.length > 0 && !FILLER.has(w.toLowerCase().replace(/[^a-z]/g, '')));
+        if (meaningfulWords.length < 2 && parts.length > 1) {
+            candidate = (parts[1] || '').trim();
+        }
+
+        // Slugify: lowercase, replace non-alphanumeric with hyphens
+        let slug = candidate.toLowerCase()
+            .replace(/[^a-z0-9\s-]/g, '')
+            .trim()
+            .split(/\s+/)
+            .filter(w => !FILLER.has(w))  // strip filler words
+            .slice(0, 5)                   // cap at 5 words
+            .join('-');
+
+        if (slug) return slug;
+
+        // Fallback: first wildcard name
+        if (wcMatches.length > 0) {
+            return wcMatches[0].replace(/__/g, '');
+        }
+
+        // Last resort
+        return `block-${blockIndex}`;
     },
 
     /**
@@ -113,6 +160,15 @@ PU.moveToTheme = {
                 <span class="pu-mtt-block-index">block ${analysis.blockIndex}</span>
             </div>`;
 
+        // Child info line
+        if (analysis.childCount > 0) {
+            html += `
+                <div class="pu-export-validation-item info" data-testid="pu-mtt-child-info">
+                    <span>&#8505;</span>
+                    <span>${analysis.childCount} child block${analysis.childCount !== 1 ? 's' : ''} will remain attached after move.</span>
+                </div>`;
+        }
+
         // 2. Theme name input
         html += `
             <div class="pu-mtt-input-group">
@@ -120,7 +176,7 @@ PU.moveToTheme = {
                 <input type="text"
                        id="mtt-theme-name"
                        data-testid="pu-mtt-theme-name"
-                       value="${PU.blocks.escapeAttr(extPrefix)}"
+                       value="${PU.blocks.escapeAttr(extPrefix + analysis.suggestedName)}"
                        placeholder="e.g., ${PU.blocks.escapeAttr(extPrefix)}my-theme">
                 <div class="pu-mtt-path-hint" data-testid="pu-mtt-path-hint">
                     ext/${PU.blocks.escapeHtml(extPrefix)}
@@ -371,3 +427,6 @@ PU.moveToTheme = {
         if (modal) modal.style.display = 'none';
     }
 };
+
+// Register move-to-theme modal
+PU.overlay.registerModal('moveToTheme', () => PU.moveToTheme.close());

@@ -87,6 +87,10 @@
     box-sizing: border-box;
 }
 
+html, body {
+    overscroll-behavior-x: none;
+}
+
 body {
     margin: 0;
     padding: 0;
@@ -158,6 +162,11 @@ body {
     display: flex;
     align-items: center;
     gap: var(--pu-space-sm);
+}
+
+/* Mobile panel toggle buttons — hidden on desktop */
+.pu-btn.pu-mobile-panel-btn {
+    display: none;
 }
 
 /* ============================================
@@ -246,8 +255,50 @@ body {
     flex-direction: column;
     overflow: hidden;
     flex-shrink: 0;
-    transition: width 0.2s ease, border-right-width 0.2s ease, opacity 0.2s ease;
+    transition: width 0.3s ease, border-right-width 0.3s ease, opacity 0.2s ease;
     border-right: 1px solid var(--pu-border);
+}
+
+/* Expanded sidebar layout: no job selected */
+.pu-main[data-layout="no-job"] .pu-sidebar {
+    width: 100%;
+    border-right: none;
+}
+
+.pu-main[data-layout="no-job"] .pu-editor {
+    display: none;
+}
+
+.pu-main[data-layout="no-job"] .pu-right-panel {
+    width: 0;
+    border-left-width: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Sidebar loading skeleton */
+.pu-sidebar-skeleton {
+    padding: var(--pu-space-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--pu-space-sm);
+}
+
+.pu-sidebar-skeleton-item {
+    height: 28px;
+    background: var(--pu-bg-tertiary);
+    border-radius: var(--pu-radius);
+    animation: pu-shimmer 1.5s infinite;
+}
+
+.pu-sidebar-skeleton-item:nth-child(2) { width: 85%; }
+.pu-sidebar-skeleton-item:nth-child(3) { width: 70%; }
+.pu-sidebar-skeleton-item:nth-child(4) { width: 90%; }
+
+@keyframes pu-shimmer {
+    0% { opacity: 0.3; }
+    50% { opacity: 0.6; }
+    100% { opacity: 0.3; }
 }
 
 .pu-sidebar.collapsed {
@@ -483,36 +534,6 @@ body {
     background: var(--pu-bg-primary);
 }
 
-.pu-editor-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    text-align: center;
-    color: var(--pu-text-secondary);
-}
-
-.pu-editor-empty-icon {
-    font-size: 64px;
-    opacity: 0.5;
-    margin-bottom: var(--pu-space-lg);
-}
-
-.pu-editor-empty h2 {
-    margin: 0 0 var(--pu-space-sm);
-    color: var(--pu-text-primary);
-}
-
-.pu-editor-empty p {
-    margin: 0 0 var(--pu-space-xl);
-}
-
-.pu-editor-empty-actions {
-    display: flex;
-    gap: var(--pu-space-md);
-}
-
 /* No prompts state (job selected, 0 prompts) */
 .pu-editor-no-prompts {
     display: flex;
@@ -540,80 +561,79 @@ body {
     overflow: hidden;
 }
 
-/* Defaults Toolbar */
-.pu-defaults-toolbar {
-    background: var(--pu-bg-secondary);
+/* Job Defaults (right panel) */
+.pu-rp-defaults {
     border-bottom: 1px solid var(--pu-border);
     flex-shrink: 0;
 }
 
-.pu-defaults-header {
+.pu-rp-defaults-header {
     display: flex;
     align-items: center;
-    padding: var(--pu-space-sm) var(--pu-space-lg);
+    padding: var(--pu-space-xs) var(--pu-space-sm);
     cursor: pointer;
 }
 
-.pu-defaults-header span:first-child {
+.pu-rp-defaults-header span {
     font-size: var(--pu-font-size-xs);
     font-weight: 400;
     color: var(--pu-text-muted);
+    letter-spacing: 0.05em;
 }
 
-.pu-defaults-hint {
-    font-size: var(--pu-font-size-xs);
-    color: var(--pu-text-muted);
-    margin-left: var(--pu-space-sm);
-}
-
-.pu-defaults-expand {
+.pu-rp-defaults-toggle {
     margin-left: auto;
     background: none;
     border: none;
     color: var(--pu-text-muted);
     cursor: pointer;
     font-size: var(--pu-font-size-2xs);
+    transition: transform 0.2s;
 }
 
-.pu-defaults-form {
+.pu-rp-defaults.collapsed .pu-rp-defaults-toggle {
+    transform: rotate(-90deg);
+}
+
+.pu-rp-defaults-body {
     display: grid;
     grid-template-rows: 1fr;
     transition: grid-template-rows 200ms ease-out, opacity 200ms ease-out;
     opacity: 1;
 }
-.pu-defaults-form > * {
+
+.pu-rp-defaults-body > * {
     overflow: hidden;
 }
-.pu-defaults-form.collapsed {
+
+.pu-rp-defaults.collapsed .pu-rp-defaults-body {
     grid-template-rows: 0fr;
     opacity: 0;
 }
-.pu-defaults-form-inner {
-    padding: var(--pu-space-sm) var(--pu-space-lg) var(--pu-space-lg);
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--pu-space-lg);
+
+.pu-rp-defaults-inner {
+    padding: 0 var(--pu-space-sm) var(--pu-space-sm);
     transition: padding 200ms ease-out;
 }
-.pu-defaults-form.collapsed .pu-defaults-form-inner {
+
+.pu-rp-defaults.collapsed .pu-rp-defaults-inner {
     padding-top: 0;
     padding-bottom: 0;
 }
 
-.pu-defaults-row {
+.pu-rp-defaults-row {
     display: flex;
     align-items: center;
     gap: var(--pu-space-sm);
 }
 
-.pu-defaults-row label {
+.pu-rp-defaults-row label {
     font-size: var(--pu-font-size-sm);
     color: var(--pu-text-secondary);
-    min-width: 100px;
 }
 
-.pu-defaults-row input,
-.pu-defaults-row select {
+.pu-rp-defaults-row select {
+    flex: 1;
     padding: var(--pu-space-xs) var(--pu-space-sm);
     background: var(--pu-bg-input);
     border: 1px solid transparent;
@@ -624,15 +644,18 @@ body {
     transition: border-color var(--pu-transition-fast);
 }
 
-.pu-defaults-row input:focus,
-.pu-defaults-row select:focus {
+.pu-rp-defaults-row select:focus {
     outline: none;
     border-color: var(--pu-accent);
     box-shadow: 0 0 0 2px var(--pu-accent-bg);
 }
 
-.pu-defaults-row input[type="number"] {
-    width: 60px;
+.pu-rp-defaults-no-ext span {
+    font-style: italic;
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-text-muted);
+    padding: var(--pu-space-xs) 0;
+    display: block;
 }
 
 /* Prompt Header */
@@ -657,6 +680,37 @@ body {
     color: var(--pu-text-primary);
     flex: 1;
 }
+
+/* Prompt identity bar — save state */
+.pu-prompt-save-state {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: var(--pu-space-sm);
+}
+.pu-save-badge {
+    font-size: var(--pu-font-size-xs);
+    font-weight: 500;
+    color: var(--pu-warning);
+    font-style: italic;
+}
+.pu-save-badge.pu-saved {
+    color: var(--pu-success);
+    font-style: normal;
+}
+.pu-save-btn {
+    height: 24px;
+    padding: 0 10px;
+    font-size: var(--pu-font-size-xs);
+    font-weight: 500;
+    border-radius: 12px;
+    background: var(--pu-accent);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    min-width: 44px; /* touch target */
+}
+.pu-save-btn:disabled { opacity: 0.5; cursor: wait; }
 
 /* Inline resolved wildcard pill (non-interactive, in block text) */
 .pu-wc-resolved-pill {
@@ -970,10 +1024,139 @@ body {
     border-radius: var(--pu-radius);
 }
 
-.pu-block-type {
-    font-size: var(--pu-font-size-xs);
+/* Integrated source suffix — inline inside path badges */
+.pu-path-source-sep {
+    opacity: 0.3;
+    margin: 0 4px;
+    color: var(--pu-text-muted);
+}
+.pu-path-source {
+    font-weight: 500;
+    transition: color var(--pu-transition-fast);
+}
+.pu-path-source[data-source-type="content"] { color: var(--pu-accent); }
+.pu-path-source[data-source-type="theme"]   { color: var(--pu-purple); }
+.pu-path-source-arrow {
+    font-size: 9px;
+    opacity: 0.4;
+    margin-left: 3px;
+    transition: opacity var(--pu-transition-fast);
+}
+
+/* Make path badges clickable when they contain source info */
+.pu-block-path[data-has-source],
+.pu-path-label[data-has-source],
+.pu-child-path-hint[data-has-source] {
+    cursor: pointer;
+}
+
+/* Hover tint by source type */
+.pu-block-path[data-source-type="content"]:hover,
+.pu-child-path-hint[data-source-type="content"]:hover {
+    background: var(--pu-accent-bg);
+}
+.pu-block-path[data-source-type="theme"]:hover,
+.pu-child-path-hint[data-source-type="theme"]:hover {
+    background: var(--pu-purple-bg);
+}
+/* Path label hover in divider — only direct hover, not ancestor block hover */
+.pu-path-label[data-source-type="content"]:hover {
+    background: var(--pu-accent-bg);
+    opacity: 1;
+}
+.pu-path-label[data-source-type="theme"]:hover {
+    background: var(--pu-purple-bg);
+    opacity: 1;
+}
+/* Arrow brightens on badge hover */
+.pu-block-path:hover .pu-path-source-arrow,
+.pu-path-label:hover .pu-path-source-arrow,
+.pu-child-path-hint:hover .pu-path-source-arrow {
+    opacity: 0.8;
+}
+
+/* Source dropdown — combined type + theme picker */
+#pu-source-dropdown {
+    position: fixed;
+    z-index: 1000;
+    background: var(--pu-bg-secondary);
+    border: 1px solid var(--pu-border-light);
+    border-radius: var(--pu-radius-lg);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    min-width: 220px;
+    max-height: 340px;
+    overflow-y: auto;
+    padding: 4px;
+}
+.pu-source-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    border-radius: var(--pu-radius);
+    cursor: pointer;
+    font-size: var(--pu-font-size-sm);
+    color: var(--pu-text-primary);
+}
+.pu-source-item:hover { background: var(--pu-bg-hover); }
+.pu-source-item.active {
     color: var(--pu-accent);
     font-weight: 500;
+}
+.pu-source-item.active .pu-source-check { display: inline; }
+.pu-source-check { display: none; margin-right: 6px; font-size: 12px; }
+.pu-source-folder-header {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--pu-text-muted);
+    padding: 6px 10px 4px;
+}
+.pu-source-divider {
+    height: 1px;
+    background: var(--pu-border-light);
+    margin: 4px 8px;
+}
+.pu-source-badge {
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    background: var(--pu-bg-tertiary);
+    padding: 1px 6px;
+    border-radius: 8px;
+}
+
+/* Header nest buttons (right-aligned in block header) */
+.pu-header-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+.pu-header-action-btn {
+    height: 22px;
+    border-radius: 11px;
+    background: transparent;
+    border: 1px solid var(--pu-border-light);
+    color: var(--pu-text-muted);
+    font-size: 10px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all var(--pu-transition-fast);
+    padding: 0 8px;
+    line-height: 1;
+    white-space: nowrap;
+}
+.pu-header-action-btn:hover {
+    border-color: var(--pu-accent);
+    color: var(--pu-accent);
+    background: var(--pu-bg-primary);
+}
+.pu-header-theme-btn:hover {
+    border-color: var(--pu-purple);
+    color: var(--pu-purple);
 }
 
 .pu-block-actions {
@@ -1039,69 +1222,15 @@ body {
 
 /* ── Theme Block (ext_text) ── */
 .pu-theme-block {
-    border-left: 3px solid var(--pu-purple);
-    background: var(--pu-purple-bg);
+    border-left: 2px solid rgba(198, 120, 221, 0.35);
     border-radius: var(--pu-radius);
     padding: 0;
 }
 
-.pu-theme-ref {
-    display: flex;
-    align-items: center;
-    gap: var(--pu-space-sm);
-    padding: 8px 10px;
-}
-
-.pu-theme-label {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-weight: 500;
-    color: var(--pu-purple);
-    font-size: var(--pu-font-size-sm);
-}
-
-.pu-theme-label.clickable {
-    cursor: pointer;
-    border-radius: var(--pu-radius);
-    padding: 2px 8px;
-    transition: background var(--pu-transition-fast);
-}
-
-.pu-theme-label.clickable:hover {
-    background: rgba(198, 120, 221, 0.15);
-}
-
-.pu-theme-swap-arrow {
-    font-size: 10px;
-    opacity: 0.6;
-}
-
-.pu-theme-icon { font-size: 12px; }
-
-.pu-theme-name { white-space: nowrap; }
-
-.pu-theme-max-label {
-    font-size: var(--pu-font-size-sm);
-    color: var(--pu-text-muted);
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    margin-left: auto;
-}
-
-.pu-theme-max-label input {
-    width: 48px;
-    padding: 2px 4px;
-    background: var(--pu-bg-input);
-    border: 1px solid var(--pu-border-light);
-    border-radius: var(--pu-radius-sm);
-    color: var(--pu-text-primary);
-    font-size: var(--pu-font-size-sm);
-}
+/* (theme badge removed — replaced by source pill in header/path areas) */
 
 .block-more {
-    background: none;
+    background: var(--pu-bg-secondary);
     border: none;
     color: var(--pu-text-muted);
     cursor: pointer;
@@ -1110,7 +1239,8 @@ body {
     font-size: 14px;
     line-height: 1;
     opacity: 0;
-    transition: opacity var(--pu-transition-fast), background var(--pu-transition-fast);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+    transition: opacity var(--pu-transition-fast), background var(--pu-transition-fast), box-shadow var(--pu-transition-fast);
 }
 
 .pu-theme-ref:hover .block-more,
@@ -1306,6 +1436,29 @@ body {
 
 .pu-ctx-item:hover { background: var(--pu-bg-hover); }
 .pu-ctx-item.danger { color: var(--pu-error); }
+.pu-ctx-item.pu-ctx-inline-field {
+    cursor: default;
+    gap: 6px;
+}
+.pu-ctx-item.pu-ctx-inline-field:hover { background: transparent; }
+.pu-ctx-inline-field input[type="number"] {
+    width: 48px;
+    padding: 2px 4px;
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius);
+    background: var(--pu-bg-primary);
+    color: var(--pu-text-primary);
+    font-size: var(--pu-font-size-sm);
+    text-align: center;
+}
+.pu-ctx-inline-field input[type="number"]:focus {
+    outline: none;
+    border-color: var(--pu-purple);
+}
+.pu-ctx-field-hint {
+    color: var(--pu-text-muted);
+    font-size: 11px;
+}
 .pu-ctx-divider { height: 1px; background: var(--pu-border); margin: 4px 0; }
 
 /* ── Save as Theme Modal ── */
@@ -1424,6 +1577,13 @@ body {
 .pu-block-child:hover .pu-path-delete { opacity: 0.5; }
 .pu-path-delete:hover { opacity: 1 !important; color: var(--pu-error); }
 
+/* Root path divider — no child arrow, slightly bolder label */
+.pu-root-divider .pu-path-label {
+    opacity: 0.7;
+    font-size: 11px;
+}
+.pu-block:not(.pu-block-child):hover .pu-root-divider .pu-path-delete { opacity: 0.5; }
+
 /* Highlight label on child hover — yellow */
 .pu-block-child:hover .pu-path-label {
     opacity: 1;
@@ -1436,7 +1596,27 @@ body {
     opacity: 0.5;
 }
 
-/* Inline path badge for compact mode (inside resolved text before content) */
+/* Tree connector for compact mode (demo-style ├── / └──) */
+.pu-tree-connector {
+    font-family: var(--pu-font-mono);
+    font-size: 12px;
+    color: var(--pu-text-muted);
+    user-select: none;
+    opacity: 0.4;
+    transition: color 0.2s ease, opacity 0.2s ease;
+    white-space: pre;
+}
+.pu-block-child:hover > .pu-block-body .pu-tree-connector {
+    color: var(--pu-orange);
+    opacity: 1;
+}
+/* Yellow highlight on tree connector when hierarchy hover active */
+.pu-has-children:has(.pu-block-children:hover) .pu-block-child:hover > .pu-block-body .pu-tree-connector {
+    color: var(--pu-warning);
+    opacity: 1;
+}
+
+/* Inline path badge for compact mode (after tree connector, before content) */
 .pu-child-path-hint {
     display: inline-block;
     font-family: var(--pu-font-mono);
@@ -1461,6 +1641,12 @@ body {
 .pu-has-children:has(.pu-block-children:hover) .pu-block-child:hover .pu-child-path-hint {
     background: var(--pu-warning-bg);
     color: var(--pu-warning);
+}
+
+/* Root path hints in compact mode — stronger presence than child hints */
+.pu-block:not(.pu-block-child) > .pu-block-body .pu-child-path-hint {
+    opacity: 0.8;
+    font-size: 11px;
 }
 
 /* Inline parent connector — flows after text (only on blocks with children) */
@@ -1557,6 +1743,9 @@ body {
 }
 /* Hide parent's inline actions on child hover (display:none to shift connector into place) */
 .pu-has-children:has(.pu-block-child:hover) > .pu-block-body .pu-inline-actions {
+    display: none !important;
+}
+.pu-has-children:has(.pu-block-child:hover) > .pu-block-body .pu-compact-right-actions {
     display: none !important;
 }
 
@@ -1700,12 +1889,51 @@ body {
     top: auto;
     transform: none;
 }
-/* Compact mode delete confirm — stay inline, not absolute */
-.pu-compact-actions .pu-delete-confirm {
+/* Compact mode delete confirm — stay in right-edge container */
+.pu-compact-right-actions .pu-delete-confirm {
     position: relative;
     top: auto;
     right: auto;
     transform: none;
+}
+
+/* Compact right-edge horizontal actions (pencil + annotate + delete) */
+.pu-compact-right-actions {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity var(--pu-transition-fast);
+    z-index: 2;
+}
+.pu-block-body:hover .pu-compact-right-actions {
+    opacity: 0.5;
+}
+.pu-compact-right-actions:hover {
+    opacity: 1 !important;
+}
+/* More button inside compact right actions: always visible within container */
+.pu-compact-right-actions .block-more {
+    opacity: 1;
+    padding: 0;
+    font-size: 16px;
+}
+
+/* Keep ⋯ visible while its context menu is open */
+.pu-block.pu-ctx-active > .pu-block-body .pu-compact-right-actions,
+.pu-block.pu-ctx-active > .pu-block-body .pu-right-edge-actions {
+    opacity: 1;
+}
+
+/* Compact mode: reduced indent for tree connectors */
+[data-viz="compact"] .pu-block-children {
+    margin-left: 8px;
+    padding-left: 0;
 }
 
 /* Child block content — equal top padding to root */
@@ -1717,12 +1945,13 @@ body {
     padding: 6px 16px 14px;
 }
 
-/* Compact mode: no right-edge column, no padding-right reservation */
+/* Compact mode: reserve space for right-edge actions */
 [data-viz="compact"] .pu-block-content {
-    padding-right: var(--pu-space-lg);
+    position: relative;
+    padding-right: 60px;
 }
 [data-viz="compact"] .pu-block-child .pu-block-content {
-    padding-right: var(--pu-space-md);
+    padding-right: 60px;
 }
 
 /* Nested block descriptions - smaller font */
@@ -3429,7 +3658,8 @@ body {
     justify-content: space-between;
     align-items: center;
     padding: 0 12px;
-    height: 24px;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    height: calc(24px + env(safe-area-inset-bottom, 0px));
     background: var(--pu-bg-primary);
     border-top: 1px solid var(--pu-border);
     flex-shrink: 0;
@@ -3558,6 +3788,13 @@ body {
     z-index: 1000;
     display: flex;
     flex-direction: column;
+}
+
+/* Anchored mode: dropdown-like, narrower, top-right origin */
+.pu-ext-picker-popup[data-anchored] {
+    width: 320px;
+    max-height: 360px;
+    transform-origin: top right;
 }
 
 .pu-ext-picker-header {
@@ -4712,5 +4949,591 @@ body.pu-focus-active {
 /* Inactive wildcard pills: regular text appearance */
 .pu-wc-inline-variations .pu-wc-pill:not([data-wc-active]) {
     color: inherit;
+}
+
+/* =========================================================================
+   ANNOTATIONS
+   ========================================================================= */
+
+/* Badge: inline purple tag icon + count */
+.pu-annotation-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: 6px;
+    padding: 1px 5px;
+    background: rgba(139, 92, 246, 0.15);
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    border-radius: var(--pu-radius);
+    color: #a78bfa;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    vertical-align: middle;
+    transition: background 0.15s, border-color 0.15s;
+}
+.pu-annotation-badge:hover {
+    background: rgba(139, 92, 246, 0.25);
+    border-color: rgba(139, 92, 246, 0.5);
+}
+.pu-annotation-badge svg {
+    stroke: #a78bfa;
+    flex-shrink: 0;
+}
+.pu-ann-count {
+    line-height: 1;
+}
+
+/* Annotate button in right-edge actions */
+.pu-inline-annotate {
+    opacity: 0.5;
+}
+.pu-inline-annotate:hover {
+    opacity: 1;
+}
+.pu-inline-annotate.has-annotations {
+    opacity: 0.9;
+    color: #a78bfa;
+}
+.pu-inline-annotate.has-annotations svg {
+    stroke: #a78bfa;
+}
+
+/* Editor panel: collapsible below block body */
+.pu-annotation-editor {
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transition: max-height 0.25s ease, opacity 0.2s ease, padding 0.25s ease;
+    background: rgba(139, 92, 246, 0.04);
+    border-top: 1px solid rgba(139, 92, 246, 0.15);
+    border-radius: 0 0 var(--pu-radius) var(--pu-radius);
+    padding: 0 var(--pu-space-sm);
+}
+.pu-annotation-editor.open {
+    max-height: 400px;
+    opacity: 1;
+    padding: var(--pu-space-sm);
+}
+
+/* Editor header */
+.pu-annotation-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--pu-space-xs);
+}
+.pu-annotation-title {
+    font-size: var(--pu-font-size-xs);
+    font-weight: 600;
+    color: #a78bfa;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.pu-annotation-close {
+    background: none;
+    border: none;
+    color: var(--pu-text-muted);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 0 2px;
+    line-height: 1;
+}
+.pu-annotation-close:hover {
+    color: var(--pu-text-primary);
+}
+
+/* Rows container */
+.pu-annotation-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* Individual row: key + value + remove */
+.pu-annotation-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.pu-annotation-row .pu-ann-key,
+.pu-annotation-row .pu-ann-value {
+    flex: 1;
+    padding: 3px 6px;
+    font-size: var(--pu-font-size-xs);
+    font-family: var(--pu-font-mono);
+    background: var(--pu-bg-input);
+    border: 1px solid var(--pu-border);
+    border-radius: var(--pu-radius-sm, 3px);
+    color: var(--pu-text-primary);
+    outline: none;
+}
+.pu-annotation-row .pu-ann-key {
+    max-width: 120px;
+    color: #a78bfa;
+}
+.pu-annotation-row .pu-ann-key:focus,
+.pu-annotation-row .pu-ann-value:focus {
+    border-color: rgba(139, 92, 246, 0.5);
+}
+.pu-annotation-row .pu-ann-remove {
+    background: none;
+    border: none;
+    color: var(--pu-text-muted);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0 4px;
+    line-height: 1;
+    opacity: 0.5;
+    transition: opacity 0.15s;
+}
+.pu-annotation-row .pu-ann-remove:hover {
+    opacity: 1;
+    color: var(--pu-error);
+}
+
+/* Add button: dashed border */
+.pu-annotation-add {
+    margin-top: var(--pu-space-xs);
+    padding: 3px 8px;
+    font-size: var(--pu-font-size-xs);
+    color: #a78bfa;
+    background: none;
+    border: 1px dashed rgba(139, 92, 246, 0.3);
+    border-radius: var(--pu-radius-sm, 3px);
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    width: 100%;
+    text-align: center;
+}
+.pu-annotation-add:hover {
+    border-color: rgba(139, 92, 246, 0.6);
+    background: rgba(139, 92, 246, 0.06);
+}
+
+/* ============================================
+   Popup Backdrop Overlay (click-outside dismiss)
+   ============================================ */
+.pu-popup-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 99;
+    background: transparent;
+    touch-action: manipulation;
+}
+.pu-popup-overlay.visible {
+    display: block;
+}
+
+/* ============================================
+   Backdrop Overlay (mobile/tablet panel dismiss)
+   ============================================ */
+.pu-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 90;
+}
+
+.pu-backdrop.visible {
+    display: block;
+}
+
+/* ============================================
+   Responsive: Tablet (768px – 1024px)
+   Right panel becomes fixed overlay.
+   Sidebar stays docked but narrower.
+   ============================================ */
+@media (max-width: 1024px) {
+    :root {
+        --pu-sidebar-width: 240px;
+        --pu-inspector-width: 300px;
+    }
+
+    .pu-right-panel {
+        position: fixed;
+        top: var(--pu-header-height);
+        right: 0;
+        bottom: 24px; /* footer height */
+        width: var(--pu-inspector-width);
+        z-index: 100;
+        transform: translateX(100%);
+        transition: transform 0.25s ease;
+        border-left: 1px solid var(--pu-border);
+    }
+
+    /* Override collapsed state — on tablet use transform instead */
+    .pu-right-panel.collapsed {
+        width: var(--pu-inspector-width);
+        opacity: 1;
+        pointer-events: auto;
+        border-left-width: 1px;
+        transform: translateX(100%);
+    }
+
+    /* pu-panel-open MUST come after .collapsed so it wins when both present */
+    .pu-right-panel.pu-panel-open {
+        transform: translateX(0);
+    }
+}
+
+/* ============================================
+   Responsive: Mobile (< 768px)
+   Both panels become fixed overlays.
+   Editor fills full width.
+   Footer hides keyboard shortcuts.
+   ============================================ */
+@media (max-width: 767px) {
+    :root {
+        --pu-sidebar-width: 280px;
+        --pu-inspector-width: 100%;
+    }
+
+    /* Header: hide center breadcrumb, compact buttons */
+    .pu-header-center {
+        display: none;
+    }
+
+    .pu-header {
+        padding: 0 var(--pu-space-sm);
+    }
+
+    /* Footer: hidden on mobile — panel controls move to header */
+    .pu-footer {
+        display: none;
+    }
+
+    /* Header: show mobile panel toggle buttons (must match desktop hide specificity) */
+    .pu-btn.pu-mobile-panel-btn {
+        display: inline-flex;
+        padding: var(--pu-space-xs) var(--pu-space-sm);
+        font-size: 18px;
+        line-height: 1;
+    }
+
+    /* Sidebar: fixed overlay from left */
+    .pu-sidebar {
+        position: fixed;
+        top: var(--pu-header-height);
+        left: 0;
+        bottom: 0;
+        width: 280px;
+        z-index: 100;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+        border-right: 1px solid var(--pu-border);
+    }
+
+    /* Override collapsed state — on mobile use transform instead */
+    .pu-sidebar.collapsed {
+        width: 280px;
+        opacity: 1;
+        pointer-events: auto;
+        border-right-width: 1px;
+        transform: translateX(-100%);
+    }
+
+    /* pu-panel-open MUST come after .collapsed so it wins when both present */
+    .pu-sidebar.pu-panel-open {
+        transform: translateX(0);
+    }
+
+    /* Expanded sidebar (no-job mode): full-width overlay */
+    .pu-main[data-layout="no-job"] .pu-sidebar {
+        width: 100%;
+        transform: translateX(0);
+    }
+
+    /* Right panel: fixed overlay from right, full width */
+    .pu-right-panel {
+        position: fixed;
+        top: var(--pu-header-height);
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        z-index: 100;
+        transform: translateX(100%);
+        transition: transform 0.25s ease;
+        border-left: none;
+    }
+
+    .pu-right-panel.collapsed {
+        width: 100%;
+        opacity: 1;
+        pointer-events: auto;
+        border-left-width: 0;
+        transform: translateX(100%);
+    }
+
+    /* pu-panel-open MUST come after .collapsed so it wins when both present */
+    .pu-right-panel.pu-panel-open {
+        transform: translateX(0);
+    }
+
+    /* Editor: fill entire main area */
+    .pu-editor {
+        width: 100%;
+    }
+
+    /* Footer is hidden on mobile (display:none above) — no shortcut rules needed */
+}
+
+/* ========================================================================
+   Touch-Friendly Compact Mode
+   Detected via pointer: coarse (touch devices, regardless of screen size).
+   Funnels all block actions through the always-visible ⋯ button and
+   enlarges tap targets to meet WCAG 44px minimum.
+   ======================================================================== */
+
+@media (pointer: coarse) {
+    /* ── Popup overlay: subtle tint so touch users see the dismiss layer ── */
+    .pu-popup-overlay.visible {
+        background: rgba(0, 0, 0, 0.15);
+    }
+
+    /* ── All modes: show only floating ⋯ button ── */
+
+    /* ── Neutralize ALL hover cascades that cause double-tap ── */
+    /* Mobile browsers emulate :hover on first tap, causing opacity
+       transitions that swallow the click. These overrides match the
+       exact specificity of each base hover rule and kill transitions.
+       Desktop is unaffected — @media (pointer: coarse) only. */
+
+    /* Block-level hovers (the main culprit — nest action bar) */
+    .pu-block:hover > .pu-nest-action {
+        opacity: 0;
+        transition: none;
+    }
+    .pu-block:hover > .pu-block-body .block-more {
+        opacity: 1;
+        transition: none;
+    }
+
+    /* Block-body hovers */
+    .pu-block-body:hover .pu-compact-right-actions,
+    .pu-compact-right-actions:hover {
+        opacity: 1 !important;
+        transition: none !important;
+    }
+    .pu-right-edge-actions:hover {
+        opacity: 1;
+        transition: none;
+    }
+    .pu-block-body:hover .pu-nest-connector {
+        opacity: 0.5;
+        transition: none;
+    }
+    .pu-block-body:hover .pu-inline-actions {
+        transition: none;
+    }
+    .pu-block-body:hover .pu-inline-actions:hover {
+        transition: none;
+    }
+
+    /* Nest action: hidden on touch — use context menu instead */
+    .pu-nest-action {
+        display: none;
+    }
+
+    /* ── Modals: full-width on mobile viewport ── */
+    .pu-modal {
+        width: auto !important;
+        min-width: 0;
+        max-width: calc(100vw - 24px);
+        max-height: 90vh;
+        margin: 12px;
+    }
+    .pu-modal-overlay {
+        padding: 0;
+        align-items: flex-end;
+    }
+    .pu-modal-body {
+        padding: 16px;
+    }
+    .pu-modal-header {
+        padding: 12px 16px;
+    }
+    .pu-modal-header h2 {
+        font-size: 16px;
+    }
+    .pu-modal-footer {
+        padding: 12px 16px;
+    }
+    .pu-modal-footer button {
+        min-height: 44px;
+        touch-action: manipulation;
+    }
+    /* Move-to-theme modal inputs */
+    [data-testid="pu-move-to-theme-modal"] input[type="text"] {
+        min-height: 44px;
+        font-size: 16px;
+    }
+    /* Theme save modal inputs */
+    [data-testid="pu-theme-save-modal"] .pu-modal-body input[type="text"],
+    [data-testid="pu-theme-save-modal"] .pu-modal-body select {
+        min-height: 44px;
+        font-size: 16px;
+    }
+
+    /* Compact: tap block to reveal ⋯ (no always-visible button) */
+    [data-viz="compact"] .pu-compact-right-actions {
+        transition: none;
+        touch-action: manipulation;
+    }
+    [data-viz="compact"] .pu-compact-right-actions .pu-inline-edit,
+    [data-viz="compact"] .pu-compact-right-actions .pu-inline-annotate,
+    [data-viz="compact"] .pu-compact-right-actions .pu-inline-move,
+    [data-viz="compact"] .pu-compact-right-actions .pu-inline-delete {
+        display: none;
+    }
+    [data-viz="compact"] .pu-compact-right-actions .block-more {
+        width: 44px;
+        height: 44px;
+        font-size: 22px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background: var(--pu-bg-secondary);
+        box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+        touch-action: manipulation;
+    }
+
+    /* Animated modes: hide everything except ⋯ */
+    .pu-right-edge-actions {
+        opacity: 1;
+        transition: none;
+        touch-action: manipulation;
+        width: auto;
+        position: absolute;
+        right: 4px;
+        top: 50%;
+        transform: translateY(-50%);
+        bottom: auto;
+        flex-direction: row;
+    }
+    .pu-right-edge-actions .pu-inline-edit,
+    .pu-right-edge-actions .pu-inline-annotate,
+    .pu-right-edge-actions .pu-inline-move,
+    .pu-right-edge-actions .pu-inline-delete {
+        display: none;
+    }
+    .pu-right-edge-actions .block-more {
+        width: 44px;
+        height: 44px;
+        font-size: 22px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background: var(--pu-bg-secondary);
+        box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+        touch-action: manipulation;
+    }
+
+    /* ── Context menu: larger tap targets ── */
+    .pu-ctx-item {
+        padding: 12px 16px;
+        font-size: var(--pu-font-size);
+        min-height: 44px;
+    }
+    #pu-theme-context-menu {
+        min-width: 220px;
+        padding: 6px;
+    }
+    .pu-ctx-divider {
+        margin: 6px 0;
+    }
+
+    /* ── Wildcard pills: larger tap surface ── */
+    .pu-wc-text-value {
+        padding: 4px 6px;
+        min-height: 32px;
+        display: inline-flex;
+        align-items: center;
+        border-radius: var(--pu-radius);
+    }
+
+    /* ── Nest connector: hidden on touch (use header buttons instead) ── */
+    .pu-nest-connector {
+        display: none;
+    }
+
+    /* ── Inline dice: always visible on touch ── */
+    .pu-inline-actions {
+        opacity: 0.5;
+    }
+    .pu-inline-action.pu-inline-dice {
+        width: 32px;
+        height: 32px;
+    }
+
+    /* ── Header nest buttons: touch-friendly ── */
+    .pu-header-action-btn {
+        height: 36px;
+        padding: 0 12px;
+        font-size: 12px;
+        touch-action: manipulation;
+        transition: none;
+    }
+    .pu-header-action-btn:hover {
+        transition: none;
+    }
+
+    /* ── Active/tap feedback (replaces hover) ── */
+    .pu-ctx-item:active {
+        background: var(--pu-bg-hover);
+    }
+    .pu-wc-text-value:active {
+        opacity: 0.6;
+    }
+    .block-more:active {
+        background: var(--pu-bg-hover);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    }
+    .pu-header-action-btn:active {
+        border-color: var(--pu-accent);
+        color: var(--pu-accent);
+        background: var(--pu-bg-hover);
+    }
+
+    /* ── Extension picker popup: bottom-sheet on mobile (only when not anchored) ── */
+    .pu-ext-picker-popup:not([data-anchored]) {
+        width: auto;
+        left: 12px;
+        right: 12px;
+        transform: none;
+        max-width: calc(100vw - 24px);
+        max-height: 70vh;
+        bottom: 12px;
+    }
+    /* ── Extension picker: anchored dropdown on mobile ── */
+    .pu-ext-picker-popup[data-anchored] {
+        width: min(320px, calc(100vw - 24px));
+        max-height: min(360px, 60vh);
+    }
+    .pu-ext-picker-search input {
+        min-height: 44px;
+        font-size: 16px;
+        padding: 8px 12px;
+    }
+    .pu-ext-picker-tree .pu-tree-item {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+    }
+    .pu-ext-picker-actions button {
+        min-height: 44px;
+        touch-action: manipulation;
+    }
+    .pu-ext-picker-close {
+        width: 44px;
+        height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
 }
 

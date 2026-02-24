@@ -1383,3 +1383,6 @@ PU.focus = {
         }
     }
 };
+
+// Register focus mode as a modal overlay
+PU.overlay.registerModal('focus', () => PU.focus.exit());

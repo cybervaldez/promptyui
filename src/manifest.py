@@ -13,7 +13,7 @@ Data Hierarchy:
 Key Design Principles:
 1. Parent provides, child references (index-based)
 2. Minimal checkpoint data (compact format)
-3. Precompilation - all expansions happen at build time
+3. Precompilation - all expansions happen at build time (build hooks apply here)
 4. Same format for CLI and WebUI
 """
 

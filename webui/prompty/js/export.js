@@ -9,6 +9,7 @@ PU.export = {
      * Open export modal
      */
     async open() {
+        PU.overlay.dismissAll();
         const jobId = PU.state.activeJobId;
         if (!jobId) {
             PU.actions.showToast('No job selected', 'error');
@@ -146,6 +147,7 @@ PU.export = {
 
                     // Clear modified state
                     delete PU.state.modifiedJobs[jobId];
+                    PU.editor.updateHeaderSaveState();
 
                     PU.export.close();
                 } else {
@@ -178,3 +180,6 @@ PU.export = {
         }
     }
 };
+
+// Register export modal
+PU.overlay.registerModal('export', () => PU.export.close());

@@ -9,10 +9,10 @@ PU.themes = {
 
     // ── Feature 1: Add Theme as Child ──
 
-    addThemeAsChild(parentPath) {
+    addThemeAsChild(parentPath, anchorEl) {
         PU.rightPanel.showExtensionPicker((extId) => {
             PU.themes.insertExtTextAsChild(parentPath, extId);
-        });
+        }, anchorEl);
     },
 
     insertExtTextAsChild(parentPath, extId) {
@@ -33,7 +33,7 @@ PU.themes = {
 
     async openSwapDropdown(event, path, currentTheme) {
         event.stopPropagation();
-        PU.themes.closeContextMenu();
+        PU.overlay.dismissAll();
 
         const state = PU.state.themes.swapDropdown;
         state.visible = true;
@@ -42,6 +42,7 @@ PU.themes = {
 
         const alternatives = PU.themes._getAlternatives(currentTheme);
         PU.themes._renderSwapDropdown(event.target.closest('.pu-theme-label'), alternatives);
+        PU.overlay.showOverlay();
     },
 
     _getAlternatives(currentTheme) {
@@ -317,11 +318,16 @@ PU.themes = {
 
     openContextMenu(event, path, isTheme) {
         event.stopPropagation();
-        PU.themes.closeSwapDropdown();
-        PU.themes.closeContextMenu();
+        PU.overlay.dismissAll();
 
         PU.state.themes.contextMenu = { visible: true, path, isTheme };
+
+        // Mark the source block so its ⋯ button stays visible
+        const block = document.querySelector(`.pu-block[data-path="${path}"]`);
+        if (block) block.classList.add('pu-ctx-active');
+
         PU.themes._renderContextMenu(event);
+        PU.overlay.showOverlay();
     },
 
     _renderContextMenu(event) {
@@ -331,12 +337,42 @@ PU.themes = {
 
         const { path, isTheme } = PU.state.themes.contextMenu;
         const ePath = PU.blocks.escapeAttr(path);
+        const isChild = path.includes('.');
 
         let items = '';
+
+        // Primary actions: Edit, Annotate, Move to Theme
+        items += `<div class="pu-ctx-item" data-testid="pu-ctx-edit" onclick="PU.themes.closeContextMenu(); PU.actions.selectBlock('${ePath}'); PU.focus.enter('${ePath}')">&#9998; Edit</div>`;
+        items += `<div class="pu-ctx-item" data-testid="pu-ctx-annotate" onclick="PU.themes.closeContextMenu(); PU.annotations.toggleEditor('${ePath}')">&#127991; Annotate</div>`;
+        if (!isChild && !isTheme && PU.moveToTheme) {
+            items += `<div class="pu-ctx-item" data-testid="pu-ctx-move-theme" onclick="PU.themes.closeContextMenu(); PU.moveToTheme.open('${ePath}')">&#8593; Move to Theme</div>`;
+        }
+
+        // ext_text_max setting for theme blocks
+        if (isTheme) {
+            const prompt = PU.helpers.getActivePrompt();
+            const block = prompt ? PU.blocks.findBlockByPath(prompt.text, path) : null;
+            const currentMax = (block && block.ext_text_max) || 0;
+            items += `<div class="pu-ctx-item pu-ctx-inline-field" data-testid="pu-ctx-ext-max" onclick="event.stopPropagation()">
+                <span>Max texts</span>
+                <input type="number" min="0" value="${currentMax}" data-testid="pu-ctx-ext-max-input"
+                       onclick="event.stopPropagation()"
+                       onchange="PU.actions.updateExtTextMax('${ePath}', this.value)">
+                <span class="pu-ctx-field-hint">0 = all</span>
+            </div>`;
+        }
+
+        items += '<div class="pu-ctx-divider"></div>';
 
         items += `<div class="pu-ctx-item" onclick="PU.themes.moveBlock('${ePath}', 'up')">&#8593; Move Up</div>`;
         items += `<div class="pu-ctx-item" onclick="PU.themes.moveBlock('${ePath}', 'down')">&#8595; Move Down</div>`;
         items += `<div class="pu-ctx-item" onclick="PU.themes.duplicateBlock('${ePath}')">&#9776; Duplicate</div>`;
+
+        // Nesting: Add Child / Insert Theme as Child (replaces hover-only nest buttons on touch)
+        if (!isChild) {
+            items += `<div class="pu-ctx-item" data-testid="pu-ctx-add-child" onclick="PU.themes.closeContextMenu(); PU.actions.addNestedBlock('${ePath}')">&#8627; Add Child</div>`;
+            items += `<div class="pu-ctx-item" data-testid="pu-ctx-insert-theme" onclick="PU.themes.closeContextMenu(); PU.themes.addThemeAsChild('${ePath}')">&#128230; Insert Theme as Child</div>`;
+        }
 
         items += '<div class="pu-ctx-divider"></div>';
 
@@ -352,23 +388,47 @@ PU.themes = {
         cm.innerHTML = items;
         document.body.appendChild(cm);
 
-        // Position at click
-        const x = event.clientX;
-        const y = event.clientY;
-        cm.style.left = x + 'px';
-        cm.style.top = y + 'px';
-
-        // Keep within viewport
+        // Position: anchor to the ⋯ button if it triggered the event,
+        // placing the menu's top-right corner at the button's bottom-right.
+        const btn = event.target.closest('.block-more');
         const cmRect = cm.getBoundingClientRect();
-        if (cmRect.right > window.innerWidth) {
-            cm.style.left = (window.innerWidth - cmRect.width - 8) + 'px';
-        }
-        if (cmRect.bottom > window.innerHeight) {
-            cm.style.top = (window.innerHeight - cmRect.height - 8) + 'px';
+
+        if (btn) {
+            const btnRect = btn.getBoundingClientRect();
+            // Top-right of menu aligns to bottom-right of button
+            let left = btnRect.right - cmRect.width;
+            let top = btnRect.bottom + 4;
+
+            // Keep within viewport
+            if (left < 8) left = 8;
+            if (top + cmRect.height > window.innerHeight) {
+                // Flip above the button if not enough space below
+                top = btnRect.top - cmRect.height - 4;
+                if (top < 8) top = 8;
+            }
+            cm.style.left = left + 'px';
+            cm.style.top = top + 'px';
+        } else {
+            // Fallback: position at click coordinates
+            cm.style.left = event.clientX + 'px';
+            cm.style.top = event.clientY + 'px';
+
+            // Keep within viewport
+            const rect = cm.getBoundingClientRect();
+            if (rect.right > window.innerWidth) {
+                cm.style.left = (window.innerWidth - rect.width - 8) + 'px';
+            }
+            if (rect.bottom > window.innerHeight) {
+                cm.style.top = (window.innerHeight - rect.height - 8) + 'px';
+            }
         }
     },
 
     closeContextMenu() {
+        // Remove active mark from source block
+        const prev = document.querySelector('.pu-block.pu-ctx-active');
+        if (prev) prev.classList.remove('pu-ctx-active');
+
         PU.state.themes.contextMenu = { visible: false, path: null, isTheme: false };
         const cm = document.getElementById('pu-theme-context-menu');
         if (cm) cm.remove();
@@ -437,9 +497,10 @@ PU.themes = {
     // ── Feature 3b: Save as Theme ──
 
     openSaveModal(path) {
+        PU.overlay.dismissAll();
         PU.state.themes.saveModal = { visible: true, blockPath: path };
-        PU.themes.closeContextMenu();
         PU.themes._renderSaveModal(path);
+        PU.overlay.showOverlay();
     },
 
     _renderSaveModal(path) {
@@ -575,7 +636,7 @@ PU.themes = {
     // ── Feature 4: Dissolve into Blocks ──
 
     async dissolve(path) {
-        PU.themes.closeContextMenu();
+        PU.overlay.dismissPopovers();
 
         const prompt = PU.editor.getModifiedPrompt();
         if (!prompt || !Array.isArray(prompt.text)) return;
@@ -630,5 +691,171 @@ PU.themes = {
         PU.rightPanel.render();
         const shortName = extName.split('/').pop();
         PU.actions.showToast(`Dissolved "${shortName}" into blocks`, 'success');
+    },
+
+    // ── Feature 5: Source Pill Dropdown ──
+
+    openSourceDropdown(event, path) {
+        event.stopPropagation();
+        PU.overlay.dismissAll();
+
+        const prompt = PU.helpers.getActivePrompt();
+        if (!prompt) return;
+        const block = PU.blocks.findBlockByPath(prompt.text, path);
+        if (!block) return;
+
+        const currentSource = ('ext_text' in block) ? block.ext_text : 'content';
+        const state = PU.state.themes.sourceDropdown;
+        state.visible = true;
+        state.path = path;
+        state.currentSource = currentSource;
+
+        const allThemes = PU.themes._getAllThemes();
+        const anchor = event.target.closest('[data-has-source]');
+        PU.themes._renderSourceDropdown(anchor, currentSource, allThemes);
+        PU.overlay.showOverlay();
+    },
+
+    _getAllThemes() {
+        const tree = PU.state.globalExtensions.tree;
+        if (!tree || Object.keys(tree).length === 0) return [];
+
+        const results = [];
+        const walk = (node, folderPath) => {
+            if (node._files) {
+                for (const file of node._files) {
+                    const id = folderPath ? `${folderPath}/${file.id}` : file.id;
+                    results.push({
+                        id,
+                        name: file.id,
+                        folder: folderPath || '',
+                        textCount: file.textCount || 0,
+                        wildcardCount: file.wildcardCount || 0
+                    });
+                }
+            }
+            for (const key of Object.keys(node)) {
+                if (key === '_files') continue;
+                const childFolder = folderPath ? `${folderPath}/${key}` : key;
+                walk(node[key], childFolder);
+            }
+        };
+        walk(tree, '');
+        return results;
+    },
+
+    _renderSourceDropdown(anchor, currentSource, allThemes) {
+        const existing = document.getElementById('pu-source-dropdown');
+        if (existing) existing.remove();
+
+        const dd = document.createElement('div');
+        dd.id = 'pu-source-dropdown';
+        dd.setAttribute('data-testid', 'pu-source-dropdown');
+
+        let html = '';
+
+        // "content" option
+        const isContent = (currentSource === 'content');
+        html += `<div class="pu-source-item${isContent ? ' active' : ''}" data-testid="pu-source-item-content" onclick="PU.themes.selectSource('content')">`;
+        html += `<span><span class="pu-source-check">\u2713</span>content</span>`;
+        html += `</div>`;
+
+        if (allThemes.length > 0) {
+            html += '<div class="pu-source-divider"></div>';
+
+            // Group by folder
+            const folders = {};
+            for (const theme of allThemes) {
+                const folder = theme.folder || '';
+                if (!folders[folder]) folders[folder] = [];
+                folders[folder].push(theme);
+            }
+
+            for (const [folder, themes] of Object.entries(folders)) {
+                if (folder) {
+                    html += `<div class="pu-source-folder-header">${PU.blocks.escapeHtml(folder.toUpperCase())}</div>`;
+                }
+                for (const theme of themes) {
+                    const isActive = (currentSource === theme.id);
+                    const eId = PU.blocks.escapeAttr(theme.id);
+                    const eName = PU.blocks.escapeHtml(theme.name);
+                    html += `<div class="pu-source-item${isActive ? ' active' : ''}" data-testid="pu-source-item-${PU.blocks.escapeAttr(theme.name)}" onclick="PU.themes.selectSource('${eId}')">`;
+                    html += `<span><span class="pu-source-check">\u2713</span>${eName}</span>`;
+                    if (theme.textCount > 0) {
+                        html += `<span class="pu-source-badge">(${theme.textCount})</span>`;
+                    }
+                    html += `</div>`;
+                }
+            }
+        }
+
+        dd.innerHTML = html;
+        document.body.appendChild(dd);
+
+        // Position below anchor
+        if (anchor) {
+            const rect = anchor.getBoundingClientRect();
+            dd.style.left = rect.left + 'px';
+            dd.style.top = (rect.bottom + 4) + 'px';
+
+            // Keep within viewport
+            const ddRect = dd.getBoundingClientRect();
+            if (ddRect.right > window.innerWidth) {
+                dd.style.left = (window.innerWidth - ddRect.width - 8) + 'px';
+            }
+            if (ddRect.bottom > window.innerHeight) {
+                dd.style.top = (rect.top - ddRect.height - 4) + 'px';
+            }
+        }
+    },
+
+    selectSource(sourceId) {
+        const path = PU.state.themes.sourceDropdown.path;
+        const currentSource = PU.state.themes.sourceDropdown.currentSource;
+        if (!path || sourceId === currentSource) {
+            PU.themes.closeSourceDropdown();
+            PU.overlay.hideOverlay();
+            return;
+        }
+
+        const prompt = PU.editor.getModifiedPrompt();
+        if (!prompt) return;
+
+        const block = PU.blocks.findBlockByPath(prompt.text, path);
+        if (!block) return;
+
+        if (sourceId === 'content') {
+            // Switch ext_text -> content
+            delete block.ext_text;
+            delete block.ext_text_max;
+            block.content = '';
+        } else if ('content' in block) {
+            // Switch content -> ext_text
+            delete block.content;
+            block.ext_text = sourceId;
+        } else {
+            // Switch ext_text -> different ext_text
+            block.ext_text = sourceId;
+        }
+
+        PU.themes.closeSourceDropdown();
+        PU.overlay.hideOverlay();
+        PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
+        PU.editor.updateHeaderSaveState();
+        const shortName = sourceId === 'content' ? 'content' : sourceId.split('/').pop();
+        PU.actions.showToast(`Source: ${shortName}`, 'success');
+    },
+
+    closeSourceDropdown() {
+        PU.state.themes.sourceDropdown = { visible: false, path: null, currentSource: null };
+        const dd = document.getElementById('pu-source-dropdown');
+        if (dd) dd.remove();
+        PU.themes._hideDiffPopover();
     }
 };
+
+// Register theme overlays
+PU.overlay.registerPopover('contextMenu', () => PU.themes.closeContextMenu());
+PU.overlay.registerPopover('swapDropdown', () => PU.themes.closeSwapDropdown());
+PU.overlay.registerPopover('sourceDropdown', () => PU.themes.closeSourceDropdown());
+PU.overlay.registerModal('saveModal', () => PU.themes.closeSaveModal());

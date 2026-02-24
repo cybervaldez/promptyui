@@ -372,6 +372,76 @@ agent-browser eval "PU.state.activePromptId = '$PROMPT_NAME'; PU.rightPanel.rend
 sleep 1
 
 # ============================================================================
+# JOB DEFAULTS SECTION
+# ============================================================================
+echo ""
+log_info "JOB DEFAULTS: Section exists in right panel"
+
+HAS_DEFAULTS=$(agent-browser eval 'document.querySelector("[data-testid=pu-rp-defaults]") ? "found" : "missing"' 2>/dev/null | tr -d '"')
+[ "$HAS_DEFAULTS" = "found" ] && log_pass "Job Defaults section exists in right panel" || log_fail "Job Defaults section missing"
+
+# Verify it's inside right panel
+DEFAULTS_PARENT=$(agent-browser eval 'document.querySelector("[data-testid=pu-rp-defaults]").parentElement.getAttribute("data-testid")' 2>/dev/null | tr -d '"')
+[ "$DEFAULTS_PARENT" = "pu-right-panel" ] && log_pass "Job Defaults is child of pu-right-panel" || log_fail "Job Defaults parent: $DEFAULTS_PARENT"
+
+# Old toolbar removed from editor
+OLD_TOOLBAR=$(agent-browser eval 'document.querySelector("[data-testid=pu-defaults-toolbar]") === null ? "removed" : "exists"' 2>/dev/null | tr -d '"')
+[ "$OLD_TOOLBAR" = "removed" ] && log_pass "Old defaults toolbar removed from editor" || log_fail "Old defaults toolbar still in editor"
+
+echo ""
+log_info "JOB DEFAULTS: Ext dropdown populated"
+
+EXT_SELECT=$(agent-browser eval 'var s = document.querySelector("[data-testid=pu-defaults-ext]"); s ? s.options.length : 0' 2>/dev/null | tr -d '"')
+if [ "$EXT_SELECT" -gt 0 ] 2>/dev/null; then
+    log_pass "Ext dropdown has $EXT_SELECT options"
+else
+    log_fail "Ext dropdown empty or missing"
+fi
+
+EXT_VALUE=$(agent-browser eval 'var s = document.querySelector("[data-testid=pu-defaults-ext]"); s ? s.value : "none"' 2>/dev/null | tr -d '"')
+[ -n "$EXT_VALUE" ] && [ "$EXT_VALUE" != "none" ] && log_pass "Ext dropdown has selected value: $EXT_VALUE" || log_fail "Ext dropdown no value: $EXT_VALUE"
+
+echo ""
+log_info "JOB DEFAULTS: Collapse/expand toggle"
+
+# Collapse
+agent-browser eval 'PU.rightPanel.toggleDefaults()' 2>/dev/null
+sleep 0.3
+
+IS_COLLAPSED=$(agent-browser eval 'document.querySelector("[data-testid=pu-rp-defaults]").classList.contains("collapsed") ? "yes" : "no"' 2>/dev/null | tr -d '"')
+[ "$IS_COLLAPSED" = "yes" ] && log_pass "Defaults collapsed after toggle" || log_fail "Defaults not collapsed: $IS_COLLAPSED"
+
+# Expand
+agent-browser eval 'PU.rightPanel.toggleDefaults()' 2>/dev/null
+sleep 0.3
+
+IS_EXPANDED=$(agent-browser eval 'document.querySelector("[data-testid=pu-rp-defaults]").classList.contains("collapsed") ? "no" : "yes"' 2>/dev/null | tr -d '"')
+[ "$IS_EXPANDED" = "yes" ] && log_pass "Defaults expanded after second toggle" || log_fail "Defaults not expanded: $IS_EXPANDED"
+
+echo ""
+log_info "JOB DEFAULTS: Changing ext updates job defaults"
+
+# Change ext value and verify state update
+agent-browser eval 'var s = document.querySelector("[data-testid=pu-defaults-ext]"); if (s && s.options.length > 1) { s.selectedIndex = 1; s.dispatchEvent(new Event("change")); }' 2>/dev/null
+sleep 0.3
+
+NEW_EXT=$(agent-browser eval 'var j = PU.state.modifiedJobs[PU.state.activeJobId]; j && j.defaults ? j.defaults.ext : "not-set"' 2>/dev/null | tr -d '"')
+if [ -n "$NEW_EXT" ] && [ "$NEW_EXT" != "not-set" ]; then
+    log_pass "Ext change updated job defaults: $NEW_EXT"
+else
+    log_fail "Ext change did not update state: $NEW_EXT"
+fi
+
+echo ""
+log_info "JOB DEFAULTS: renderDefaults() called via render()"
+
+HAS_RENDER_DEFAULTS=$(agent-browser eval 'typeof PU.rightPanel.renderDefaults === "function" ? "yes" : "no"' 2>/dev/null | tr -d '"')
+[ "$HAS_RENDER_DEFAULTS" = "yes" ] && log_pass "PU.rightPanel.renderDefaults() exists" || log_fail "renderDefaults() missing"
+
+HAS_TOGGLE_DEFAULTS=$(agent-browser eval 'typeof PU.rightPanel.toggleDefaults === "function" ? "yes" : "no"' 2>/dev/null | tr -d '"')
+[ "$HAS_TOGGLE_DEFAULTS" = "yes" ] && log_pass "PU.rightPanel.toggleDefaults() exists" || log_fail "toggleDefaults() missing"
+
+# ============================================================================
 # CLEANUP
 # ============================================================================
 echo ""

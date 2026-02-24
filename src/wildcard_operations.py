@@ -1,8 +1,9 @@
 """
-src/wildcard_operations.py - Wildcard Operations Module
+src/wildcard_operations.py - Wildcard Operations Module (Build Hook)
 
 Single source of truth for wildcard operation calculations.
-Operations are independent text transformations applied to prompts.
+Operations are a type of build hook — independent value-replacement
+mappings applied to prompts within a bucket window.
 
 KEY CONCEPT: Each operation is independent and does NOT stack with others.
 Base prompt → Operation A produces Result A

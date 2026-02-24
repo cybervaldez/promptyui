@@ -2,15 +2,41 @@
 """
 Hooks Engine - Core pipeline for executing lifecycle hooks and mods.
 
-Provides HookPipeline class that orchestrates hook execution in order:
-1. JOB_START
-2. NODE_START
-3. MODS_PRE
-4. IMAGE_GENERATION
-5. MODS_POST
-6. NODE_END
-7. JOB_END
-8. ERROR (on any failure)
+This is the generation-time hook infrastructure. For the conceptual
+hook locations in the UI (editor/build/render), see docs/composition-model.md.
+
+LIFECYCLE STAGES (per block):
+  1. JOB_START           - once per job
+  2. NODE_START          - once per block (first visit)
+  3. ANNOTATIONS_RESOLVE - once per block (cached for all compositions)
+     Context: { prompt_id, text, annotations }
+     Can modify: annotations (dict), text (string)
+  4. MODS_PRE            - per composition (user mods, stage=pre)
+  5. IMAGE_GENERATION    - per composition (user-supplied script)
+  6. MODS_POST           - per composition (user mods, stage=post)
+  7. NODE_END            - once per block (after last composition)
+  8. JOB_END             - once per job
+  9. ERROR               - on any failure
+
+HOOKS vs MODS:
+  Both use the same execution mechanism (_execute_single_hook → execute(context, params)).
+  - Hooks: system lifecycle scripts in hooks.yaml (per job). Fire at specific stages.
+  - Mods:  user extension scripts in mods.yaml (global). Two invocation paths:
+           1. Generation-time: MODS_PRE/MODS_POST (stage: pre/post/both)
+           2. Build-time: mods_build (stage: build), runs once per prompt in build-checkpoints.py
+           Guards: execution_scope (checkpoint/image), filters (config_index, address_index).
+           Enable/disable per prompt in jobs.yaml.
+
+  IMAGE_GENERATION is just a hook point — it's not built-in. A user-supplied script
+  (e.g., Stable Diffusion wrapper, API caller, file copier) does the actual work.
+
+PLANNED (TreeExecutor):
+  - Depth-first single-cursor execution: one composition at a time, depth-first block order
+  - parent_result: context key with parent block's HookResult.data for child hooks
+  - _block_path: new field in build_jobs() output for block identity (e.g., "0", "0.0")
+  - Path-scoped failure: block failure skips remaining compositions, blocks children
+  - annotations_resolve caching: fire once per block, cache for all compositions
+  See webui/prompty/previews/preview-build-flow-diagram.html for the visual model.
 """
 
 import sys

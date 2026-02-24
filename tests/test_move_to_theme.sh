@@ -4,8 +4,7 @@
 # ============================================================================
 # Tests POST /api/pu/move-to-theme — moves a content block from jobs.yaml
 # to an ext/ theme file, replacing it with an ext_text reference.
-#
-# Per-block only: no parent or child inclusion.
+# Parent blocks (with after: children) are allowed — children stay attached.
 #
 # Usage: ./tests/test_move_to_theme.sh [--port 8085]
 # ============================================================================
@@ -175,33 +174,54 @@ restore_jobs_yaml
 rm -rf "$PROJECT_ROOT/ext/hiring-templates/"
 
 # ============================================================================
-# TEST 3: Reject — Block has after: children
+# TEST 3: Move parent block — after: children preserved
 # ============================================================================
 echo ""
-log_test "OBJECTIVE: Reject block with after: children"
+log_test "OBJECTIVE: Move parent block, verify after: children preserved"
 
 restore_jobs_yaml
 
-# nested-job-brief block 1 has after: children
-RESULT=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/pu/move-to-theme" \
-    -H "Content-Type: application/json" \
-    -d '{"job_id":"hiring-templates","prompt_id":"nested-job-brief","block_index":1,"theme_path":"test-move/nested","fork":false}' 2>&1)
-HTTP_CODE=$(echo "$RESULT" | tail -1)
-BODY=$(echo "$RESULT" | sed '$d')
+# nested-job-brief block 1 has after: children — should now succeed
+api_call POST "$BASE_URL/api/pu/move-to-theme" '{
+    "job_id": "hiring-templates",
+    "prompt_id": "nested-job-brief",
+    "block_index": 1,
+    "theme_path": "test-move/nested-parent",
+    "fork": false,
+    "wildcard_names": ["role"]
+}'
 
-[ "$HTTP_CODE" = "400" ] \
-    && log_pass "HTTP 400 for block with children" \
-    || log_fail "Expected 400, got $HTTP_CODE: $BODY"
+[ "$HTTP_CODE" = "200" ] \
+    && log_pass "HTTP 200 for parent block move" \
+    || log_fail "Expected 200, got $HTTP_CODE: $BODY"
 
-ERR_MSG=$(echo "$BODY" | jq -r '.error // ""' 2>/dev/null)
-echo "$ERR_MSG" | grep -qi "nested children" \
-    && log_pass "Error message mentions nested children" \
-    || log_fail "Unexpected error: $ERR_MSG"
+SUCCESS=$(json_get "$BODY" '.success' 'false')
+[ "$SUCCESS" = "true" ] \
+    && log_pass "Response success: true" \
+    || log_fail "Expected success: true, got: $SUCCESS"
 
-# Verify no theme created
-[ ! -f "$PROJECT_ROOT/ext/test-move/nested.yaml" ] \
-    && log_pass "No theme file created" \
-    || log_fail "Theme file was created despite error"
+# Verify theme file created
+THEME_FILE="$PROJECT_ROOT/ext/test-move/nested-parent.yaml"
+[ -f "$THEME_FILE" ] \
+    && log_pass "Theme file created at ext/test-move/nested-parent.yaml" \
+    || log_fail "Theme file not found"
+
+# Verify after: children preserved in jobs.yaml via API
+api_call GET "$BASE_URL/api/pu/job/$JOB_ID"
+AFTER_LENGTH=$(echo "$BODY" | jq -r '.prompts[] | select(.id=="nested-job-brief") | .text[1].after | length' 2>/dev/null)
+[ "$AFTER_LENGTH" = "1" ] \
+    && log_pass "after: children preserved (1 child block)" \
+    || log_fail "Expected 1 after child, got: $AFTER_LENGTH"
+
+# Verify the replacement is ext_text (not content)
+HAS_EXT=$(echo "$BODY" | jq -r '.prompts[] | select(.id=="nested-job-brief") | .text[1].ext_text' 2>/dev/null)
+[ "$HAS_EXT" = "test-move/nested-parent" ] \
+    && log_pass "Block replaced with ext_text reference" \
+    || log_fail "Expected ext_text 'test-move/nested-parent', got: $HAS_EXT"
+
+# Cleanup
+restore_jobs_yaml
+rm -rf "$PROJECT_ROOT/ext/test-move/"
 
 # ============================================================================
 # TEST 4: Reject — Block is already ext_text

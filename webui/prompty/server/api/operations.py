@@ -1,7 +1,9 @@
 """
-Operations API Handlers
+Operations API Handlers (Build Hook: value replacement)
 
-Endpoints for listing, loading, and saving operation YAML files.
+Operations are a type of build hook — named YAML files that remap
+wildcard values within a bucket window. Each operation produces a
+distinct variant family.
 
 GET  /api/pu/job/{job_id}/operations         - List operation names
 GET  /api/pu/job/{job_id}/operation/{name}    - Load operation content

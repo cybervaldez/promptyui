@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>PromptyUI</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,6 +15,8 @@
         <!-- Header -->
         <header class="pu-header" data-testid="pu-header">
             <div class="pu-header-left">
+                <button class="pu-btn pu-mobile-panel-btn" data-testid="pu-mobile-sidebar-btn"
+                        onclick="PU.sidebar.togglePanel()">&#9776;</button>
                 <span class="pu-header-title">PromptyUI</span>
             </div>
             <div class="pu-header-center">
@@ -31,6 +33,8 @@
                 <button class="pu-btn pu-btn-help" data-testid="pu-header-help-btn" onclick="PU.actions.showHelp()">
                     ?
                 </button>
+                <button class="pu-btn pu-mobile-panel-btn" data-testid="pu-mobile-rp-btn"
+                        onclick="PU.rightPanel.togglePanel()">&#9881;</button>
             </div>
         </header>
 
@@ -60,18 +64,6 @@
 
             <!-- Center Editor -->
             <main class="pu-editor" data-testid="pu-editor">
-                <!-- Empty State -->
-                <div class="pu-editor-empty" data-testid="pu-editor-empty" style="display: none;">
-                    <div class="pu-editor-empty-icon" style="opacity: 0.3;">&#128230;</div>
-                    <h2>Welcome to PromptyUI</h2>
-                    <p>Select a job from the sidebar to start editing, or create a new job.</p>
-                    <div class="pu-editor-empty-actions">
-                        <button class="pu-btn pu-btn-primary" onclick="PU.actions.createNewJob()">
-                            + Create New Job
-                        </button>
-                    </div>
-                </div>
-
                 <!-- No Prompts State (job selected but 0 prompts) -->
                 <div class="pu-editor-no-prompts" data-testid="pu-editor-no-prompts" style="display: none;">
                     <div style="opacity: 0.3; font-size: 48px; margin-bottom: var(--pu-space-lg);">&#128196;</div>
@@ -85,32 +77,15 @@
 
                 <!-- Prompt Editor (hidden until job selected) -->
                 <div class="pu-editor-content" data-testid="pu-editor-content" style="display: none;">
-                    <!-- Defaults Toolbar -->
-                    <div class="pu-defaults-toolbar" data-testid="pu-defaults-toolbar">
-                        <div class="pu-defaults-header">
-                            <span>DEFAULTS</span>
-                            <span class="pu-defaults-hint">(applies to all prompts)</span>
-                            <button class="pu-defaults-expand" onclick="PU.actions.toggleDefaults()">&#9660;</button>
-                        </div>
-                        <div class="pu-defaults-form" data-testid="pu-defaults-form">
-                            <div class="pu-defaults-form-inner">
-                                <div class="pu-defaults-row" data-testid="pu-defaults-ext-row">
-                                    <label>ext:</label>
-                                    <select data-testid="pu-defaults-ext" onchange="PU.actions.updateDefaults('ext', this.value)">
-                                        <option value="">Loading...</option>
-                                    </select>
-                                </div>
-                                <div class="pu-defaults-no-ext" data-testid="pu-defaults-no-ext" style="display: none;">
-                                    <span style="font-style: italic; font-size: var(--pu-font-size-xs); color: var(--pu-text-muted); padding: var(--pu-space-xs) 0;">No extension themes installed</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
                     <!-- Prompt Title -->
                     <div class="pu-prompt-header">
                         <span class="pu-prompt-label">PROMPT:</span>
                         <span class="pu-prompt-title" data-testid="pu-editor-title">No prompt selected</span>
+                        <span class="pu-prompt-save-state" data-testid="pu-prompt-save-state" style="display: none;">
+                            <span class="pu-save-badge" data-testid="pu-save-badge">(modified)</span>
+                            <button class="pu-save-btn" data-testid="pu-save-btn"
+                                    onclick="PU.editor.savePrompt()">Save</button>
+                        </span>
                         <div class="pu-prompt-header-actions">
                             <select data-testid="pu-editor-visualizer"
                                     onchange="PU.editor.handleVisualizerChange(this.value)">
@@ -159,6 +134,27 @@
                             onclick="PU.rightPanel.togglePanel()" title="Collapse panel (])">&#9654;</button>
                     <!-- Operation dropdown (hidden by default) -->
                     <div class="pu-rp-op-dropdown" data-testid="pu-rp-op-dropdown" style="display: none;"></div>
+                </div>
+                <!-- Job Defaults (collapsible) -->
+                <div class="pu-rp-defaults" data-testid="pu-rp-defaults">
+                    <div class="pu-rp-defaults-header" onclick="PU.rightPanel.toggleDefaults()">
+                        <span>JOB DEFAULTS</span>
+                        <button class="pu-rp-defaults-toggle" data-testid="pu-rp-defaults-toggle">&#9660;</button>
+                    </div>
+                    <div class="pu-rp-defaults-body" data-testid="pu-rp-defaults-body">
+                        <div class="pu-rp-defaults-inner">
+                            <div class="pu-rp-defaults-row" data-testid="pu-rp-defaults-ext-row">
+                                <label>ext:</label>
+                                <select data-testid="pu-defaults-ext"
+                                        onchange="PU.actions.updateDefaults('ext', this.value)">
+                                    <option value="">Loading...</option>
+                                </select>
+                            </div>
+                            <div class="pu-rp-defaults-no-ext" data-testid="pu-defaults-no-ext" style="display: none;">
+                                <span>No extension themes installed</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <!-- Wildcard stream (scrollable, relative for popover positioning) -->
                 <div class="pu-rp-wc-stream" data-testid="pu-rp-wc-stream" style="position: relative;">
@@ -425,6 +421,12 @@
             </div>
         </div>
 
+        <!-- Popup backdrop overlay (click-outside dismiss for popups) -->
+        <div class="pu-popup-overlay" data-testid="pu-popup-overlay"></div>
+
+        <!-- Backdrop overlay (mobile/tablet panel dismiss) -->
+        <div class="pu-backdrop" data-testid="pu-backdrop"></div>
+
         <!-- Toast Container -->
         <div class="pu-toast-container" data-testid="pu-toast-container"></div>
     </div>
@@ -435,6 +437,7 @@
     <script src="js/quill-wildcard.js"></script>
     <script src="js/sidebar.js"></script>
     <script src="js/blocks.js"></script>
+    <script src="js/annotations.js"></script>
     <script src="js/editor.js"></script>
     <script src="js/right-panel.js"></script>
     <script src="js/preview.js"></script>

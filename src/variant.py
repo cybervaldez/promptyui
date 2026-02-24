@@ -110,6 +110,7 @@ def build_variant_structure(
     
     ext_indices_map = {}       # t -> ext_indices dict
     wildcard_values_map = {}   # t -> wildcard_usage dict
+    annotations_map = {}       # t -> annotations dict
     
     def get_segment_idx(lookup, lst, value):
         """Get or create index for a segment value."""
@@ -158,6 +159,7 @@ def build_variant_structure(
         if t_idx not in ext_indices_map:
             ext_indices_map[t_idx] = prompt_entry.get('_ext_indices', {})
             wildcard_values_map[t_idx] = wildcard_usage
+            annotations_map[t_idx] = prompt_entry.get('_annotations', {})
         
         # Build config key (lora + sampler + cfg + steps)
         lora_suffix = job.get('filename_suffix', 'base')
@@ -183,7 +185,8 @@ def build_variant_structure(
     for t in range(max_t):
         ext_indices = ext_indices_map.get(t, {})
         wc_usage = wildcard_values_map.get(t, {})
-        comp = build_composition(ext_indices, wc_usage)
+        ann = annotations_map.get(t, {})
+        comp = build_composition(ext_indices, wc_usage, ann)
         composition.append(comp)
     
     # =========================================================================

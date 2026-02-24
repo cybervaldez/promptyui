@@ -68,7 +68,7 @@ PU.rightPanel = {
     },
 
     // ============================================
-    // Operations (Phase 2)
+    // Build Hooks: Operations (value replacement)
     // ============================================
 
     /**
@@ -135,6 +135,8 @@ PU.rightPanel = {
             return;
         }
 
+        PU.overlay.dismissPopovers();
+
         const ops = PU.state.buildComposition.operations;
         const activeOp = PU.state.buildComposition.activeOperation;
         const esc = PU.blocks.escapeHtml;
@@ -152,6 +154,7 @@ PU.rightPanel = {
 
         dropdown.innerHTML = html;
         dropdown.style.display = 'block';
+        PU.overlay.showOverlay();
     },
 
     /**
@@ -176,8 +179,47 @@ PU.rightPanel = {
      * Full render of all panel sections
      */
     render() {
+        PU.rightPanel.renderDefaults();
         PU.rightPanel.renderWildcardStream();
         PU.rightPanel.renderOpsSection();
+    },
+
+    // ============================================
+    // Job Defaults
+    // ============================================
+
+    toggleDefaults() {
+        const section = document.querySelector('[data-testid="pu-rp-defaults"]');
+        if (section) section.classList.toggle('collapsed');
+        PU.state.ui.sectionsCollapsed.defaults = section?.classList.contains('collapsed') ?? false;
+        PU.helpers.saveUIState();
+    },
+
+    renderDefaults() {
+        const job = PU.helpers.getActiveJob();
+        if (!job) return;
+
+        const defaults = job.defaults || {};
+        const tree = PU.state.globalExtensions.tree;
+        const hasExtensions = tree && Object.keys(tree).filter(k => k !== '_files').length > 0;
+
+        const extRow = document.querySelector('[data-testid="pu-rp-defaults-ext-row"]');
+        const noExtMsg = document.querySelector('[data-testid="pu-defaults-no-ext"]');
+        if (extRow) extRow.style.display = hasExtensions ? '' : 'none';
+        if (noExtMsg) noExtMsg.style.display = hasExtensions ? 'none' : '';
+
+        if (hasExtensions) {
+            const extSelect = document.querySelector('[data-testid="pu-defaults-ext"]');
+            if (extSelect) {
+                PU.editor.populateExtDropdown(extSelect, defaults.ext || 'defaults');
+            }
+        }
+
+        // Apply persisted collapse state
+        const section = document.querySelector('[data-testid="pu-rp-defaults"]');
+        if (section) {
+            section.classList.toggle('collapsed', !!PU.state.ui.sectionsCollapsed.defaults);
+        }
     },
 
     // ============================================
@@ -313,7 +355,7 @@ PU.rightPanel = {
                 }
             });
 
-            // Right-click: show replacement popover (Phase 3)
+            // Right-click: show replacement popover (render hook interaction)
             chip.addEventListener('contextmenu', (e) => {
                 if (!PU.state.buildComposition.activeOperation) return;
                 e.preventDefault();
@@ -1160,7 +1202,7 @@ PU.rightPanel = {
     // findCompositionForBuckets — removed (click-to-preview model doesn't use bucket navigation)
 
     // ============================================
-    // Replacement Popover (Phase 3)
+    // Render Hook: Replacement Popover
     // ============================================
 
     /**
@@ -1169,6 +1211,7 @@ PU.rightPanel = {
      * If chip has no replacement, show add mode.
      */
     showReplacePopover(chip, event) {
+        PU.overlay.dismissPopovers();
         const popover = document.querySelector('[data-testid="pu-rp-replace-popover"]');
         if (!popover) return;
 
@@ -1233,6 +1276,7 @@ PU.rightPanel = {
         }
 
         popover.style.display = 'block';
+        PU.overlay.showOverlay();
 
         // Focus the input
         const input = popover.querySelector('.pu-rp-replace-popover-input');
@@ -1367,6 +1411,7 @@ PU.rightPanel = {
      * Show the push-to-theme popover for an override wildcard.
      */
     showPushPopover(triggerEl, wcName) {
+        PU.overlay.dismissPopovers();
         const popover = document.querySelector('[data-testid="pu-rp-push-popover"]');
         if (!popover) return;
 
@@ -1440,6 +1485,7 @@ PU.rightPanel = {
 
         popover.style.display = 'block';
         PU.state.themes.pushToThemePopover = { visible: true, wildcardName: wcName };
+        PU.overlay.showOverlay();
     },
 
     /**
@@ -1528,9 +1574,12 @@ PU.rightPanel = {
     // ============================================
 
     /**
-     * Show extension picker popup
+     * Show extension picker popup.
+     * @param {Function} onSelect - callback with ext ID
+     * @param {Element} [anchorEl] - optional trigger button for anchored positioning
      */
-    showExtensionPicker(onSelect) {
+    showExtensionPicker(onSelect, anchorEl) {
+        PU.overlay.dismissAll();
         PU.state.extPickerCallback = onSelect;
         const popup = document.querySelector('[data-testid="pu-ext-picker-popup"]');
         const tree = document.querySelector('[data-testid="pu-ext-picker-tree"]');
@@ -1542,6 +1591,40 @@ PU.rightPanel = {
             PU.state.globalExtensions.tree, ''
         );
         popup.style.display = 'flex';
+        PU.overlay.showOverlay();
+
+        // Position relative to anchor button (top-right origin).
+        if (anchorEl) {
+            popup.dataset.anchored = 'true';
+            // Force layout so CSS [data-anchored] width takes effect
+            // before we measure popRect.
+            popup.offsetHeight;
+            const btnRect = anchorEl.getBoundingClientRect();
+            const popRect = popup.getBoundingClientRect();
+            // Menu top-right corner at button bottom-right
+            let left = btnRect.right - popRect.width;
+            let top = btnRect.bottom + 4;
+            // Keep within viewport
+            if (left < 8) left = 8;
+            if (left + popRect.width > window.innerWidth - 8) {
+                left = window.innerWidth - popRect.width - 8;
+            }
+            if (top + popRect.height > window.innerHeight - 8) {
+                top = btnRect.top - popRect.height - 4;
+                if (top < 8) top = 8;
+            }
+            popup.style.left = left + 'px';
+            popup.style.top = top + 'px';
+            popup.style.bottom = 'auto';
+            popup.style.transform = 'none';
+        } else {
+            // Reset to CSS defaults (centered or bottom-sheet)
+            popup.style.left = '';
+            popup.style.top = '';
+            popup.style.bottom = '';
+            popup.style.transform = '';
+            delete popup.dataset.anchored;
+        }
     },
 
     /**
@@ -1549,7 +1632,14 @@ PU.rightPanel = {
      */
     closeExtPicker() {
         const popup = document.querySelector('[data-testid="pu-ext-picker-popup"]');
+        if (!popup) return;
         popup.style.display = 'none';
+        // Reset anchored positioning
+        popup.style.left = '';
+        popup.style.top = '';
+        popup.style.bottom = '';
+        popup.style.transform = '';
+        delete popup.dataset.anchored;
         PU.state.extPickerCallback = null;
     },
 
@@ -1682,8 +1772,18 @@ PU.rightPanel = {
 
     /**
      * Toggle the right panel open/closed.
+     * On mobile/tablet, uses overlay slide-in instead of CSS collapse.
      */
     togglePanel() {
+        if (PU.responsive && PU.responsive.isOverlay()) {
+            const panel = document.querySelector('[data-testid="pu-right-panel"]');
+            if (panel && panel.classList.contains('pu-panel-open')) {
+                PU.responsive.closePanel('pu-right-panel');
+            } else {
+                PU.responsive.openPanel('pu-right-panel');
+            }
+            return;
+        }
         if (PU.state.ui.rightPanelCollapsed) {
             PU.rightPanel.expand();
         } else {
@@ -1729,6 +1829,12 @@ PU.rightPanel = {
         tip.classList.remove('visible');
     }
 };
+
+// Register right-panel overlays
+PU.overlay.registerPopover('opDropdown', () => PU.rightPanel.hideOpDropdown());
+PU.overlay.registerPopover('replacePopover', () => PU.rightPanel.hideReplacePopover());
+PU.overlay.registerPopover('pushPopover', () => PU.rightPanel.hidePushPopover());
+PU.overlay.registerModal('extPicker', () => PU.rightPanel.closeExtPicker());
 
 // ============================================
 // Backward compatibility alias

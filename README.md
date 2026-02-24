@@ -19,7 +19,7 @@ For the full development methodology, see [Cybervaldez Playbook](https://github.
 - **Extensible architecture** - Reusable data packs (personas, tones, roles) across domains
 - **Built for AI workflows** - CLI outputs designed for AI consumption and debugging
 - **E2E test suite included** - Verify behavior against the real system
-- **[Composition Model](docs/composition-model.md)** - How wildcards, ext_text, buckets, and operations work together
+- **[Composition Model](docs/composition-model.md)** - How wildcards, ext_text, buckets, and hooks work together
 
 ## Quick Start
 
@@ -56,7 +56,7 @@ cybervaldez-prompt-generator/
 │   ├── fundraising/stages.yaml
 │   ├── sales/personas.yaml
 │   └── product/formats.yaml
-├── mods/                 # Build modifiers (hooks, transformers)
+├── mods/                 # Hook extensions (editor, build, render)
 ├── tests/                # E2E test suite
 │   ├── e2e-orchestrator.sh
 │   ├── test_prompty_api.sh

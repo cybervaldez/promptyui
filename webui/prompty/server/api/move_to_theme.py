@@ -8,8 +8,9 @@ The build engine's union merge deduplicates same-name wildcards safely.
 
 POST /api/pu/move-to-theme
 
-Per-block only: no parent or child inclusion. Blocks with after: children
-are rejected.
+Per-block only: no parent or child inclusion. Parent blocks (with after:
+children) are allowed — children stay attached to the resulting ext_text
+reference.
 """
 
 import re
@@ -203,12 +204,6 @@ def handle_move_to_theme(handler, params):
         }, 400)
         return
 
-    if 'after' in block:
-        handler.send_json({
-            "error": f"Block at index {block_index} has nested children. Move children first."
-        }, 400)
-        return
-
     if 'content' not in block:
         handler.send_json({
             "error": f"Block at index {block_index} has no content"
@@ -300,10 +295,10 @@ def handle_move_to_theme(handler, params):
     # --- 11. UPDATE PROMPT (with rollback) ---
     try:
         # Replace content block with ext_text reference
-        blocks[block_index] = {
-            'ext_text': ext_text_ref,
-            'ext_text_max': 1
-        }
+        replacement = {'ext_text': ext_text_ref, 'ext_text_max': 1}
+        if 'after' in block:
+            replacement['after'] = block['after']
+        blocks[block_index] = replacement
 
         # Wildcards stay local (copy semantics, not move)
         # No change to prompt['wildcards'] needed
