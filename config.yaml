@@ -3,4 +3,4 @@ system:
   # Extensions loaded from ext/*.yaml
   extensions_dir: ext
 
-# Job/prompt system settings (no image generation)
+# Job/prompt system settings (generation configured per-job via hooks.yaml)

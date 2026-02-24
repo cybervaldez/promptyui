@@ -708,7 +708,7 @@ function simulateHookStage(stage, ctx) {
             if (shouldFail) {
                 resolve({
                     status: 'error',
-                    message: 'Hook timeout: render service unavailable',
+                    message: 'Hook timeout: generation service unavailable',
                     stage,
                     elapsed: performance.now() - start,
                 });

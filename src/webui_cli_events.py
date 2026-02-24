@@ -344,7 +344,7 @@ integration. Use it when stdout logs and events.log are insufficient.
 ## Quick Start
 
 # 1. Start WebUI server
-python webui/v4/start.py pixel-fantasy -c 99 --port 8089
+./start-prompty.sh  # default port 8085
 
 # 2. Run CLI with WebUI integration
 python generate-cli.py pixel-fantasy -c 99 --build covers --webui --max 2
@@ -553,7 +553,7 @@ if not result.passed:
 ## Related Documentation
 
 - Agent-browser skill guide: `.claude/skills/agent-browser/SKILL.md`
-- WebUI event system: `webui/v4/js/sse/sse.js`
+- WebUI event system: `webui/prompty/js/` (SSE handling)
 - Event pushing: `src/webui_events.py`
-- Event manager: `webui/v4/server/event_manager.py`
+- Server: `webui/prompty/server/`
 """

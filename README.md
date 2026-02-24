@@ -56,7 +56,7 @@ cybervaldez-prompt-generator/
 │   ├── fundraising/stages.yaml
 │   ├── sales/personas.yaml
 │   └── product/formats.yaml
-├── mods/                 # Hook extensions (editor, build, render)
+├── mods/                 # Mod scripts (generation-time user extensions)
 ├── tests/                # E2E test suite
 │   ├── e2e-orchestrator.sh
 │   ├── test_prompty_api.sh

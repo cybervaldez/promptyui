@@ -12,7 +12,7 @@ PU.preview = {
 
     /**
      * Convert composition ID to wildcard indices using odometer logic.
-     * Matches v4's composition_to_indices() in webui/v4/server/api/modal.py:41-77
+     * Odometer logic matching server-side preview.py:composition_to_indices().
      *
      * Order: ext_text OUTERMOST (slowest), wildcards ALPHABETICAL (fastest)
      *

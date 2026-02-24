@@ -5,8 +5,7 @@ Single source of truth for execution context building.
 Used by:
 - mod-cli.py
 - workflow-cli.py
-- webui/v4/server/api/mods.py
-- webui/v4/server/api/workflows.py
+- src/cli/main.py (generation pipeline)
 
 This module consolidates the duplicated context building logic that was previously
 spread across multiple files (~100+ lines duplicated).

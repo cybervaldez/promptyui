@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Run Job CLI - Execute job with hooks-based pipeline.
+Run Job CLI - DEPRECATED stub.
 
-This is a stub for the prompt-only version. Image generation has been removed.
-The hook pipeline for mods can still be executed if needed.
+This entry point has been replaced by generate-cli.py (src/cli/main.py)
+which uses HookPipeline for the full generation-time lifecycle.
 
-Usage:
-    ./run_job.py andrea-fashion -c 99 --max 10
+Usage (new):
+    python generate-cli.py andrea-fashion -c 99 --prompt-id pixel-wildcards
 """
 
 import sys
@@ -14,7 +14,7 @@ import argparse
 from pathlib import Path
 
 def main():
-    parser = argparse.ArgumentParser(description="Run job with hooks pipeline (prompt-only mode)")
+    parser = argparse.ArgumentParser(description="DEPRECATED - use generate-cli.py instead")
     parser.add_argument("job", type=str, help="Name of the job folder")
     parser.add_argument("--composition", "-c", type=int, required=True,
                         help="Composition ID")
@@ -32,14 +32,16 @@ def main():
     if not job_dir.exists():
         sys.exit(f"❌ Job not found: {job_dir}")
 
-    print(f"\n⚠️  Image generation has been removed from this codebase.")
-    print(f"   This is now a prompt-only system.")
+    print(f"\n⚠️  run_job.py is deprecated. Use generate-cli.py instead:")
     print(f"")
-    print(f"   To work with prompts, use:")
+    print(f"   Generation (full HookPipeline lifecycle):")
+    print(f"     python generate-cli.py {args.job} -c {args.composition}")
+    print(f"")
+    print(f"   Build prompts only:")
     print(f"     python build-job.py {args.job}")
     print(f"")
     print(f"   Or use the WebUI:")
-    print(f"     ./start-jm.sh")
+    print(f"     ./start-prompty.sh")
 
 
 if __name__ == "__main__":

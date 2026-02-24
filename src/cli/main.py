@@ -303,7 +303,7 @@ Examples:
             print(f"   {message}")
             print(f"   Events will not be pushed to WebUI.")
             print(f"\n   To fix:")
-            print(f"   1. Start WebUI server: python webui/v4/start.py {args.job} -c {args.composition} --port {args.port}")
+            print(f"   1. Start WebUI server: ./start-prompty.sh")
             print(f"   2. Or remove --webui flag to run CLI-only mode\n")
 
             if not args.no_interactive:

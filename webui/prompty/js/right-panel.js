@@ -355,7 +355,7 @@ PU.rightPanel = {
                 }
             });
 
-            // Right-click: show replacement popover (render hook interaction)
+            // Right-click: show replacement popover (operation value replacement)
             chip.addEventListener('contextmenu', (e) => {
                 if (!PU.state.buildComposition.activeOperation) return;
                 e.preventDefault();
@@ -1202,7 +1202,7 @@ PU.rightPanel = {
     // findCompositionForBuckets — removed (click-to-preview model doesn't use bucket navigation)
 
     // ============================================
-    // Render Hook: Replacement Popover
+    // Operation: Replacement Popover
     // ============================================
 
     /**

@@ -15,7 +15,7 @@ from itertools import product
 def composition_to_indices(composition: int, ext_text_count: int, wildcard_counts: dict) -> tuple:
     """Convert composition ID to (ext_text_idx, {wc_name: idx}) using odometer logic.
 
-    Matches v4's implementation in webui/v4/server/api/modal.py:41-77
+    Odometer logic: ext_text outermost (slowest), wildcards alphabetical (fastest).
 
     Order: ext_text OUTERMOST (slowest), wildcards ALPHABETICAL (last = fastest)
 
