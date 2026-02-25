@@ -77,6 +77,171 @@ wildcards:
 
 ---
 
+## "I need hooks to behave differently per theme entry"
+
+**The problem:** Your `ext/hiring/roles.yaml` has 6 roles, but the "Software Engineer" entry needs a technical interview template while "Product Designer" needs a portfolio review template. You don't want 6 separate prompts.
+
+**The fix — theme metadata (`meta`):** Add facts to each theme entry:
+
+```yaml
+# ext/hiring/roles.yaml
+text:
+  - content: "Software Engineer"
+    meta:
+      department: "engineering"
+      interview_type: "technical"
+  - content: "Product Designer"
+    meta:
+      department: "design"
+      interview_type: "portfolio-review"
+      portfolio_required: true
+  - "Data Scientist"                    # plain string — no meta (still works)
+wildcards:
+  - name: seniority
+    text: [Junior, Mid-level, Senior, Staff]
+```
+
+**Your hook reads `meta` separately from `annotations`:**
+
+```python
+def execute(context, params):
+    meta = context.get('meta', {})           # theme facts — "what it IS"
+    ann = context.get('annotations', {})     # user intent — "what to DO"
+
+    if meta.get('interview_type') == 'technical':
+        # Inject coding challenge template
+        ...
+    elif meta.get('portfolio_required'):
+        # Inject portfolio submission instructions
+        ...
+
+    if ann.get('format') == 'bullets':
+        # Format output as bullets (user's choice, independent of role)
+        ...
+```
+
+**Why two namespaces?** Theme metadata ("this role IS in engineering") is a reference fact. Block annotations ("format this as bullets") are user intent. If they lived in the same dict, an `after:` block's annotations would silently overwrite theme facts (because "deeper wins"). Strategy D keeps them separate — hooks see both, neither overwrites the other.
+
+**Also works for:** Routing different theme entries to different APIs, applying different quality thresholds per entry, conditional template injection based on theme attributes.
+
+---
+
+## "I want to set a token budget so my blocks don't get too long"
+
+**The problem:** You're writing prompts for GPT-4 with a 4K context window. Some blocks are getting too long but you can't tell until you paste them into the API and get an error.
+
+**The fix:** Add `_token_limit` to your block annotations:
+
+```yaml
+text:
+  - content: "Write a __tone__ recruiting email for __role__"
+    annotations:
+      _token_limit: 500
+    after:
+      - content: "Include requirements: __years_exp__ years, skills in __tech_stack__"
+        annotations:
+          _token_limit: 300
+```
+
+**What happens:** A live token counter chip appears on each block: `~12/500`. It updates as you type in the Quill editor. Color-coded: green (<75%), amber (75-100%), red (>100%).
+
+**Set a global budget:** Use `defaults.annotations` so every block gets a budget without repeating it:
+
+```yaml
+defaults:
+  annotations:
+    _token_limit: 2000
+```
+
+Individual blocks can override: `_token_limit: 500` for tighter blocks, `_token_limit: null` to remove the budget entirely.
+
+---
+
+## "I want automatic quality checks on my prompt blocks"
+
+**The problem:** You're building prompts at scale and want to catch issues — blocks that are too short, missing keywords, or don't match a pattern — without manually reviewing each one.
+
+**The fix:** Register an async quality check via `defineUniversal()`:
+
+```javascript
+PU.annotations.defineUniversal('_quality_check', {
+    widget: 'async',
+    label: 'Quality Check',
+    autoCheck: true,       // re-run when block changes
+    cacheTtl: 10,          // cache result for 10 seconds
+    check: async (path, value, ctx) => {
+        const text = ctx.blockText || '';
+        if (text.length < 20) {
+            return { status: 'fail', message: 'Block too short (min 20 chars)' };
+        }
+        if (!text.includes('__')) {
+            return { status: 'fail', message: 'No wildcards — is this a template?' };
+        }
+        return { status: 'pass', message: `${text.length} chars, has wildcards` };
+    }
+});
+```
+
+**What happens:** Each block with `_quality_check: true` shows an inline status: pending → running → pass/fail. The check runs automatically when you open the annotation editor (autoCheck). A play button lets you re-run manually.
+
+**Also works for:** API-based content moderation, style guide enforcement, prompt pattern validation.
+
+---
+
+## "I want annotations to flow from job-wide defaults down to each block"
+
+**The problem:** You have 20 prompts and want every block to have `quality: strict` and `audience: general` — but some prompts need `audience: technical` and some blocks need no quality annotation at all.
+
+**The fix:** Use the 3-layer annotation inheritance:
+
+```yaml
+defaults:
+  annotations:
+    quality: strict        # Every block in the job inherits this
+    audience: general      # Every block in the job inherits this
+
+prompts:
+  - id: "technical-docs"
+    annotations:
+      audience: technical  # Overrides "general" for blocks in this prompt
+    text:
+      - content: "Write API documentation for __endpoint__"
+        # Inherits: quality=strict (defaults), audience=technical (prompt)
+      - content: "Write a casual FAQ"
+        annotations:
+          quality: null    # Removes quality requirement for THIS block only
+          audience: general # Overrides back to general for this block
+```
+
+**Key rule:** Deeper wins. Block > Prompt > Defaults. `null` removes an inherited key.
+
+**Another key rule:** Block annotations do NOT cascade to `after:` children. A parent's `tone: formal` applies only to the parent — children start fresh from defaults + prompt.
+
+**See it in the UI:** Open the Annotations tab in the right panel. It shows a read-only hierarchy: Defaults section, Prompt section, and per-Block sections — each showing which keys came from where with source badges.
+
+---
+
+## "I want to browse 30 compositions at once instead of clicking through one by one"
+
+**The problem:** Your prompt has 72 compositions (3 tones x 4 audiences x 6 styles). Clicking through them one at a time is tedious. You want to see patterns across the space.
+
+**The fix:** Click Build [caret] → **Sampler Gallery**. A grid of cards appears, each showing one resolved composition with its wildcard values as labels.
+
+**What you see:**
+```
+┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────────────┐
+│ tone=casual          │  │ tone=formal          │  │ tone=enthusiastic    │
+│ audience=Gen Z       │  │ audience=B2B          │  │ audience=creatives   │
+│                     │  │                      │  │                      │
+│ A casual ad for     │  │ A formal ad          │  │ An enthusiastic ad   │
+│ Gen Z showcasing... │  │ targeting B2B...      │  │ for creatives...     │
+└─────────────────────┘  └─────────────────────┘  └─────────────────────┘
+```
+
+**Click a card** to jump to that composition in the main editor. Hit **Resample** to shuffle and see different combinations.
+
+---
+
 ## "I want to see only the blocks that use a specific wildcard"
 
 **The problem:** Your prompt has 12 blocks but only 4 use `__lighting__`. You're reviewing lighting variations and the other 8 blocks are visual noise.
@@ -285,7 +450,7 @@ hooks:
     - script: hooks/upload_to_cdn.py
 ```
 
-Your `generate` script receives `context['resolved_text']`, `context['prompt_id']`, and `context['composition_id']`. It sends the prompt to ComfyUI (or DALL-E, or Stable Diffusion), waits for the image, and returns:
+Your `generate` script receives an enriched context: `context['resolved_text']`, `context['prompt_id']`, `context['wildcards']` (resolved name→value map), `context['annotations']` (user intent), `context['meta']` (theme facts), and more. It sends the prompt to ComfyUI (or DALL-E, or Stable Diffusion), waits for the image, and returns:
 
 ```python
 def execute(context, params):
@@ -434,10 +599,18 @@ with __wildcards__                 as separate prompts
          ├── Locks (pin specific values for targeted export)
          │     └── Only Gen Z + professional? Lock them, export 12.
          │
+         ├── Annotations (metadata on blocks with 3-layer inheritance)
+         │     ├── Token budgets: live ~N/M counter with color warnings
+         │     ├── Async checks: automated quality validation (pass/fail)
+         │     └── Universal widgets: _comment, _priority, _draft, _token_limit
+         │
          ├── Hooks (extend the pipeline at three locations)
          │     ├── Editor hooks: UI widgets, token counters while editing
          │     ├── Build hooks: operations, quality gates when assembling
          │     └── Render hooks: annotations, validation when output resolves
+         │
+         ├── Gallery (browse 30 compositions at once in a grid)
+         │     └── Spot patterns, compare variations, click to navigate
          │
          └── Export (YAML or txt, to file or download)
                └── Every composition has a unique ID — deterministic, reproducible
@@ -459,6 +632,13 @@ with __wildcards__                 as separate prompts
 | **Operation** | A build hook that remaps values. "casual" → "corporate" without editing the prompt. |
 | **Hook** | A script in `hooks.yaml`. The engine is dumb: `execute_hook(name, ctx)` runs whatever's configured. Stage names (`pre`, `generate`, `post`) are conventions, not engine code. |
 | **Mod** | A script in `mods.yaml`. Same execution path as hooks, but with guards (stage, scope, filters). Can also run at build time (`stage: build`). |
+| **Annotation** | User intent metadata on a block (`annotations: {format: "bullets"}`). 3-layer inheritance: defaults → prompt → block. Deeper wins. Flows into hook context as `ctx['annotations']`. |
+| **Theme metadata (meta)** | Reference facts on ext_text entries (`meta: {department: "engineering"}`). Separate namespace from annotations — never merged or overridden. Flows into hook context as `ctx['meta']`. |
+| **Universal annotation** | System-handled annotation key (prefixed `_`) with a built-in widget. `_comment`, `_priority`, `_draft`, `_token_limit`. Register custom ones via `defineUniversal()`. |
+| **Token counter** | Live `~N/M` chip on blocks with `_token_limit`. Green (<75%), amber (75-100%), red (>100%). |
+| **Async widget** | Annotation widget that runs an async check function and shows pass/fail. Supports autoCheck and caching. |
+| **Sampler Gallery** | Grid view of sampled compositions (Build [caret] → Sampler Gallery). Click a card to navigate to that composition. |
+| **Pipeline View** | Block tree visualization (Build [caret] → Pipeline View). Shows composition counts per block and supports SSE-driven execution. |
 | **Lock** | Pin a wildcard value (Ctrl+Click). Limits the output to only compositions with that value. |
 | **Focus** | Bulb toggle that dims blocks not using a wildcard. Filters your attention. |
 | **Push to Theme** | Sync your local wildcard edits back to the shared theme file. |

@@ -236,157 +236,141 @@ phase_ui() {
         result=1
     fi
 
-    # Test 4: Preview mode
-    log "UI: Preview mode"
-    agent-browser find role button click --name "Preview" 2>/dev/null || \
-        agent-browser find text "Preview" click 2>/dev/null || true
-    sleep 1
-    agent-browser screenshot "$SCREENSHOTS_DIR/03-preview-mode.png" 2>/dev/null || true
+    # ── Behavioral: Build Panel & Composition Navigation ──
 
-    SNAPSHOT=$(agent-browser snapshot -c 2>/dev/null || echo "")
-    if echo "$SNAPSHOT" | grep -qi "Edit Mode"; then
-        log_pass "Preview mode active"
+    # Test 4: Build panel opens with composition navigator
+    log "UI: Build panel opens"
+    agent-browser click '[data-testid="pu-header-build-btn"]' 2>/dev/null || true
+    sleep 2
+    agent-browser screenshot "$SCREENSHOTS_DIR/04-build-panel.png" 2>/dev/null || true
+
+    HAS_BUILD=$(agent-browser eval '!!document.querySelector("[data-testid=\"pu-build-panel\"]")' 2>/dev/null || echo "false")
+    if [ "$HAS_BUILD" = "true" ]; then
+        log_pass "Build panel opens"
     else
-        log_fail "Preview mode not active"
+        log_fail "Build panel not visible"
         result=1
     fi
 
-    # ── Behavioral: Wildcard Dropdown & Preview Navigation ──
+    # Test 5: Build panel shows composition total
+    log "UI: Composition total visible"
+    BUILD_TOTAL=$(agent-browser eval 'document.querySelector("[data-testid=\"pu-build-total\"]")?.textContent?.trim()' 2>/dev/null || echo "")
+    if [ -n "$BUILD_TOTAL" ] && [ "$BUILD_TOTAL" != "null" ] && [ "$BUILD_TOTAL" != "undefined" ]; then
+        log_pass "Composition total: $BUILD_TOTAL"
+    else
+        log_fail "Composition total not visible"
+        result=1
+    fi
 
-    # Test 5: Wildcard header pills show "Name: Any" format
-    log "UI: Wildcard header pills display Name: Any"
-    # Select interview-questions which has wildcards.
+    # Test 6: Build panel navigation controls exist
+    log "UI: Composition navigation controls"
+    HAS_NAV=$(agent-browser eval '!!document.querySelector("[data-testid=\"pu-build-nav-prev\"]") && !!document.querySelector("[data-testid=\"pu-build-nav-next\"]")' 2>/dev/null || echo "false")
+    if [ "$HAS_NAV" = "true" ]; then
+        log_pass "Navigation prev/next buttons present"
+    else
+        log_fail "Navigation controls missing"
+        result=1
+    fi
+
+    # Close build panel
+    agent-browser click '[data-testid="pu-build-close-btn"]' 2>/dev/null || true
+    sleep 1
+
+    # ── Behavioral: Wildcard Chips in Right Panel ──
+
+    # Test 7: Wildcard chips visible for multi-wildcard prompt
+    log "UI: Wildcard chips in right panel"
+    # Select interview-questions which has count, role, skill wildcards
     agent-browser find text "interview-questions" click 2>/dev/null || true
     sleep 2
-    agent-browser screenshot "$SCREENSHOTS_DIR/05-wildcard-pills.png" 2>/dev/null || true
+    agent-browser screenshot "$SCREENSHOTS_DIR/07-wildcard-chips.png" 2>/dev/null || true
 
     SNAPSHOT=$(agent-browser snapshot -c 2>/dev/null || echo "")
-    if echo "$SNAPSHOT" | grep -q 'Count: Any' && \
-       echo "$SNAPSHOT" | grep -q 'Role: Any' && \
-       echo "$SNAPSHOT" | grep -q 'Skill: Any'; then
-        log_pass "Header pills show Name: Any format"
+    if echo "$SNAPSHOT" | grep -qi "count" && \
+       echo "$SNAPSHOT" | grep -qi "role" && \
+       echo "$SNAPSHOT" | grep -qi "skill"; then
+        log_pass "Wildcard chips visible: count, role, skill"
     else
-        log_fail "Header pills missing Name: Any format"
+        log_fail "Wildcard chips missing in right panel"
         result=1
     fi
 
-    # Test 6: Open wildcard dropdown from header pill — first item reads "* (Any <Name>)" and is selected
-    log "UI: Header pill dropdown shows * (Any <Name>) selected"
-    agent-browser click '[data-testid="pu-header-wc-pill-count"]' 2>/dev/null || true
-    sleep 1
-    agent-browser screenshot "$SCREENSHOTS_DIR/06-wildcard-dropdown.png" 2>/dev/null || true
-
-    SNAPSHOT=$(agent-browser snapshot -c 2>/dev/null || echo "")
-    if echo "$SNAPSHOT" | grep -q '\* (Any Count)'; then
-        log_pass "Dropdown shows * (Any Count) item"
+    # Test 8: Wildcard chip values are clickable
+    log "UI: Wildcard chip values rendered"
+    HAS_CHIPS=$(agent-browser eval 'document.querySelectorAll("[data-testid^=\"pu-rp-wc-chip-\"]").length > 0' 2>/dev/null || echo "false")
+    if [ "$HAS_CHIPS" = "true" ]; then
+        CHIP_COUNT=$(agent-browser eval 'document.querySelectorAll("[data-testid^=\"pu-rp-wc-chip-\"]").length' 2>/dev/null || echo "0")
+        log_pass "Wildcard chips rendered: $CHIP_COUNT chips"
     else
-        log_fail "Dropdown missing * (Any Count) item"
+        log_fail "No wildcard chips found"
         result=1
     fi
 
-    # Test 7: Pin a wildcard value — header pill shows the pinned value
-    log "UI: Pin wildcard value"
-    # Click outside to close dropdown from Test 6, then re-open and select
-    agent-browser click 'body' 2>/dev/null || true
-    sleep 1
-    agent-browser click '[data-testid="pu-header-wc-pill-count"]' 2>/dev/null || true
-    sleep 1
-    agent-browser click '[data-testid="pu-wc-option-count-0"]' 2>/dev/null || true
-    sleep 2
-    agent-browser screenshot "$SCREENSHOTS_DIR/07-wildcard-pinned.png" 2>/dev/null || true
+    # ── Behavioral: Sidebar Navigation & URL ──
 
-    SNAPSHOT=$(agent-browser snapshot -c 2>/dev/null || echo "")
-    # After pinning count, the header pill should NOT show "Count: Any" anymore
-    if echo "$SNAPSHOT" | grep -q 'Count: Any'; then
-        log_fail "Pinned wildcard still shows Count: Any"
-        result=1
-    else
-        log_pass "Pinned wildcard shows value without Any"
-    fi
-
-    # Test 8: Un-pin via * (Any) — header pill returns to "Count: Any"
-    log "UI: Un-pin wildcard via * (Any)"
-    agent-browser click '[data-testid="pu-header-wc-pill-count"]' 2>/dev/null || true
-    sleep 1
-    agent-browser click '[data-testid="pu-wc-option-count-any"]' 2>/dev/null || true
-    sleep 2
-    agent-browser screenshot "$SCREENSHOTS_DIR/08-wildcard-unpinned.png" 2>/dev/null || true
-
-    SNAPSHOT=$(agent-browser snapshot -c 2>/dev/null || echo "")
-    if echo "$SNAPSHOT" | grep -q 'Count: Any'; then
-        log_pass "Un-pinned wildcard shows Count: Any"
-    else
-        log_fail "Un-pinned wildcard missing Count: Any"
-        result=1
-    fi
-
-    # Test 9: Independent wildcard control — pin one, others stay Any
-    log "UI: Independent wildcard control"
-    # Pin role only
-    agent-browser click '[data-testid="pu-header-wc-pill-role"]' 2>/dev/null || true
-    sleep 1
-    agent-browser click '[data-testid="pu-wc-option-role-0"]' 2>/dev/null || true
-    sleep 2
-    agent-browser screenshot "$SCREENSHOTS_DIR/09-independent-wildcards.png" 2>/dev/null || true
-
-    SNAPSHOT=$(agent-browser snapshot -c 2>/dev/null || echo "")
-    # count and skill should still be Any, role should not
-    if echo "$SNAPSHOT" | grep -q 'Count: Any' && \
-       echo "$SNAPSHOT" | grep -q 'Skill: Any'; then
-        log_pass "Other wildcards remain Any when one is pinned"
-    else
-        log_fail "Other wildcards did not remain Any"
-        result=1
-    fi
-    # Reset: un-pin role
-    agent-browser click '[data-testid="pu-header-wc-pill-role"]' 2>/dev/null || true
-    sleep 1
-    agent-browser click '[data-testid="pu-wc-option-role-any"]' 2>/dev/null || true
-    sleep 1
-
-    # Test 10: Sidebar navigation updates content and header pills
-    log "UI: Sidebar navigation updates header pills"
+    # Test 9: Sidebar navigation loads different prompt
+    log "UI: Sidebar navigation changes prompt"
     agent-browser find text "outreach-email" click 2>/dev/null || true
     sleep 2
-    agent-browser screenshot "$SCREENSHOTS_DIR/10-sidebar-nav-preview.png" 2>/dev/null || true
+    agent-browser screenshot "$SCREENSHOTS_DIR/09-sidebar-nav.png" 2>/dev/null || true
 
-    SNAPSHOT=$(agent-browser snapshot -c 2>/dev/null || echo "")
-    if echo "$SNAPSHOT" | grep -q 'Tone: Any'; then
-        log_pass "Sidebar nav updates header pills to new prompt"
+    EDITOR_TITLE=$(agent-browser eval 'document.querySelector("[data-testid=\"pu-editor-title\"]")?.textContent?.trim()' 2>/dev/null || echo "")
+    if echo "$EDITOR_TITLE" | grep -qi "outreach-email"; then
+        log_pass "Editor title updated: $EDITOR_TITLE"
     else
-        log_fail "Sidebar nav did not update header pills"
+        log_fail "Editor title not updated: '$EDITOR_TITLE'"
         result=1
     fi
 
-    # Test 11: URL syncs after sidebar click in preview mode
-    log "UI: URL syncs in preview mode"
+    # Test 10: Right panel wildcards update on navigation
+    log "UI: Right panel wildcards update"
+    SNAPSHOT=$(agent-browser snapshot -c 2>/dev/null || echo "")
+    if echo "$SNAPSHOT" | grep -qi "tone"; then
+        log_pass "Right panel shows tone wildcard for outreach-email"
+    else
+        log_fail "Right panel wildcards did not update"
+        result=1
+    fi
+
+    # Test 11: URL syncs prompt selection
+    log "UI: URL syncs prompt selection"
     URL=$(agent-browser get url 2>/dev/null || echo "")
-    if echo "$URL" | grep -q "prompt=outreach-email" && echo "$URL" | grep -q "mode=preview"; then
-        log_pass "URL params updated after sidebar nav"
+    if echo "$URL" | grep -q "prompt=outreach-email"; then
+        log_pass "URL contains prompt=outreach-email"
     else
-        log_fail "URL params not synced: $URL"
+        log_fail "URL not synced: $URL"
         result=1
     fi
 
-    # Return to edit mode for export test
-    agent-browser find role button click --name "Edit Mode" 2>/dev/null || \
-        agent-browser find text "Edit Mode" click 2>/dev/null || true
-    sleep 1
+    # ── Behavioral: Export ──
 
-    # Test 12: Export dialog
-    log "UI: Export dialog"
-    agent-browser find role button click --name "Export" 2>/dev/null || \
-        agent-browser find text "Export" click 2>/dev/null || true
+    # Test 12: Export modal opens and has controls
+    log "UI: Export modal"
+    agent-browser click '[data-testid="pu-header-export-btn"]' 2>/dev/null || true
     sleep 1
-    agent-browser screenshot "$SCREENSHOTS_DIR/12-export-dialog.png" 2>/dev/null || true
+    agent-browser screenshot "$SCREENSHOTS_DIR/12-export-modal.png" 2>/dev/null || true
 
-    SNAPSHOT=$(agent-browser snapshot -c 2>/dev/null || echo "")
-    if echo "$SNAPSHOT" | grep -qi "Export"; then
-        log_pass "Export dialog opens"
+    HAS_EXPORT=$(agent-browser eval '!!document.querySelector("[data-testid=\"pu-export-modal\"]")' 2>/dev/null || echo "false")
+    if [ "$HAS_EXPORT" = "true" ]; then
+        log_pass "Export modal opens"
     else
-        log_fail "Export dialog missing"
+        log_fail "Export modal not visible"
         result=1
     fi
+
+    # Test 13: Export modal has save/cancel controls
+    log "UI: Export modal controls"
+    HAS_CONTROLS=$(agent-browser eval '!!document.querySelector("[data-testid=\"pu-export-confirm-btn\"]") && !!document.querySelector("[data-testid=\"pu-export-cancel-btn\"]")' 2>/dev/null || echo "false")
+    if [ "$HAS_CONTROLS" = "true" ]; then
+        log_pass "Export modal has confirm/cancel buttons"
+    else
+        log_fail "Export modal missing controls"
+        result=1
+    fi
+
+    # Close export modal
+    agent-browser click '[data-testid="pu-export-cancel-btn"]' 2>/dev/null || true
+    sleep 1
 
     return $result
 }

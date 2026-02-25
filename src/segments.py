@@ -44,6 +44,12 @@ AI ASSISTANT NOTES:
 - Registry stores text lists per extension ID
 - Composition references use 0-based indices
 - Wildcards are resolved at reconstruction time
+
+PLANNED (Theme Metadata - Strategy D):
+- ext_text values may carry per-value `meta` dicts (reference facts)
+- Registry will store meta alongside text values for lookup during resolution
+- Meta is a SEPARATE namespace from annotations — never merged or overridden
+- See docs/composition-model.md "Theme Metadata (meta)" for design rationale
 """
 
 import re

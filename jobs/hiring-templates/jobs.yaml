@@ -1,10 +1,13 @@
 # Hiring Templates - Prompt variations for founders
-# Demonstrates wildcards for: roles, seniority, company size, tone
+# Demonstrates wildcards, annotations, ext_text, nesting, bucketing
 
 defaults:
   composition: 42
   ext: "hiring"
   wildcards_max: 3
+  annotations:
+    output_format: "professional"
+    audience: "hiring-managers"
 
 prompts:
   # JOB POSTING GENERATOR
@@ -99,15 +102,36 @@ prompts:
       - name: "role"
         text: ["engineer", "designer", "PM", "sales rep", "support agent"]
 
-  # EXT SOURCING STRATEGY — ext_text + nesting mixed
+  # EXT SOURCING STRATEGY — ext_text + nesting + annotation inheritance
+  #
+  # ANNOTATION INHERITANCE DEMO:
+  #   defaults.annotations:  {output_format: professional, audience: hiring-managers}
+  #   prompt.annotations:    {audience: recruiters, channel_priority: outbound}
+  #   block.annotations:     {output_format: null, detail_level: actionable}
+  #
+  # Resolved for the after: block:
+  #   audience: "recruiters"        (prompt overrides defaults)
+  #   channel_priority: "outbound"  (prompt adds new key)
+  #   detail_level: "actionable"    (block adds new key)
+  #   output_format: REMOVED        (block null removes defaults' value)
+  #
   - id: "ext-sourcing-strategy"
     ext: "hiring"
+    annotations:
+      audience: "recruiters"
+      channel_priority: "outbound"
     text:
       - content: "Create a sourcing strategy for __channel__ recruitment"
+        annotations:
+          _comment: "Root context block — sets up the sourcing channel"
       - ext_text: "hiring/roles"
         ext_text_max: 3
         after:
           - content: "For each role above, suggest __count__ __approach__ outreach tactics"
+            annotations:
+              output_format: null
+              detail_level: "actionable"
+              _comment: "Actionable tactics — null removes inherited output_format"
     wildcards:
       - name: "channel"
         text: ["inbound", "outbound", "referral", "campus"]

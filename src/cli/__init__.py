@@ -21,6 +21,8 @@ Or directly:
     python generate-cli.py pixel-fantasy -c 99 --build covers
 """
 
-from .main import main
+def main():
+    from .main import main as _main
+    return _main()
 
 __all__ = ['main']

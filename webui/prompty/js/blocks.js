@@ -183,11 +183,14 @@ PU.blocks = {
         const canMove = !isChild; // Root content blocks can be moved to theme (parents too — children stay attached)
         const rightEdge = (viz !== 'compact') ? PU.blocks._renderRightEdgeActions(path, pathId, isChild, canMove, item) : '';
         const annotationBadge = PU.blocks._renderAnnotationBadge(item, path, pathId);
+        const tokenChip = PU.blocks._renderTokenCounter(path, pathId, resolution);
+        const commentHtml = PU.blocks._renderInlineComment(item, path, pathId);
 
         if (resolution) {
             return `
                 <div class="pu-block-content" data-testid="pu-block-input-${pathId}" data-path="${path}">
-                    <div class="pu-resolved-text${vizClass}">${treeConnector}${inlinePathHint}${resolution.resolvedHtml}${annotationBadge}${inlineDice}${parentConnector}${nestConnector}</div>
+                    <div class="pu-resolved-text${vizClass}">${treeConnector}${inlinePathHint}${resolution.resolvedHtml}${annotationBadge}${tokenChip}${inlineDice}${parentConnector}${nestConnector}</div>
+                    ${commentHtml}
                     ${inlineCompact}
                     ${rightEdge}
                 </div>
@@ -197,7 +200,8 @@ PU.blocks = {
         // Fallback: show escaped raw text (loading state or no resolution)
         return `
             <div class="pu-block-content" data-testid="pu-block-input-${pathId}" data-path="${path}">
-                <div class="pu-resolved-text">${treeConnector}${inlinePathHint}${PU.blocks.escapeHtml(content)}${annotationBadge}${inlineDice}${parentConnector}${nestConnector}</div>
+                <div class="pu-resolved-text">${treeConnector}${inlinePathHint}${PU.blocks.escapeHtml(content)}${annotationBadge}${tokenChip}${inlineDice}${parentConnector}${nestConnector}</div>
+                ${commentHtml}
                 ${inlineCompact}
                 ${rightEdge}
             </div>
@@ -217,6 +221,8 @@ PU.blocks = {
         const resolvedHtml = resolution ? resolution.resolvedHtml : '';
         const accumulatedHtml = resolution ? PU.blocks.renderAccumulatedText(resolution) : '';
         const annotationBadge = PU.blocks._renderAnnotationBadge(item, path, pathId);
+        const tokenChip = PU.blocks._renderTokenCounter(path, pathId, resolution);
+        const commentHtml = PU.blocks._renderInlineComment(item, path, pathId);
 
         if (viz === 'compact') {
             const treeConnector = isChild
@@ -236,7 +242,8 @@ PU.blocks = {
 
             return `
                 <div class="pu-block-content pu-theme-block" data-testid="pu-block-input-${pathId}" data-path="${path}">
-                    <div class="pu-resolved-text">${treeConnector}${inlinePathHint}${resolvedHtml}${annotationBadge}${parentConnector}${nestConnector}</div>
+                    <div class="pu-resolved-text">${treeConnector}${inlinePathHint}${resolvedHtml}${annotationBadge}${tokenChip}${parentConnector}${nestConnector}</div>
+                    ${commentHtml}
                     ${inlineCompact}
                     ${accumulatedHtml}
                 </div>
@@ -253,7 +260,8 @@ PU.blocks = {
 
         return `
             <div class="pu-block-content pu-theme-block" data-testid="pu-block-input-${pathId}" data-path="${path}">
-                <div class="pu-resolved-text${vizClass}">${resolvedHtml}${annotationBadge}${parentConnector}${nestConnector}</div>
+                <div class="pu-resolved-text${vizClass}">${resolvedHtml}${annotationBadge}${tokenChip}${parentConnector}${nestConnector}</div>
+                ${commentHtml}
                 ${accumulatedHtml}
                 ${rightEdge}
             </div>
@@ -1279,13 +1287,113 @@ PU.blocks = {
     },
 
     /**
-     * Render annotation badge (small purple tag icon with count)
+     * Render annotation badge (small purple tag icon with computed count).
+     * Uses 3-layer inheritance resolution (defaults → prompt → block).
+     * Shows amber tint when block has null overrides.
      */
     _renderAnnotationBadge(item, path, pathId) {
-        const ann = item.annotations;
-        if (!ann || Object.keys(ann).length === 0) return '';
-        const count = Object.keys(ann).length;
-        return `<span class="pu-annotation-badge" data-testid="pu-ann-badge-${pathId}" title="${count} annotation${count !== 1 ? 's' : ''}" onclick="event.stopPropagation(); PU.annotations.toggleEditor('${path}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg><span class="pu-ann-count">${count}</span></span>`;
+        const { count, hasNullOverrides } = PU.annotations.computedCount(path);
+        if (count === 0 && !hasNullOverrides) return '';
+        const displayCount = count || '!';
+        const overrideClass = hasNullOverrides ? ' has-overrides' : '';
+        const title = hasNullOverrides && count === 0
+            ? 'Annotations (overrides only)'
+            : `${count} annotation${count !== 1 ? 's' : ''}${hasNullOverrides ? ' (has overrides)' : ''}`;
+        return `<span class="pu-annotation-badge${overrideClass}" data-testid="pu-ann-badge-${pathId}" onclick="event.stopPropagation(); PU.annotations.toggleEditor('${path}')" onmouseenter="PU.annotations.showTooltip('${path}', this)" onmouseleave="PU.annotations.hideTooltip()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg><span class="pu-ann-count">${displayCount}</span></span>`;
+    },
+
+    /**
+     * Render inline token counter chip after annotation badge.
+     * Only visible when _token_limit is set (own or inherited).
+     * Shows ~tokens/limit with color coding: ok (<75%), warn (75-100%), over (>100%).
+     * @param {string} path
+     * @param {string} pathId
+     * @param {Object} resolution - Resolution object with plainText
+     * @returns {string} HTML string
+     */
+    _renderTokenCounter(path, pathId, resolution) {
+        const limit = PU.annotations.resolveTokenLimit(path);
+        if (limit === null) return '';
+
+        const text = resolution ? resolution.plainText : '';
+        const tokens = PU.annotations.computeTokenCount(text);
+        const ratio = tokens / limit;
+        const stateClass = ratio > 1 ? 'over' : ratio >= 0.75 ? 'warn' : 'ok';
+
+        return `<span class="pu-token-counter ${stateClass}" data-testid="pu-token-counter-${pathId}" title="~${tokens} tokens of ${limit} budget (~${Math.round(ratio * 100)}%)">~${tokens}/${limit}</span>`;
+    },
+
+    /**
+     * Update token counter chip in-place (for live Quill editing).
+     * Called from focus.js handleTextChange with the raw template text.
+     * @param {string} path - Block path
+     * @param {string} templateText - Raw template text (with __wildcard__ placeholders)
+     */
+    updateTokenCounter(path, templateText) {
+        const pathId = path.replace(/\./g, '-');
+        const chip = document.querySelector(`[data-testid="pu-token-counter-${pathId}"]`);
+        if (!chip) return;
+
+        const limit = PU.annotations.resolveTokenLimit(path);
+        if (limit === null) return;
+
+        const tokens = PU.annotations.computeTokenCount(templateText);
+        const ratio = tokens / limit;
+        const stateClass = ratio > 1 ? 'over' : ratio >= 0.75 ? 'warn' : 'ok';
+
+        chip.textContent = `~${tokens}/${limit}`;
+        chip.className = `pu-token-counter ${stateClass}`;
+        chip.title = `~${tokens} tokens of ${limit} budget (~${Math.round(ratio * 100)}%)`;
+    },
+
+    /**
+     * Render inline showOnCard universals below the resolved text.
+     * Only shows block-OWN values (not inherited). Each widget type gets distinct display:
+     *   textarea → italic text on its own line
+     *   select   → pill/badge inline
+     *   toggle   → small label when true, inline
+     */
+    _renderShowOnCardUniversals(item, path, pathId) {
+        if (!item.annotations || !PU.annotations._universals) return '';
+        const esc = PU.blocks.escapeHtml;
+        let textareaHtml = '';
+        let pillsHtml = '';
+
+        for (const [key, desc] of Object.entries(PU.annotations._universals)) {
+            if (!desc.showOnCard) continue;
+            if (!item.annotations.hasOwnProperty(key)) continue;
+            const val = item.annotations[key];
+            if (val === null || val === undefined) continue;
+            const strVal = String(val).trim();
+            if (strVal === '' || strVal === 'false') continue;
+
+            const keyId = key.replace(/^_/, '');
+
+            if (desc.widget === 'textarea') {
+                // Textarea universals get their own italic line
+                textareaHtml += `<div class="pu-block-comment" data-testid="pu-block-comment-${pathId}" data-universal-key="${esc(key)}" onclick="event.stopPropagation(); PU.annotations.openEditor('${path}')">${esc(strVal)}</div>`;
+            } else if (desc.widget === 'select') {
+                // Select universals render as pills
+                pillsHtml += `<span class="pu-block-universal-pill" data-testid="pu-block-pill-${keyId}-${pathId}" data-universal-key="${esc(key)}" onclick="event.stopPropagation(); PU.annotations.openEditor('${path}')"><span class="pu-block-pill-dot"></span>${esc(strVal)}</span>`;
+            } else if (desc.widget === 'toggle') {
+                // Toggle universals show label when true
+                if (val === true || val === 'true') {
+                    const label = desc.label || key.replace(/^_/, '');
+                    pillsHtml += `<span class="pu-block-universal-pill pu-block-pill-toggle" data-testid="pu-block-pill-${keyId}-${pathId}" data-universal-key="${esc(key)}" onclick="event.stopPropagation(); PU.annotations.openEditor('${path}')"><span class="pu-block-pill-icon">&#9684;</span>${esc(label)}</span>`;
+                }
+            }
+        }
+
+        let html = textareaHtml;
+        if (pillsHtml) {
+            html += `<div class="pu-block-universal-pills" data-testid="pu-block-pills-${pathId}">${pillsHtml}</div>`;
+        }
+        return html;
+    },
+
+    /** @deprecated Use _renderShowOnCardUniversals instead */
+    _renderInlineComment(item, path, pathId) {
+        return PU.blocks._renderShowOnCardUniversals(item, path, pathId);
     },
 
     addNestedBlockAtPath(textArray, parentPath, blockType) {

@@ -9,3 +9,35 @@ text:
 wildcards:
   - name: "seniority"
     text: ["Junior", "Mid-level", "Senior", "Staff", "Principal"]
+
+# ── Strategy D: Theme Metadata (planned) ──────────────────
+# When the meta parser ships, text entries can carry per-value
+# reference facts that flow into hook context as ctx['meta'].
+# Meta is SEPARATE from annotations — never merged or overridden.
+#
+# Example (not yet parsed):
+#
+# text:
+#   - content: "Software Engineer"
+#     meta:
+#       department: "engineering"
+#       level: "mid-senior"
+#   - content: "Product Manager"
+#     meta:
+#       department: "product"
+#       level: "mid-senior"
+#   - "Designer"                    # plain string — no meta (still valid)
+#   - content: "Data Scientist"
+#     meta:
+#       department: "data"
+#       requires_degree: true
+#   - content: "DevOps Engineer"
+#     meta:
+#       department: "engineering"
+#       level: "mid-senior"
+#       infra_access: true
+#   - content: "Engineering Manager"
+#     meta:
+#       department: "engineering"
+#       level: "senior-staff"
+#       manages_people: true

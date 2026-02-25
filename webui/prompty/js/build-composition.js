@@ -70,27 +70,6 @@ PU.buildComposition = {
     },
 
     /**
-     * Shared computation of wildcard lookup, counts, and effective total.
-     * Uses getFullWildcardLookup (prompt + extension wildcards) and
-     * computeEffectiveTotal (respects ext_text_max and ext_wildcards_max bucketing).
-     */
-    _getCompositionParams() {
-        const lookup = PU.preview.getFullWildcardLookup();
-        const wcNames = Object.keys(lookup).sort();
-        const wildcardCounts = {};
-        for (const name of wcNames) {
-            wildcardCounts[name] = lookup[name].length;
-        }
-        const extTextCount = PU.state.previewMode.extTextCount || 1;
-        const extTextMax = PU.state.previewMode.extTextMax || 1;
-        const wcMax = PU.state.previewMode.wildcardsMax || 0;
-
-        const total = PU.preview.computeEffectiveTotal(extTextCount, wildcardCounts, extTextMax, wcMax);
-
-        return { lookup, wcNames, wildcardCounts, extTextCount, extTextMax, wcMax, total };
-    },
-
-    /**
      * Render the Defaults section
      */
     renderDefaults() {
@@ -161,7 +140,7 @@ PU.buildComposition = {
             return;
         }
 
-        const { wildcardCounts, extTextCount, extTextMax, wcMax, total } = PU.buildComposition._getCompositionParams();
+        const { wildcardCounts, extTextCount, extTextMax, wcMax, total } = PU.shared.getCompositionParams();
         const wcNames = Object.keys(wildcardCounts).sort();
 
         // Build dimension display
@@ -214,7 +193,7 @@ PU.buildComposition = {
             return;
         }
 
-        const { lookup, wcNames, wildcardCounts, extTextCount, total } = PU.buildComposition._getCompositionParams();
+        const { lookup, wcNames, wildcardCounts, extTextCount, total } = PU.shared.getCompositionParams();
         const compId = PU.state.previewMode.compositionId;
         const effectiveId = total > 0 ? compId % total : 0;
 
@@ -287,7 +266,7 @@ PU.buildComposition = {
      * Navigate to prev/next composition (wraps around total).
      */
     async navigate(direction) {
-        const { total } = PU.buildComposition._getCompositionParams();
+        const { total } = PU.shared.getCompositionParams();
         if (total <= 0) return;
 
         let newId = PU.state.previewMode.compositionId + direction;
@@ -306,7 +285,7 @@ PU.buildComposition = {
      * Jump to random composition.
      */
     async shuffle() {
-        const { total } = PU.buildComposition._getCompositionParams();
+        const { total } = PU.shared.getCompositionParams();
         if (total <= 0) return;
 
         const newId = Math.floor(Math.random() * total);
@@ -333,7 +312,7 @@ PU.buildComposition = {
             return;
         }
 
-        const { total } = PU.buildComposition._getCompositionParams();
+        const { total } = PU.shared.getCompositionParams();
 
         if (total === 0) {
             estimateEl.textContent = '';
@@ -353,22 +332,12 @@ PU.buildComposition = {
         const perEntryBytes = headerBytes + sampleBodyBytes + 2; // + "\n\n"
         const totalBytes = perEntryBytes * total;
 
-        const sizeStr = PU.buildComposition._formatBytes(totalBytes);
+        const sizeStr = PU.shared.formatBytes(totalBytes);
         estimateEl.textContent = `${total.toLocaleString()} compositions \u00B7 ~${sizeStr}`;
 
         if (exportBtn) {
             exportBtn.textContent = `Export .txt (~${sizeStr})`;
         }
-    },
-
-    /**
-     * Format bytes to human-readable string
-     */
-    _formatBytes(bytes) {
-        if (bytes < 1024) return bytes + ' B';
-        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-        if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-        return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
     },
 
     /**
@@ -382,7 +351,7 @@ PU.buildComposition = {
         const textItems = prompt.text || [];
         if (!Array.isArray(textItems) || textItems.length === 0) return;
 
-        const { lookup, wcNames, wildcardCounts, extTextCount, total } = PU.buildComposition._getCompositionParams();
+        const { lookup, wcNames, wildcardCounts, extTextCount, total } = PU.shared.getCompositionParams();
 
         if (total === 0) return;
 
@@ -446,7 +415,7 @@ PU.buildComposition = {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        const sizeStr = PU.buildComposition._formatBytes(blob.size);
+        const sizeStr = PU.shared.formatBytes(blob.size);
         PU.actions.showToast(`Exported ${chunks.length} compositions (${sizeStr})`, 'success');
 
         if (btn) {

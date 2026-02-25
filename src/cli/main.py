@@ -23,7 +23,6 @@ from datetime import datetime
 from .utils import _debug_log
 from .webui_bridge import detect_webui_port, auto_detect_webui_server
 from .queue_manager import add_to_queue, process_queue_items
-from .tester import PipelineCLITester
 
 
 # Thread-safe shutdown event for signal handling
@@ -203,6 +202,10 @@ Examples:
     parser.add_argument("--stage", type=str, metavar="STAGE_ID",
                         help="Build items matching a stage query (e.g., 'checkpoints', 'pending')")
 
+    # TreeExecutor (depth-first block execution)
+    parser.add_argument("--tree", action="store_true",
+                        help="Use TreeExecutor for depth-first block execution with hook lifecycle")
+
     args = parser.parse_args()
 
     # Fix #5: Validate --resume + --rebuild conflict early
@@ -350,7 +353,101 @@ Examples:
     print(f"   Trace ID:    {trace_id}")
     print(f"   📋 Debug log: file://{debug_log_path}")
 
+    # Handle --tree flag early (TreeExecutor doesn't need tester/generator)
+    if args.tree:
+        import yaml as _yaml
+        from src.tree_executor import TreeExecutor
+        from src.hooks import HookPipeline, load_hooks_config, load_mods_config
+        from src.jobs import build_jobs
+
+        print(f"\n--- TreeExecutor Mode ---")
+
+        # Load job config
+        jobs_yaml_path = job_dir / 'jobs.yaml'
+        if not jobs_yaml_path.exists():
+            print(f"\nError: {jobs_yaml_path} not found")
+            return 1
+
+        with open(jobs_yaml_path) as _f:
+            task_conf = _yaml.safe_load(_f)
+
+        # Load global config (extensions)
+        from src.extensions import process_addons
+        global_conf = {'ext': []}
+        process_addons(job_dir, global_conf)
+
+        # Load hooks/mods config
+        hooks_config = load_hooks_config(job_dir)
+        mods_config = load_mods_config(job_dir)
+
+        pipeline = HookPipeline(job_dir, hooks_config, mods_config)
+
+        # Build jobs with block paths
+        defaults = task_conf.get('defaults', {})
+        tree_jobs = build_jobs(
+            task_conf, Path('/dev/null'), 0.1, ' ', global_conf,
+            composition_id=args.composition,
+            wildcards_max=defaults.get('wildcards_max', 0),
+            ext_text_max=defaults.get('ext_text_max', 0),
+        )
+
+        print(f"   Jobs: {len(tree_jobs)}")
+        paths = set(j['prompt'].get('_block_path', '?') for j in tree_jobs)
+        print(f"   Blocks: {sorted(paths)}")
+
+        def print_progress(event_type, *event_args):
+            if event_type == 'block_start':
+                print(f"   [BLOCK] {event_args[0]} started")
+            elif event_type == 'composition_complete':
+                print(f"   [COMP]  {event_args[0]}:{event_args[1]} complete")
+            elif event_type == 'block_complete':
+                print(f"   [BLOCK] {event_args[0]} complete")
+            elif event_type == 'block_failed':
+                print(f"   [FAIL]  {event_args[0]}: {event_args[1] if len(event_args) > 1 else 'unknown'}")
+            elif event_type == 'block_blocked':
+                print(f"   [BLOCK] {event_args[0]} blocked (parent failed)")
+
+        # Run — wire shutdown signal to executor.stop() for graceful Ctrl+C
+        pipeline.execute_hook('job_start', {'job_name': args.job})
+
+        executor = TreeExecutor(tree_jobs, pipeline, on_progress=print_progress)
+
+        # Connect _shutdown_event to executor.stop() so SIGTERM/SIGINT
+        # stops at the next composition boundary instead of killing the process
+        def _tree_shutdown_handler(signum, frame):
+            signame = 'SIGTERM' if signum == signal.SIGTERM else 'SIGINT'
+            print(f"\n   Received {signame}, stopping at next composition boundary...")
+            executor.stop()
+            _shutdown_event.set()
+
+        prev_sigterm = signal.signal(signal.SIGTERM, _tree_shutdown_handler)
+        prev_sigint = signal.signal(signal.SIGINT, _tree_shutdown_handler)
+
+        try:
+            executor.execute()
+        finally:
+            # Restore original handlers
+            signal.signal(signal.SIGTERM, prev_sigterm)
+            signal.signal(signal.SIGINT, prev_sigint)
+
+        stats = executor.stats()
+        pipeline.execute_hook('job_end', {'job_name': args.job, 'stats': stats})
+
+        print(f"\n--- TreeExecutor Results ---")
+        print(f"   State:     {stats['state']}")
+        print(f"   Completed: {stats['completed_compositions']}/{stats['total_compositions']}")
+        print(f"   Blocks:    {stats['blocks_complete']}/{stats['blocks_total']} complete")
+        if stats['blocks_failed']:
+            print(f"   Failed:    {stats['blocks_failed']}")
+            for bp, detail in stats.get('blocks_failed_detail', {}).items():
+                print(f"              block {bp}: {detail['completed']}/{detail['total']} completed before failure")
+        if stats['blocks_blocked']:
+            print(f"   Blocked:   {stats['blocks_blocked']}")
+
+        return 0 if stats['state'] == 'complete' else 1
+
     try:
+        from .tester import PipelineCLITester
         tester = PipelineCLITester(
             args.job, args.composition,
             args.prompt_id, args.debug_images, args.rebuild,

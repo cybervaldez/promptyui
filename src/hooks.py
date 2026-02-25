@@ -31,13 +31,36 @@ CONFIG:
     - filters: config_index, address_index
     - Enable/disable per prompt in jobs.yaml
 
-PLANNED (TreeExecutor):
+PLANNED (TreeExecutor + Enriched Context):
   - Depth-first single-cursor execution: one composition at a time, depth-first block order
   - parent_result: context key with parent block's HookResult.data for child hooks
   - _block_path: new field in build_jobs() output for block identity (e.g., "0", "0.0")
   - Path-scoped failure: block failure skips remaining compositions, blocks children
   - 'resolve' caching: fire once per block, cache for all compositions
   See webui/prompty/previews/preview-build-flow-diagram.html for the visual model.
+
+  Enriched hook context (Strategy D — namespace separation):
+    ctx = {
+      # Identity
+      'block_path', 'parent_path', 'is_leaf', 'block_depth',
+      # Composition
+      'composition_index', 'composition_total', 'wildcards', 'wildcard_indices',
+      # Operations
+      'operation', 'operation_mappings',
+      # Annotations (user intent — "what to DO")
+      'annotations', 'annotation_sources',
+      # Theme metadata (reference facts — "what it IS", separate namespace)
+      'meta', 'ext_text_source',
+      # Inheritance
+      'parent_result', 'parent_annotations',
+      # Content
+      'resolved_text', 'prompt_id', 'job',
+    }
+
+  Key design decision: `meta` (from ext_text theme values) and `annotations`
+  (from block/prompt/defaults) are SEPARATE namespaces. Theme metadata carries
+  reference facts that are never overridden by block annotations. Hooks receive
+  both independently. See docs/composition-model.md "Theme Metadata (meta)".
 """
 
 import sys

@@ -16,9 +16,12 @@ For the full development methodology, see [Cybervaldez Playbook](https://github.
 
 - **Generate prompt variations at scale** - Define templates with wildcards, get all combinations
 - **Web UI for non-technical editing** - PromptyUI lets anyone edit and preview prompts
+- **Block annotations** - 3-layer inheritance (defaults > prompt > block) with universal widgets, token counters, async checks
+- **Pipeline View** - Block tree visualization with SSE-driven execution (Run/Stop/Resume)
+- **Sampler Gallery** - Grid view of sampled compositions for pattern-spotting across the Cartesian space
 - **Extensible architecture** - Reusable data packs (personas, tones, roles) across domains
 - **Built for AI workflows** - CLI outputs designed for AI consumption and debugging
-- **E2E test suite included** - Verify behavior against the real system
+- **56+ E2E tests** - Comprehensive test suite via `agent-browser` + `curl`
 - **[Composition Model](docs/composition-model.md)** - How wildcards, ext_text, buckets, and hooks work together
 
 ## Quick Start
@@ -40,10 +43,11 @@ python build-job.py --help                   # See all options
 ```
 cybervaldez-prompt-generator/
 ├── src/                  # Python backend - core generation engine
-│   └── cli/              # CLI tools and test modules
+│   ├── cli/              # CLI tools and test modules
+│   └── tree_executor.py  # Depth-first block-aware execution engine
 ├── webui/prompty/        # PromptyUI - web interface
-│   ├── server/           # Flask API server
-│   ├── js/               # Vanilla JS frontend
+│   ├── server/           # Flask API server + SSE pipeline endpoint
+│   ├── js/               # Vanilla JS frontend (annotations, pipeline, gallery, etc.)
 │   └── templates/        # HTML templates
 ├── jobs/                 # Prompt definitions by domain
 │   ├── hiring-templates/
@@ -57,10 +61,17 @@ cybervaldez-prompt-generator/
 │   ├── sales/personas.yaml
 │   └── product/formats.yaml
 ├── mods/                 # Mod scripts (generation-time user extensions)
-├── tests/                # E2E test suite
+├── tests/                # E2E test suite (56+ test files)
+│   ├── lib/test_utils.sh # Shared test utilities
 │   ├── e2e-orchestrator.sh
 │   ├── test_prompty_api.sh
-│   └── test_prompty_ui.sh
+│   ├── test_prompty_ui.sh
+│   ├── test_annotations.sh
+│   ├── test_async_widget.sh
+│   ├── test_token_counter.sh
+│   ├── test_pipeline_modal.sh
+│   ├── test_gallery.sh
+│   └── ...               # 40+ more test files
 └── outputs/              # Generated output files
 ```
 
@@ -90,9 +101,15 @@ See [Cybervaldez Playbook](https://github.com/cybervaldez/cybervaldez-playbook) 
 ## Running Tests
 
 ```bash
-./tests/e2e-orchestrator.sh     # Full E2E suite
-./tests/test_prompty_api.sh     # API tests only
-./tests/test_prompty_ui.sh      # UI tests only
+./tests/e2e-orchestrator.sh       # Full E2E suite
+./tests/test_prompty_api.sh       # API tests only
+./tests/test_prompty_ui.sh        # UI tests only
+./tests/test_annotations.sh       # Annotation system
+./tests/test_async_widget.sh      # Async widget checks
+./tests/test_token_counter.sh     # Token counter widget
+./tests/test_pipeline_modal.sh    # Pipeline View modal
+./tests/test_gallery.sh           # Sampler Gallery
+./tests/test_shared_module.sh     # Shared utilities
 ```
 
 ## Development Workflow

@@ -111,6 +111,7 @@ PU.state = {
         outputFilters: {},
         outputFilterCollapsed: {},
         rpSectionsCollapsed: {},   // (deprecated — kept for compat)
+        rightPanelTab: 'wildcards', // Active right panel tab: 'wildcards' | 'annotations'
         rightPanelCollapsed: false,
         leftSidebarCollapsed: false
     },
@@ -139,6 +140,18 @@ PU.state = {
         activeOperation: null,       // Currently selected operation (build hook) name
         activeOperationData: null,   // Loaded operation (build hook) YAML content
         generating: false            // Loading state for Export button
+    },
+
+    // Pipeline modal state
+    pipeline: {
+        visible: false,
+        runState: 'idle',       // idle | running | stopping | paused | complete | error
+        globalCompleted: 0,
+        globalTotal: 0,
+        blockStates: {},        // block_path -> state
+        blockProgress: {},      // block_path -> { completed, total }
+        stageTimes: {},         // block_path -> { stage: [ms, ms, ...] }
+        stats: null,            // Final stats from run_complete
     },
 
     // Export modal state
@@ -258,7 +271,8 @@ PU.helpers = {
             outputFooterCollapsed: PU.state.ui.outputFooterCollapsed,
             outputLabelMode: PU.state.ui.outputLabelMode,
             rightPanelCollapsed: PU.state.ui.rightPanelCollapsed,
-            leftSidebarCollapsed: PU.state.ui.leftSidebarCollapsed
+            leftSidebarCollapsed: PU.state.ui.leftSidebarCollapsed,
+            rightPanelTab: PU.state.ui.rightPanelTab
         };
         localStorage.setItem('pu_ui_state', JSON.stringify(uiState));
     },
@@ -279,6 +293,7 @@ PU.helpers = {
                 PU.state.ui.outputLabelMode = state.outputLabelMode || 'none';
                 PU.state.ui.rightPanelCollapsed = state.rightPanelCollapsed || false;
                 PU.state.ui.leftSidebarCollapsed = state.leftSidebarCollapsed || false;
+                PU.state.ui.rightPanelTab = state.rightPanelTab || 'wildcards';
             }
         } catch (e) {
             console.warn('Failed to load UI state:', e);

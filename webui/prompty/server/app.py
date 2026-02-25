@@ -53,20 +53,30 @@ class PUHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         """Handle GET requests."""
-        from .api import jobs, extensions, operations, session
+        from .api import jobs, extensions, operations, session, pipeline
 
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
         params = dict(urllib.parse.parse_qsl(parsed.query))
 
         # API routes — order matters (more specific first)
+        # Pipeline: /api/pu/job/{id}/pipeline/run or /api/pu/job/{id}/pipeline/stop
+        pipeline_run_match = re.match(r'^/api/pu/job/([^/]+)/pipeline/run$', path)
+        pipeline_stop_match = re.match(r'^/api/pu/job/([^/]+)/pipeline/stop$', path)
         # Session: /api/pu/job/{id}/session
         session_match = re.match(r'^/api/pu/job/([^/]+)/session$', path)
         # Operations: /api/pu/job/{id}/operations or /api/pu/job/{id}/operation/{name}
         op_match = re.match(r'^/api/pu/job/([^/]+)/operations$', path)
         op_get_match = re.match(r'^/api/pu/job/([^/]+)/operation/([^/]+)$', path)
 
-        if session_match:
+        if pipeline_run_match:
+            job_id = urllib.parse.unquote(pipeline_run_match.group(1))
+            prompt_id = params.get('prompt_id', '')
+            pipeline.handle_pipeline_run(self, job_id, prompt_id)
+        elif pipeline_stop_match:
+            job_id = urllib.parse.unquote(pipeline_stop_match.group(1))
+            pipeline.handle_pipeline_stop(self, job_id)
+        elif session_match:
             job_id = urllib.parse.unquote(session_match.group(1))
             session.handle_session_get(self, job_id)
         elif op_match:

@@ -72,7 +72,12 @@ PLANNED (TreeExecutor integration):
   block-level lifecycle hooks (node_start/node_end fire once per block, not per composition).
 - Annotations merge: Currently parent→child via {**b_annotations, **s_annotations}.
   TreeExecutor will pass parent's HookResult.data as parent_result in context.
-- See src/hooks.py docstring for the full planned lifecycle.
+- Theme metadata (meta): ext_text values can carry per-value `meta` dicts (Strategy D).
+  Meta is a SEPARATE namespace from annotations — it carries reference facts about theme
+  content ("what it IS") and is never overridden by block annotations ("what to DO").
+  The Cartesian engine passes meta through as-is; hooks receive both `ctx['annotations']`
+  and `ctx['meta']` independently. See docs/composition-model.md "Theme Metadata".
+- See src/hooks.py docstring for the full planned lifecycle and enriched context.
 """
 
 import sys
@@ -89,25 +94,26 @@ from src.exceptions import ExtensionError, WildcardError
 
 
 
-def build_text_variations(items, ext_texts, ext_text_max, wildcards_max, wildcard_lookup, current_level=0, default_leaf=False):
+def build_text_variations(items, ext_texts, ext_text_max, wildcards_max, wildcard_lookup, current_level=0, default_leaf=False, path_prefix=""):
     """
     Recursively build text variations from nested content/after structure.
 
-    Returns lists of tuples: (text, template, ext_indices_dict, wildcard_indices_dict, wildcard_positions_dict, is_checkpoint, annotations)
+    Returns lists of tuples: (text, template, ext_indices_dict, wildcard_indices_dict, wildcard_positions_dict, is_checkpoint, annotations, block_path)
     """
     import re
     from itertools import product
     
     if not items:
         # Base case: empty list returns empty text (is_checkpoint defaults to False for empty)
-        return [('', '', {}, {}, {}, False, {})]
+        return [('', '', {}, {}, {}, False, {}, path_prefix)]
     
     results = []
     
-    for item in items:
+    for item_idx, item in enumerate(items):
         # Tracks variations for this item (before 'after' expansion)
         base = []
         item_level = current_level + 1
+        item_path = f"{path_prefix}.{item_idx}" if path_prefix else str(item_idx)
         
         # Extract annotations for this item (opaque metadata dict)
         item_annotations = item.get('annotations', {}) or {}
@@ -148,10 +154,10 @@ def build_text_variations(items, ext_texts, ext_text_max, wildcards_max, wildcar
 
                     # Template preserves content_text (unresolved)
                     # is_checkpoint=False for content items (they don't have explicit checkpoint control)
-                    base.append((expanded_text, content_text, {}, wc_indices, wc_positions, False, item_annotations))
+                    base.append((expanded_text, content_text, {}, wc_indices, wc_positions, False, item_annotations, item_path))
             else:
                 # is_checkpoint=False for simple content
-                base.append((content_text, content_text, {}, {}, wc_positions, False, item_annotations))
+                base.append((content_text, content_text, {}, {}, wc_positions, False, item_annotations, item_path))
             
         elif 'ext_text' in item:
             ext_name = item['ext_text']
@@ -159,7 +165,7 @@ def build_text_variations(items, ext_texts, ext_text_max, wildcards_max, wildcar
 
             if not values:
                 print(f"   ⚠️ Warning: ext_text '{ext_name}' not found or empty")
-                base = [('', '', {}, {}, {}, False, item_annotations)]
+                base = [('', '', {}, {}, {}, False, item_annotations, item_path)]
             else:
                 if ext_text_max > 0 and len(values) > ext_text_max:
                     values = [(values[i], i) for i in range(ext_text_max)]
@@ -195,10 +201,10 @@ def build_text_variations(items, ext_texts, ext_text_max, wildcards_max, wildcar
                                     wc_indices[wc_name] = wc_idx
                             # Use 'v' as template (preserves its wildcards)
                             # is_checkpoint=False initially, will be determined after 'after' processing
-                            new_base.append((expanded_text, v, {ext_name: idx + 1}, wc_indices, wc_positions, False, item_annotations))
+                            new_base.append((expanded_text, v, {ext_name: idx + 1}, wc_indices, wc_positions, False, item_annotations, item_path))
                     else:
                         # is_checkpoint=False initially
-                        new_base.append((v, v, {ext_name: idx + 1}, {}, wc_positions, False, item_annotations))
+                        new_base.append((v, v, {ext_name: idx + 1}, {}, wc_positions, False, item_annotations, item_path))
 
                 base = new_base
         else:
@@ -210,13 +216,14 @@ def build_text_variations(items, ext_texts, ext_text_max, wildcards_max, wildcar
             # Pass all parameters to nested items
             suffixes = build_text_variations(
                 item['after'], ext_texts, ext_text_max, wildcards_max,
-                wildcard_lookup, current_level=item_level, default_leaf=default_leaf
+                wildcard_lookup, current_level=item_level, default_leaf=default_leaf,
+                path_prefix=item_path
             )
             
             # Cartesian product: each base × each suffix
             new_base = []
-            for b_text, b_tpl, b_indices, b_wc_indices, b_wc_positions, b_is_leaf, b_annotations in base:
-                for s_text, s_tpl, s_indices, s_wc_indices, s_wc_positions, s_is_leaf, s_annotations in suffixes:
+            for b_text, b_tpl, b_indices, b_wc_indices, b_wc_positions, b_is_leaf, b_annotations, b_block_path in base:
+                for s_text, s_tpl, s_indices, s_wc_indices, s_wc_positions, s_is_leaf, s_annotations, s_block_path in suffixes:
                     # Merge ext indices from both
                     merged_indices = {**b_indices, **s_indices}
 
@@ -251,15 +258,15 @@ def build_text_variations(items, ext_texts, ext_text_max, wildcards_max, wildcar
                     else:
                         combined_tpl = b_tpl + s_tpl
 
-                    # Combined items inherit suffix's checkpoint status (deeper items control)
-                    new_base.append((combined, combined_tpl, merged_indices, merged_wc_indices, merged_wc_positions, s_is_leaf, merged_annotations))
+                    # Combined items inherit suffix's checkpoint status and block path (deeper items control)
+                    new_base.append((combined, combined_tpl, merged_indices, merged_wc_indices, merged_wc_positions, s_is_leaf, merged_annotations, s_block_path))
             
             # If explicit 'checkpoint: true' requested (or default is true), keep the base items as valid outputs too
             # This allows generating the parent prompt (e.g. "waving") AND its children ("waving sitting")
             item_is_leaf = item.get('checkpoint', default_leaf)
             if item_is_leaf:
                 # Mark base items as checkpoint and include them
-                base_as_leaf = [(t, tpl, ei, wi, wp, True, ann) for t, tpl, ei, wi, wp, _, ann in base]
+                base_as_leaf = [(t, tpl, ei, wi, wp, True, ann, item_path) for t, tpl, ei, wi, wp, _, ann, _ in base]
                 # Include both parent (checkpoint) and children (non-checkpoint unless they set checkpoint: true)
                 base = base_as_leaf + new_base
             else:
@@ -270,11 +277,11 @@ def build_text_variations(items, ext_texts, ext_text_max, wildcards_max, wildcar
             # Terminal nodes default to checkpoint=True (generate images)
             # Use explicit checkpoint: false to suppress generation at terminal
             item_is_leaf = item.get('checkpoint', True)  # Changed: terminals auto-checkpoint
-            base = [(t, tpl, ei, wi, wp, item_is_leaf, ann) for t, tpl, ei, wi, wp, _, ann in base]
+            base = [(t, tpl, ei, wi, wp, item_is_leaf, ann, bp) for t, tpl, ei, wi, wp, _, ann, bp in base]
         
         results.extend(base)
     
-    return results if results else [('', '', {}, {}, {}, False, {})]
+    return results if results else [('', '', {}, {}, {}, False, {}, path_prefix)]
 
 
 
@@ -692,7 +699,7 @@ def build_jobs(task_conf, lora_root, range_increment, prompts_delimiter, global_
             unresolved_nested_templates = [v[0] for v in variations]  # These ARE resolved now
             
             # Build usage tracking from the explicit wildcard indices
-            for text, _, ext_indices, wc_indices, wc_positions, is_checkpoint, _ann in variations:
+            for text, _, ext_indices, wc_indices, wc_positions, is_checkpoint, _ann, _bp in variations:
                 if wc_indices:
                     # Convert to the format expected by wildcard_usage_by_resolved
                     usage_dict = {}
@@ -707,14 +714,15 @@ def build_jobs(task_conf, lora_root, range_increment, prompts_delimiter, global_
                             usage_dict[wc_name] = {'value': f'__{wc_name}__', 'index': wc_idx + 1}
                     wildcard_usage_by_resolved[text] = usage_dict
             
-            # Unpack variations - now 7-tuples (text, template, ext, wc, pos, is_checkpoint, annotations)
-            text_combinations = [(text,) for text, _, _, _, _, _, _ in variations]
-            unresolved_nested_templates = [tpl for _, tpl, _, _, _, _, _ in variations]
-            ext_indices_list = [ext_indices for _, _, ext_indices, _, _, _, _ in variations]
-            wildcard_indices_list = [wc_indices for _, _, _, wc_indices, _, _, _ in variations]
-            wildcard_positions_list = [wc_pos for _, _, _, _, wc_pos, _, _ in variations]
-            is_leaf_list = [is_checkpoint for _, _, _, _, _, is_checkpoint, _ in variations]
-            annotations_list = [ann for _, _, _, _, _, _, ann in variations]
+            # Unpack variations - now 8-tuples (text, template, ext, wc, pos, is_checkpoint, annotations, block_path)
+            text_combinations = [(text,) for text, _, _, _, _, _, _, _ in variations]
+            unresolved_nested_templates = [tpl for _, tpl, _, _, _, _, _, _ in variations]
+            ext_indices_list = [ext_indices for _, _, ext_indices, _, _, _, _, _ in variations]
+            wildcard_indices_list = [wc_indices for _, _, _, wc_indices, _, _, _, _ in variations]
+            wildcard_positions_list = [wc_pos for _, _, _, _, wc_pos, _, _, _ in variations]
+            is_leaf_list = [is_checkpoint for _, _, _, _, _, is_checkpoint, _, _ in variations]
+            annotations_list = [ann for _, _, _, _, _, _, ann, _ in variations]
+            block_path_list = [bp for _, _, _, _, _, _, _, bp in variations]
             print(f"   📋 Generated {len(text_combinations)} nested text variations")
         
         else:
@@ -724,6 +732,7 @@ def build_jobs(task_conf, lora_root, range_increment, prompts_delimiter, global_
             wildcard_positions_list = None  # Not tracked in old format
             is_leaf_list = None  # Not tracked in old format
             annotations_list = None  # Not tracked in old format
+            block_path_list = None  # Not tracked in old format
             
             if not sorted_keys:
                 text_combinations = [[""]]
@@ -804,6 +813,13 @@ def build_jobs(task_conf, lora_root, range_increment, prompts_delimiter, global_
                 ann = annotations_list[text_var_idx - 1]
                 if ann:
                     new_p_entry['_annotations'] = ann
+
+            # Add block path for TreeExecutor block identity
+            if block_path_list and text_var_idx <= len(block_path_list):
+                block_path = block_path_list[text_var_idx - 1]
+                new_p_entry['_block_path'] = block_path
+                parts = block_path.rsplit('.', 1)
+                new_p_entry['_parent_path'] = parts[0] if len(parts) > 1 else None
 
             new_expanded_prompts.append(new_p_entry)
             

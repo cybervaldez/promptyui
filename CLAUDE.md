@@ -15,7 +15,9 @@ See `docs/composition-model.md` for the complete reference.
 ## Key Concepts
 
 - **Wildcard**: Template variable (`__tone__`) with multiple values. Dimensions of the Cartesian product.
-- **ext_text**: Reusable text lists from `ext/` theme files. Each theme can bring its own wildcards.
+- **ext_text**: Reusable text lists from `ext/` theme files. Each theme can bring its own wildcards and per-value metadata (`meta`).
+- **Theme metadata (meta)**: Per-value facts on ext_text entries (e.g., `department: "engineering"`). Separate namespace from annotations — carries reference data ("what it IS") vs. annotations' intent ("what to DO"). Never merged with or overridden by block annotations. Flows into hook context as `ctx['meta']`.
+- **Annotations**: 3-layer inheritance for user intent: `defaults.annotations` → `prompt.annotations` → `block.annotations`. Deeper wins. Null sentinel removes inherited keys. Flows into hook context as `ctx['annotations']` + `ctx['annotation_sources']`.
 - **Bucket**: Contiguous window of values. `wildcards_max: 3` splits a 10-value wildcard into 4 buckets. Composition navigator moves between buckets (coarse), dropdowns pick within a bucket (fine).
 - **Operation**: Named value-replacement mapping (a type of build hook) applied per-window, enabling localization, A/B testing, and cherry-picking. The operation's filename is its **variant family** name — it labels the output batch.
 - **Composition ID**: Numeric index into the Cartesian product. Odometer algorithm decomposes ID into per-wildcard value indices.
@@ -55,11 +57,17 @@ Hooks are named by **where they appear**, not when they execute. A beginner read
 | `build-job.py` | CLI entry point for building jobs |
 | `mods/` | Mod scripts: `error_logger`, `prompt_translator`, `config_injector`, `favorites` |
 | `webui/prompty/js/preview.js` | `compositionToIndices`, `bucketCompositionToIndices`, `computeEffectiveTotal` |
-| `webui/prompty/js/right-panel.js` | Wildcard chips, bucket navigation, per-slot editing |
-| `webui/prompty/js/build-composition.js` | `_getCompositionParams` — shared composition space computation |
+| `webui/prompty/js/right-panel.js` | Wildcard/Annotations tab switching, bucket navigation, annotations hierarchy overview |
+| `webui/prompty/js/build-composition.js` | Quick Build slide-out panel, export controls |
+| `webui/prompty/js/shared.js` | `getCompositionParams()`, `compositionToIndices()` — shared utilities used by Pipeline, Gallery, Quick Build |
+| `webui/prompty/js/pipeline.js` | Pipeline View modal (block tree + SSE execution), Build dropdown menu |
+| `webui/prompty/js/gallery.js` | Sampler Gallery modal — grid of sampled compositions with wildcard labels |
+| `webui/prompty/js/annotations.js` | 3-layer annotation inheritance, resolve(), universals (`_comment`, `_priority`, `_draft`, `_token_limit`), async widget, defineUniversal() API |
 | `webui/prompty/js/state.js` | `previewMode` — runtime state for composition, buckets, overrides |
+| `src/tree_executor.py` | `TreeExecutor` — depth-first block-aware execution with enriched hook context |
+| `webui/prompty/server/api/pipeline.py` | SSE endpoint for Pipeline View execution (`/api/pu/pipeline/run`) |
 | `jobs/hiring-templates/jobs.yaml` | Reference job exercising all features (ext_text, nesting, bucketing) |
-| `ext/hiring/roles.yaml` | Example theme: 6 roles + seniority wildcard |
+| `ext/hiring/roles.yaml` | Example theme: 6 roles + seniority wildcard + per-value meta |
 
 ## Architecture
 

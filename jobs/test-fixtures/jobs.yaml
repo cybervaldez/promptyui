@@ -1,0 +1,39 @@
+# Test Fixtures - Exercises nested blocks for TreeExecutor testing
+# Demonstrates: nested text blocks, wildcards, after chains, annotation inheritance
+
+defaults:
+  composition: 0
+  wildcards_max: 2
+  annotations:
+    quality: strict
+    audience: general
+
+prompts:
+  # NESTED BLOCKS: root -> children (exercises _block_path)
+  - id: "nested-blocks"
+    annotations:
+      audience: technical
+    text:
+      - content: "Root block __tone__"
+        annotations:
+          quality: null
+          tone: conversational
+          _comment: "Sets the overall tone context for children"
+          _priority: high
+          _draft: true
+          _token_limit: 500
+          _quality_check: true
+        after:
+          - content: "Child A"
+          - content: "Child B"
+    wildcards:
+      - name: "tone"
+        text: ["formal", "casual"]
+
+  # SIMPLE: single block, no nesting
+  - id: "simple-block"
+    text:
+      - content: "Simple prompt with __color__"
+    wildcards:
+      - name: "color"
+        text: ["red", "blue"]

@@ -12,6 +12,13 @@ PU.rightPanel = {
      */
     async init() {
         await PU.rightPanel.loadExtensions();
+
+        // Restore persisted tab selection
+        const savedTab = PU.state.ui.rightPanelTab;
+        if (savedTab && savedTab !== 'wildcards') {
+            PU.rightPanel.switchTab(savedTab);
+        }
+
         PU.rightPanel.render();
 
         // Close popover/dropdown on outside click
@@ -27,6 +34,10 @@ PU.rightPanel = {
             // Close push-to-theme popover
             if (!e.target.closest('.pu-rp-push-popover') && !e.target.closest('.pu-rp-push-trigger')) {
                 PU.rightPanel.hidePushPopover();
+            }
+            // Close defaults popover
+            if (!e.target.closest('.pu-defaults-popover') && !e.target.closest('.pu-header-defaults-btn')) {
+                PU.rightPanel.hideDefaultsPopover();
             }
         });
 
@@ -179,47 +190,544 @@ PU.rightPanel = {
      * Full render of all panel sections
      */
     render() {
-        PU.rightPanel.renderDefaults();
+        PU.rightPanel.renderDefaultsPopover();
+        PU.rightPanel.renderPromptAnnotations();
         PU.rightPanel.renderWildcardStream();
         PU.rightPanel.renderOpsSection();
+        PU.rightPanel.renderAnnotationsTab();
     },
 
     // ============================================
-    // Job Defaults
+    // Tab Switching
     // ============================================
 
-    toggleDefaults() {
-        const section = document.querySelector('[data-testid="pu-rp-defaults"]');
-        if (section) section.classList.toggle('collapsed');
-        PU.state.ui.sectionsCollapsed.defaults = section?.classList.contains('collapsed') ?? false;
+    /**
+     * Switch the active right panel tab.
+     * @param {'wildcards'|'annotations'} tabName
+     */
+    switchTab(tabName) {
+        PU.state.ui.rightPanelTab = tabName;
+
+        // Update tab strip active state
+        document.querySelectorAll('.pu-rp-tab').forEach(tab => {
+            tab.classList.toggle('active', tab.dataset.tab === tabName);
+        });
+
+        // Update pane visibility
+        document.querySelectorAll('.pu-rp-tab-pane').forEach(pane => {
+            pane.classList.toggle('active', pane.dataset.pane === tabName);
+        });
+
+        // Render the newly active tab's content if needed
+        if (tabName === 'annotations') {
+            PU.rightPanel.renderAnnotationsTab();
+        }
+
         PU.helpers.saveUIState();
     },
 
-    renderDefaults() {
+    // ============================================
+    // Annotations Tab (full hierarchy overview)
+    // ============================================
+
+    /**
+     * Render the annotations overview tab showing the full inheritance hierarchy:
+     * Defaults → Prompt → Per-block sections with resolved annotations and source labels.
+     */
+    renderAnnotationsTab() {
+        const container = document.querySelector('[data-testid="pu-rp-ann-overview"]');
+        if (!container) return;
+
         const job = PU.helpers.getActiveJob();
-        if (!job) return;
+        const prompt = PU.helpers.getActivePrompt();
+
+        // Always update tab label count (even when pane is hidden)
+        PU.rightPanel._updateAnnotationsTabCount(job, prompt);
+
+        // Only render body if tab is active (avoid unnecessary work)
+        const pane = document.querySelector('[data-testid="pu-rp-tab-pane-annotations"]');
+        if (!pane || !pane.classList.contains('active')) return;
+
+        if (!prompt) {
+            container.innerHTML = '<div class="pu-rp-note">Select a prompt to see annotations</div>';
+            return;
+        }
+
+        const esc = PU.blocks.escapeHtml;
+        const escAttr = PU.blocks.escapeAttr;
+        let html = '';
+
+        // 1. Defaults section
+        const defaultsAnn = (job && job.defaults && job.defaults.annotations) || {};
+        const defaultsKeys = Object.keys(defaultsAnn);
+        html += PU.rightPanel._renderAnnSection('defaults', 'Defaults', defaultsKeys.length, () => {
+            if (defaultsKeys.length === 0) return '<div class="pu-rp-ann-section-empty">No default annotations</div>';
+            return defaultsKeys.map(k => PU.rightPanel._renderAnnEntry(k, defaultsAnn[k], 'defaults')).join('');
+        });
+
+        // 2. Prompt section
+        const promptAnn = (prompt.annotations) || {};
+        const promptKeys = Object.keys(promptAnn);
+        html += PU.rightPanel._renderAnnSection('prompt', 'Prompt', promptKeys.length, () => {
+            if (promptKeys.length === 0) return '<div class="pu-rp-ann-section-empty">No prompt annotations</div>';
+            return promptKeys.map(k => PU.rightPanel._renderAnnEntry(k, promptAnn[k], 'prompt')).join('');
+        });
+
+        // 3. Per-block sections
+        const textItems = prompt.text || [];
+        const blockSections = [];
+        PU.rightPanel._walkBlocks(textItems, '', (block, path) => {
+            const blockAnn = block.annotations || {};
+            const blockKeys = Object.keys(blockAnn);
+            if (blockKeys.length === 0) return; // skip blocks with no annotations
+
+            const { computed, sources, removed } = PU.annotations.resolve(path);
+            blockSections.push({ block, path, blockAnn, computed, sources, removed });
+        });
+
+        for (const sec of blockSections) {
+            const pathId = sec.path.replace(/\./g, '-');
+            const contentPreview = (sec.block.content || '').substring(0, 30);
+            const label = contentPreview ? `Block ${sec.path}: ${esc(contentPreview)}${sec.block.content && sec.block.content.length > 30 ? '...' : ''}` : `Block ${sec.path}`;
+            const annCount = Object.keys(sec.computed).length + Object.keys(sec.removed).length;
+
+            html += PU.rightPanel._renderAnnSection(`block-${pathId}`, label, annCount, () => {
+                let entries = '';
+                // Computed annotations with sources
+                for (const [k, v] of Object.entries(sec.computed)) {
+                    entries += PU.rightPanel._renderAnnEntry(k, v, sec.sources[k] || 'block');
+                }
+                // Removed annotations
+                for (const [k, origSource] of Object.entries(sec.removed)) {
+                    entries += `<div class="pu-rp-ann-entry removed" data-testid="pu-rp-ann-entry-removed-${escAttr(k)}">
+                        <span class="pu-rp-ann-entry-key">${esc(k)}:</span>
+                        <span class="pu-rp-ann-entry-value">(removed)</span>
+                        <span class="pu-rp-ann-entry-source">${esc(origSource)}</span>
+                    </div>`;
+                }
+                if (!entries) return '<div class="pu-rp-ann-section-empty">No annotations</div>';
+                return entries;
+            }, sec.path, `pu-rp-ann-title-block`);
+        }
+
+        if (!html) {
+            html = '<div class="pu-rp-note">No annotations in this prompt</div>';
+        }
+
+        container.innerHTML = html;
+
+        // Attach click-to-scroll handlers for block sections
+        container.querySelectorAll('[data-scroll-to-block]').forEach(el => {
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const path = el.dataset.scrollToBlock;
+                PU.rightPanel._scrollToBlock(path);
+            });
+        });
+
+        // Attach click-to-edit handlers for annotation entries
+        container.querySelectorAll('[data-edit-block]').forEach(el => {
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const path = el.dataset.editBlock;
+                PU.rightPanel._scrollToBlock(path);
+                // Open annotation editor on that block
+                setTimeout(() => PU.annotations.openEditor(path), 150);
+            });
+        });
+
+        // Attach section toggle handlers
+        container.querySelectorAll('.pu-rp-ann-section-header').forEach(header => {
+            header.addEventListener('click', () => {
+                const section = header.closest('.pu-rp-ann-section');
+                if (section) section.classList.toggle('collapsed');
+            });
+        });
+    },
+
+    /**
+     * Render a collapsible annotation section.
+     */
+    _renderAnnSection(id, title, count, renderBody, blockPath, titleClass) {
+        const cls = titleClass || `pu-rp-ann-title-${id}`;
+        const bodyHtml = renderBody();
+        const blockPathEl = blockPath
+            ? ` <span class="pu-rp-ann-block-path" data-scroll-to-block="${PU.blocks.escapeAttr(blockPath)}" title="Scroll to block">${PU.blocks.escapeHtml(blockPath)}</span>`
+            : '';
+
+        return `<div class="pu-rp-ann-section" data-testid="pu-rp-ann-section-${PU.blocks.escapeAttr(id)}">
+            <div class="pu-rp-ann-section-header">
+                <span class="pu-rp-ann-section-chevron">&#9660;</span>
+                <span class="pu-rp-ann-section-title ${cls}">${title}</span>
+                <span class="pu-rp-ann-section-count">${count > 0 ? `(${count})` : ''}</span>
+                ${blockPathEl}
+            </div>
+            <div class="pu-rp-ann-section-body" data-testid="pu-rp-ann-body-${PU.blocks.escapeAttr(id)}">
+                ${bodyHtml}
+            </div>
+        </div>`;
+    },
+
+    /**
+     * Render a single annotation entry row.
+     */
+    _renderAnnEntry(key, value, source) {
+        const esc = PU.blocks.escapeHtml;
+        const displayValue = value === null ? '(null)' : String(value);
+        return `<div class="pu-rp-ann-entry" data-testid="pu-rp-ann-entry-${esc(key)}">
+            <span class="pu-rp-ann-entry-key">${esc(key)}:</span>
+            <span class="pu-rp-ann-entry-value" title="${PU.blocks.escapeAttr(displayValue)}">${esc(displayValue)}</span>
+            <span class="pu-rp-ann-entry-source">${esc(source)}</span>
+        </div>`;
+    },
+
+    /**
+     * Walk all blocks in the text tree, calling fn(block, path) for each.
+     */
+    _walkBlocks(textItems, prefix, fn) {
+        if (!Array.isArray(textItems)) return;
+        for (let i = 0; i < textItems.length; i++) {
+            const item = textItems[i];
+            const path = prefix ? `${prefix}.${i}` : String(i);
+            fn(item, path);
+            if (item.after && Array.isArray(item.after)) {
+                PU.rightPanel._walkBlocks(item.after, path, fn);
+            }
+        }
+    },
+
+    /**
+     * Scroll the editor canvas to a specific block and briefly highlight it.
+     */
+    _scrollToBlock(path) {
+        const pathId = path.replace(/\./g, '-');
+        const blockEl = document.querySelector(`[data-testid="pu-block-${pathId}"]`);
+        if (!blockEl) return;
+
+        blockEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        blockEl.classList.add('pu-highlight-match');
+        setTimeout(() => blockEl.classList.remove('pu-highlight-match'), 1500);
+    },
+
+    /**
+     * Update the Annotations tab button label with total annotation count.
+     */
+    _updateAnnotationsTabCount(job, prompt) {
+        const tabBtn = document.querySelector('[data-testid="pu-rp-tab-annotations"]');
+        if (!tabBtn) return;
+
+        if (!prompt) {
+            tabBtn.textContent = 'Annotations';
+            return;
+        }
+
+        const defaultsCount = Object.keys((job && job.defaults && job.defaults.annotations) || {}).length;
+        const promptCount = Object.keys((prompt.annotations) || {}).length;
+
+        let blockCount = 0;
+        PU.rightPanel._walkBlocks(prompt.text || [], '', (block) => {
+            blockCount += Object.keys(block.annotations || {}).length;
+        });
+
+        const total = defaultsCount + promptCount + blockCount;
+        tabBtn.textContent = total > 0 ? `Annotations (${total})` : 'Annotations';
+    },
+
+    // ============================================
+    // Job Defaults Popover (header gear icon)
+    // ============================================
+
+    toggleDefaultsPopover() {
+        const popover = document.querySelector('[data-testid="pu-defaults-popover"]');
+        if (!popover) return;
+        if (popover.style.display !== 'none') {
+            PU.rightPanel.hideDefaultsPopover();
+        } else {
+            PU.rightPanel.renderDefaultsPopover();
+            popover.style.display = 'block';
+        }
+    },
+
+    hideDefaultsPopover() {
+        const popover = document.querySelector('[data-testid="pu-defaults-popover"]');
+        if (popover) popover.style.display = 'none';
+    },
+
+    renderDefaultsPopover() {
+        const popover = document.querySelector('[data-testid="pu-defaults-popover"]');
+        if (!popover) return;
+
+        const job = PU.helpers.getActiveJob();
+        if (!job) {
+            popover.innerHTML = '<div class="pu-defaults-popover-empty">No job selected</div>';
+            return;
+        }
 
         const defaults = job.defaults || {};
+        const annotations = defaults.annotations || {};
+        const esc = PU.blocks.escapeHtml;
+        const escAttr = PU.blocks.escapeAttr;
+
+        // Ext theme dropdown
         const tree = PU.state.globalExtensions.tree;
         const hasExtensions = tree && Object.keys(tree).filter(k => k !== '_files').length > 0;
-
-        const extRow = document.querySelector('[data-testid="pu-rp-defaults-ext-row"]');
-        const noExtMsg = document.querySelector('[data-testid="pu-defaults-no-ext"]');
-        if (extRow) extRow.style.display = hasExtensions ? '' : 'none';
-        if (noExtMsg) noExtMsg.style.display = hasExtensions ? 'none' : '';
-
+        let extHtml = '';
         if (hasExtensions) {
-            const extSelect = document.querySelector('[data-testid="pu-defaults-ext"]');
+            extHtml = `<div class="pu-defaults-popover-row">
+                <label>ext</label>
+                <select data-testid="pu-defaults-popover-ext"
+                        onchange="PU.actions.updateDefaults('ext', this.value); PU.rightPanel.renderDefaultsPopover()">
+                    <option value="">Loading...</option>
+                </select>
+            </div>`;
+        }
+
+        // Numeric defaults (read-only display)
+        let infoHtml = '';
+        const infoKeys = ['wildcards_max', 'ext_text_max', 'composition'];
+        for (const key of infoKeys) {
+            if (defaults[key] !== undefined) {
+                infoHtml += `<div class="pu-defaults-popover-row">
+                    <label>${esc(key)}</label>
+                    <span class="pu-defaults-popover-val">${esc(String(defaults[key]))}</span>
+                </div>`;
+            }
+        }
+
+        // Annotations (editable)
+        let annRows = '';
+        for (const [key, value] of Object.entries(annotations)) {
+            annRows += `<div class="pu-defaults-popover-ann-row" data-testid="pu-defaults-ann-row-${escAttr(key)}">
+                <input type="text" class="pu-ann-key" value="${escAttr(key)}" placeholder="key"
+                       onchange="PU.rightPanel._handleDefaultsAnnKeyChange('${escAttr(key)}', this)"
+                       onclick="event.stopPropagation()">
+                <input type="text" class="pu-ann-value" value="${escAttr(String(value))}" placeholder="value"
+                       onchange="PU.rightPanel._handleDefaultsAnnValueChange('${escAttr(key)}', this)"
+                       onclick="event.stopPropagation()">
+                <button class="pu-ann-remove"
+                        onclick="event.stopPropagation(); PU.rightPanel._removeDefaultsAnn('${escAttr(key)}')">&times;</button>
+            </div>`;
+        }
+
+        popover.innerHTML = `
+            <div class="pu-defaults-popover-header">
+                <span>Job Defaults</span>
+                <button class="pu-annotation-close" onclick="PU.rightPanel.hideDefaultsPopover()">&times;</button>
+            </div>
+            ${extHtml}
+            ${infoHtml}
+            <div class="pu-defaults-popover-divider">Annotations</div>
+            <div class="pu-defaults-popover-ann" data-testid="pu-defaults-popover-ann">
+                ${annRows || '<div class="pu-defaults-popover-empty-ann">No default annotations</div>'}
+            </div>
+            <button class="pu-annotation-add" data-testid="pu-defaults-ann-add"
+                    onclick="event.stopPropagation(); PU.rightPanel._addDefaultsAnn()">+ Add annotation</button>
+        `;
+
+        // Populate ext dropdown after rendering
+        if (hasExtensions) {
+            const extSelect = popover.querySelector('[data-testid="pu-defaults-popover-ext"]');
             if (extSelect) {
                 PU.editor.populateExtDropdown(extSelect, defaults.ext || 'defaults');
             }
         }
+    },
 
-        // Apply persisted collapse state
-        const section = document.querySelector('[data-testid="pu-rp-defaults"]');
-        if (section) {
-            section.classList.toggle('collapsed', !!PU.state.ui.sectionsCollapsed.defaults);
+    /** Get the modifiable job object (creates clone if needed) */
+    _ensureModifiedJob() {
+        const jobId = PU.state.activeJobId;
+        if (!jobId) return null;
+        if (!PU.state.modifiedJobs[jobId]) {
+            PU.state.modifiedJobs[jobId] = PU.helpers.deepClone(PU.state.jobs[jobId]);
         }
+        return PU.state.modifiedJobs[jobId];
+    },
+
+    _handleDefaultsAnnKeyChange(oldKey, inputEl) {
+        const job = PU.rightPanel._ensureModifiedJob();
+        if (!job) return;
+        if (!job.defaults) job.defaults = {};
+        if (!job.defaults.annotations) job.defaults.annotations = {};
+
+        const newKey = inputEl.value.trim();
+        if (!newKey || newKey === oldKey) return;
+
+        const value = job.defaults.annotations[oldKey];
+        const newAnn = {};
+        for (const [k, v] of Object.entries(job.defaults.annotations)) {
+            newAnn[k === oldKey ? newKey : k] = k === oldKey ? value : v;
+        }
+        job.defaults.annotations = newAnn;
+
+        PU.rightPanel.renderDefaultsPopover();
+        PU.annotations.propagateFromParent();
+    },
+
+    _handleDefaultsAnnValueChange(key, inputEl) {
+        const job = PU.rightPanel._ensureModifiedJob();
+        if (!job) return;
+        if (!job.defaults) job.defaults = {};
+        if (!job.defaults.annotations) job.defaults.annotations = {};
+
+        let value = inputEl.value;
+        if (value === 'true') value = true;
+        else if (value === 'false') value = false;
+        else if (value !== '' && !isNaN(Number(value))) value = Number(value);
+
+        job.defaults.annotations[key] = value;
+        PU.annotations.propagateFromParent();
+    },
+
+    _addDefaultsAnn() {
+        const job = PU.rightPanel._ensureModifiedJob();
+        if (!job) return;
+        if (!job.defaults) job.defaults = {};
+        if (!job.defaults.annotations) job.defaults.annotations = {};
+
+        let keyName = 'key';
+        let counter = 1;
+        while (job.defaults.annotations.hasOwnProperty(keyName)) {
+            keyName = `key${counter++}`;
+        }
+        job.defaults.annotations[keyName] = '';
+
+        PU.rightPanel.renderDefaultsPopover();
+        PU.annotations.propagateFromParent();
+    },
+
+    _removeDefaultsAnn(key) {
+        const job = PU.rightPanel._ensureModifiedJob();
+        if (!job || !job.defaults || !job.defaults.annotations) return;
+
+        delete job.defaults.annotations[key];
+        if (Object.keys(job.defaults.annotations).length === 0) {
+            delete job.defaults.annotations;
+        }
+
+        PU.rightPanel.renderDefaultsPopover();
+        PU.annotations.propagateFromParent();
+    },
+
+    // ============================================
+    // Prompt Annotations Bar (right panel top)
+    // ============================================
+
+    togglePromptAnnotations() {
+        const section = document.querySelector('[data-testid="pu-rp-prompt-ann"]');
+        if (section) section.classList.toggle('collapsed');
+        PU.state.ui.sectionsCollapsed.promptAnn = section?.classList.contains('collapsed') ?? false;
+        PU.helpers.saveUIState();
+    },
+
+    renderPromptAnnotations() {
+        const bar = document.querySelector('[data-testid="pu-rp-prompt-ann"]');
+        if (!bar) return;
+
+        const prompt = PU.helpers.getActivePrompt();
+        const annotations = (prompt && prompt.annotations) || {};
+        const count = Object.keys(annotations).length;
+
+        // Update count badge
+        const countEl = bar.querySelector('[data-testid="pu-rp-prompt-ann-count"]');
+        if (countEl) {
+            countEl.textContent = count > 0 ? `(${count})` : '';
+        }
+
+        // Hide bar when no prompt selected
+        bar.style.display = prompt ? '' : 'none';
+
+        // Apply persisted collapse state (collapsed by default)
+        const isCollapsed = PU.state.ui.sectionsCollapsed.promptAnn !== false;
+        bar.classList.toggle('collapsed', isCollapsed);
+
+        // Render body
+        const body = bar.querySelector('[data-testid="pu-rp-prompt-ann-body"]');
+        if (!body) return;
+
+        const escAttr = PU.blocks.escapeAttr;
+        let rowsHtml = '';
+        for (const [key, value] of Object.entries(annotations)) {
+            rowsHtml += `<div class="pu-defaults-popover-ann-row" data-testid="pu-prompt-ann-row-${escAttr(key)}">
+                <input type="text" class="pu-ann-key" value="${escAttr(key)}" placeholder="key"
+                       onchange="PU.rightPanel._handlePromptAnnKeyChange('${escAttr(key)}', this)"
+                       onclick="event.stopPropagation()">
+                <input type="text" class="pu-ann-value" value="${escAttr(String(value))}" placeholder="value"
+                       onchange="PU.rightPanel._handlePromptAnnValueChange('${escAttr(key)}', this)"
+                       onclick="event.stopPropagation()">
+                <button class="pu-ann-remove"
+                        onclick="event.stopPropagation(); PU.rightPanel._removePromptAnn('${escAttr(key)}')">&times;</button>
+            </div>`;
+        }
+
+        body.innerHTML = `
+            <div class="pu-rp-prompt-ann-rows" data-testid="pu-rp-prompt-ann-rows">
+                ${rowsHtml || '<div class="pu-defaults-popover-empty-ann">No prompt annotations</div>'}
+            </div>
+            <button class="pu-annotation-add" data-testid="pu-prompt-ann-add"
+                    onclick="event.stopPropagation(); PU.rightPanel._addPromptAnn()">+ Add annotation</button>
+        `;
+    },
+
+    _handlePromptAnnKeyChange(oldKey, inputEl) {
+        const prompt = PU.editor.getModifiedPrompt();
+        if (!prompt) return;
+        if (!prompt.annotations) prompt.annotations = {};
+
+        const newKey = inputEl.value.trim();
+        if (!newKey || newKey === oldKey) return;
+
+        const value = prompt.annotations[oldKey];
+        const newAnn = {};
+        for (const [k, v] of Object.entries(prompt.annotations)) {
+            newAnn[k === oldKey ? newKey : k] = k === oldKey ? value : v;
+        }
+        prompt.annotations = newAnn;
+
+        PU.rightPanel.renderPromptAnnotations();
+        PU.annotations.propagateFromParent();
+    },
+
+    _handlePromptAnnValueChange(key, inputEl) {
+        const prompt = PU.editor.getModifiedPrompt();
+        if (!prompt) return;
+        if (!prompt.annotations) prompt.annotations = {};
+
+        let value = inputEl.value;
+        if (value === 'true') value = true;
+        else if (value === 'false') value = false;
+        else if (value !== '' && !isNaN(Number(value))) value = Number(value);
+
+        prompt.annotations[key] = value;
+        PU.annotations.propagateFromParent();
+    },
+
+    _addPromptAnn() {
+        const prompt = PU.editor.getModifiedPrompt();
+        if (!prompt) return;
+        if (!prompt.annotations) prompt.annotations = {};
+
+        let keyName = 'key';
+        let counter = 1;
+        while (prompt.annotations.hasOwnProperty(keyName)) {
+            keyName = `key${counter++}`;
+        }
+        prompt.annotations[keyName] = '';
+
+        PU.rightPanel.renderPromptAnnotations();
+        PU.annotations.propagateFromParent();
+    },
+
+    _removePromptAnn(key) {
+        const prompt = PU.editor.getModifiedPrompt();
+        if (!prompt || !prompt.annotations) return;
+
+        delete prompt.annotations[key];
+        if (Object.keys(prompt.annotations).length === 0) {
+            delete prompt.annotations;
+        }
+
+        PU.rightPanel.renderPromptAnnotations();
+        PU.annotations.propagateFromParent();
     },
 
     // ============================================
@@ -258,11 +766,11 @@ PU.rightPanel = {
         // Classify wildcards into "shared" (ext + theme) and "local"
         const sharedWildcards = [];
         const localWildcards = [];
-        const themeSourceMap = PU.rightPanel._buildThemeSourceMap();
+        const themeSourceMap = PU.shared.buildThemeSourceMap();
 
         for (const name of allNames) {
             const isLocal = localNames.has(name);
-            const isExt = !isLocal || PU.rightPanel._isExtWildcard(name);
+            const isExt = !isLocal || PU.shared.isExtWildcard(name);
             const themeSrc = themeSourceMap[name];
 
             if (isLocal && isExt) {
@@ -272,7 +780,7 @@ PU.rightPanel = {
             } else if (themeSrc) {
                 sharedWildcards.push({ name, source: 'theme', path: themeSrc });
             } else {
-                sharedWildcards.push({ name, source: 'ext', path: PU.rightPanel._getExtWildcardPath(name) });
+                sharedWildcards.push({ name, source: 'ext', path: PU.shared.getExtWildcardPath(name) });
             }
         }
 
@@ -407,73 +915,6 @@ PU.rightPanel = {
         if (PU.state.previewMode.focusedWildcards.length > 0) {
             PU.rightPanel._applyFocusMulti();
         }
-    },
-
-    /**
-     * Build a map of wildcard name -> theme source id for wildcards
-     * that come from ext_text blocks in the current prompt.
-     */
-    _buildThemeSourceMap() {
-        const map = {};
-        const prompt = PU.helpers.getActivePrompt();
-        if (!prompt || !Array.isArray(prompt.text)) return map;
-
-        const extTextNames = [];
-        const walkBlocks = (items) => {
-            for (const item of items) {
-                if (typeof item === 'object' && 'ext_text' in item && item.ext_text) {
-                    extTextNames.push(item.ext_text);
-                }
-                if (item && item.after) walkBlocks(item.after);
-            }
-        };
-        walkBlocks(prompt.text);
-
-        const cache = PU.state.previewMode._extTextCache || {};
-        for (const extName of extTextNames) {
-            const data = cache[extName];
-            if (data && data.wildcards) {
-                for (const wc of data.wildcards) {
-                    if (wc.name && !map[wc.name]) {
-                        map[wc.name] = extName;
-                    }
-                }
-            }
-        }
-
-        return map;
-    },
-
-    /**
-     * Check if a wildcard name exists in the extension cache
-     */
-    _isExtWildcard(name) {
-        const cache = PU.state.previewMode._extTextCache || {};
-        for (const cacheKey of Object.keys(cache)) {
-            const data = cache[cacheKey];
-            if (data && data.wildcards) {
-                for (const wc of data.wildcards) {
-                    if (wc.name === name) return true;
-                }
-            }
-        }
-        return false;
-    },
-
-    /**
-     * Get the extension source path for a wildcard name
-     */
-    _getExtWildcardPath(name) {
-        const cache = PU.state.previewMode._extTextCache || {};
-        for (const cacheKey of Object.keys(cache)) {
-            const data = cache[cacheKey];
-            if (data && data.wildcards) {
-                for (const wc of data.wildcards) {
-                    if (wc.name === name) return cacheKey;
-                }
-            }
-        }
-        return '';
     },
 
     // ============================================
@@ -723,7 +1164,7 @@ PU.rightPanel = {
             const dirtyInfo = PU.rightPanel._getWildcardDirtyInfo(name);
             const isDirty = dirtyInfo && dirtyInfo.themes.some(t => t.added.length > 0 || t.removed.length > 0);
             const dirtyClass = isDirty ? ' pu-rp-push-dirty' : '';
-            const themePath = PU.rightPanel._buildThemeSourceMap()[name] || PU.rightPanel._getExtWildcardPath(name);
+            const themePath = PU.shared.buildThemeSourceMap()[name] || PU.shared.getExtWildcardPath(name);
             overlapWarning = `<span class="pu-rp-wc-overlap-warn pu-rp-push-trigger${dirtyClass}"
                 data-testid="pu-rp-push-trigger-${safeName}"
                 data-wc-name="${safeName}"
@@ -830,7 +1271,7 @@ PU.rightPanel = {
             return;
         }
 
-        const { wcNames, wildcardCounts, extTextCount, total } = PU.buildComposition._getCompositionParams();
+        const { wcNames, wildcardCounts, extTextCount, total } = PU.shared.getCompositionParams();
 
         // Gap 5: Hide entirely when no wildcards exist
         if (wcNames.length === 0 && extTextCount <= 1) {
@@ -842,7 +1283,7 @@ PU.rightPanel = {
 
         // Composition count: product of locked value counts (or 1 per wildcard if unlocked)
         // This IS the export batch size
-        const lockedTotal = PU.rightPanel._computeLockedTotal(wildcardCounts, extTextCount, lockedValues);
+        const lockedTotal = PU.shared.computeLockedTotal(wildcardCounts, extTextCount, lockedValues);
 
         // Per-wildcard dimension summary
         let dimsHtml = '';
@@ -870,7 +1311,7 @@ PU.rightPanel = {
 
         // Size estimate
         const sampleSize = 200;
-        const sizeStr = PU.buildComposition._formatBytes(sampleSize * lockedTotal);
+        const sizeStr = PU.shared.formatBytes(sampleSize * lockedTotal);
 
         container.innerHTML = `
             <div class="pu-rp-ops-nav">
@@ -922,13 +1363,13 @@ PU.rightPanel = {
         const exportBtn = document.querySelector('[data-testid="pu-rp-export-btn"]');
         if (!sizeEl) return;
 
-        const { wildcardCounts, extTextCount } = PU.buildComposition._getCompositionParams();
+        const { wildcardCounts, extTextCount } = PU.shared.getCompositionParams();
         const lockedValues = PU.state.previewMode.lockedValues || {};
-        const total = PU.rightPanel._computeLockedTotal(wildcardCounts, extTextCount, lockedValues);
+        const total = PU.shared.computeLockedTotal(wildcardCounts, extTextCount, lockedValues);
         const sampleBytes = new Blob([sampleText]).size;
         const headerBytes = 40;
         const totalBytes = (sampleBytes + headerBytes + 2) * total;
-        const sizeStr = PU.buildComposition._formatBytes(totalBytes);
+        const sizeStr = PU.shared.formatBytes(totalBytes);
 
         sizeEl.textContent = '~' + sizeStr;
         if (exportBtn) {
@@ -1052,22 +1493,6 @@ PU.rightPanel = {
     // ============================================
     // Lock-based composition
     // ============================================
-
-    /**
-     * Compute total compositions based on locked values.
-     * With 0 locks: count = 1 (just the current preview combo).
-     * With locks: count = product of locked counts per wildcard × ext_text factor.
-     */
-    _computeLockedTotal(wildcardCounts, extTextCount, lockedValues) {
-        let total = Math.max(1, extTextCount);
-        const sortedWc = Object.keys(wildcardCounts).sort();
-        for (const n of sortedWc) {
-            const locked = lockedValues[n];
-            const effectiveDim = (locked && locked.length > 0) ? locked.length : 1;
-            total *= effectiveDim;
-        }
-        return total;
-    },
 
     /**
      * Toggle a locked wildcard value.

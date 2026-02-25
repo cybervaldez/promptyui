@@ -106,12 +106,18 @@ Extension text blocks are **reusable text lists** stored in the `ext/` folder. A
 # ext/hiring/roles.yaml
 id: "roles"
 text:
-  - "Software Engineer"
+  - "Software Engineer"                    # plain string (no meta)
   - "Product Manager"
-  - "Designer"
+  - content: "Designer"                    # object with meta
+    meta:
+      department: "design"
+      portfolio_required: true
   - "Data Scientist"
   - "DevOps Engineer"
-  - "Engineering Manager"
+  - content: "Engineering Manager"
+    meta:
+      department: "engineering"
+      manages_people: true
 wildcards:
   - name: "seniority"
     text: ["Junior", "Mid-level", "Senior", "Staff", "Principal"]
@@ -120,6 +126,7 @@ wildcards:
 A theme file has:
 - **text**: A list of text values (like a multi-valued wildcard, but for whole text blocks)
 - **wildcards**: Additional wildcard dimensions that come along with the theme
+- **meta** (optional): Per-value metadata attached to individual text entries (see [Theme Metadata](#theme-metadata-meta) below)
 
 ### Referencing ext_text in a prompt
 
@@ -167,6 +174,324 @@ text:
 ```
 
 All wildcards merge into one pool. The Cartesian product spans everything.
+
+### Theme Metadata (meta)
+
+Theme text entries can carry **metadata** — structured facts about each value. Unlike block annotations (which express user intent), theme metadata expresses **reference data** about the content.
+
+#### The problem: annotations vs. facts
+
+Block annotations and theme data serve different purposes:
+
+| | Block Annotations | Theme Metadata |
+|---|---|---|
+| **Semantics** | User intent ("I want this formatted as bullets") | Reference fact ("this role is in engineering") |
+| **Set by** | Prompt author, per block | Theme author, per text value |
+| **Override rule** | Deeper wins (block > prompt > defaults) | Never overridden — separate namespace |
+| **Example** | `annotations: {format: "bullets", section: "interview"}` | `meta: {department: "engineering", level: "mid-senior"}` |
+
+If theme data lived in `annotations`, an `after:` child's annotations would silently overwrite theme facts (because "deeper wins"). A theme marking a role as `audience: "technical"` would be lost if an `after:` block also set `audience: "hiring-managers"`. This conflates two different concepts — the role IS technical (fact), and the output TARGETS hiring managers (intent).
+
+**Strategy D: Namespace separation** solves this by keeping them in separate channels.
+
+#### Theme YAML with meta
+
+```yaml
+# ext/hiring/roles.yaml
+id: "roles"
+text:
+  - content: "Software Engineer"
+    meta:
+      department: "engineering"
+      level: "mid-senior"
+  - content: "Product Designer"
+    meta:
+      department: "design"
+      portfolio_required: true
+  - "Data Scientist"                    # plain string — no meta (still valid)
+  - content: "Engineering Manager"
+    meta:
+      department: "engineering"
+      level: "senior-staff"
+      manages_people: true
+wildcards:
+  - name: "seniority"
+    text: ["Junior", "Mid-level", "Senior", "Staff", "Principal"]
+```
+
+Text entries can be either:
+- **Plain strings** (backwards compatible): `"Data Scientist"`
+- **Objects with content + meta**: `{content: "Software Engineer", meta: {department: "engineering"}}`
+
+#### How meta flows through the pipeline
+
+```
+Theme YAML                  Cartesian Engine              Hook Context
+┌─────────────────┐       ┌────────────────────┐       ┌──────────────────────┐
+│ text:            │       │ Merge annotations: │       │ ctx = {              │
+│   - content: ... │  ──→  │   {**parent, **child}│  ──→ │   annotations: {...} │ ← block annotations
+│     meta: {...}  │       │                    │       │   meta: {...}        │ ← theme metadata
+│                  │       │ Pass meta through  │       │ }                    │
+│ (separate from   │       │ as-is (no merge)   │       │                      │
+│  annotations)    │       │                    │       │ Hook reads both:     │
+└─────────────────┘       └────────────────────┘       │   ann = ctx['annotations']
+                                                        │   meta = ctx['meta']
+                                                        └──────────────────────┘
+```
+
+Key rules:
+1. **`meta` never merges with `annotations`** — they're separate dicts in the hook context
+2. **`meta` is read-only** — theme values don't get overridden by block or prompt annotations
+3. **`meta` passes through the Cartesian product** — each composition carries the meta from its ext_text source value
+4. **No meta on non-ext_text blocks** — only theme text entries have meta. Regular `content:` blocks use `annotations:`
+
+#### Hook context with both channels
+
+```python
+def execute(context, params=None):
+    # Block annotations (user intent — "what to do")
+    ann = context.get('annotations', {})
+    # ann = {format: "bullets", section: "interview"}
+
+    # Theme metadata (reference facts — "what it is")
+    meta = context.get('meta', {})
+    # meta = {department: "engineering", level: "mid-senior"}
+
+    # Use both independently
+    if meta.get('department') == 'engineering':
+        # Add technical interview template
+        ...
+    if ann.get('format') == 'bullets':
+        # Format output as bullets
+        ...
+```
+
+#### Mental model
+
+```
+Theme = "what the reference data IS"        → meta (facts, read-only)
+Block = "what the user WANTS to do with it" → annotations (intent, overridable)
+
+These are orthogonal. A Software Engineer role IS in engineering (meta).
+The user WANTS bullet-point format for interviews (annotation).
+Neither overwrites the other.
+```
+
+### Block Annotations — Deep Dive
+
+Annotations are key-value metadata on blocks expressing **user intent**. They flow through a 3-layer inheritance chain and drive UI widgets, token budgets, and async checks.
+
+#### 3-Layer Inheritance
+
+```
+defaults.annotations  →  prompt.annotations  →  block.annotations
+     (job-wide)            (per-prompt)            (per-block)
+```
+
+**Deeper wins.** A block annotation overrides the same key from the prompt, which overrides the same key from defaults.
+
+**Null sentinel removes inherited keys.** Setting `quality: null` on a block removes `quality` inherited from defaults or prompt — the block explicitly opts out.
+
+**Block annotations do NOT cascade to `after:` children.** A parent's annotations apply only to the parent block. Children start fresh from defaults + prompt and apply their own `annotations:`.
+
+```yaml
+defaults:
+  annotations:
+    quality: strict       # All blocks inherit this
+
+prompts:
+  - id: example
+    annotations:
+      audience: technical  # All blocks in this prompt inherit this
+    text:
+      - content: "Parent block"
+        annotations:
+          quality: null    # Removes "strict" from THIS block only
+          tone: formal     # Own annotation
+        after:
+          - content: "Child block"
+            # Inherits: quality=strict (from defaults), audience=technical (from prompt)
+            # Does NOT inherit: tone=formal (parent block annotations don't cascade)
+```
+
+#### Resolution Algorithm
+
+`PU.annotations.resolve(path)` returns `{ computed, sources }`:
+
+```javascript
+const computed = {};   // key → value (merged result)
+const sources = {};    // key → 'defaults' | 'prompt' | 'block'
+
+// 1. Start with defaults.annotations
+for (const [k, v] of Object.entries(defaults.annotations))
+    computed[k] = v, sources[k] = 'defaults';
+
+// 2. Overlay prompt.annotations
+for (const [k, v] of Object.entries(prompt.annotations))
+    if (v === null) delete computed[k], delete sources[k];
+    else computed[k] = v, sources[k] = 'prompt';
+
+// 3. Overlay block.annotations (NOT parent's — directly from YAML)
+for (const [k, v] of Object.entries(block.annotations))
+    if (v === null) delete computed[k], delete sources[k];
+    else computed[k] = v, sources[k] = 'block';
+```
+
+#### Universal Annotations
+
+Universal annotations are **system-handled** annotation keys with built-in UI semantics. They start with `_` to signal "the system handles this, not hooks."
+
+| Key | Widget | ShowOnCard | Purpose |
+|-----|--------|------------|---------|
+| `_comment` | `textarea` | Yes | Free-text note displayed on the block card |
+| `_priority` | `select` (high/medium/low) | Yes | Priority level displayed as a badge |
+| `_draft` | `toggle` | Yes | Draft flag — visual indicator on block |
+| `_token_limit` | `number` | No | Token budget — drives the token counter chip |
+
+Universals with `showOnCard: true` render directly on the block card (not in the badge count). `_token_limit` is budget-gated — the token counter chip only appears when `_token_limit` is set.
+
+#### `defineUniversal()` API
+
+Register custom universal annotations at runtime:
+
+```javascript
+PU.annotations.defineUniversal('_my_check', {
+    widget: 'async',           // 'textarea' | 'select' | 'toggle' | 'number' | 'async'
+    label: 'My Check',         // Display name
+    showOnCard: false,         // Render on block card?
+    description: 'Validates block content',
+
+    // async-only fields:
+    check: async (path, value, ctx) => {
+        // ctx.annotations: resolved annotations for this block
+        // ctx.blockText: raw block content text
+        return { status: 'pass', message: 'All good' };
+        // or: { status: 'fail', message: 'Content too short' }
+    },
+    autoCheck: true,           // Re-run check when block changes?
+    cacheTtl: 10,              // Cache result for N seconds (0 = no cache)
+});
+```
+
+**Widget types:**
+
+| Widget | Renders | Value Type |
+|--------|---------|------------|
+| `textarea` | Multi-line text input | `string` |
+| `select` | Dropdown with `options[]` | `string` (one of options) |
+| `toggle` | Checkbox + label | `'true'` / `'false'` |
+| `number` | Numeric input | `string` (numeric) |
+| `async` | Status indicator (pending/running/pass/fail) + run button | any |
+
+#### Token Counter Widget
+
+The token counter is an **editor hook** driven by the `_token_limit` annotation. It shows an inline chip on blocks that have a token budget.
+
+```
+┌─────────────────────────────────────────────────────┐
+│ Root block formal                        [🏷2] ~5/500 │
+│                                                     │
+│ (annotation badge)  (token counter chip)            │
+└─────────────────────────────────────────────────────┘
+```
+
+**Budget-gated visibility:** The chip only renders when `_token_limit` resolves to a positive number via 3-layer inheritance. No budget = no chip.
+
+**Format:** `~N/M` where N = approximate token count, M = token limit.
+
+**Token approximation:** `Math.ceil(text.length / 4)` — standard GPT tokenizer heuristic (chars/4).
+
+**Color states:**
+
+| State | Condition | Color |
+|-------|-----------|-------|
+| `ok` | < 75% of budget | Green (`--pu-success`) |
+| `warn` | 75% - 100% of budget | Amber (`--pu-warning`) |
+| `over` | > 100% of budget | Red (#f85149) |
+
+**Live update:** The counter updates in real-time as you type in the Quill editor, via `PU.blocks.updateTokenCounter()` called from `focus.js`'s `handleTextChange()`. This counts the **template text** (with `__wildcards__` unresolved), not the resolved text.
+
+**Inheritance:** `_token_limit` follows the standard 3-layer resolution. A job can set a global budget via `defaults.annotations._token_limit: 2000`, individual blocks can override with their own limit, and `_token_limit: null` removes the budget from a block.
+
+#### Async Widget
+
+The async widget is a **status indicator** for annotations that need to run an asynchronous check (API call, validation, computation). It renders as:
+
+```
+┌──────────────────────────────────────────────┐
+│ Quality Check   ✓ Content is sufficient  [▶] │
+│ (label)         (status + message)    (run)  │
+└──────────────────────────────────────────────┘
+```
+
+**States:**
+
+| State | Icon | When |
+|-------|------|------|
+| `pending` | ● (gray) | Initial — check has not run yet |
+| `running` | ⏳ (blue, pulsing) | Check function is executing |
+| `pass` | ✓ (green) | Check returned `{ status: 'pass' }` |
+| `fail` | ✗ (red) | Check returned `{ status: 'fail' }` or threw an error |
+
+**`check` function signature:**
+
+```javascript
+async function check(path, value, context) {
+    // path: block path (e.g., "0", "0.1")
+    // value: annotation value for this key
+    // context: { annotations, blockText }
+    //   annotations: fully resolved annotation dict for this block
+    //   blockText: raw content string of the block
+
+    return { status: 'pass', message: 'Human-readable result' };
+    // or:  { status: 'fail', message: 'What went wrong' }
+}
+```
+
+**`autoCheck`:** When `true`, the check re-runs automatically when block content or annotations change (via `PU.annotations.autoRunChecks(path)`).
+
+**`cacheTtl`:** Seconds to cache the result. Within the TTL, calling `runAsyncCheck()` returns the cached result without re-executing the check function. Set to `0` (default) for no caching.
+
+#### Annotation Editor (Inline)
+
+The annotation editor is a slide-in panel below each block's content area. It shows:
+
+1. **Inherited rows** (read-only) — annotations from defaults or prompt, with source badge (`defaults` / `prompt`)
+2. **Block-owned rows** (editable) — annotations set directly on this block, with source badge (`block`)
+3. **Null-overridden rows** — strikethrough display for keys removed via null sentinel, with "Restore" option
+4. **Universal widgets** — custom rendering per widget type (textarea, select, toggle, number, async)
+5. **Shortcut buttons** — quick-add buttons for each universal not yet present (`+ Comment`, `+ Priority`, `+ Draft`, `+ Token Limit`)
+
+The editor is opened via the annotate button (tag icon) in the block's right-edge actions. The button turns purple when the block has annotations.
+
+#### Prompt Annotations Bar
+
+The prompt annotations bar is a collapsible section at the top of the **Annotations tab** in the right panel. It provides an editable key-value editor for `prompt.annotations` (the middle layer of inheritance).
+
+- Collapsed by default
+- Shows a count badge `(N)` when annotations exist
+- Editable: add/remove/modify prompt-level annotations without opening individual block editors
+
+#### Annotations Tab (Hierarchy Overview)
+
+The Annotations tab in the right panel shows a read-only hierarchy overview:
+
+```
+┌─ Defaults (2) ──────────────────────┐
+│  quality: strict                     │
+│  audience: general                   │
+├─ Prompt (1) ─────────────────────────┤
+│  audience: technical  [overrides]    │
+├─ Block 0 (5) ────────────────────────┤
+│  quality: null  [removed]            │
+│  tone: conversational  [block]       │
+│  _comment: "Sets the..."  [block]    │
+│  _priority: high  [block]            │
+│  _draft: true  [block]               │
+└──────────────────────────────────────┘
+```
+
+Each section is collapsible. Block paths are clickable — they scroll to and highlight the corresponding block in the editor canvas. The tab button shows a count badge `Annotations (N)` that updates even when the tab is hidden.
 
 ---
 
@@ -478,9 +803,9 @@ Priority resolution: `job disable > global auto_run > job enable`
 | `config_injector.py` | build | — | Injects computed metadata (hash, timestamps) into prompt.json |
 | `favorites.py` | — | job | UI bookmark — saves selected artifacts to job-level storage |
 
-### Depth-first execution (planned)
+### Depth-first execution (TreeExecutor)
 
-The current `build_jobs()` produces a flat list. The planned **TreeExecutor** adds block-aware depth-first ordering:
+`build_jobs()` produces a flat list with `_block_path` fields. The **TreeExecutor** (`src/tree_executor.py`) adds block-aware depth-first ordering:
 
 ```
 Block 0 (root, 12 compositions)
@@ -504,6 +829,46 @@ Key additions:
 - **Path-scoped failure** — when a block fails, remaining compositions are skipped and children are blocked. Siblings and other root paths continue
 - **Block state machine** — `UNSEEN → ACTIVE → PARTIAL → ... → COMPLETE`. `node_start` fires on first visit, `node_end` on last composition
 - **`resolve` caching** — fires once per block, result cached for all subsequent compositions
+
+### Enriched hook context
+
+The hook context (`ctx` dict passed to `execute(context, params)`) includes:
+
+```python
+ctx = {
+    # Identity
+    'block_path': '0.1',                    # Block path in the tree
+    'parent_path': '0',                     # Parent block path (None for roots)
+    'is_leaf': True,                        # Terminal node?
+    'block_depth': 1,                       # Nesting level (0 = root)
+
+    # Composition
+    'composition_index': 5,                 # Index within this block
+    'composition_total': 36,                # Total compositions for this block
+    'wildcards': {'tone': 'formal', 'audience': 'C-suite'},  # Resolved name→value map
+    'wildcard_indices': {'tone': 2, 'audience': 0},          # Name→index map
+
+    # Operations (build hooks)
+    'operation': 'english-to-japan',        # Active operation name (None if none)
+    'operation_mappings': {'tone': {'formal': '丁寧'}},      # Replacement mappings
+
+    # Annotations (user intent — "what to do")
+    'annotations': {'format': 'bullets', 'section': 'interview'},
+    'annotation_sources': {'format': 'prompt', 'section': 'block'},  # Where each key came from
+
+    # Theme metadata (reference facts — "what it IS")
+    'meta': {'department': 'engineering', 'level': 'mid-senior'},  # From ext_text value
+    'ext_text_source': 'hiring/roles',      # Which theme file produced this text
+
+    # Inheritance
+    'parent_result': { ... },               # HookResult.data from parent block
+    'parent_annotations': {'format': 'bullets'},  # Parent's resolved annotations
+
+    # Content
+    'resolved_text': 'Write a formal...',   # Final resolved text for this composition
+    'prompt_id': 'sourcing-strategy',       # Prompt ID
+    'job': { ... },                         # Full job dict
+}
 
 ---
 
@@ -606,7 +971,7 @@ project/
 │               └── c00500.yaml    # Compositions 500-999
 ├── ext/                           # Reusable themes (Layer 1 + 2)
 │   ├── hiring/
-│   │   ├── roles.yaml            # 6 roles + seniority wildcard
+│   │   ├── roles.yaml            # 6 roles + seniority wildcard + per-value meta
 │   │   └── frameworks.yaml       # 5 frameworks + evaluation wildcards
 │   └── professional/
 │       └── tones.yaml            # 4 tones + audience wildcard
@@ -614,12 +979,19 @@ project/
 │   ├── hooks.py                   # HookPipeline — generation-time lifecycle engine
 │   ├── jobs.py                    # build_jobs() — Cartesian product engine
 │   ├── variant.py                 # build_variant_structure() — build orchestrator
+│   ├── tree_executor.py           # TreeExecutor — depth-first block-aware execution
 │   └── segments.py                # SegmentRegistry — ext/wildcard lookups
 └── webui/prompty/                 # Web UI
+    ├── server/api/
+    │   └── pipeline.py           # SSE endpoint for Pipeline View execution
     └── js/
         ├── preview.js            # Odometer, bucketing, composition math
-        ├── right-panel.js        # Wildcard display, navigation
-        └── build-composition.js  # Shared computation, export
+        ├── right-panel.js        # Wildcard/Annotations tabs, bucket nav, hierarchy overview
+        ├── build-composition.js  # Quick Build slide-out panel, export
+        ├── shared.js             # Shared utilities (getCompositionParams, compositionToIndices)
+        ├── pipeline.js           # Pipeline View modal, Build dropdown menu
+        ├── gallery.js            # Sampler Gallery modal (grid of sampled compositions)
+        └── annotations.js        # 3-layer inheritance, universals, async widget
 ```
 
 ---
@@ -647,5 +1019,10 @@ project/
 | **Hook** | A script configured in `hooks.yaml`. The engine is dumb: `execute_hook(name, ctx)` runs whatever's configured. Stage names (`pre`, `generate`, `post`) are conventions |
 | **Mod** | A script configured in `mods.yaml`. Same execution path as hooks, but with guards (stage, scope, filters) checked before execution |
 | **HookResult** | Return value from any hook/mod script: `{ status, data, modify_context, error, message }` |
-| **parent_result** | (Planned) Context key containing parent block's `HookResult.data`, passed to child block hooks |
-| **TreeExecutor** | (Planned) Block-aware depth-first execution engine. Replaces the flat job list with ordered per-block traversal |
+| **Theme metadata (meta)** | Per-value metadata on ext_text entries. Separate namespace from annotations — carries reference facts ("what it IS") vs. annotations' intent ("what to DO"). Never merged with or overridden by block annotations. Flows into hook context as `ctx['meta']` |
+| **Universal annotation** | System-handled annotation key (prefixed with `_`) with built-in UI widgets. Registered via `defineUniversal()`. Examples: `_comment`, `_priority`, `_draft`, `_token_limit` |
+| **Annotation inheritance** | 3-layer merge: `defaults.annotations` → `prompt.annotations` → `block.annotations`. Deeper wins. Null sentinel removes inherited keys. Block annotations do NOT cascade to `after:` children |
+| **Token counter** | Editor hook driven by `_token_limit` annotation. Shows `~N/M` chip on blocks with a token budget. Color states: ok (<75%), warn (75-100%), over (>100%). Live update via Quill. Budget-gated: invisible without `_token_limit` |
+| **Async widget** | Universal annotation widget type that runs an async `check` function and displays pass/fail status. Supports `autoCheck` (re-run on change) and `cacheTtl` (cache duration in seconds) |
+| **parent_result** | Context key containing parent block's `HookResult.data`, passed to child block hooks |
+| **TreeExecutor** | Block-aware depth-first execution engine (`src/tree_executor.py`). Adds ordered per-block traversal with block states (idle → running → complete/failed/blocked) |

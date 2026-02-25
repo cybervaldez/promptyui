@@ -401,6 +401,9 @@ PU.focus = {
             }
         }
 
+        // Update token counter chip (live template count while editing)
+        PU.blocks.updateTokenCounter(path, plainText);
+
         // Update resolved output section
         PU.focus._debouncedPopulateFocusOutput(plainText, path);
 
