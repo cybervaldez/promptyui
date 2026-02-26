@@ -444,6 +444,13 @@ PU.rightPanel = {
             PU.rightPanel.hideDefaultsPopover();
         } else {
             PU.rightPanel.renderDefaultsPopover();
+            // Position fixed popover below the gear button
+            const btn = document.querySelector('[data-testid="pu-header-defaults-btn"]');
+            if (btn) {
+                const rect = btn.getBoundingClientRect();
+                popover.style.top = (rect.bottom + 6) + 'px';
+                popover.style.right = (window.innerWidth - rect.right) + 'px';
+            }
             popover.style.display = 'block';
         }
     },

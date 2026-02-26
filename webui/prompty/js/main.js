@@ -384,19 +384,6 @@ PU.actions = {
         PU.helpers.saveUIState();
     },
 
-    selectDefaults(jobId) {
-        PU.actions.selectJob(jobId);
-        // Ensure right panel is visible and scroll to defaults section
-        const defaults = document.querySelector('[data-testid="pu-rp-defaults"]');
-        if (defaults) {
-            // Uncollapse if collapsed
-            if (defaults.classList.contains('collapsed')) {
-                PU.rightPanel.toggleDefaults();
-            }
-            defaults.scrollIntoView({ behavior: 'smooth' });
-        }
-    },
-
     createNewJob() {
         const jobId = prompt('Enter new job name:');
         if (!jobId) return;

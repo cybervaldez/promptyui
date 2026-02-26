@@ -6518,9 +6518,7 @@ body.pu-focus-active {
     stroke: currentColor;
 }
 .pu-defaults-popover {
-    position: absolute;
-    top: calc(100% + 6px);
-    right: 0;
+    position: fixed;
     background: var(--pu-bg-secondary);
     border: 1px solid var(--pu-border-light);
     border-radius: var(--pu-radius);

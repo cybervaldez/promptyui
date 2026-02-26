@@ -148,14 +148,6 @@ PU.sidebar = {
                     `;
                 }
 
-                // Defaults
-                html += `
-                    <div class="pu-tree-item" data-testid="pu-defaults-${jobId}"
-                         onclick="PU.actions.selectDefaults('${jobId}')">
-                        <span class="pu-tree-toggle" style="visibility: hidden;">&#9654;</span>
-                        <span class="pu-tree-label">Defaults</span>
-                    </div>
-                `;
 
                 html += `</div>`;
             }
