@@ -4049,6 +4049,38 @@ body {
 .pu-gen-wc-inline.from-theme:hover { background: rgba(198,120,221,0.18); }
 .pu-gen-wc-count { font-family: var(--pu-font-mono); font-size: 9px; opacity: 0.5; margin-left: 2px; }
 
+/* ext_text entries list — visible paginated entries with inline wildcard pills */
+.pu-gen-ext-entries {
+    padding: 4px 10px 4px 18px;
+    border-top: 1px dashed rgba(198,120,221,0.12);
+    font-size: 12px;
+    overflow: visible;
+    position: relative;
+}
+.pu-gen-ext-entry {
+    padding: 2px 0;
+    color: var(--pu-text-secondary);
+    display: flex;
+    align-items: baseline;
+    gap: 3px;
+    position: relative;
+    overflow: visible;
+}
+.pu-gen-ext-entry::before { content: '\2500'; opacity: 0.25; margin-right: 4px; font-family: var(--pu-font-mono); font-size: 10px; }
+.pu-gen-ext-nav {
+    display: flex; align-items: center; justify-content: flex-start;
+    gap: 6px; padding: 3px 0 1px;
+}
+.pu-gen-ext-nav button {
+    background: none; border: none; color: var(--pu-text-muted);
+    font-family: var(--pu-font-mono); font-size: 9px; cursor: pointer;
+    padding: 1px 4px; border-radius: 2px;
+}
+.pu-gen-ext-nav button:hover { color: var(--pu-text-secondary); background: rgba(255,255,255,0.06); }
+.pu-gen-ext-nav button:disabled { opacity: 0.3; cursor: default; }
+.pu-gen-ext-nav button:disabled:hover { background: none; color: var(--pu-text-muted); }
+.pu-gen-ext-page { font-family: var(--pu-font-mono); font-size: 8px; color: var(--pu-text-muted); opacity: 0.6; }
+
 /* Annotation strip (collapsed/expanded) */
 .pu-gen-ann-strip {
     display: flex;

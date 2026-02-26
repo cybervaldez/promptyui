@@ -124,7 +124,22 @@ PU.generate = {
                 }
                 return;
             }
-            // Dropdown pagination (wildcards + ext_text)
+            // ext_text entries pagination
+            const extPrev = e.target.closest('[data-ext-prev]');
+            if (extPrev) {
+                e.stopPropagation();
+                const nav = extPrev.closest('.pu-gen-ext-nav');
+                if (nav) this._paginateExtEntries(nav, -1);
+                return;
+            }
+            const extNext = e.target.closest('[data-ext-next]');
+            if (extNext) {
+                e.stopPropagation();
+                const nav = extNext.closest('.pu-gen-ext-nav');
+                if (nav) this._paginateExtEntries(nav, 1);
+                return;
+            }
+            // Dropdown pagination (wildcards)
             const prevBtn = e.target.closest('[data-dd-prev]');
             if (prevBtn) {
                 e.stopPropagation();
@@ -258,28 +273,43 @@ PU.generate = {
             html += '<div class="pu-gen-card-text">';
             html += `<span class="pu-gen-path">${block.path}</span>`;
 
-            // Content with inline wildcard dropdowns (paginated at 5)
-            let contentHtml = PU.blocks.escapeHtml(block.content);
-            contentHtml = contentHtml.replace(/__([a-zA-Z0-9_]+)__/g, (match, wcName) => {
-                const vals = lookup[wcName] || [];
-                const isFromTheme = PU.shared.isExtWildcard(wcName);
-                const themeClass = isFromTheme ? ' from-theme' : '';
-                const wcId = `wc-${nodeId}-${wcName}`;
-                return `<span class="pu-gen-wc-inline${themeClass}" data-wc-id="${wcId}">${PU.blocks.escapeHtml(wcName)}<span class="pu-gen-wc-count">&times;${vals.length}</span>${this._buildPaginatedDropdown(wcId, vals)}</span>`;
-            });
-            html += `<span class="pu-gen-text">${contentHtml}</span>`;
+            if (isTheme) {
+                // ext_text header: "ext_text: theme/name"
+                const extName = item.ext_text || '';
+                const prompt = PU.helpers.getActivePrompt();
+                const themeName = (prompt && prompt.ext) ? prompt.ext : '';
+                const extLabel = themeName ? `${themeName}/${extName}` : extName;
+                html += `<span class="pu-gen-text" style="font-family:var(--pu-font-mono);font-size:10px;opacity:0.6;">ext_text: ${PU.blocks.escapeHtml(extLabel)}</span>`;
+            } else {
+                // Content with inline wildcard dropdowns (paginated at 5)
+                let contentHtml = PU.blocks.escapeHtml(block.content);
+                contentHtml = contentHtml.replace(/__([a-zA-Z0-9_]+)__/g, (match, wcName) => {
+                    const vals = lookup[wcName] || [];
+                    const isFromTheme = PU.shared.isExtWildcard(wcName);
+                    const themeClass = isFromTheme ? ' from-theme' : '';
+                    const wcId = `wc-${nodeId}-${wcName}`;
+                    return `<span class="pu-gen-wc-inline${themeClass}" data-wc-id="${wcId}">${PU.blocks.escapeHtml(wcName)}<span class="pu-gen-wc-count">&times;${vals.length}</span>${this._buildPaginatedDropdown(wcId, vals)}</span>`;
+                });
+                html += `<span class="pu-gen-text">${contentHtml}</span>`;
+            }
 
             html += '<span class="pu-gen-badge-progress" data-progress></span>';
             html += '<span class="pu-gen-stage" data-stage></span>';
             html += '<span class="pu-gen-badge-result" data-result></span>';
             html += '<span class="pu-gen-badge-error" data-error></span>';
+
+            if (def) {
+                html += `<span class="pu-gen-total">=${def.compositions.toLocaleString()}</span>`;
+            }
+
+            html += '</div>';
+
+            // ext_text entries list — visible paginated entries with inline wildcard pills
             if (isTheme) {
                 const extName = item.ext_text || '';
                 const extItems = this._getExtTextItems(extName);
-                const extId = `ext-${nodeId}`;
-                html += `<span class="pu-gen-wc-inline from-theme" data-wc-id="${extId}" data-ext-name="${PU.blocks.escapeHtml(extName)}">${PU.blocks.escapeHtml(extName)}<span class="pu-gen-wc-count">&times;${extItems.length}</span>${this._buildPaginatedDropdown(extId, extItems)}</span>`;
+                html += this._buildExtEntriesList(nodeId, extName, extItems, lookup);
             }
-            html += '</div>';
 
             // Dims zone — annotation strip (replaces wildcard pills)
             const annKeys = Object.keys(annData.computed);
@@ -849,6 +879,94 @@ PU.generate = {
         }
         html += '</div>';
         return html;
+    },
+
+    /** Build visible ext_text entries list with inline wildcard pills (paginated at 5) */
+    _buildExtEntriesList(nodeId, extName, extItems, lookup) {
+        const PAGE_SIZE = 5;
+        const extId = `ext-entries-${nodeId}`;
+        let html = `<div class="pu-gen-ext-entries" data-ext-entries="${extId}" data-ext-name="${PU.blocks.escapeHtml(extName)}">`;
+
+        const pageCount = Math.min(PAGE_SIZE, extItems.length);
+        for (let i = 0; i < pageCount; i++) {
+            html += this._buildExtEntryHtml(extItems[i], nodeId, lookup);
+        }
+
+        if (extItems.length > PAGE_SIZE) {
+            const totalPages = Math.ceil(extItems.length / PAGE_SIZE);
+            html += `<div class="pu-gen-ext-nav" data-ext-nav="${extId}" data-ext-page="0" data-ext-total="${extItems.length}">`;
+            html += `<button data-ext-prev disabled>&larr;</button>`;
+            html += `<span class="pu-gen-ext-page">1/${totalPages}</span>`;
+            html += `<button data-ext-next>&rarr;</button>`;
+            html += '</div>';
+        }
+
+        html += '</div>';
+        return html;
+    },
+
+    /** Render a single ext entry with wildcards resolved to inline pills */
+    _buildExtEntryHtml(text, nodeId, lookup) {
+        let contentHtml = PU.blocks.escapeHtml(String(text));
+        contentHtml = contentHtml.replace(/__([a-zA-Z0-9_]+)__/g, (match, wcName) => {
+            const vals = lookup[wcName] || [];
+            const isFromTheme = PU.shared.isExtWildcard(wcName);
+            const themeClass = isFromTheme ? ' from-theme' : '';
+            const wcId = `wc-${nodeId}-ext-${wcName}`;
+            return `<span class="pu-gen-wc-inline${themeClass}" data-wc-id="${wcId}">${PU.blocks.escapeHtml(wcName)}<span class="pu-gen-wc-count">&times;${vals.length}</span>${this._buildPaginatedDropdown(wcId, vals)}</span>`;
+        });
+        return `<div class="pu-gen-ext-entry" data-ext-page-item>${contentHtml}</div>`;
+    },
+
+    /** Paginate ext_text entries list */
+    _paginateExtEntries(nav, direction) {
+        const PAGE_SIZE = 5;
+        const extId = nav.getAttribute('data-ext-nav');
+        let page = parseInt(nav.getAttribute('data-ext-page'), 10) || 0;
+        const total = parseInt(nav.getAttribute('data-ext-total'), 10) || 0;
+        const totalPages = Math.ceil(total / PAGE_SIZE);
+
+        page = page + direction;
+        if (page < 0) page = 0;
+        if (page >= totalPages) page = totalPages - 1;
+        nav.setAttribute('data-ext-page', page);
+
+        const container = nav.closest('[data-ext-entries]');
+        if (!container) return;
+        const extName = container.getAttribute('data-ext-name') || '';
+        const extItems = this._getExtTextItems(extName);
+        const nodeId = extId.replace('ext-entries-', '');
+        const lookup = PU.preview.getFullWildcardLookup();
+
+        // Remove existing entries
+        container.querySelectorAll('[data-ext-page-item]').forEach(el => el.remove());
+
+        // Add new page
+        const start = page * PAGE_SIZE;
+        const end = Math.min(start + PAGE_SIZE, extItems.length);
+        for (let i = start; i < end; i++) {
+            const div = document.createElement('div');
+            div.className = 'pu-gen-ext-entry';
+            div.setAttribute('data-ext-page-item', '');
+            // Render with wildcard pills
+            let contentHtml = PU.blocks.escapeHtml(String(extItems[i]));
+            contentHtml = contentHtml.replace(/__([a-zA-Z0-9_]+)__/g, (match, wcName) => {
+                const vals = lookup[wcName] || [];
+                const isFromTheme = PU.shared.isExtWildcard(wcName);
+                const themeClass = isFromTheme ? ' from-theme' : '';
+                const wcId = `wc-${nodeId}-ext-${wcName}`;
+                return `<span class="pu-gen-wc-inline${themeClass}" data-wc-id="${wcId}">${PU.blocks.escapeHtml(wcName)}<span class="pu-gen-wc-count">&times;${vals.length}</span>${this._buildPaginatedDropdown(wcId, vals)}</span>`;
+            });
+            div.innerHTML = contentHtml;
+            container.insertBefore(div, nav);
+        }
+
+        const prevBtn = nav.querySelector('[data-ext-prev]');
+        const nextBtn = nav.querySelector('[data-ext-next]');
+        const pageLabel = nav.querySelector('.pu-gen-ext-page');
+        if (prevBtn) prevBtn.disabled = page === 0;
+        if (nextBtn) nextBtn.disabled = page >= totalPages - 1;
+        if (pageLabel) pageLabel.textContent = `${page + 1}/${totalPages}`;
     },
 
     /** Paginate any dropdown (wildcard or ext_text) */

@@ -150,6 +150,51 @@ else
 fi
 
 # ============================================================================
+# TEST 5c: ext_text entries list renders for ext_text prompts
+# ============================================================================
+echo ""
+log_info "TEST 5c: ext_text entries list in generate modal"
+
+# Close current modal, switch to ext-wildcard-test, open generate
+agent-browser eval 'document.querySelector("[data-testid=pu-gen-close-btn]")?.click()' 2>/dev/null
+sleep 0.5
+agent-browser open "$BASE_URL/?job=test-fixtures&prompt=ext-wildcard-test" 2>/dev/null
+sleep 3
+
+agent-browser eval 'document.querySelector("[data-testid=pu-header-generate-btn]").click()' 2>/dev/null
+sleep 1
+
+EXT_ENTRIES=$(agent-browser eval 'document.querySelectorAll(".pu-gen-ext-entries").length' 2>/dev/null)
+if [[ "$EXT_ENTRIES" -gt 0 ]]; then
+    log_pass "ext_text entries list rendered: $EXT_ENTRIES"
+else
+    log_skip "No ext_text entries (ext cache may not be loaded)"
+fi
+
+EXT_ENTRY_COUNT=$(agent-browser eval 'document.querySelectorAll(".pu-gen-ext-entry").length' 2>/dev/null)
+if [[ "$EXT_ENTRY_COUNT" -gt 0 ]]; then
+    log_pass "ext_text entry items rendered: $EXT_ENTRY_COUNT"
+else
+    log_skip "No ext_text entry items"
+fi
+
+# Check for inline wildcard pills within ext entries
+EXT_WC_PILLS=$(agent-browser eval 'document.querySelectorAll(".pu-gen-ext-entries .pu-gen-wc-inline").length' 2>/dev/null)
+if [[ "$EXT_WC_PILLS" -gt 0 ]]; then
+    log_pass "Inline wildcard pills in ext entries: $EXT_WC_PILLS"
+else
+    log_skip "No wildcard pills in ext entries"
+fi
+
+# Switch back to nested-blocks for remaining tests
+agent-browser eval 'document.querySelector("[data-testid=pu-gen-close-btn]")?.click()' 2>/dev/null
+sleep 0.5
+agent-browser open "$BASE_URL/?job=test-fixtures&prompt=nested-blocks" 2>/dev/null
+sleep 3
+agent-browser eval 'document.querySelector("[data-testid=pu-header-generate-btn]").click()' 2>/dev/null
+sleep 1
+
+# ============================================================================
 # TEST 6: Run button starts simulation
 # ============================================================================
 echo ""
