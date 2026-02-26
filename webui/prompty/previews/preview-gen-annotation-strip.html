@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generate Modal — Inline Wildcards + Annotation Strip</title>
+<style>
+:root {
+    --bg: #191919;
+    --bg2: #202020;
+    --bg3: #2f2f2f;
+    --bg-hover: rgba(255,255,255,0.04);
+    --bg-elevated: #252525;
+    --text: #ebebeb;
+    --text2: #999;
+    --text3: #7a7a7a;
+    --accent: #529CCA;
+    --accent-bg: rgba(82,156,202,0.08);
+    --accent-border: rgba(82,156,202,0.25);
+    --purple: #c678dd;
+    --purple-bg: rgba(198,120,221,0.1);
+    --purple-border: rgba(198,120,221,0.25);
+    --orange: #e8943a;
+    --success: #4daa57;
+    --error: #e06c75;
+    --border: rgba(255,255,255,0.06);
+    --border-light: rgba(255,255,255,0.09);
+    --radius: 4px;
+    --radius-lg: 6px;
+    --mono: 'JetBrains Mono','SF Mono','Consolas',monospace;
+    --body: 'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #111; color: var(--text); font-family: var(--body); font-size: 14px; padding: 32px; }
+
+.page-header { max-width: 900px; margin: 0 auto 24px; }
+.page-title { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+.page-subtitle { font-size: 13px; color: var(--text3); margin-bottom: 16px; line-height: 1.5; }
+
+.mock-modal { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; max-width: 900px; margin: 0 auto 32px; }
+.mock-modal-header { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:var(--bg-hover); border-bottom:1px solid var(--border); }
+.mock-modal-header h3 { font-size:15px; font-weight:500; }
+.mock-modal-body { padding: 24px 20px; }
+
+/* ── Tree layout ────────────────────────────── */
+.pu-gen-tree { display: flex; align-items: center; gap: 0; position: relative; padding: 6px 0 6px 18px; }
+.pu-gen-tree:first-child { padding-left: 0; }
+.pu-gen-link { width: 24px; height: 0; border-top: 1px solid rgba(255,255,255,0.07); flex-shrink: 0; }
+.pu-gen-children { display: flex; flex-direction: column; gap: 0; }
+.pu-gen-children > .pu-gen-tree { position: relative; padding: 6px 0 6px 18px; }
+.pu-gen-children > .pu-gen-tree::before { content:''; position:absolute; left:0; top:50%; width:18px; height:0; border-top:1px solid rgba(255,255,255,0.07); }
+.pu-gen-children > .pu-gen-tree::after { content:''; position:absolute; left:0; top:0; bottom:0; width:0; border-left:1px solid rgba(255,255,255,0.07); }
+.pu-gen-children > .pu-gen-tree:first-child::after { top: 50%; }
+.pu-gen-children > .pu-gen-tree:last-child::after { bottom: 50%; }
+.pu-gen-children > .pu-gen-tree:only-child::after { display: none; }
+
+/* ── Node base ──────────────────────────────── */
+.pu-gen-node {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: var(--radius);
+    font-size: 12px;
+    white-space: nowrap;
+    position: relative;
+    border: 1px solid transparent;
+    cursor: default;
+}
+.pu-gen-node.root { font-weight:600; font-size:14px; background:var(--bg3); border-color:var(--border-light); padding:8px 14px; border-radius:var(--radius-lg); }
+.pu-gen-node.content { background:var(--accent-bg); color:var(--accent); border-color:var(--accent-border); }
+.pu-gen-node.theme { background:var(--purple-bg); color:var(--purple); border-color:var(--purple-border); }
+.pu-gen-node.leaf { font-size: 11px; }
+.pu-gen-path { font-family:var(--mono); font-size:10px; opacity:0.5; }
+.pu-gen-text { }
+.pu-gen-total { font-family:var(--mono); font-size:9px; padding:1px 5px; border-radius:8px; margin-left:auto; white-space:nowrap; color:var(--text3); background:rgba(255,255,255,0.05); opacity:0.6; }
+
+/* ── Card mode ──────────────────────────────── */
+.pu-gen-node.has-dims { flex-direction:column; align-items:stretch; gap:0; padding:0; white-space:normal; min-width:160px; }
+.pu-gen-card-text { display:flex; align-items:center; gap:5px; padding:5px 10px; white-space:nowrap; }
+.pu-gen-dims { display:flex; flex-wrap:wrap; align-items:center; gap:4px; padding:4px 10px 5px; border-top:1px dashed rgba(255,255,255,0.06); position:relative; overflow:visible; }
+
+/* ── ext_text entries list ─────────────────── */
+.pu-gen-ext-entries {
+    padding: 4px 10px 4px 18px;
+    border-top: 1px dashed rgba(198,120,221,0.12);
+    font-size: 12px;
+    overflow: visible;
+    position: relative;
+}
+.pu-gen-ext-entry {
+    padding: 2px 0;
+    color: var(--text2);
+    display: flex;
+    align-items: baseline;
+    gap: 3px;
+    position: relative;
+    overflow: visible;
+}
+.pu-gen-ext-entry::before { content: '─'; opacity: 0.25; margin-right: 4px; font-family: var(--mono); font-size: 10px; }
+.pu-gen-ext-nav {
+    display: flex; align-items: center; justify-content: flex-start;
+    gap: 6px; padding: 3px 0 1px;
+}
+.pu-gen-ext-nav button {
+    background: none; border: none; color: var(--text3);
+    font-family: var(--mono); font-size: 9px; cursor: pointer;
+    padding: 1px 4px; border-radius: 2px;
+}
+.pu-gen-ext-nav button:hover { color: var(--text2); background: rgba(255,255,255,0.06); }
+.pu-gen-ext-nav button:disabled { opacity: 0.3; cursor: default; }
+.pu-gen-ext-page { font-family: var(--mono); font-size: 8px; color: var(--text3); opacity: 0.6; }
+
+/* ══════════════════════════════════════════════
+   INLINE WILDCARD — dark pill (read-only, hover to peek)
+   ══════════════════════════════════════════════ */
+.pu-gen-wc-inline {
+    display: inline-flex;
+    align-items: baseline;
+    position: relative;
+    color: var(--orange);
+    font-weight: 500;
+    cursor: default;
+    background: rgba(232,148,58,0.1);
+    padding: 0 5px;
+    border-radius: 3px;
+    transition: background 200ms;
+}
+.pu-gen-wc-inline:hover { background: rgba(232,148,58,0.18); }
+.pu-gen-wc-inline.from-theme { color: var(--purple); background: rgba(198,120,221,0.1); }
+.pu-gen-wc-inline.from-theme:hover { background: rgba(198,120,221,0.18); }
+.pu-gen-wc-count { font-family:var(--mono); font-size:9px; opacity:0.5; margin-left:2px; }
+
+/* Dropdown — hover-reveal, read-only */
+.pu-gen-wc-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 10;
+    min-width: 120px;
+    max-width: 220px;
+    background: var(--bg2);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius);
+    padding: 4px 0;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    font-family: var(--mono);
+    font-size: 10px;
+    pointer-events: none;
+}
+.pu-gen-wc-inline:hover .pu-gen-wc-dropdown { display: block; }
+.pu-gen-wc-dropdown-item { padding:3px 10px; color:var(--text2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pu-gen-wc-dropdown-nav {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:3px 8px 2px; border-top:1px solid var(--border); pointer-events:auto;
+}
+.pu-gen-wc-dropdown-nav button {
+    background:none; border:none; color:var(--text3); font-family:var(--mono);
+    font-size:9px; cursor:pointer; padding:1px 4px; border-radius:2px;
+}
+.pu-gen-wc-dropdown-nav button:hover { color:var(--text2); background:rgba(255,255,255,0.06); }
+.pu-gen-wc-dropdown-nav button:disabled { opacity:0.3; cursor:default; }
+.pu-gen-wc-dropdown-page { font-family:var(--mono); font-size:8px; color:var(--text3); opacity:0.6; }
+
+/* ══════════════════════════════════════════════
+   ANNOTATION STRIP (collapsed/expanded)
+   ══════════════════════════════════════════════ */
+.pu-gen-ann-strip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 10px;
+    font-family: var(--mono);
+    color: var(--text3);
+    opacity: 0.7;
+    transition: opacity 200ms;
+}
+.pu-gen-ann-strip:hover { opacity: 1; }
+.pu-gen-ann-strip.expanded { opacity: 1; }
+.pu-gen-ann-toggle-icon { font-size: 8px; transition: transform 200ms; }
+.pu-gen-ann-count { white-space: nowrap; }
+
+.pu-gen-ann-detail {
+    width: 100%;
+    margin-top: 4px;
+    padding: 4px 0 2px 12px;
+    border-left: 1px solid rgba(139, 92, 246, 0.15);
+}
+.pu-gen-ann-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 10px;
+    font-family: var(--mono);
+    padding: 1px 0;
+    color: var(--text3);
+}
+.pu-gen-ann-row.removed { opacity: 0.4; text-decoration: line-through; }
+.pu-gen-ann-key { color: var(--text2); min-width: 60px; flex-shrink: 0; }
+.pu-gen-ann-val { color: var(--text3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:160px; }
+.pu-gen-ann-source { font-size:7px; text-transform:uppercase; letter-spacing:0.3px; opacity:0.4; margin-left:auto; flex-shrink:0; }
+
+/* ── Labels ─────────────────────────────────── */
+.label { display:inline-block; margin:16px 0 8px; font-family:var(--mono); font-size:10px; letter-spacing:0.5px; text-transform:uppercase; color:var(--text3); opacity:0.5; }
+.note { font-size:11px; color:var(--text3); margin-top:4px; opacity:0.6; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+    <div class="page-title">Inline Wildcards + Annotation Strip</div>
+    <div class="page-subtitle">
+        Wildcards appear at their point of mention as dark pills (hover to peek values). ext_text blocks show their theme entries in a paginated dropdown — entries can carry __wildcard__ markers. The dims zone shows a collapsible annotation strip. Progressive disclosure keeps the tree compact.
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     NODE 1: Block with wildcards + annotations
+     ═══════════════════════════════════════════════════════ -->
+<div class="label">Node 1 — Content block with inline wildcard + annotation strip</div>
+
+<div class="mock-modal">
+    <div class="mock-modal-header">
+        <h3>nested-blocks &nbsp;<span style="font-family:var(--mono);font-size:11px;color:var(--text3);">6 compositions</span></h3>
+    </div>
+    <div class="mock-modal-body">
+        <div class="pu-gen-tree" style="padding-left:0;">
+            <span class="pu-gen-node root">nested-blocks</span>
+            <div class="pu-gen-link"></div>
+            <div class="pu-gen-children">
+                <!-- Block 0: has wildcards + annotations -->
+                <div class="pu-gen-tree">
+                    <div class="pu-gen-node content has-dims" id="node1">
+                        <div class="pu-gen-card-text">
+                            <span class="pu-gen-path">0</span>
+                            <span class="pu-gen-text">Root block with <span class="pu-gen-wc-inline">tone<span class="pu-gen-wc-count">&times;2</span><div class="pu-gen-wc-dropdown"><div class="pu-gen-wc-dropdown-item">formal</div><div class="pu-gen-wc-dropdown-item">casual</div></div></span> setting</span>
+                        </div>
+                        <div class="pu-gen-dims">
+                            <div class="pu-gen-ann-strip" id="strip1" onclick="toggleStrip('strip1')">
+                                <span class="pu-gen-ann-toggle-icon">&#9656;</span>
+                                <span class="pu-gen-ann-count">5 annotations</span>
+                                <span class="pu-gen-total">=2</span>
+                            </div>
+                            <div class="pu-gen-ann-detail" id="detail-strip1" style="display:none;">
+                                <div class="pu-gen-ann-row">
+                                    <span class="pu-gen-ann-key">Priority</span>
+                                    <span class="pu-gen-ann-val">high</span>
+                                    <span class="pu-gen-ann-source">BLOCK</span>
+                                </div>
+                                <div class="pu-gen-ann-row">
+                                    <span class="pu-gen-ann-key">Draft</span>
+                                    <span class="pu-gen-ann-val">true</span>
+                                    <span class="pu-gen-ann-source">BLOCK</span>
+                                </div>
+                                <div class="pu-gen-ann-row">
+                                    <span class="pu-gen-ann-key">Comment</span>
+                                    <span class="pu-gen-ann-val">Sets the overall tone for the email communication style</span>
+                                    <span class="pu-gen-ann-source">BLOCK</span>
+                                </div>
+                                <div class="pu-gen-ann-row">
+                                    <span class="pu-gen-ann-key">_token_limit</span>
+                                    <span class="pu-gen-ann-val">500</span>
+                                    <span class="pu-gen-ann-source">PROMPT</span>
+                                </div>
+                                <div class="pu-gen-ann-row">
+                                    <span class="pu-gen-ann-key">tone</span>
+                                    <span class="pu-gen-ann-val">conversational</span>
+                                    <span class="pu-gen-ann-source">DEFAULTS</span>
+                                </div>
+                                <div class="pu-gen-ann-row removed">
+                                    <span class="pu-gen-ann-key">quality</span>
+                                    <span class="pu-gen-ann-val">null</span>
+                                    <span class="pu-gen-ann-source">BLOCK</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="pu-gen-link"></div>
+                    <div class="pu-gen-children">
+                        <!-- Block 0.0: simple node, no annotations -->
+                        <div class="pu-gen-tree">
+                            <span class="pu-gen-node content leaf">
+                                <span class="pu-gen-path">0.0</span>
+                                <span class="pu-gen-text">Child paragraph text</span>
+                                <span class="pu-gen-total">=2</span>
+                            </span>
+                        </div>
+                        <!-- Block 0.1: simple node -->
+                        <div class="pu-gen-tree">
+                            <span class="pu-gen-node content leaf">
+                                <span class="pu-gen-path">0.1</span>
+                                <span class="pu-gen-text">Another child block</span>
+                                <span class="pu-gen-total">=2</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="note">Hover "tone" to peek wildcard values. Click "5 annotations" to expand the strip.</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     NODE 2: ext_text block (hiring/roles) — 6 text entries with __seniority__
+     Each entry is a separate text line. After child uses seniority + metric.
+     Purple pill = ext wildcard, Orange pill = prompt wildcard.
+     ═══════════════════════════════════════════════════════ -->
+<div class="label" style="margin-top:32px;">Node 2 — ext_text block showing multiple text entries + after child</div>
+
+<div class="mock-modal">
+    <div class="mock-modal-body">
+        <div class="pu-gen-tree" style="padding-left:0;">
+            <!-- ext_text block: card header + visible text entries -->
+            <div class="pu-gen-node theme has-dims" id="node2">
+                <div class="pu-gen-card-text">
+                    <span class="pu-gen-path">1</span>
+                    <span class="pu-gen-text" style="font-family:var(--mono);font-size:10px;opacity:0.6;">ext_text: hiring/roles</span>
+                    <span class="pu-gen-total">=120</span>
+                </div>
+                <div class="pu-gen-ext-entries" id="ext-entries">
+                    <div class="pu-gen-ext-entry" data-ext-page-item><span class="pu-gen-wc-inline from-theme">seniority<span class="pu-gen-wc-count">&times;5</span><div class="pu-gen-wc-dropdown"><div class="pu-gen-wc-dropdown-item">Junior</div><div class="pu-gen-wc-dropdown-item">Mid-level</div><div class="pu-gen-wc-dropdown-item">Senior</div><div class="pu-gen-wc-dropdown-item">Staff</div><div class="pu-gen-wc-dropdown-item">Principal</div></div></span> Software Engineer</div>
+                    <div class="pu-gen-ext-entry" data-ext-page-item><span class="pu-gen-wc-inline from-theme">seniority<span class="pu-gen-wc-count">&times;5</span><div class="pu-gen-wc-dropdown"><div class="pu-gen-wc-dropdown-item">Junior</div><div class="pu-gen-wc-dropdown-item">Mid-level</div><div class="pu-gen-wc-dropdown-item">Senior</div><div class="pu-gen-wc-dropdown-item">Staff</div><div class="pu-gen-wc-dropdown-item">Principal</div></div></span> Product Manager</div>
+                    <div class="pu-gen-ext-entry" data-ext-page-item><span class="pu-gen-wc-inline from-theme">seniority<span class="pu-gen-wc-count">&times;5</span><div class="pu-gen-wc-dropdown"><div class="pu-gen-wc-dropdown-item">Junior</div><div class="pu-gen-wc-dropdown-item">Mid-level</div><div class="pu-gen-wc-dropdown-item">Senior</div><div class="pu-gen-wc-dropdown-item">Staff</div><div class="pu-gen-wc-dropdown-item">Principal</div></div></span> Designer</div>
+                    <div class="pu-gen-ext-entry" data-ext-page-item><span class="pu-gen-wc-inline from-theme">seniority<span class="pu-gen-wc-count">&times;5</span><div class="pu-gen-wc-dropdown"><div class="pu-gen-wc-dropdown-item">Junior</div><div class="pu-gen-wc-dropdown-item">Mid-level</div><div class="pu-gen-wc-dropdown-item">Senior</div><div class="pu-gen-wc-dropdown-item">Staff</div><div class="pu-gen-wc-dropdown-item">Principal</div></div></span> Data Scientist</div>
+                    <div class="pu-gen-ext-entry" data-ext-page-item><span class="pu-gen-wc-inline from-theme">seniority<span class="pu-gen-wc-count">&times;5</span><div class="pu-gen-wc-dropdown"><div class="pu-gen-wc-dropdown-item">Junior</div><div class="pu-gen-wc-dropdown-item">Mid-level</div><div class="pu-gen-wc-dropdown-item">Senior</div><div class="pu-gen-wc-dropdown-item">Staff</div><div class="pu-gen-wc-dropdown-item">Principal</div></div></span> DevOps Engineer</div>
+                    <div class="pu-gen-ext-nav" id="ext-nav">
+                        <button id="ext-prev" disabled>&larr;</button>
+                        <span class="pu-gen-ext-page" id="ext-page-label">1/2</span>
+                        <button id="ext-next">&rarr;</button>
+                    </div>
+                </div>
+                <div class="pu-gen-dims"></div>
+            </div>
+            <div class="pu-gen-link"></div>
+            <div class="pu-gen-children">
+                <!-- after child: content block with ext wildcard (purple) + prompt wildcard (orange) -->
+                <div class="pu-gen-tree">
+                    <div class="pu-gen-node content has-dims" id="node2-child">
+                        <div class="pu-gen-card-text">
+                            <span class="pu-gen-path">1.0</span>
+                            <span class="pu-gen-text">For each role, describe <span class="pu-gen-wc-inline from-theme">seniority<span class="pu-gen-wc-count">&times;5</span><div class="pu-gen-wc-dropdown"><div class="pu-gen-wc-dropdown-item">Junior</div><div class="pu-gen-wc-dropdown-item">Mid-level</div><div class="pu-gen-wc-dropdown-item">Senior</div><div class="pu-gen-wc-dropdown-item">Staff</div><div class="pu-gen-wc-dropdown-item">Principal</div></div></span>-level expectations around <span class="pu-gen-wc-inline">metric<span class="pu-gen-wc-count">&times;4</span><div class="pu-gen-wc-dropdown"><div class="pu-gen-wc-dropdown-item">time-to-hire</div><div class="pu-gen-wc-dropdown-item">offer acceptance rate</div><div class="pu-gen-wc-dropdown-item">pipeline conversion</div><div class="pu-gen-wc-dropdown-item">cost-per-hire</div></div></span></span>
+                        </div>
+                        <div class="pu-gen-dims">
+                            <span class="pu-gen-total">=120</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="note">ext_text block shows all 6 text entries from hiring/roles.yaml (paginated at 5). Each entry has a purple <b>seniority</b> pill (from ext). After child at 1.0 uses seniority (purple, ext) + metric (orange, prompt). Hover pills to peek values.</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     NODE 3: Annotations-only block (no wildcards)
+     ═══════════════════════════════════════════════════════ -->
+<div class="label" style="margin-top:32px;">Node 3 — Block with annotations but no own wildcards</div>
+
+<div class="mock-modal">
+    <div class="mock-modal-body">
+        <div class="pu-gen-tree" style="padding-left:0;">
+            <div class="pu-gen-node content has-dims" id="node3">
+                <div class="pu-gen-card-text">
+                    <span class="pu-gen-path">2</span>
+                    <span class="pu-gen-text">Instructions for the candidate</span>
+                </div>
+                <div class="pu-gen-dims">
+                    <div class="pu-gen-ann-strip" id="strip3" onclick="toggleStrip('strip3')">
+                        <span class="pu-gen-ann-toggle-icon">&#9656;</span>
+                        <span class="pu-gen-ann-count">2 annotations</span>
+                        <span class="pu-gen-total">=1</span>
+                    </div>
+                    <div class="pu-gen-ann-detail" id="detail-strip3" style="display:none;">
+                        <div class="pu-gen-ann-row">
+                            <span class="pu-gen-ann-key">_priority</span>
+                            <span class="pu-gen-ann-val">medium</span>
+                            <span class="pu-gen-ann-source">DEFAULTS</span>
+                        </div>
+                        <div class="pu-gen-ann-row">
+                            <span class="pu-gen-ann-key">section</span>
+                            <span class="pu-gen-ann-val">instructions</span>
+                            <span class="pu-gen-ann-source">BLOCK</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="note">Block has annotations but no own wildcards — still gets card mode with dims zone for the annotation strip.</div>
+
+<script>
+function toggleStrip(stripId) {
+    const strip = document.getElementById(stripId);
+    const detail = document.getElementById('detail-' + stripId);
+    if (!strip || !detail) return;
+    const isOpen = detail.style.display !== 'none';
+    detail.style.display = isOpen ? 'none' : 'block';
+    const icon = strip.querySelector('.pu-gen-ann-toggle-icon');
+    if (icon) icon.innerHTML = isOpen ? '&#9656;' : '&#9662;';
+    strip.classList.toggle('expanded', !isOpen);
+}
+
+// ext_text entries pagination demo (6 entries, 5 per page)
+const seniorityDropdown = '<div class="pu-gen-wc-dropdown"><div class="pu-gen-wc-dropdown-item">Junior</div><div class="pu-gen-wc-dropdown-item">Mid-level</div><div class="pu-gen-wc-dropdown-item">Senior</div><div class="pu-gen-wc-dropdown-item">Staff</div><div class="pu-gen-wc-dropdown-item">Principal</div></div>';
+const seniorityPill = `<span class="pu-gen-wc-inline from-theme">seniority<span class="pu-gen-wc-count">&times;5</span>${seniorityDropdown}</span>`;
+const extEntries = [
+    `${seniorityPill} Software Engineer`,
+    `${seniorityPill} Product Manager`,
+    `${seniorityPill} Designer`,
+    `${seniorityPill} Data Scientist`,
+    `${seniorityPill} DevOps Engineer`,
+    `${seniorityPill} Engineering Manager`,
+];
+let extPage = 0;
+const EXT_PAGE_SIZE = 5;
+function renderExtPage() {
+    const container = document.getElementById('ext-entries');
+    container.querySelectorAll('[data-ext-page-item]').forEach(el => el.remove());
+    const nav = document.getElementById('ext-nav');
+    const start = extPage * EXT_PAGE_SIZE;
+    const end = Math.min(start + EXT_PAGE_SIZE, extEntries.length);
+    for (let i = start; i < end; i++) {
+        const div = document.createElement('div');
+        div.className = 'pu-gen-ext-entry';
+        div.setAttribute('data-ext-page-item', '');
+        div.innerHTML = extEntries[i];
+        container.insertBefore(div, nav);
+    }
+    document.getElementById('ext-prev').disabled = extPage === 0;
+    document.getElementById('ext-next').disabled = extPage >= Math.ceil(extEntries.length / EXT_PAGE_SIZE) - 1;
+    document.getElementById('ext-page-label').textContent = `${extPage + 1}/${Math.ceil(extEntries.length / EXT_PAGE_SIZE)}`;
+}
+document.getElementById('ext-prev').addEventListener('click', (e) => { e.stopPropagation(); extPage--; renderExtPage(); });
+document.getElementById('ext-next').addEventListener('click', (e) => { e.stopPropagation(); extPage++; renderExtPage(); });
+</script>
+</body>
+</html>

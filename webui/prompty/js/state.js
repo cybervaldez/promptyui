@@ -151,6 +151,7 @@ PU.state = {
         blockStates: {},        // block_path -> state
         blockProgress: {},      // block_path -> { completed, total }
         stageTimes: {},         // block_path -> { stage: [ms, ms, ...] }
+        blockArtifacts: {},     // block_path -> [{name, type, mod_id, preview}, ...]
         stats: null,            // Final stats from run_complete
     },
 

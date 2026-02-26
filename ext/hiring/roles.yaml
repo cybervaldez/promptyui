@@ -1,11 +1,11 @@
 id: "roles"
 text:
-  - "Software Engineer"
-  - "Product Manager"
-  - "Designer"
-  - "Data Scientist"
-  - "DevOps Engineer"
-  - "Engineering Manager"
+  - "__seniority__ Software Engineer"
+  - "__seniority__ Product Manager"
+  - "__seniority__ Designer"
+  - "__seniority__ Data Scientist"
+  - "__seniority__ DevOps Engineer"
+  - "__seniority__ Engineering Manager"
 wildcards:
   - name: "seniority"
     text: ["Junior", "Mid-level", "Senior", "Staff", "Principal"]

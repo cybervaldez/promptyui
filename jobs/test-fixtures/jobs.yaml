@@ -7,6 +7,19 @@ defaults:
   annotations:
     quality: strict
     audience: general
+  hooks:
+    node_start:
+      - script: hooks/log_stage.py
+    resolve:
+      - script: hooks/log_stage.py
+    pre:
+      - script: hooks/log_stage.py
+    generate:
+      - script: hooks/echo_generate.py
+    post:
+      - script: hooks/log_stage.py
+    node_end:
+      - script: hooks/log_stage.py
 
 prompts:
   # NESTED BLOCKS: root -> children (exercises _block_path)
@@ -37,3 +50,77 @@ prompts:
     wildcards:
       - name: "color"
         text: ["red", "blue"]
+
+  # CROSS-BLOCK DEPENDENCIES: single prompt with depends_on via annotations
+  # Blocks 0.0 and 0.1 generate artifacts, block 1 consumes them via depends_on
+  - id: "cross-block-pipeline"
+    text:
+      - content: "Generate __style__ image"
+        after:
+          - content: "variation A"
+          - content: "variation B"
+      - content: "Upscale collected images"
+        annotations:
+          _depends_on: ["0.0", "0.1"]
+    wildcards:
+      - name: "style"
+        text: ["photo", "sketch"]
+
+  # EMAIL WRITER: demonstrates full text generation with content artifacts
+  # Uses text_writer.py hook (overrides default echo_generate via prompt.hooks)
+  # Value chain: wildcards → hook context → generated text → content artifact → JSONL
+  - id: "email-writer"
+    hooks:
+      generate:
+        - script: hooks/text_writer.py
+    text:
+      - content: "Write a __topic__ update email"
+        annotations:
+          tone: friendly
+          audience: engineering team
+        after:
+          - content: "Include __detail__ section"
+            annotations:
+              tone: friendly
+              audience: engineering team
+    wildcards:
+      - name: "topic"
+        text: ["sprint", "launch"]
+      - name: "detail"
+        text: ["metrics", "timeline"]
+
+  # EXT_TEXT WILDCARDS: exercises ext-defined wildcards in ext_text entries + after children
+  # Uses hiring/roles theme — text entries have __seniority__, after child uses __seniority__
+  # Validates: ext wildcard merge, wildcard-in-ext-text expansion, after-child resolution
+  - id: "ext-wildcard-test"
+    ext: "hiring"
+    text:
+      - ext_text: "roles"
+        ext_text_max: 2
+        after:
+          - content: "Describe __seniority__ level expectations"
+    wildcards: []
+
+  # EXT WILDCARD PRECEDENCE: prompt wildcard overrides ext wildcard with same name
+  # Defines inline seniority=[L1, L2] which should override ext's [Junior, Mid-level, ...]
+  - id: "ext-precedence-test"
+    ext: "hiring"
+    text:
+      - ext_text: "roles"
+        ext_text_max: 2
+        after:
+          - content: "Evaluate __seniority__ performance"
+    wildcards:
+      - name: "seniority"
+        text: ["L1", "L2"]
+
+  # FAILURE CASCADE: block 0 fails via _force_fail, block 1 depends on it
+  # Tests that failure cascades to dependents via depends_on
+  - id: "fail-cascade-pipeline"
+    text:
+      - content: "This block will fail"
+        annotations:
+          _force_fail: true
+      - content: "This block depends on the failing block"
+        annotations:
+          _depends_on: ["0"]

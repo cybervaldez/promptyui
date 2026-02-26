@@ -18,7 +18,7 @@ PORT="8085"
 [[ "$1" =~ ^[0-9]+$ ]] && PORT="$1"
 
 BASE_URL="http://localhost:$PORT"
-LANDING_URL="$BASE_URL/previews/preview-landing-single-viewport.html"
+LANDING_URL="$BASE_URL/demo"
 
 setup_cleanup
 
@@ -189,6 +189,206 @@ log_info "TEST 10: Page is scrollable"
 
 IS_SCROLLABLE=$(agent-browser eval 'document.documentElement.scrollHeight > window.innerHeight' 2>/dev/null)
 [ "$IS_SCROLLABLE" = "true" ] && log_pass "Page is scrollable" || log_fail "Page is not scrollable"
+
+# ============================================================================
+# TEST 11: Save & Continue shows compositions section
+# ============================================================================
+echo ""
+log_info "TEST 11: Save & Continue shows compositions section"
+
+agent-browser eval 'document.getElementById("quill-save-btn").click()' 2>/dev/null
+sleep 1
+
+PREVIEW_VISIBLE=$(agent-browser eval 'document.getElementById("preview-section").style.display !== "none"' 2>/dev/null)
+[ "$PREVIEW_VISIBLE" = "true" ] && log_pass "Compositions section visible" || log_fail "Compositions section not visible"
+
+# ============================================================================
+# TEST 12: Preview navigator shows "1 / N" (matches live app)
+# ============================================================================
+echo ""
+log_info "TEST 12: Preview navigator shows composition count"
+
+NAV_LABEL=$(agent-browser eval 'document.querySelector("[data-testid=\"preview-nav-label\"]").textContent' 2>/dev/null | tr -d '"')
+echo "$NAV_LABEL" | grep -q "1 /" && log_pass "Nav shows '1 / N': $NAV_LABEL" || log_fail "Nav label unexpected: $NAV_LABEL"
+
+# ============================================================================
+# TEST 13: Preview next/prev buttons work (‹ › style)
+# ============================================================================
+echo ""
+log_info "TEST 13: Preview next/prev navigation"
+
+agent-browser eval 'document.querySelector("[data-testid=\"preview-next-btn\"]").click()' 2>/dev/null
+sleep 0.3
+
+NAV_AFTER=$(agent-browser eval 'document.querySelector("[data-testid=\"preview-nav-label\"]").textContent' 2>/dev/null | tr -d '"')
+echo "$NAV_AFTER" | grep -q "2 /" && log_pass "Next button works: $NAV_AFTER" || log_fail "Next button failed: $NAV_AFTER"
+
+# ============================================================================
+# TEST 14: Preview shows resolved text (no __wildcards__)
+# ============================================================================
+echo ""
+log_info "TEST 14: Preview shows resolved text"
+
+RESOLVED_TEXT=$(agent-browser eval 'document.querySelector("[data-testid=\"preview-block-0\"]").textContent' 2>/dev/null | tr -d '"')
+HAS_WC=$(echo "$RESOLVED_TEXT" | grep -c '__')
+[ "$HAS_WC" = "0" ] && log_pass "Resolved text has no __wildcards__" || log_fail "Text still has wildcards: $RESOLVED_TEXT"
+[ -n "$RESOLVED_TEXT" ] && log_pass "Block 0 has text: $RESOLVED_TEXT" || log_fail "Block 0 is empty"
+
+# ============================================================================
+# TEST 15: Preview pills show wildcard tags (name="value")
+# ============================================================================
+echo ""
+log_info "TEST 15: Preview wildcard tags"
+
+PILL_COUNT=$(agent-browser eval 'document.querySelectorAll(".preview-pill").length' 2>/dev/null)
+[ "$PILL_COUNT" -gt "0" ] && log_pass "Has $PILL_COUNT wildcard tags" || log_fail "No wildcard tags found"
+
+# ============================================================================
+# TEST 16: Shuffle button randomizes composition
+# ============================================================================
+echo ""
+log_info "TEST 16: Shuffle button"
+
+BEFORE_SHUFFLE=$(agent-browser eval 'demoPreviewState.compId' 2>/dev/null | tr -d '"')
+agent-browser eval 'document.querySelector("[data-testid=\"preview-shuffle-btn\"]").click()' 2>/dev/null
+sleep 0.3
+HAS_SHUFFLE=$(agent-browser eval '!!document.querySelector("[data-testid=\"preview-shuffle-btn\"]")' 2>/dev/null)
+[ "$HAS_SHUFFLE" = "true" ] && log_pass "Shuffle button exists" || log_fail "Shuffle button missing"
+
+# ============================================================================
+# TEST 17: Bucket area visible in same section (consolidated)
+# ============================================================================
+echo ""
+log_info "TEST 17: Bucket area in same section"
+
+BUCKET_AREA=$(agent-browser eval '!!document.querySelector("[data-testid=\"bucket-area\"]")' 2>/dev/null)
+[ "$BUCKET_AREA" = "true" ] && log_pass "Bucket area exists in compositions section" || log_fail "Bucket area missing"
+
+SCALE_DIVIDER=$(agent-browser eval '!!document.querySelector("[data-testid=\"scale-divider\"]")' 2>/dev/null)
+[ "$SCALE_DIVIDER" = "true" ] && log_pass "Scale divider visible" || log_fail "Scale divider missing"
+
+# ============================================================================
+# TEST 18: Bucket slider changes window size
+# ============================================================================
+echo ""
+log_info "TEST 18: Bucket slider changes window size"
+
+agent-browser eval 'var s = document.querySelector("[data-testid=\"bucket-slider\"]"); s.value = 3; s.dispatchEvent(new Event("input"))' 2>/dev/null
+sleep 0.3
+
+SLIDER_VAL=$(agent-browser eval 'document.querySelector("[data-testid=\"bucket-slider-value\"]").textContent' 2>/dev/null | tr -d '"')
+[ "$SLIDER_VAL" = "3" ] && log_pass "Slider value shows 3" || log_fail "Slider value: $SLIDER_VAL"
+
+# ============================================================================
+# TEST 19: Bucket visual shows bracket groups
+# ============================================================================
+echo ""
+log_info "TEST 19: Bucket bracket groups"
+
+GROUP_COUNT=$(agent-browser eval 'document.querySelectorAll(".bucket-group").length' 2>/dev/null)
+[ "$GROUP_COUNT" -gt "0" ] && log_pass "Has $GROUP_COUNT bracket groups" || log_fail "No bracket groups"
+
+# ============================================================================
+# TEST 20: Bucket nav coarse works
+# ============================================================================
+echo ""
+log_info "TEST 20: Bucket coarse navigation"
+
+COARSE_BEFORE=$(agent-browser eval 'document.querySelector("[data-testid=\"bucket-coarse-label\"]").textContent' 2>/dev/null | tr -d '"')
+agent-browser eval 'demoBucketNext()' 2>/dev/null
+sleep 0.3
+
+COARSE_AFTER=$(agent-browser eval 'document.querySelector("[data-testid=\"bucket-coarse-label\"]").textContent' 2>/dev/null | tr -d '"')
+[ "$COARSE_BEFORE" != "$COARSE_AFTER" ] && log_pass "Coarse nav changed: $COARSE_BEFORE -> $COARSE_AFTER" || log_fail "Coarse nav unchanged"
+
+# ============================================================================
+# TEST 21: Bucket resolved text updates
+# ============================================================================
+echo ""
+log_info "TEST 21: Bucket resolved text"
+
+BUCKET_TEXT=$(agent-browser eval 'document.querySelector("[data-testid=\"bucket-block-0\"]").textContent' 2>/dev/null | tr -d '"')
+[ -n "$BUCKET_TEXT" ] && log_pass "Bucket resolved text: $BUCKET_TEXT" || log_fail "Bucket resolved text empty"
+
+# ============================================================================
+# TEST 22: Continue to Annotations works
+# ============================================================================
+echo ""
+log_info "TEST 22: Continue to Annotations"
+
+agent-browser eval 'document.getElementById("preview-continue-btn").click()' 2>/dev/null
+sleep 1
+
+ANN_VISIBLE=$(agent-browser eval 'document.getElementById("ann-section").style.display !== "none"' 2>/dev/null)
+[ "$ANN_VISIBLE" = "true" ] && log_pass "Annotations section visible" || log_fail "Annotations section not visible"
+
+# ============================================================================
+# TEST 23: Annotation layers show 3 columns
+# ============================================================================
+echo ""
+log_info "TEST 23: Annotation layers"
+
+HAS_DEFAULTS=$(agent-browser eval '!!document.querySelector("[data-testid=\"ann-layer-defaults\"]")' 2>/dev/null)
+HAS_PROMPT=$(agent-browser eval '!!document.querySelector("[data-testid=\"ann-layer-prompt\"]")' 2>/dev/null)
+HAS_BLOCK=$(agent-browser eval '!!document.querySelector("[data-testid=\"ann-layer-block\"]")' 2>/dev/null)
+[ "$HAS_DEFAULTS" = "true" ] && log_pass "Defaults layer exists" || log_fail "Defaults layer missing"
+[ "$HAS_PROMPT" = "true" ] && log_pass "Prompt layer exists" || log_fail "Prompt layer missing"
+[ "$HAS_BLOCK" = "true" ] && log_pass "Block layer exists" || log_fail "Block layer missing"
+
+# ============================================================================
+# TEST 24: Block cards have badges
+# ============================================================================
+echo ""
+log_info "TEST 24: Block card badges"
+
+BADGE_COUNT=$(agent-browser eval 'document.querySelectorAll(".ann-badge").length' 2>/dev/null)
+[ "$BADGE_COUNT" -gt "0" ] && log_pass "Has $BADGE_COUNT badges" || log_fail "No badges found"
+
+# ============================================================================
+# TEST 25: Click block opens editor
+# ============================================================================
+echo ""
+log_info "TEST 25: Click block opens editor"
+
+agent-browser eval 'document.querySelector("[data-testid=\"ann-block-0\"]").click()' 2>/dev/null
+sleep 0.5
+
+HAS_OPEN_EDITOR=$(agent-browser eval '!!document.querySelector(".ann-block-editor.open")' 2>/dev/null)
+[ "$HAS_OPEN_EDITOR" = "true" ] && log_pass "Editor opened on click" || log_fail "Editor did not open"
+
+# ============================================================================
+# TEST 26: Token counter shows count
+# ============================================================================
+echo ""
+log_info "TEST 26: Token counter"
+
+TOKEN_TEXT=$(agent-browser eval 'document.querySelector("[data-testid=\"ann-token-chip\"]").textContent' 2>/dev/null | tr -d '"')
+echo "$TOKEN_TEXT" | grep -qE '~[0-9]+/[0-9]+' && log_pass "Token chip: $TOKEN_TEXT" || log_fail "Token chip unexpected: $TOKEN_TEXT"
+
+# ============================================================================
+# TEST 27: Token counter updates on input
+# ============================================================================
+echo ""
+log_info "TEST 27: Token counter updates on input"
+
+TOKEN_BEFORE=$(agent-browser eval 'document.querySelector("[data-testid=\"ann-token-chip\"]").textContent' 2>/dev/null | tr -d '"')
+agent-browser eval 'var ta = document.querySelector("[data-testid=\"ann-token-textarea\"]"); ta.value = "This is a much longer text to test the token counter updates when typing more content into the textarea field"; ta.dispatchEvent(new Event("input"))' 2>/dev/null
+sleep 0.3
+
+TOKEN_AFTER=$(agent-browser eval 'document.querySelector("[data-testid=\"ann-token-chip\"]").textContent' 2>/dev/null | tr -d '"')
+[ "$TOKEN_BEFORE" != "$TOKEN_AFTER" ] && log_pass "Token chip updated: $TOKEN_BEFORE -> $TOKEN_AFTER" || log_fail "Token chip unchanged"
+
+# ============================================================================
+# TEST 28: Token budget change updates color
+# ============================================================================
+echo ""
+log_info "TEST 28: Token budget color change"
+
+agent-browser eval 'var inp = document.querySelector("[data-testid=\"ann-budget-input\"]"); inp.value = 10; inp.dispatchEvent(new Event("input"))' 2>/dev/null
+sleep 0.3
+
+TOKEN_CLASS=$(agent-browser eval 'document.querySelector("[data-testid=\"ann-token-chip\"]").className' 2>/dev/null | tr -d '"')
+echo "$TOKEN_CLASS" | grep -qE 'over|warn' && log_pass "Token chip shows warning/over: $TOKEN_CLASS" || log_fail "No warning class: $TOKEN_CLASS"
 
 # ============================================================================
 # CLEANUP

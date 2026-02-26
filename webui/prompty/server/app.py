@@ -53,7 +53,7 @@ class PUHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         """Handle GET requests."""
-        from .api import jobs, extensions, operations, session, pipeline
+        from .api import jobs, extensions, operations, session, pipeline, artifacts
 
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
@@ -65,6 +65,9 @@ class PUHandler(http.server.SimpleHTTPRequestHandler):
         pipeline_stop_match = re.match(r'^/api/pu/job/([^/]+)/pipeline/stop$', path)
         # Session: /api/pu/job/{id}/session
         session_match = re.match(r'^/api/pu/job/([^/]+)/session$', path)
+        # Artifacts: /api/pu/job/{id}/artifacts or /api/pu/job/{id}/artifacts/{mod_id}/{filename}
+        artifacts_list_match = re.match(r'^/api/pu/job/([^/]+)/artifacts$', path)
+        artifacts_file_match = re.match(r'^/api/pu/job/([^/]+)/artifacts/([^/]+)/(.+)$', path)
         # Operations: /api/pu/job/{id}/operations or /api/pu/job/{id}/operation/{name}
         op_match = re.match(r'^/api/pu/job/([^/]+)/operations$', path)
         op_get_match = re.match(r'^/api/pu/job/([^/]+)/operation/([^/]+)$', path)
@@ -79,6 +82,14 @@ class PUHandler(http.server.SimpleHTTPRequestHandler):
         elif session_match:
             job_id = urllib.parse.unquote(session_match.group(1))
             session.handle_session_get(self, job_id)
+        elif artifacts_list_match:
+            job_id = urllib.parse.unquote(artifacts_list_match.group(1))
+            artifacts.handle_artifacts_list(self, job_id)
+        elif artifacts_file_match:
+            job_id = urllib.parse.unquote(artifacts_file_match.group(1))
+            mod_id = urllib.parse.unquote(artifacts_file_match.group(2))
+            filename = urllib.parse.unquote(artifacts_file_match.group(3))
+            artifacts.handle_artifact_file(self, job_id, mod_id, filename)
         elif op_match:
             job_id = urllib.parse.unquote(op_match.group(1))
             operations.handle_operations_list(self, job_id)

@@ -683,7 +683,22 @@ def build_jobs(task_conf, lora_root, range_increment, prompts_delimiter, global_
             wildcard_lookup = {}
             if current_wildcards:
                 wildcard_lookup = {wc.get('name'): wc.get('text', []) for wc in current_wildcards if wc.get('name')}
-            
+
+            # Merge ext-defined wildcards (ext wildcards don't override prompt wildcards)
+            for ext_name in needed_exts:
+                found_entry = next((entry for entry in extensions
+                                   if entry.get('id') == ext_name and entry.get('_ext') == prompt_ext), None)
+                if not found_entry:
+                    found_entry = next((entry for entry in extensions if entry.get('id') == ext_name), None)
+                if found_entry:
+                    for wc in found_entry.get('wildcards', []):
+                        wc_name = wc.get('name')
+                        if wc_name and wc_name not in wildcard_lookup:
+                            wc_text = wc.get('text', [])
+                            if isinstance(wc_text, str):
+                                wc_text = [wc_text]
+                            wildcard_lookup[wc_name] = wc_text
+
             # Wildcards are now EXPANDED directly in build_text_variations (not random resolution)
             prompt_default_leaf = p_entry_copy.get('checkpoint', False)
             variations = build_text_variations(

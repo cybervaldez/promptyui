@@ -42,6 +42,7 @@
                         <button class="pu-header-dropdown-item" data-testid="pu-build-menu-save-yaml" onclick="PU.buildMenu.close(); PU.export.open()">Save YAML&hellip;</button>
                     </div>
                 </div>
+                <button class="pu-btn pu-btn-accent" data-testid="pu-header-generate-btn" onclick="PU.generate.open()">Generate</button>
                 <button class="pu-btn pu-mobile-panel-btn" data-testid="pu-mobile-rp-btn"
                         onclick="PU.rightPanel.togglePanel()">&#9881;</button>
             </div>
@@ -477,6 +478,39 @@
             </div>
         </div>
 
+        <!-- Generate Modal -->
+        <div class="pu-modal-overlay pu-gen-modal-overlay" data-testid="pu-generate-modal" style="display: none;">
+            <div class="pu-modal pu-gen-modal">
+                <div class="pu-gen-header">
+                    <h3 data-testid="pu-gen-prompt-name"></h3>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <span class="pu-gen-comp-count" data-testid="pu-gen-comp-count"></span>
+                        <button class="pu-modal-close" data-testid="pu-gen-close-btn" onclick="PU.generate.close()">&times;</button>
+                    </div>
+                </div>
+                <div class="pu-gen-body" data-testid="pu-gen-body">
+                    <!-- Tree rendered dynamically by PU.generate.render() -->
+                </div>
+                <div class="pu-gen-footer">
+                    <div class="pu-gen-footer-left">
+                        <button class="pu-gen-btn-run" data-testid="pu-gen-run-btn" onclick="PU.generate.onRunClick()">Run</button>
+                        <div class="pu-gen-progress-bar" data-testid="pu-gen-progress-bar">
+                            <div class="pu-gen-progress-fill" data-testid="pu-gen-progress-fill"></div>
+                        </div>
+                        <span class="pu-gen-status" data-testid="pu-gen-status"></span>
+                    </div>
+                    <div class="pu-gen-footer-right">
+                        <label class="pu-gen-sim-fail" title="Simulate failure on first leaf block">
+                            <input type="checkbox" data-testid="pu-gen-sim-fail">
+                            <span>Sim failure</span>
+                        </label>
+                        <button class="pu-gen-btn-ghost" onclick="PU.generate.close()">Close</button>
+                        <button class="pu-gen-btn-primary" data-testid="pu-gen-export-btn">Export</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Popup backdrop overlay (click-outside dismiss for popups) -->
         <div class="pu-popup-overlay" data-testid="pu-popup-overlay"></div>
 
@@ -507,6 +541,7 @@
     <script src="js/themes.js"></script>
     <script src="js/move-to-theme.js"></script>
     <script src="js/pipeline.js"></script>
+    <script src="js/generate.js"></script>
     <script src="js/gallery.js"></script>
     <script src="js/export.js"></script>
     <script src="js/main.js"></script>

@@ -633,11 +633,438 @@ body {
     color: var(--reel-value);
 }
 
+/* ═══════════════════════════════════════════
+   SECTION 3: Navigating Compositions
+   ═══════════════════════════════════════════ */
+
+/* ── Section shared ── */
+.demo-section {
+    padding: 4rem 2rem 3rem;
+    max-width: 720px;
+    margin: 0 auto;
+}
+.demo-section-title {
+    font-size: 1.6rem;
+    color: var(--text-primary);
+    margin-bottom: 0.3rem;
+}
+.demo-section-subtitle {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: 2rem;
+}
+
+/* ── Composition navigator (matches live app right sidebar) ── */
+.preview-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    margin-bottom: 1.5rem;
+}
+.preview-nav-btn {
+    background: var(--bg-elevated);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--text-primary);
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 1.1rem;
+    line-height: 1;
+}
+.preview-nav-btn:hover { border-color: var(--reel-value); color: var(--reel-value); }
+.preview-nav-btn.shuffle { font-size: 0.95rem; padding: 6px 10px; }
+.preview-nav-label {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    min-width: 8ch;
+    text-align: center;
+    font-family: var(--font-mono);
+}
+
+/* ── Resolved text (shared by flat + bucket nav) ── */
+.preview-resolved {
+    background: var(--bg-surface);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+    padding: 1.2rem 1.5rem;
+    margin-bottom: 1rem;
+    line-height: 1.8;
+}
+.preview-block { color: var(--text-primary); font-size: 0.95rem; }
+.preview-block-child {
+    padding-left: 2rem;
+    border-left: 2px solid var(--text-muted);
+    margin-top: 0.5rem;
+    color: var(--text-secondary);
+}
+
+/* ── Wildcard tags (matches live app name="value" style) ── */
+.preview-pills {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+.preview-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    background: var(--reel-bg);
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 0.8rem;
+}
+.preview-pill-name { color: var(--reel-label); }
+.preview-pill-value { color: var(--reel-value); font-weight: 600; }
+
+/* ── Decomposition ── */
+.preview-breakdown {
+    background: var(--bg-elevated);
+    border-radius: 6px;
+    padding: 0.8rem 1rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+}
+
+/* ── Scale-it-up divider ── */
+.scale-divider {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 2.5rem 0 1.5rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+.scale-divider::before, .scale-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(255,255,255,0.06);
+}
+
+/* ── Bucket control ── */
+.bucket-control {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+.bucket-label { color: var(--text-secondary); font-size: 0.85rem; }
+.bucket-slider { width: 120px; accent-color: var(--reel-value); }
+.bucket-slider-value {
+    color: var(--reel-value);
+    font-weight: bold;
+    font-size: 1.1rem;
+    min-width: 2ch;
+}
+
+/* ── Bucket visual (bracket groups) ── */
+.bucket-visual {
+    background: var(--bg-surface);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
+    margin-bottom: 1.5rem;
+}
+.bucket-wc-row {
+    margin-bottom: 0.8rem;
+}
+.bucket-wc-name {
+    color: var(--reel-label);
+    font-size: 0.8rem;
+    margin-bottom: 4px;
+}
+.bucket-group {
+    display: inline-flex;
+    gap: 4px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 4px;
+    padding: 3px 6px;
+    margin-right: 8px;
+    transition: border-color 0.2s;
+}
+.bucket-group.active {
+    border-color: var(--reel-value);
+    background: rgba(82, 156, 202, 0.08);
+}
+.bucket-val {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    padding: 1px 4px;
+    border-radius: 2px;
+}
+.bucket-val.active {
+    color: var(--reel-value);
+    background: rgba(82, 156, 202, 0.15);
+}
+
+/* ── Bucket navigator ── */
+.bucket-nav {
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+.bucket-nav-coarse, .bucket-nav-fine {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.bucket-nav-label {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+.bucket-fine-select {
+    background: var(--bg-elevated);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--text-primary);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+}
+
+/* ═══════════════════════════════════════════
+   SECTION 5: Annotations
+   ═══════════════════════════════════════════ */
+
+/* ── Annotation layers ── */
+.ann-layers {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 2rem;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+}
+.ann-layer {
+    background: var(--bg-surface);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+    padding: 0.6rem 0.8rem;
+    min-width: 120px;
+    flex: 1;
+}
+.ann-layer-resolved {
+    border-color: var(--accent-green);
+    background: rgba(63, 185, 80, 0.05);
+}
+.ann-layer-header {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+    margin-bottom: 0.4rem;
+}
+.ann-layer-body { font-size: 0.8rem; }
+.ann-merge-arrow {
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    padding-top: 1.2rem;
+    flex-shrink: 0;
+}
+
+/* key-value rows inside layers */
+.ann-kv { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
+.ann-kv-key { color: var(--reel-label); }
+.ann-kv-val { color: var(--text-primary); }
+.ann-kv-val.null-sentinel { color: var(--accent-amber); text-decoration: line-through; }
+.ann-kv-val.inherited { color: var(--text-secondary); font-style: italic; }
+.ann-kv-source {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    background: var(--bg-elevated);
+    padding: 0 4px;
+    border-radius: 2px;
+    margin-left: 4px;
+}
+
+/* ── Block cards with badges ── */
+.ann-block-card {
+    background: var(--bg-surface);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+    padding: 0.8rem 1rem;
+    margin-bottom: 0.8rem;
+    cursor: pointer;
+    transition: border-color 0.15s;
+}
+.ann-block-card:hover { border-color: rgba(255,255,255,0.15); }
+.ann-block-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.ann-block-text { font-size: 0.9rem; color: var(--text-primary); }
+.ann-block-badges { display: flex; gap: 6px; align-items: center; }
+
+/* Badge (tag icon + count) */
+.ann-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    background: var(--bg-elevated);
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+.ann-badge-icon { font-size: 0.6rem; }
+
+/* Inline universals on card */
+.ann-card-comment {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-style: italic;
+    margin-top: 4px;
+}
+.ann-card-priority {
+    font-size: 0.65rem;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: rgba(88, 166, 255, 0.12);
+    color: var(--accent-blue);
+}
+.ann-card-draft {
+    font-size: 0.65rem;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: rgba(255, 107, 53, 0.12);
+    color: var(--accent-amber);
+}
+
+/* ── Slide-in annotation editor ── */
+.ann-block-editor {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    margin-top: 0.6rem;
+    padding-top: 0;
+}
+.ann-block-editor.open {
+    max-height: 400px;
+    padding-top: 0.6rem;
+}
+.ann-editor-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 0.8rem;
+}
+.ann-editor-key { color: var(--reel-label); min-width: 70px; }
+.ann-editor-val {
+    flex: 1;
+    background: var(--bg-elevated);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 4px;
+    padding: 3px 6px;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+}
+.ann-editor-source { font-size: 0.65rem; color: var(--text-muted); min-width: 50px; text-align: right; }
+.ann-editor-row.inherited .ann-editor-val {
+    color: var(--text-secondary);
+    font-style: italic;
+    cursor: default;
+}
+.ann-editor-row.null-override {
+    text-decoration: line-through;
+    opacity: 0.5;
+}
+.ann-editor-row.null-override .ann-restore-btn {
+    text-decoration: none;
+    opacity: 1;
+    cursor: pointer;
+    color: var(--accent-blue);
+    font-size: 0.7rem;
+}
+.ann-editor-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+.ann-editor-btn {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    padding: 3px 10px;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+.ann-editor-btn:hover { border-color: var(--reel-value); color: var(--reel-value); }
+
+/* ── Token counter ── */
+.ann-token-demo {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255,255,255,0.06);
+}
+.ann-subsection-title { font-size: 1.1rem; color: var(--text-primary); margin-bottom: 0.3rem; }
+.ann-subsection-desc { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem; }
+.ann-token-block {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    margin-bottom: 0.8rem;
+}
+.ann-token-textarea {
+    flex: 1;
+    background: var(--bg-surface);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px;
+    padding: 0.6rem;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    min-height: 60px;
+    resize: vertical;
+}
+.ann-token-chip {
+    font-size: 0.8rem;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    white-space: nowrap;
+    transition: background 0.2s, color 0.2s;
+}
+.ann-token-chip.ok { background: rgba(63, 185, 80, 0.12); color: var(--accent-green); }
+.ann-token-chip.warn { background: rgba(255, 107, 53, 0.12); color: var(--accent-amber); }
+.ann-token-chip.over { background: rgba(248, 81, 73, 0.15); color: #f85149; }
+.ann-token-budget {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+.ann-budget-input {
+    width: 70px;
+    background: var(--bg-elevated);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--text-primary);
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+}
+
 /* ── Responsive ── */
 @media (max-width: 768px) {
     /* depth-based padding set inline via JS */
     .quill-section { padding: 4rem 1rem 3rem; }
     .quill-editor-area { padding: 1rem; }
+    .demo-section { padding: 3rem 1rem 2rem; }
+    .ann-layers { flex-direction: column; }
+    .ann-merge-arrow { transform: rotate(90deg); align-self: center; padding-top: 0; }
 }
 </style>
 </head>
@@ -1974,6 +2401,802 @@ function initQuillSection() {
    START
    ══════════════════════════════════════════════════ */
 initQuillSection();
+</script>
+
+<!-- ═══════════════════════════════════════════
+     SECTION 3: Navigating Compositions
+     ═══════════════════════════════════════════ -->
+<section class="demo-section" id="preview-section" style="display: none;">
+    <h2 class="demo-section-title">Navigating Compositions</h2>
+    <p class="demo-section-subtitle">Explore the Cartesian product — flat browsing or bucketed windows</p>
+
+    <!-- ── Phase 1: Flat navigator (matches live app Quick Build) ── -->
+    <div class="preview-area" data-testid="preview-area">
+        <div class="preview-nav" data-testid="preview-nav">
+            <button class="preview-nav-btn" data-testid="preview-prev-btn" onclick="demoPreviewPrev()">&lsaquo;</button>
+            <span class="preview-nav-label" data-testid="preview-nav-label">1 / 48</span>
+            <button class="preview-nav-btn" data-testid="preview-next-btn" onclick="demoPreviewNext()">&rsaquo;</button>
+            <button class="preview-nav-btn shuffle" data-testid="preview-shuffle-btn" onclick="demoPreviewShuffle()" title="Random composition">&#8635;</button>
+        </div>
+
+        <!-- Shared resolved text area -->
+        <div class="preview-resolved" data-testid="preview-resolved"></div>
+
+        <!-- Wildcard tags: name="value" -->
+        <div class="preview-pills" data-testid="preview-pills"></div>
+
+        <!-- Decomposition breakdown -->
+        <div class="preview-breakdown" data-testid="preview-breakdown"></div>
+    </div>
+
+    <!-- ── Phase 2: Scale it up — bucketed navigation ── -->
+    <div class="scale-divider" data-testid="scale-divider">When the space gets large...</div>
+
+    <div id="bucket-area" data-testid="bucket-area">
+        <!-- Window size slider -->
+        <div class="bucket-control" data-testid="bucket-control">
+            <label class="bucket-label">Window size (wildcards_max):</label>
+            <input type="range" min="1" max="6" value="2" class="bucket-slider"
+                   data-testid="bucket-slider" oninput="demoBucketSliderChanged(this.value)">
+            <span class="bucket-slider-value" data-testid="bucket-slider-value">2</span>
+        </div>
+
+        <!-- Bucket visualization -->
+        <div class="bucket-visual" data-testid="bucket-visual"></div>
+
+        <!-- Bucket navigator: coarse + fine -->
+        <div class="bucket-nav" data-testid="bucket-nav">
+            <div class="bucket-nav-coarse" data-testid="bucket-nav-coarse">
+                <span class="bucket-nav-label">Bucket:</span>
+                <button class="preview-nav-btn" onclick="demoBucketPrev()">&lsaquo;</button>
+                <span data-testid="bucket-coarse-label">1 / 3</span>
+                <button class="preview-nav-btn" onclick="demoBucketNext()">&rsaquo;</button>
+            </div>
+            <div class="bucket-nav-fine" data-testid="bucket-nav-fine">
+                <span class="bucket-nav-label">Within bucket:</span>
+            </div>
+        </div>
+
+        <!-- Bucket resolved text (reuses shared area when active) -->
+        <div class="preview-resolved" data-testid="bucket-resolved"></div>
+    </div>
+
+    <button class="q-save-continue-btn" id="preview-continue-btn" data-testid="preview-continue-btn">Continue to Annotations</button>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     SECTION 5: Annotations
+     ═══════════════════════════════════════════ -->
+<section class="demo-section" id="ann-section" style="display: none;">
+    <h2 class="demo-section-title">Annotations</h2>
+    <p class="demo-section-subtitle">Layer metadata on blocks — defaults, prompt-level, and block-level</p>
+
+    <!-- Inheritance visual (3 layers merging) -->
+    <div class="ann-layers" data-testid="ann-layers">
+        <div class="ann-layer" data-testid="ann-layer-defaults">
+            <div class="ann-layer-header">defaults</div>
+            <div class="ann-layer-body" id="ann-defaults-body"></div>
+        </div>
+        <div class="ann-merge-arrow">&rarr;</div>
+        <div class="ann-layer" data-testid="ann-layer-prompt">
+            <div class="ann-layer-header">prompt</div>
+            <div class="ann-layer-body" id="ann-prompt-body"></div>
+        </div>
+        <div class="ann-merge-arrow">&rarr;</div>
+        <div class="ann-layer" data-testid="ann-layer-block">
+            <div class="ann-layer-header">block</div>
+            <div class="ann-layer-body" id="ann-block-body"></div>
+        </div>
+        <div class="ann-merge-arrow">=</div>
+        <div class="ann-layer ann-layer-resolved" data-testid="ann-layer-resolved">
+            <div class="ann-layer-header">resolved</div>
+            <div class="ann-layer-body" id="ann-resolved-body"></div>
+        </div>
+    </div>
+
+    <!-- Interactive block cards with badges -->
+    <div class="ann-blocks" data-testid="ann-blocks"></div>
+
+    <!-- Token counter demo -->
+    <div class="ann-token-demo" data-testid="ann-token-demo">
+        <h3 class="ann-subsection-title">Token Counter</h3>
+        <p class="ann-subsection-desc">Set a budget, watch the counter update as text changes</p>
+        <div class="ann-token-block" data-testid="ann-token-block">
+            <textarea class="ann-token-textarea" data-testid="ann-token-textarea"
+                      oninput="demoTokenUpdate(this.value)"
+                      placeholder="Type text to see token count...">A cabin in the forest, autumn, watercolor</textarea>
+            <div class="ann-token-chip" data-testid="ann-token-chip">~10/500</div>
+        </div>
+        <div class="ann-token-budget" data-testid="ann-token-budget">
+            <label>Budget: </label>
+            <input type="number" value="500" min="10" max="10000"
+                   class="ann-budget-input" data-testid="ann-budget-input"
+                   oninput="demoTokenBudgetChanged(this.value)">
+            <span>tokens</span>
+        </div>
+    </div>
+</section>
+
+<script>
+/* ══════════════════════════════════════════════════
+   SECTION 3: Navigating Compositions
+   ══════════════════════════════════════════════════ */
+
+var demoPreviewState = { compId: 0, total: 0, blocks: [], wildcards: {} };
+
+/** Port of preview.js:compositionToIndices — odometer decomposition */
+function demoCompositionToIndices(compId, wcCounts) {
+    var sorted = Object.keys(wcCounts).sort();
+    var dimensions = sorted.map(function(n) { return Math.max(1, wcCounts[n]); });
+    var total = dimensions.reduce(function(a, b) { return a * b; }, 1);
+    var idx = total > 0 ? compId % total : 0;
+    var indices = {};
+    for (var i = sorted.length - 1; i >= 0; i--) {
+        indices[sorted[i]] = idx % dimensions[i];
+        idx = Math.floor(idx / dimensions[i]);
+    }
+    return indices;
+}
+
+/** Resolve block text by replacing __wc__ with values[index] */
+function demoResolveBlock(text, wildcards, indices) {
+    var resolved = text;
+    Object.keys(wildcards).forEach(function(name) {
+        var wc = wildcards[name];
+        var idx = indices[name] || 0;
+        var val = wc.values[idx] || wc.values[0] || name;
+        resolved = resolved.split('__' + name + '__').join(val);
+    });
+    return resolved;
+}
+
+/** Render the current flat composition (Phase 1) */
+function demoPreviewRender() {
+    var st = demoPreviewState;
+    var wcCounts = {};
+    Object.keys(st.wildcards).forEach(function(n) { wcCounts[n] = st.wildcards[n].values.length; });
+    var indices = demoCompositionToIndices(st.compId, wcCounts);
+
+    // Update nav label — matches live app "N / Total" format
+    document.querySelector('[data-testid="preview-nav-label"]').textContent =
+        (st.compId + 1) + ' / ' + st.total;
+
+    // Resolved text
+    var resolvedEl = document.querySelector('[data-testid="preview-resolved"]');
+    resolvedEl.innerHTML = '';
+    st.blocks.forEach(function(block, i) {
+        var div = document.createElement('div');
+        div.className = 'preview-block' + (block.depth > 0 ? ' preview-block-child' : '');
+        div.setAttribute('data-testid', 'preview-block-' + i);
+        div.textContent = demoResolveBlock(block.text, st.wildcards, indices);
+        resolvedEl.appendChild(div);
+    });
+
+    // Wildcard tags — matches live app name="value" format
+    var pillsEl = document.querySelector('[data-testid="preview-pills"]');
+    pillsEl.innerHTML = '';
+    var sorted = Object.keys(st.wildcards).sort();
+    sorted.forEach(function(name) {
+        var wc = st.wildcards[name];
+        var idx = indices[name] || 0;
+        var pill = document.createElement('span');
+        pill.className = 'preview-pill';
+        pill.innerHTML = '<span class="preview-pill-name">' + name + '=</span>' +
+                         '<span class="preview-pill-value">"' + (wc.values[idx] || '?') + '"</span>';
+        pillsEl.appendChild(pill);
+    });
+
+    // Decomposition breakdown
+    var breakdownEl = document.querySelector('[data-testid="preview-breakdown"]');
+    var dims = sorted.map(function(n) { return st.wildcards[n].values.length; });
+    var parts = [];
+    sorted.forEach(function(name, i) {
+        parts.push(name + '[' + indices[name] + '/' + dims[i] + ']');
+    });
+    breakdownEl.textContent = 'ID ' + st.compId + ' \u2192 ' + parts.join(' \u00d7 ');
+}
+
+function demoPreviewNext() {
+    var st = demoPreviewState;
+    st.compId = (st.compId + 1) % st.total;
+    demoPreviewRender();
+}
+
+function demoPreviewPrev() {
+    var st = demoPreviewState;
+    st.compId = (st.compId - 1 + st.total) % st.total;
+    demoPreviewRender();
+}
+
+function demoPreviewShuffle() {
+    var st = demoPreviewState;
+    st.compId = Math.floor(Math.random() * st.total);
+    demoPreviewRender();
+}
+
+/** Initialize preview from Quill section state */
+function initPreviewSection() {
+    var st = demoPreviewState;
+    st.blocks = [];
+    st.wildcards = {};
+    st.compId = 0;
+
+    // Read blocks from qState
+    qState.blocks.forEach(function(block) {
+        var text = serializeQuill(block.quill);
+        st.blocks.push({ text: text, depth: block.depth });
+        block.wildcards.forEach(function(wc) {
+            if (!st.wildcards[wc.name] && wc.values.length > 0) {
+                st.wildcards[wc.name] = { values: wc.values.slice() };
+            }
+        });
+    });
+
+    // Compute total
+    var total = 1;
+    Object.keys(st.wildcards).forEach(function(n) {
+        total *= st.wildcards[n].values.length;
+    });
+    st.total = Math.max(1, total);
+
+    demoPreviewRender();
+    initBucketArea();
+}
+
+/* ── Phase 2: Bucketed navigation (within same section) ── */
+
+var demoBucketState = {
+    wcMax: 2,
+    bucketId: 0,
+    fineIndices: {},
+    totalBuckets: 1,
+    blocks: [
+        { text: 'Write a __tone__ email about __topic__', depth: 0 }
+    ],
+    wildcards: {
+        tone: { values: ['formal', 'casual', 'friendly', 'professional', 'urgent', 'empathetic'] },
+        topic: { values: ['pricing', 'onboarding', 'renewal', 'feedback'] }
+    }
+};
+
+/** Compute bucket decomposition */
+function demoBucketToIndices(bucketId, wcCounts, wcMax) {
+    var sorted = Object.keys(wcCounts).sort();
+    var bucketCounts = {};
+    sorted.forEach(function(n) {
+        bucketCounts[n] = wcMax > 0 ? Math.ceil(wcCounts[n] / wcMax) : 1;
+    });
+    var dims = sorted.map(function(n) { return bucketCounts[n]; });
+    var total = dims.reduce(function(a, b) { return a * b; }, 1);
+    var idx = total > 0 ? bucketId % total : 0;
+    var indices = {};
+    for (var i = sorted.length - 1; i >= 0; i--) {
+        indices[sorted[i]] = idx % dims[i];
+        idx = Math.floor(idx / dims[i]);
+    }
+    return { bucketIndices: indices, totalBuckets: total };
+}
+
+/** Get values in the current bucket window for a wildcard */
+function demoBucketWindowValues(wcName, bucketIdx, wcMax) {
+    var vals = demoBucketState.wildcards[wcName].values;
+    var start = bucketIdx * wcMax;
+    return vals.slice(start, start + wcMax);
+}
+
+/** Render bucket visualization with bracket groups */
+function demoBucketRenderVisual() {
+    var st = demoBucketState;
+    var visualEl = document.querySelector('[data-testid="bucket-visual"]');
+    visualEl.innerHTML = '';
+
+    var wcCounts = {};
+    Object.keys(st.wildcards).forEach(function(n) { wcCounts[n] = st.wildcards[n].values.length; });
+    var result = demoBucketToIndices(st.bucketId, wcCounts, st.wcMax);
+    st.totalBuckets = result.totalBuckets;
+
+    var sorted = Object.keys(st.wildcards).sort();
+    sorted.forEach(function(name) {
+        var wc = st.wildcards[name];
+        var numBuckets = Math.ceil(wc.values.length / st.wcMax);
+        var activeBucket = result.bucketIndices[name];
+
+        var row = document.createElement('div');
+        row.className = 'bucket-wc-row';
+
+        var nameEl = document.createElement('div');
+        nameEl.className = 'bucket-wc-name';
+        nameEl.textContent = name + ' (' + wc.values.length + ' values)';
+        row.appendChild(nameEl);
+
+        for (var b = 0; b < numBuckets; b++) {
+            var group = document.createElement('span');
+            group.className = 'bucket-group' + (b === activeBucket ? ' active' : '');
+
+            var start = b * st.wcMax;
+            var end = Math.min(start + st.wcMax, wc.values.length);
+            for (var v = start; v < end; v++) {
+                var valEl = document.createElement('span');
+                valEl.className = 'bucket-val';
+                if (b === activeBucket) {
+                    var fineIdx = st.fineIndices[name] || 0;
+                    if (v - start === fineIdx) valEl.classList.add('active');
+                }
+                valEl.textContent = wc.values[v];
+                group.appendChild(valEl);
+            }
+            row.appendChild(group);
+        }
+        visualEl.appendChild(row);
+    });
+}
+
+/** Render fine navigation dropdowns */
+function demoBucketRenderFine() {
+    var st = demoBucketState;
+    var fineEl = document.querySelector('[data-testid="bucket-nav-fine"]');
+    var label = fineEl.querySelector('.bucket-nav-label');
+    fineEl.innerHTML = '';
+    fineEl.appendChild(label);
+
+    var wcCounts = {};
+    Object.keys(st.wildcards).forEach(function(n) { wcCounts[n] = st.wildcards[n].values.length; });
+    var result = demoBucketToIndices(st.bucketId, wcCounts, st.wcMax);
+
+    var sorted = Object.keys(st.wildcards).sort();
+    sorted.forEach(function(name) {
+        var bucketIdx = result.bucketIndices[name];
+        var windowVals = demoBucketWindowValues(name, bucketIdx, st.wcMax);
+
+        var sel = document.createElement('select');
+        sel.className = 'bucket-fine-select';
+        sel.setAttribute('data-wc', name);
+        windowVals.forEach(function(v, i) {
+            var opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = name + ': ' + v;
+            if (i === (st.fineIndices[name] || 0)) opt.selected = true;
+            sel.appendChild(opt);
+        });
+        sel.addEventListener('change', function() {
+            demoBucketFineChanged(name, parseInt(this.value, 10));
+        });
+        fineEl.appendChild(sel);
+    });
+}
+
+/** Resolve text at current bucket position */
+function demoBucketRenderResolved() {
+    var st = demoBucketState;
+    var wcCounts = {};
+    Object.keys(st.wildcards).forEach(function(n) { wcCounts[n] = st.wildcards[n].values.length; });
+    var result = demoBucketToIndices(st.bucketId, wcCounts, st.wcMax);
+
+    var indices = {};
+    var sorted = Object.keys(st.wildcards).sort();
+    sorted.forEach(function(name) {
+        var bucketIdx = result.bucketIndices[name];
+        var fineIdx = st.fineIndices[name] || 0;
+        indices[name] = bucketIdx * st.wcMax + fineIdx;
+    });
+
+    var resolvedEl = document.querySelector('[data-testid="bucket-resolved"]');
+    resolvedEl.innerHTML = '';
+    st.blocks.forEach(function(block, i) {
+        var div = document.createElement('div');
+        div.className = 'preview-block' + (block.depth > 0 ? ' preview-block-child' : '');
+        div.setAttribute('data-testid', 'bucket-block-' + i);
+        div.textContent = demoResolveBlock(block.text, st.wildcards, indices);
+        resolvedEl.appendChild(div);
+    });
+}
+
+function demoBucketRenderAll() {
+    var st = demoBucketState;
+    document.querySelector('[data-testid="bucket-coarse-label"]').textContent =
+        (st.bucketId + 1) + ' / ' + st.totalBuckets;
+
+    demoBucketRenderVisual();
+    demoBucketRenderFine();
+    demoBucketRenderResolved();
+}
+
+function demoBucketNext() {
+    var st = demoBucketState;
+    st.bucketId = (st.bucketId + 1) % st.totalBuckets;
+    st.fineIndices = {};
+    demoBucketRenderAll();
+}
+
+function demoBucketPrev() {
+    var st = demoBucketState;
+    st.bucketId = (st.bucketId - 1 + st.totalBuckets) % st.totalBuckets;
+    st.fineIndices = {};
+    demoBucketRenderAll();
+}
+
+function demoBucketFineChanged(wcName, idx) {
+    demoBucketState.fineIndices[wcName] = idx;
+    demoBucketRenderVisual();
+    demoBucketRenderResolved();
+}
+
+function demoBucketSliderChanged(val) {
+    var st = demoBucketState;
+    st.wcMax = parseInt(val, 10);
+    st.bucketId = 0;
+    st.fineIndices = {};
+    document.querySelector('[data-testid="bucket-slider-value"]').textContent = val;
+    demoBucketRenderAll();
+}
+
+function initBucketArea() {
+    demoBucketState.bucketId = 0;
+    demoBucketState.fineIndices = {};
+
+    var wcCounts = {};
+    Object.keys(demoBucketState.wildcards).forEach(function(n) {
+        wcCounts[n] = demoBucketState.wildcards[n].values.length;
+    });
+    var result = demoBucketToIndices(0, wcCounts, demoBucketState.wcMax);
+    demoBucketState.totalBuckets = result.totalBuckets;
+
+    demoBucketRenderAll();
+}
+
+/* ══════════════════════════════════════════════════
+   SECTION 5: Annotations
+   ══════════════════════════════════════════════════ */
+
+var demoAnnState = {
+    defaults: { quality: 'high', audience: 'professional', _token_limit: 500 },
+    prompt: { audience: 'technical' },
+    blocks: [
+        {
+            text: 'Write a formal email about pricing',
+            annotations: { tone: 'formal', _comment: 'Main sales pitch', _priority: 'high' }
+        },
+        {
+            text: 'Include case studies and ROI data',
+            annotations: {}
+        }
+    ],
+    tokenBudget: 500,
+    activeEditor: -1
+};
+
+/** Port of annotations.js:resolve() — 3-layer merge */
+function demoAnnResolve(blockIdx) {
+    var merged = {};
+    var sources = {};
+    var k;
+    // Layer 1: defaults
+    for (k in demoAnnState.defaults) {
+        merged[k] = demoAnnState.defaults[k];
+        sources[k] = 'defaults';
+    }
+    // Layer 2: prompt
+    for (k in demoAnnState.prompt) {
+        merged[k] = demoAnnState.prompt[k];
+        sources[k] = 'prompt';
+    }
+    // Layer 3: block
+    var blockAnn = demoAnnState.blocks[blockIdx].annotations;
+    for (k in blockAnn) {
+        merged[k] = blockAnn[k];
+        sources[k] = 'block';
+    }
+    // Null sentinel removal
+    var computed = {};
+    var removed = {};
+    for (k in merged) {
+        if (merged[k] === null) {
+            removed[k] = sources[k];
+        } else {
+            computed[k] = merged[k];
+        }
+    }
+    return { computed: computed, sources: sources, removed: removed };
+}
+
+/** Render key-value rows inside a layer body */
+function demoAnnRenderKV(parentEl, obj) {
+    parentEl.innerHTML = '';
+    var keys = Object.keys(obj);
+    if (keys.length === 0) {
+        parentEl.innerHTML = '<span style="color:var(--text-muted);font-style:italic">empty</span>';
+        return;
+    }
+    keys.forEach(function(k) {
+        var row = document.createElement('div');
+        row.className = 'ann-kv';
+        var valDisplay = obj[k] === null ? 'null' : String(obj[k]);
+        var valClass = obj[k] === null ? ' null-sentinel' : '';
+        row.innerHTML = '<span class="ann-kv-key">' + k + '</span>' +
+                        '<span class="ann-kv-val' + valClass + '">' + valDisplay + '</span>';
+        parentEl.appendChild(row);
+    });
+}
+
+/** Render the 3-layer inheritance visual for the selected block */
+function demoAnnRenderLayers(blockIdx) {
+    if (blockIdx === undefined) blockIdx = 0;
+    demoAnnRenderKV(document.getElementById('ann-defaults-body'), demoAnnState.defaults);
+    demoAnnRenderKV(document.getElementById('ann-prompt-body'), demoAnnState.prompt);
+    demoAnnRenderKV(document.getElementById('ann-block-body'), demoAnnState.blocks[blockIdx].annotations);
+
+    // Resolved
+    var resolved = demoAnnResolve(blockIdx);
+    var resolvedEl = document.getElementById('ann-resolved-body');
+    resolvedEl.innerHTML = '';
+    var keys = Object.keys(resolved.computed);
+    keys.forEach(function(k) {
+        var row = document.createElement('div');
+        row.className = 'ann-kv';
+        row.innerHTML = '<span class="ann-kv-key">' + k + '</span>' +
+                        '<span class="ann-kv-val">' + String(resolved.computed[k]) + '</span>' +
+                        '<span class="ann-kv-source">' + resolved.sources[k] + '</span>';
+        resolvedEl.appendChild(row);
+    });
+    // Show removed keys
+    Object.keys(resolved.removed).forEach(function(k) {
+        var row = document.createElement('div');
+        row.className = 'ann-kv';
+        row.innerHTML = '<span class="ann-kv-key">' + k + '</span>' +
+                        '<span class="ann-kv-val null-sentinel">null</span>' +
+                        '<span class="ann-kv-source">' + resolved.removed[k] + '</span>';
+        resolvedEl.appendChild(row);
+    });
+}
+
+/** Render block cards with badges */
+function demoAnnRenderBlocks() {
+    var container = document.querySelector('[data-testid="ann-blocks"]');
+    container.innerHTML = '';
+
+    demoAnnState.blocks.forEach(function(block, idx) {
+        var resolved = demoAnnResolve(idx);
+        var card = document.createElement('div');
+        card.className = 'ann-block-card';
+        card.setAttribute('data-testid', 'ann-block-' + idx);
+        card.setAttribute('data-path', idx);
+
+        // Header
+        var header = document.createElement('div');
+        header.className = 'ann-block-header';
+
+        var textSpan = document.createElement('span');
+        textSpan.className = 'ann-block-text';
+        textSpan.textContent = block.text;
+        header.appendChild(textSpan);
+
+        var badges = document.createElement('div');
+        badges.className = 'ann-block-badges';
+
+        // Annotation count badge
+        var annCount = Object.keys(resolved.computed).length;
+        var badge = document.createElement('span');
+        badge.className = 'ann-badge';
+        badge.innerHTML = '<span class="ann-badge-icon">&#9881;</span> ' + annCount;
+        badges.appendChild(badge);
+
+        // Priority pill
+        if (resolved.computed._priority) {
+            var pri = document.createElement('span');
+            pri.className = 'ann-card-priority';
+            pri.textContent = resolved.computed._priority;
+            badges.appendChild(pri);
+        }
+
+        // Draft pill
+        if (resolved.computed._draft) {
+            var draft = document.createElement('span');
+            draft.className = 'ann-card-draft';
+            draft.textContent = 'draft';
+            badges.appendChild(draft);
+        }
+
+        header.appendChild(badges);
+        card.appendChild(header);
+
+        // Comment
+        if (resolved.computed._comment) {
+            var comment = document.createElement('div');
+            comment.className = 'ann-card-comment';
+            comment.textContent = resolved.computed._comment;
+            card.appendChild(comment);
+        }
+
+        // Editor area
+        var editor = document.createElement('div');
+        editor.className = 'ann-block-editor';
+        card.appendChild(editor);
+
+        // Click to toggle editor
+        card.addEventListener('click', function(e) {
+            if (e.target.closest('.ann-editor-row') || e.target.closest('.ann-editor-actions')) return;
+            demoAnnToggleEditor(idx, card);
+        });
+
+        container.appendChild(card);
+    });
+}
+
+/** Toggle annotation editor for a block */
+function demoAnnToggleEditor(blockIdx, card) {
+    var editor = card.querySelector('.ann-block-editor');
+    var isOpen = editor.classList.contains('open');
+
+    // Close all editors first
+    document.querySelectorAll('.ann-block-editor.open').forEach(function(el) {
+        el.classList.remove('open');
+        el.innerHTML = '';
+    });
+
+    if (isOpen) {
+        demoAnnState.activeEditor = -1;
+        return;
+    }
+
+    demoAnnState.activeEditor = blockIdx;
+    demoAnnRenderLayers(blockIdx);
+
+    var resolved = demoAnnResolve(blockIdx);
+    var blockAnn = demoAnnState.blocks[blockIdx].annotations;
+    editor.innerHTML = '';
+
+    // Show all resolved keys as editor rows
+    var allKeys = Object.keys(resolved.computed).concat(Object.keys(resolved.removed));
+    var unique = [];
+    allKeys.forEach(function(k) { if (unique.indexOf(k) === -1) unique.push(k); });
+
+    unique.forEach(function(k) {
+        var row = document.createElement('div');
+        row.className = 'ann-editor-row';
+        var isOwn = blockAnn.hasOwnProperty(k);
+        var isNull = blockAnn[k] === null;
+        var source = resolved.sources[k] || 'removed';
+
+        if (isNull) {
+            row.classList.add('null-override');
+        } else if (!isOwn) {
+            row.classList.add('inherited');
+        }
+
+        var keyEl = document.createElement('span');
+        keyEl.className = 'ann-editor-key';
+        keyEl.textContent = k;
+        row.appendChild(keyEl);
+
+        if (isNull) {
+            var nullLabel = document.createElement('span');
+            nullLabel.className = 'ann-editor-val';
+            nullLabel.textContent = 'null (removed)';
+            row.appendChild(nullLabel);
+
+            var restoreBtn = document.createElement('span');
+            restoreBtn.className = 'ann-restore-btn';
+            restoreBtn.textContent = 'restore';
+            restoreBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                delete blockAnn[k];
+                demoAnnRefresh(blockIdx, card);
+            });
+            row.appendChild(restoreBtn);
+        } else if (isOwn) {
+            var input = document.createElement('input');
+            input.className = 'ann-editor-val';
+            input.value = String(resolved.computed[k]);
+            input.addEventListener('change', function() {
+                blockAnn[k] = this.value;
+                demoAnnRefresh(blockIdx, card);
+            });
+            row.appendChild(input);
+        } else {
+            var valEl = document.createElement('span');
+            valEl.className = 'ann-editor-val';
+            valEl.textContent = String(resolved.computed[k]);
+            row.appendChild(valEl);
+        }
+
+        var sourceEl = document.createElement('span');
+        sourceEl.className = 'ann-editor-source';
+        sourceEl.textContent = source;
+        row.appendChild(sourceEl);
+
+        editor.appendChild(row);
+    });
+
+    // Action buttons
+    var actions = document.createElement('div');
+    actions.className = 'ann-editor-actions';
+
+    var addBtn = document.createElement('button');
+    addBtn.className = 'ann-editor-btn';
+    addBtn.textContent = '+ Add';
+    addBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var key = prompt('Annotation key:');
+        if (key) {
+            var val = prompt('Value (leave empty for null sentinel):');
+            blockAnn[key] = val === '' ? null : val;
+            demoAnnRefresh(blockIdx, card);
+        }
+    });
+    actions.appendChild(addBtn);
+
+    var nullBtn = document.createElement('button');
+    nullBtn.className = 'ann-editor-btn';
+    nullBtn.textContent = 'Set null';
+    nullBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var key = prompt('Key to set null (removes inherited value):');
+        if (key) {
+            blockAnn[key] = null;
+            demoAnnRefresh(blockIdx, card);
+        }
+    });
+    actions.appendChild(nullBtn);
+
+    editor.appendChild(actions);
+
+    // Open with animation
+    requestAnimationFrame(function() { editor.classList.add('open'); });
+}
+
+/** Refresh after annotation edit */
+function demoAnnRefresh(blockIdx, card) {
+    // Re-render blocks and re-open editor
+    demoAnnRenderBlocks();
+    var newCard = document.querySelector('[data-testid="ann-block-' + blockIdx + '"]');
+    if (newCard) demoAnnToggleEditor(blockIdx, newCard);
+}
+
+/** Token counter: ~4 chars per token */
+function demoComputeTokens(text) { return Math.ceil(text.length / 4); }
+
+function demoTokenUpdate(text) {
+    var tokens = demoComputeTokens(text);
+    var budget = demoAnnState.tokenBudget;
+    var chip = document.querySelector('[data-testid="ann-token-chip"]');
+    chip.textContent = '~' + tokens + '/' + budget;
+    chip.className = 'ann-token-chip';
+    var ratio = tokens / budget;
+    if (ratio >= 1) chip.classList.add('over');
+    else if (ratio >= 0.8) chip.classList.add('warn');
+    else chip.classList.add('ok');
+}
+
+function demoTokenBudgetChanged(val) {
+    demoAnnState.tokenBudget = parseInt(val, 10) || 500;
+    var textarea = document.querySelector('[data-testid="ann-token-textarea"]');
+    demoTokenUpdate(textarea.value);
+}
+
+function initAnnSection() {
+    demoAnnRenderLayers(0);
+    demoAnnRenderBlocks();
+    var textarea = document.querySelector('[data-testid="ann-token-textarea"]');
+    demoTokenUpdate(textarea.value);
+}
+
+/* ══════════════════════════════════════════════════
+   SECTION TRANSITIONS
+   ══════════════════════════════════════════════════ */
+
+// Section 2 → Section 3 (Navigating Compositions — flat + buckets)
+document.getElementById('quill-save-btn').addEventListener('click', function() {
+    initPreviewSection();
+    document.getElementById('preview-section').style.display = '';
+    document.getElementById('preview-section').scrollIntoView({ behavior: 'smooth' });
+});
+
+// Section 3 → Section 4 (Annotations)
+document.getElementById('preview-continue-btn').addEventListener('click', function() {
+    initAnnSection();
+    document.getElementById('ann-section').style.display = '';
+    document.getElementById('ann-section').scrollIntoView({ behavior: 'smooth' });
+});
 </script>
 </body>
 </html>

@@ -86,6 +86,7 @@ PU.pipeline = {
         PU.state.pipeline.blockStates = {};
         PU.state.pipeline.blockProgress = {};
         PU.state.pipeline.stageTimes = {};
+        PU.state.pipeline.blockArtifacts = {};
         PU.pipeline._expandedNodes = {};
     },
 
@@ -112,6 +113,8 @@ PU.pipeline = {
             if (progress) progress.remove();
             const detail = node.querySelector('.pu-pipeline-node-detail');
             if (detail) detail.remove();
+            const badge = node.querySelector('.pu-pipeline-artifact-badge');
+            if (badge) badge.remove();
         });
 
         // Connect SSE
@@ -172,6 +175,30 @@ PU.pipeline = {
             const data = JSON.parse(e.data);
             PU.pipeline._setNodeState(data.block_path, 'blocked');
             PU.state.pipeline.blockStates[data.block_path] = 'blocked';
+        });
+
+        es.addEventListener('artifact', (e) => {
+            const data = JSON.parse(e.data);
+            const bp = data.block_path;
+            if (!PU.state.pipeline.blockArtifacts[bp]) {
+                PU.state.pipeline.blockArtifacts[bp] = [];
+            }
+            PU.state.pipeline.blockArtifacts[bp].push(data.artifact);
+            PU.pipeline._updateArtifactBadge(bp);
+        });
+
+        es.addEventListener('artifact_consumed', (e) => {
+            // Track dependency artifact consumption for UI indicators
+            const data = JSON.parse(e.data);
+            const consumer = data.consuming_block;
+            const source = data.source_block;
+            // Store on state for potential future UI (e.g., dependency arrows)
+            if (!PU.state.pipeline.artifactConsumed) {
+                PU.state.pipeline.artifactConsumed = [];
+            }
+            PU.state.pipeline.artifactConsumed.push({
+                consumer, source, count: data.artifact_count
+            });
         });
 
         es.addEventListener('run_complete', (e) => {
@@ -350,6 +377,27 @@ PU.pipeline = {
     },
 
     /**
+     * Update or create the artifact badge on a node header.
+     */
+    _updateArtifactBadge(blockPath) {
+        const node = document.querySelector(`[data-node-id="${blockPath}"]`);
+        if (!node) return;
+        const artifacts = PU.state.pipeline.blockArtifacts[blockPath] || [];
+        if (artifacts.length === 0) return;
+        const header = node.querySelector('.pu-pipeline-node-header');
+        if (!header) return;
+        let badge = header.querySelector('.pu-pipeline-artifact-badge');
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'pu-pipeline-artifact-badge';
+            badge.dataset.testid = 'pu-artifact-badge-' + blockPath;
+            header.appendChild(badge);
+        }
+        badge.textContent = '\uD83D\uDCCE ' + artifacts.length;
+        badge.title = artifacts.length + ' artifact' + (artifacts.length !== 1 ? 's' : '');
+    },
+
+    /**
      * Show error message on a failed node.
      */
     _setNodeError(blockPath, errorMsg) {
@@ -427,6 +475,26 @@ PU.pipeline = {
 
         if (totalMs > 0 && progress) {
             detailHtml += `<div class="pu-pipeline-detail-total">Total: ${totalMs.toFixed(0)}ms \u00b7 ${progress.completed} compositions</div>`;
+        }
+
+        // Artifacts section
+        const artifacts = PU.state.pipeline.blockArtifacts[blockPath] || [];
+        if (artifacts.length > 0) {
+            const typeIcons = { text: '\uD83D\uDCC4', image: '\uD83D\uDDBC\uFE0F', data: '\uD83D\uDCCA', video: '\uD83C\uDFAC' };
+            detailHtml += '<div class="pu-pipeline-detail-title" style="margin-top:10px">Artifacts</div>';
+            detailHtml += '<div class="pu-pipeline-detail-artifacts" data-testid="pu-artifact-list-' + blockPath + '">';
+            for (const art of artifacts) {
+                const icon = typeIcons[art.type] || '\uD83D\uDCC4';
+                const preview = art.preview ? ' \u2014 ' + art.preview.substring(0, 100) : '';
+                const mod = art.mod_id ? '<span class="pu-pipeline-artifact-mod">' + art.mod_id + '</span>' : '';
+                detailHtml += '<div class="pu-pipeline-artifact-row">'
+                    + '<span class="pu-pipeline-artifact-icon">' + icon + '</span>'
+                    + '<span class="pu-pipeline-artifact-name">' + art.name + '</span>'
+                    + mod
+                    + '<span class="pu-pipeline-artifact-preview">' + preview + '</span>'
+                    + '</div>';
+            }
+            detailHtml += '</div>';
         }
 
         detailHtml += '</div>';

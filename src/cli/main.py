@@ -213,6 +213,91 @@ Examples:
         print("\nError: --resume and --rebuild are mutually exclusive.")
         return 1
 
+    # Handle --tree flag early (TreeExecutor doesn't need webui/tester/generator)
+    if args.tree:
+        from src.pipeline_runner import create_run
+        from src.event_stream import EventStream
+
+        job_dir = Path.cwd() / 'jobs' / args.job
+
+        print(f"\n--- TreeExecutor Mode ---")
+
+        try:
+            pipeline, tree_jobs, meta = create_run(
+                job_dir, composition_id=args.composition, prompt_id=args.prompt_id)
+        except FileNotFoundError as e:
+            print(f"\nError: {e}")
+            return 1
+        except ValueError as e:
+            print(f"\nError: {e}")
+            return 1
+
+        print(f"   Jobs: {meta['total_jobs']}")
+        print(f"   Blocks: {meta['block_paths']}")
+
+        # CLI event consumer — prints structured [TAG] lines to stdout
+        def cli_consumer(event):
+            t, d = event['type'], event['data']
+            if t == 'block_start':
+                print(f"   [BLOCK] {d['block_path']} started")
+            elif t == 'composition_complete':
+                print(f"   [COMP]  {d['block_path']}:{d['composition_idx']} complete")
+            elif t == 'block_complete':
+                print(f"   [BLOCK] {d['block_path']} complete")
+            elif t == 'block_failed':
+                print(f"   [FAIL]  {d['block_path']}: {d.get('error', 'unknown')}")
+            elif t == 'block_blocked':
+                print(f"   [BLOCK] {d['block_path']} blocked (dependency failed)")
+            elif t == 'artifact':
+                art = d['artifact']
+                preview = art.get('preview', '')[:60]
+                print(f"   [ART]   {d['block_path']}: {art['name']} ({art['mod_id']}) — \"{preview}\"")
+            elif t == 'artifact_consumed':
+                print(f"   [CONSUMED] Block {d['consuming_block']} consuming {d['artifact_count']} artifact(s) from {d['source_block']}")
+
+        stream = EventStream(pipeline, tree_jobs, meta, output_path=str(job_dir))
+        stream.on_event = cli_consumer
+
+        # Wire shutdown signal for graceful Ctrl+C
+        def _tree_shutdown_handler(signum, frame):
+            signame = 'SIGTERM' if signum == signal.SIGTERM else 'SIGINT'
+            print(f"\n   Received {signame}, stopping at next composition boundary...")
+            stream.stop()
+            _shutdown_event.set()
+
+        prev_sigterm = signal.signal(signal.SIGTERM, _tree_shutdown_handler)
+        prev_sigint = signal.signal(signal.SIGINT, _tree_shutdown_handler)
+
+        try:
+            stats = stream.run()
+        finally:
+            signal.signal(signal.SIGTERM, prev_sigterm)
+            signal.signal(signal.SIGINT, prev_sigint)
+
+        print(f"\n--- TreeExecutor Results ---")
+        print(f"   State:     {stats['state']}")
+        print(f"   Completed: {stats['completed_compositions']}/{stats['total_compositions']}")
+        print(f"   Blocks:    {stats['blocks_complete']}/{stats['blocks_total']} complete")
+        if stats['blocks_failed']:
+            print(f"   Failed:    {stats['blocks_failed']}")
+            for bp, detail in stats.get('blocks_failed_detail', {}).items():
+                print(f"              block {bp}: {detail['completed']}/{detail['total']} completed before failure")
+        if stats['blocks_blocked']:
+            print(f"   Blocked:   {stats['blocks_blocked']}")
+
+        # Artifact summary
+        if stats['artifacts_total'] > 0:
+            print(f"\n--- Artifacts ---")
+            print(f"   Total:     {stats['artifacts_total']} artifact(s) across {len(stats['artifacts_by_block'])} block(s)")
+            manifest_path = job_dir / '_artifacts' / 'manifest.json'
+            if manifest_path.exists():
+                print(f"   Manifest:  {manifest_path}")
+            for bp, count in sorted(stats['artifacts_by_block'].items()):
+                label = 'artifact' if count == 1 else 'artifacts'
+                print(f"   Block {bp}:  {count} {label}")
+
+        return 0 if stats['state'] == 'complete' else 1
+
     # Auto-detect WebUI server if --webui not explicitly set
     if not args.webui:
         server_running, detected_port = auto_detect_webui_server(
@@ -352,99 +437,6 @@ Examples:
     # Always show trace ID and log path for debugging context
     print(f"   Trace ID:    {trace_id}")
     print(f"   📋 Debug log: file://{debug_log_path}")
-
-    # Handle --tree flag early (TreeExecutor doesn't need tester/generator)
-    if args.tree:
-        import yaml as _yaml
-        from src.tree_executor import TreeExecutor
-        from src.hooks import HookPipeline, load_hooks_config, load_mods_config
-        from src.jobs import build_jobs
-
-        print(f"\n--- TreeExecutor Mode ---")
-
-        # Load job config
-        jobs_yaml_path = job_dir / 'jobs.yaml'
-        if not jobs_yaml_path.exists():
-            print(f"\nError: {jobs_yaml_path} not found")
-            return 1
-
-        with open(jobs_yaml_path) as _f:
-            task_conf = _yaml.safe_load(_f)
-
-        # Load global config (extensions)
-        from src.extensions import process_addons
-        global_conf = {'ext': []}
-        process_addons(job_dir, global_conf)
-
-        # Load hooks/mods config
-        hooks_config = load_hooks_config(job_dir)
-        mods_config = load_mods_config(job_dir)
-
-        pipeline = HookPipeline(job_dir, hooks_config, mods_config)
-
-        # Build jobs with block paths
-        defaults = task_conf.get('defaults', {})
-        tree_jobs = build_jobs(
-            task_conf, Path('/dev/null'), 0.1, ' ', global_conf,
-            composition_id=args.composition,
-            wildcards_max=defaults.get('wildcards_max', 0),
-            ext_text_max=defaults.get('ext_text_max', 0),
-        )
-
-        print(f"   Jobs: {len(tree_jobs)}")
-        paths = set(j['prompt'].get('_block_path', '?') for j in tree_jobs)
-        print(f"   Blocks: {sorted(paths)}")
-
-        def print_progress(event_type, *event_args):
-            if event_type == 'block_start':
-                print(f"   [BLOCK] {event_args[0]} started")
-            elif event_type == 'composition_complete':
-                print(f"   [COMP]  {event_args[0]}:{event_args[1]} complete")
-            elif event_type == 'block_complete':
-                print(f"   [BLOCK] {event_args[0]} complete")
-            elif event_type == 'block_failed':
-                print(f"   [FAIL]  {event_args[0]}: {event_args[1] if len(event_args) > 1 else 'unknown'}")
-            elif event_type == 'block_blocked':
-                print(f"   [BLOCK] {event_args[0]} blocked (parent failed)")
-
-        # Run — wire shutdown signal to executor.stop() for graceful Ctrl+C
-        pipeline.execute_hook('job_start', {'job_name': args.job})
-
-        executor = TreeExecutor(tree_jobs, pipeline, on_progress=print_progress)
-
-        # Connect _shutdown_event to executor.stop() so SIGTERM/SIGINT
-        # stops at the next composition boundary instead of killing the process
-        def _tree_shutdown_handler(signum, frame):
-            signame = 'SIGTERM' if signum == signal.SIGTERM else 'SIGINT'
-            print(f"\n   Received {signame}, stopping at next composition boundary...")
-            executor.stop()
-            _shutdown_event.set()
-
-        prev_sigterm = signal.signal(signal.SIGTERM, _tree_shutdown_handler)
-        prev_sigint = signal.signal(signal.SIGINT, _tree_shutdown_handler)
-
-        try:
-            executor.execute()
-        finally:
-            # Restore original handlers
-            signal.signal(signal.SIGTERM, prev_sigterm)
-            signal.signal(signal.SIGINT, prev_sigint)
-
-        stats = executor.stats()
-        pipeline.execute_hook('job_end', {'job_name': args.job, 'stats': stats})
-
-        print(f"\n--- TreeExecutor Results ---")
-        print(f"   State:     {stats['state']}")
-        print(f"   Completed: {stats['completed_compositions']}/{stats['total_compositions']}")
-        print(f"   Blocks:    {stats['blocks_complete']}/{stats['blocks_total']} complete")
-        if stats['blocks_failed']:
-            print(f"   Failed:    {stats['blocks_failed']}")
-            for bp, detail in stats.get('blocks_failed_detail', {}).items():
-                print(f"              block {bp}: {detail['completed']}/{detail['total']} completed before failure")
-        if stats['blocks_blocked']:
-            print(f"   Blocked:   {stats['blocks_blocked']}")
-
-        return 0 if stats['state'] == 'complete' else 1
 
     try:
         from .tester import PipelineCLITester

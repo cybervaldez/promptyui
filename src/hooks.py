@@ -6,10 +6,7 @@ ARCHITECTURE:
   The engine is dumb: execute_hook(name, ctx) → look up config → run scripts.
   Stage names are CALLER CONVENTIONS, not engine code. The engine doesn't know
   or care what the names mean — it just executes whatever scripts are configured
-  under that key in hooks.yaml/mods.yaml.
-
-  Mods are hooks with guards (stage, scope, filters). Guards are checked at
-  config level before execution — no if/elif branching in the engine.
+  under that key.
 
 HOOK LIFECYCLE (conventions — defined by the caller, not the engine):
   Block-level (fire once):   node_start → resolve (cached)
@@ -20,47 +17,29 @@ HOOK LIFECYCLE (conventions — defined by the caller, not the engine):
   'generate' is where a user-supplied script runs (e.g., ComfyUI workflow,
   API caller, file copier). It's not built-in — just a hook name.
 
-  'pre' and 'post' are where mods (hooks with guards) typically run:
-  translator, validator, error_logger, quality check, etc.
+  'pre' and 'post' are where mods typically run: translator, validator,
+  error_logger, quality check, etc. Mods are just hook scripts declared
+  per-job in jobs.yaml — no separate config or guard system needed.
 
 CONFIG:
-  hooks.yaml (per job) — system lifecycle scripts
-  mods.yaml (global) — user extension scripts with guards:
-    - stage: pre | post | both | build (build = build-checkpoints.py, not generation-time)
-    - execution_scope: checkpoint | image
-    - filters: config_index, address_index
-    - Enable/disable per prompt in jobs.yaml
+  All hooks are declared in jobs.yaml per-job:
+    defaults.hooks:  Job-wide default scripts (run for all prompts)
+    prompt.hooks:    Per-prompt scripts (appended to defaults, null sentinel removes)
 
-PLANNED (TreeExecutor + Enriched Context):
-  - Depth-first single-cursor execution: one composition at a time, depth-first block order
-  - parent_result: context key with parent block's HookResult.data for child hooks
-  - _block_path: new field in build_jobs() output for block identity (e.g., "0", "0.0")
-  - Path-scoped failure: block failure skips remaining compositions, blocks children
-  - 'resolve' caching: fire once per block, cache for all compositions
-  See webui/prompty/previews/preview-build-flow-diagram.html for the visual model.
+  Resolution: defaults.hooks → prompt.hooks (3-layer merge via pipeline_runner.resolve_hooks)
 
-  Enriched hook context (Strategy D — namespace separation):
-    ctx = {
-      # Identity
-      'block_path', 'parent_path', 'is_leaf', 'block_depth',
-      # Composition
-      'composition_index', 'composition_total', 'wildcards', 'wildcard_indices',
-      # Operations
-      'operation', 'operation_mappings',
-      # Annotations (user intent — "what to DO")
-      'annotations', 'annotation_sources',
-      # Theme metadata (reference facts — "what it IS", separate namespace)
-      'meta', 'ext_text_source',
-      # Inheritance
-      'parent_result', 'parent_annotations',
-      # Content
-      'resolved_text', 'prompt_id', 'job',
-    }
+HOOK CONTEXT (Strategy D — namespace separation):
+  Each hook receives an enriched context dict:
+    Identity:     block_path, parent_path, is_leaf, block_depth
+    Composition:  composition_index, composition_total, wildcards, wildcard_indices
+    Annotations:  annotations, annotation_sources  (user intent — "what to DO")
+    Meta:         meta, ext_text_source             (theme facts — "what it IS")
+    Inheritance:  parent_result, parent_annotations
+    Content:      resolved_text, prompt_id, job
+    Cross-block:  upstream_artifacts, block_states, block_completed
 
-  Key design decision: `meta` (from ext_text theme values) and `annotations`
-  (from block/prompt/defaults) are SEPARATE namespaces. Theme metadata carries
-  reference facts that are never overridden by block annotations. Hooks receive
-  both independently. See docs/composition-model.md "Theme Metadata (meta)".
+  `meta` and `annotations` are SEPARATE namespaces. Theme metadata (from ext_text
+  values) is never overridden by block annotations. Hooks receive both independently.
 """
 
 import sys
@@ -106,27 +85,26 @@ class HookResult:
 
 class HookPipeline:
     """
-    Orchestrates hook and mod execution throughout the job lifecycle.
-    
+    Orchestrates hook execution throughout the job lifecycle.
+
     Usage:
-        pipeline = HookPipeline(job_dir, hooks_config, mods_config)
+        pipeline = HookPipeline(job_dir, hooks_config)
         pipeline.execute_hook('job_start', context)
         # ... traverse nodes ...
         pipeline.execute_hook('job_end', context)
     """
     
-    def __init__(self, job_dir: Path, hooks_config: dict = None, mods_config: dict = None):
+    def __init__(self, job_dir: Path, hooks_config: dict = None):
         self.job_dir = Path(job_dir)
         self.hooks_config = hooks_config or {}
-        self.mods_config = mods_config or {}
         self._loaded_scripts = {}
     
     def execute_hook(self, hook_name: str, context: dict) -> HookResult:
         """
         Execute all scripts configured under a hook name.
 
-        The engine is dumb — it looks up hooks_config[hook_name] and mods_config,
-        merges them, checks guards, and executes. No knowledge of stage semantics.
+        The engine is dumb — it looks up hooks_config[hook_name] and executes.
+        No knowledge of stage semantics.
 
         Args:
             hook_name: Any string key (e.g., 'pre', 'generate', 'post', 'node_start').
@@ -181,119 +159,10 @@ class HookPipeline:
             if result.data:
                 last_data = result.data
 
-        # 2. Execute mods from mods.yaml (hooks with guards)
-        # Mods self-filter via guards — the engine just runs them all
-        enabled_mods = ctx.get('enabled_mods', [])
-        if enabled_mods:
-            result = self._execute_mods(enabled_mods, hook_name, ctx, execution_order, debug)
-            if result.status == STATUS_ERROR:
-                return result
-            ctx.update(result.modify_context or {})
-
         if debug:
             print(f"{'='*60}\n")
 
         return HookResult(STATUS_SUCCESS, data=last_data, modify_context=ctx)
-    
-    def _execute_mods(self, mod_names: List[str], hook_name: str, context: dict,
-                       start_order: int = 0, debug: bool = False) -> HookResult:
-        """Execute user mods, checking guards against the current hook name.
-
-        Mods self-filter: each mod's 'stage' guard is checked against hook_name.
-        No special-casing of any hook name in the engine.
-        """
-        ctx = {**context}
-        execution_order = start_order
-
-        for mod_name in mod_names:
-            mod_conf = self.mods_config.get(mod_name)
-            if not mod_conf:
-                continue
-
-            execution_order += 1
-
-            # Guard: stage match (mod declares which hook names it runs at)
-            mod_stage = mod_conf.get('stage', 'both')
-            if isinstance(mod_stage, list):
-                stage_match = hook_name in mod_stage or 'both' in mod_stage
-            else:
-                stage_match = mod_stage == 'both' or mod_stage == hook_name
-
-            if not stage_match:
-                if debug:
-                    print(f"\n  #{execution_order} MOD: {mod_name}")
-                    print(f"     SKIPPED: stage={mod_stage} but hook={hook_name}")
-                continue
-
-            # Guard: execution scope
-            scope = mod_conf.get('execution_scope', 'checkpoint')
-            is_checkpoint_execution = ctx.get('is_checkpoint_execution', False)
-
-            if scope == 'checkpoint' and not is_checkpoint_execution:
-                if debug:
-                    print(f"\n  #{execution_order} MOD: {mod_name}")
-                    print(f"     SKIPPED: scope=checkpoint but is_checkpoint_execution=False")
-                continue
-            if scope == 'image' and is_checkpoint_execution:
-                if debug:
-                    print(f"\n  #{execution_order} MOD: {mod_name}")
-                    print(f"     SKIPPED: scope=image but is_checkpoint_execution=True")
-                continue
-
-            # Guard: filters
-            if not self._check_filters(mod_conf, ctx):
-                if debug:
-                    print(f"\n  #{execution_order} MOD: {mod_name}")
-                    print(f"     SKIPPED: filter check failed")
-                continue
-
-            if debug:
-                print(f"\n  #{execution_order} MOD: {mod_name}")
-                print(f"     Hook: {hook_name} | Scope: {scope}")
-                print(f"     Guards passed")
-                print(f"     Path: {mod_conf.get('script', 'unknown')}")
-
-            # Execute mod (same path as any hook)
-            result = self._execute_single_hook(mod_conf, ctx)
-
-            if debug:
-                status_icon = '✅' if result.status == STATUS_SUCCESS else '❌' if result.status == STATUS_ERROR else '⏭️'
-                print(f"     {status_icon} Status: {result.status}")
-                if result.data:
-                    print(f"     Data: {result.data}")
-                if result.modify_context:
-                    print(f"     Modified: {list(result.modify_context.keys())}")
-
-            if result.status == STATUS_ERROR:
-                return result
-            if result.status == STATUS_SKIP:
-                continue
-
-            # Apply context modifications
-            if result.modify_context:
-                ctx.update(result.modify_context)
-
-        return HookResult(STATUS_SUCCESS, modify_context=ctx)
-    
-    def _check_filters(self, mod_conf: dict, context: dict) -> bool:
-        """Check if mod passes its configured filters."""
-        filters = mod_conf.get('filters', {})
-        
-        # config_index filter
-        if 'config_index' in filters:
-            allowed = filters['config_index']
-            current = context.get('config_index')
-            if current is not None and current not in allowed:
-                return False
-        
-        # address_index filter
-        if 'address_index' in filters:
-            allowed = filters['address_index']
-            current = context.get('address_index')
-            if current is not None and current not in allowed:
-                return False
-        
-        return True
     
     def _execute_single_hook(self, hook_conf: dict, context: dict) -> HookResult:
         """Execute a single hook/mod script."""
@@ -393,7 +262,7 @@ class HookPipeline:
 
 
 def load_hooks_config(job_dir: Path) -> dict:
-    """Load hooks.yaml from job directory."""
+    """Load hooks.yaml from job directory (legacy — prefer pipeline_runner.load_hooks_from_yaml)."""
     hooks_file = job_dir / 'hooks.yaml'
     if hooks_file.exists():
         import yaml
@@ -404,96 +273,6 @@ def load_hooks_config(job_dir: Path) -> dict:
 
 
 def load_mods_config(job_dir: Path) -> dict:
-    """
-    Load mod configurations from global /mods.yaml.
-    
-    The global mods.yaml at project root is the source of truth for mod definitions.
-    Job-level activation (on/off) is handled separately via get_enabled_mods().
-    
-    Args:
-        job_dir: Job directory path (e.g., jobs/andrea-fashion)
-    
-    Returns:
-        Dict of mod_name -> mod_config from global mods.yaml
-    """
-    import yaml
-    
-    # Global mods.yaml at project root
-    project_root = job_dir.parent.parent
-    global_mods_file = project_root / 'mods.yaml'
-    
-    if global_mods_file.exists():
-        with open(global_mods_file) as f:
-            data = yaml.safe_load(f) or {}
-            return data.get('mods', {})
-    
+    """Deprecated — mods are now declared as hooks in jobs.yaml. Returns empty dict."""
     return {}
-
-
-def get_enabled_mods(job_dir: Path, prompt_id: str = None) -> list:
-    """
-    Get list of enabled mods for a prompt, applying priority resolution.
-    
-    Priority: job.yaml off > global auto_run > job.yaml on
-    
-    Args:
-        job_dir: Job directory path
-        prompt_id: Optional prompt ID to get prompt-specific overrides
-    
-    Returns:
-        List of mod names that should be executed
-    """
-    import yaml
-    
-    project_root = job_dir.parent.parent
-    
-    # 1. Load global mods config
-    global_mods_file = project_root / 'mods.yaml'
-    global_mods = {}
-    global_defaults = {}
-    
-    if global_mods_file.exists():
-        with open(global_mods_file) as f:
-            data = yaml.safe_load(f) or {}
-            global_mods = data.get('mods', {})
-            global_defaults = data.get('defaults', {})
-    
-    default_auto_run = global_defaults.get('auto_run', False)
-    
-    # 2. Load job-level overrides from jobs.yaml
-    jobs_file = job_dir / 'jobs.yaml'
-    prompt_on = []
-    prompt_off = []
-    
-    if jobs_file.exists() and prompt_id:
-        with open(jobs_file) as f:
-            jobs_data = yaml.safe_load(f) or {}
-        
-        prompts = jobs_data.get('prompts', [])
-        for prompt in prompts:
-            if prompt.get('id') == prompt_id:
-                mods_config = prompt.get('mods', {})
-                prompt_on = mods_config.get('enable', [])
-                prompt_off = mods_config.get('disable', [])
-                break
-    
-    # 3. Apply priority resolution
-    enabled_mods = []
-    
-    for mod_name, mod_config in global_mods.items():
-        # Check if explicitly disabled by job
-        if mod_name in prompt_off:
-            continue  # job off wins
-        
-        # Check if explicitly enabled by job
-        if mod_name in prompt_on:
-            enabled_mods.append(mod_name)
-            continue
-        
-        # Fall back to global auto_run
-        mod_auto_run = mod_config.get('auto_run', default_auto_run)
-        if mod_auto_run:
-            enabled_mods.append(mod_name)
-    
-    return enabled_mods
 
