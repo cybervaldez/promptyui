@@ -170,6 +170,10 @@ body {
     align-items: center;
     justify-content: center;
 }
+.reel-item.placeholder {
+    color: var(--text-muted);
+    font-weight: 300;
+}
 
 /* ── Formula ── */
 .demo-formula {
@@ -256,6 +260,29 @@ body {
     letter-spacing: 0.1em;
     margin-bottom: 0.5rem;
 }
+.wc-popover-tab-landing {
+    display: none;
+    text-align: center;
+    padding: 0.6em 0;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+.wc-popover-tab-landing kbd {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--accent-amber);
+    background: rgba(255, 107, 53, 0.08);
+    border: 1px solid rgba(255, 107, 53, 0.3);
+    border-radius: 3px;
+    padding: 0.15em 0.4em;
+    line-height: 1;
+    animation: hint-key-glow 2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+    .wc-popover-tab-landing kbd { animation: none; border-color: rgba(255, 107, 53, 0.5); }
+}
 
 .wc-popover-pills {
     display: flex;
@@ -302,6 +329,44 @@ body {
 
 .wc-popover-input:focus {
     border-color: var(--reel-value);
+}
+/* ── Inline editor hint (floating below cursor) ── */
+.q-inline-hint {
+    position: absolute;
+    z-index: 20;
+    pointer-events: none;
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+.q-inline-hint.visible {
+    opacity: 1;
+}
+.q-inline-hint kbd {
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--accent-amber);
+    background: rgba(255, 107, 53, 0.08);
+    border: 1px solid rgba(255, 107, 53, 0.3);
+    border-radius: 3px;
+    padding: 0.1em 0.35em;
+    line-height: 1;
+    animation: hint-key-glow 2s ease-in-out infinite;
+}
+.q-inline-hint .hint-dim {
+    color: var(--text-secondary);
+}
+@keyframes hint-key-glow {
+    0%, 100% { box-shadow: 0 0 3px rgba(255, 107, 53, 0.1); border-color: rgba(255, 107, 53, 0.2); }
+    50% { box-shadow: 0 0 10px rgba(255, 107, 53, 0.4), 0 0 3px rgba(255, 107, 53, 0.2); border-color: rgba(255, 107, 53, 0.5); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .q-inline-hint kbd { animation: none; border-color: rgba(255, 107, 53, 0.5); }
 }
 
 .wc-popover-input::placeholder {
@@ -1073,8 +1138,11 @@ body {
 <!-- Value popover (fixed positioned) -->
 <div class="wc-popover" id="wc-popover" style="display: none;" data-testid="wc-popover">
     <div class="wc-popover-name"></div>
-    <div class="wc-popover-pills"></div>
-    <input class="wc-popover-input" type="text" placeholder="add values, comma separated" data-testid="wc-popover-input">
+    <div class="wc-popover-tab-landing">Press <kbd>TAB</kbd> to add values</div>
+    <div class="wc-popover-form" style="display:none;">
+        <div class="wc-popover-pills"></div>
+        <input class="wc-popover-input" type="text" placeholder="add values, comma separated" data-testid="wc-popover-input">
+    </div>
 </div>
 
 <!-- ═══════════════════════════════════════════
@@ -1192,19 +1260,26 @@ function buildDemoReel(name, values) {
     var track = document.createElement('span');
     track.className = 'reel-track visible';
 
-    values.forEach(function(v) {
-        var item = document.createElement('span');
-        item.className = 'reel-item';
-        item.textContent = v;
-        track.appendChild(item);
-    });
+    if (values.length === 0) {
+        var placeholder = document.createElement('span');
+        placeholder.className = 'reel-item placeholder';
+        placeholder.textContent = '+';
+        track.appendChild(placeholder);
+    } else {
+        values.forEach(function(v) {
+            var item = document.createElement('span');
+            item.className = 'reel-item';
+            item.textContent = v;
+            track.appendChild(item);
+        });
+    }
 
     win.appendChild(track);
     reel.appendChild(win);
 
     var maxLen = 0;
     values.forEach(function(v) { if (v.length > maxLen) maxLen = v.length; });
-    reel.style.minWidth = Math.max(name.length + 1, maxLen + 1) + 'ch';
+    reel.style.minWidth = Math.max(name.length + 1, (values.length === 0 ? 1 : maxLen) + 1) + 'ch';
 
     if (values.length > 1) {
         var badge = document.createElement('span');
@@ -1234,19 +1309,26 @@ function rebuildDemoReel(wcData) {
     var track = reel._track;
 
     track.innerHTML = '';
-    wcData.values.forEach(function(v) {
-        var item = document.createElement('span');
-        item.className = 'reel-item';
-        item.textContent = v;
-        track.appendChild(item);
-    });
+    if (wcData.values.length === 0) {
+        var placeholder = document.createElement('span');
+        placeholder.className = 'reel-item placeholder';
+        placeholder.textContent = '+';
+        track.appendChild(placeholder);
+    } else {
+        wcData.values.forEach(function(v) {
+            var item = document.createElement('span');
+            item.className = 'reel-item';
+            item.textContent = v;
+            track.appendChild(item);
+        });
+    }
 
     reel._values = wcData.values;
     reel._currentIdx = 0;
 
     var maxLen = 0;
     wcData.values.forEach(function(v) { if (v.length > maxLen) maxLen = v.length; });
-    reel.style.minWidth = Math.max(wcData.name.length + 1, maxLen + 1) + 'ch';
+    reel.style.minWidth = Math.max(wcData.name.length + 1, (wcData.values.length === 0 ? 1 : maxLen) + 1) + 'ch';
 
     // Update badge count
     if (reel._badge) {
@@ -1345,6 +1427,8 @@ function renderPopoverContent() {
     var nameEl = popoverEl.querySelector('.wc-popover-name');
     var pillsEl = popoverEl.querySelector('.wc-popover-pills');
     var inputEl = popoverEl.querySelector('.wc-popover-input');
+    var landingEl = popoverEl.querySelector('.wc-popover-tab-landing');
+    var formEl = popoverEl.querySelector('.wc-popover-form');
 
     nameEl.textContent = wcData.name;
     pillsEl.innerHTML = '';
@@ -1369,14 +1453,21 @@ function renderPopoverContent() {
     });
 
     inputEl.value = '';
-    if (_popoverIsChip && !_popoverFromClick) {
-        // Cursor-adjacent auto-open: don't steal focus from editor
-        inputEl.placeholder = 'Press Tab to focus';
+
+    // Empty chip + auto-open: show TAB landing, hide form
+    if (_popoverIsChip && !_popoverFromClick && wcData.values.length === 0) {
+        landingEl.style.display = '';
+        formEl.style.display = 'none';
         inputEl.blur();
     } else {
-        // Explicit click (chip or reel): autofocus the input
-        inputEl.placeholder = 'add values, comma separated';
-        inputEl.focus();
+        // Has values or explicit click: show form directly
+        landingEl.style.display = 'none';
+        formEl.style.display = '';
+        if (_popoverIsChip && !_popoverFromClick) {
+            inputEl.blur();
+        } else {
+            inputEl.focus();
+        }
     }
 }
 
@@ -1395,13 +1486,10 @@ popoverEl.querySelector('.wc-popover-pills').addEventListener('click', function(
     renderPopoverContent();
 });
 
-// Input handler — Enter to add values
-popoverEl.querySelector('.wc-popover-input').addEventListener('keydown', function(e) {
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
+// Shared: submit popover input values
+function submitPopoverInput(inputEl) {
     if (!_activePopoverWc) return;
-
-    var raw = this.value;
+    var raw = inputEl.value;
     var newVals = raw.split(',').map(function(s) { return s.trim(); }).filter(function(s) { return s.length > 0; });
     if (newVals.length === 0) return;
 
@@ -1416,22 +1504,52 @@ popoverEl.querySelector('.wc-popover-input').addEventListener('keydown', functio
     }
     if (_activePopoverWc._recalcFn) _activePopoverWc._recalcFn(); else qRecalc();
     renderPopoverContent();
+}
+
+var _popoverEscPressed = false;
+
+// Input handler — Enter to submit, Escape to cancel
+popoverEl.querySelector('.wc-popover-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        submitPopoverInput(this);
+        return;
+    }
+    if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        _popoverEscPressed = true;
+        this.value = '';
+        closePopover();
+        return;
+    }
 });
 
-// Placeholder swap on focus/blur + Tab redirect
+// Placeholder swap on focus/blur + Tab redirect + blur-to-submit
 (function() {
     var inp = popoverEl.querySelector('.wc-popover-input');
-    inp.addEventListener('focus', function() {
-        this.placeholder = 'add values, comma separated';
-    });
     inp.addEventListener('blur', function() {
-        this.placeholder = 'Press Tab to focus';
+        if (_popoverEscPressed) {
+            _popoverEscPressed = false;
+            return;
+        }
+        // Blur submits like Enter
+        if (_activePopoverWc && this.value.trim()) {
+            submitPopoverInput(this);
+        }
     });
-    // When popover is open and Tab is pressed, focus the popover input
+    // When popover is open and Tab is pressed, reveal form or focus input
     document.addEventListener('keydown', function(e) {
         if (e.key !== 'Tab' || !_activePopoverWc) return;
         if (document.activeElement === inp) return; // already focused
         e.preventDefault();
+        // If landing state is showing, reveal the form
+        var landingEl = popoverEl.querySelector('.wc-popover-tab-landing');
+        var formEl = popoverEl.querySelector('.wc-popover-form');
+        if (landingEl.style.display !== 'none') {
+            landingEl.style.display = 'none';
+            formEl.style.display = '';
+        }
         inp.focus();
     });
 })();
@@ -1539,12 +1657,12 @@ function updateChipAppearance(chipNode, values) {
         placeholder.textContent = '+';
         track.appendChild(placeholder);
     } else {
-        values.forEach(function(v) {
-            var item = document.createElement('span');
-            item.className = 'ql-wc-item';
-            item.textContent = v;
-            track.appendChild(item);
-        });
+        // Show only the last value (most recently added)
+        var lastVal = values[values.length - 1];
+        var item = document.createElement('span');
+        item.className = 'ql-wc-item';
+        item.textContent = lastVal;
+        track.appendChild(item);
     }
     track.classList.add('visible');
 
@@ -1933,6 +2051,11 @@ function createQBlock(initialText, depth, wildcardValues, placeholder) {
     });
     editEl.appendChild(actionsBar);
 
+    // Floating inline hint (positioned relative to editEl)
+    var inlineHint = document.createElement('div');
+    inlineHint.className = 'q-inline-hint';
+    editEl.appendChild(inlineHint);
+
     blockEl.appendChild(editEl);
 
     var quill = new Quill(quillContainer, {
@@ -1960,6 +2083,64 @@ function createQBlock(initialText, depth, wildcardValues, placeholder) {
         quill.setText(initialText, 'silent');
     }
 
+    // ── Inline hint positioning ──
+    function showInlineHint(html, anchorEl) {
+        inlineHint.innerHTML = html;
+        // Position below the anchor element
+        var editRect = editEl.getBoundingClientRect();
+        var anchorRect = anchorEl.getBoundingClientRect();
+        inlineHint.style.left = (anchorRect.left - editRect.left) + 'px';
+        inlineHint.style.top = (anchorRect.bottom - editRect.top + 4) + 'px';
+        inlineHint.classList.add('visible');
+    }
+    function hideInlineHint() {
+        inlineHint.classList.remove('visible');
+    }
+
+    // ── Detect __ prefix for wildcard completion hint ──
+    function checkDoubleUnderscoreHint() {
+        var range = quill.getSelection();
+        if (!range || range.length !== 0) { hideInlineHint(); return false; }
+        var idx = range.index;
+
+        // Build plain text up to cursor (skipping embeds)
+        var contents = quill.getContents();
+        var textBefore = '';
+        var charCount = 0;
+        for (var i = 0; i < contents.ops.length; i++) {
+            var op = contents.ops[i];
+            if (typeof op.insert === 'string') {
+                var remaining = idx - charCount;
+                if (remaining <= op.insert.length) {
+                    textBefore += op.insert.slice(0, remaining);
+                    break;
+                }
+                textBefore += op.insert;
+                charCount += op.insert.length;
+            } else {
+                charCount += 1; // embed
+            }
+        }
+
+        // Check if text before cursor ends with __ but isn't a complete __name__ pattern
+        if (textBefore.length >= 2 && textBefore.slice(-2) === '__') {
+            // Make sure it's not the closing __ of a complete pattern
+            var prefix = textBefore.slice(0, -2);
+            if (!/__([\w-]+)$/.test(prefix)) {
+                // Show hint at cursor position
+                var cursorBounds = quill.getBounds(idx);
+                var fakeAnchor = { getBoundingClientRect: function() {
+                    var er = editEl.getBoundingClientRect();
+                    return { left: er.left + cursorBounds.left, right: er.left + cursorBounds.left + 1,
+                             top: er.top + cursorBounds.top, bottom: er.top + cursorBounds.bottom };
+                }};
+                showInlineHint('<span class="hint-dim">wrap with</span> __wildcard__', fakeAnchor);
+                return true;
+            }
+        }
+        return false;
+    }
+
     quill.on('text-change', function(delta, oldDelta, source) {
         if (source !== 'user') return;
         convertQWildcards(quill);
@@ -1967,11 +2148,13 @@ function createQBlock(initialText, depth, wildcardValues, placeholder) {
         var text = serializeQuill(quill).replace(/\u200B/g, '').trim();
         if (text) actionsBar.classList.add('visible');
         else actionsBar.classList.remove('visible');
+        // Check for __ hint after text changes
+        requestAnimationFrame(function() { checkDoubleUnderscoreHint(); });
     });
 
     // Show popover when cursor lands adjacent to a wildcard chip
     quill.on('selection-change', function(range, oldRange, source) {
-        if (!range || range.length !== 0) return; // only collapsed cursor
+        if (!range || range.length !== 0) { hideInlineHint(); return; }
         if (source !== 'user') return;
         var idx = range.index;
 
@@ -1998,9 +2181,16 @@ function createQBlock(initialText, depth, wildcardValues, placeholder) {
             if (!_activePopoverWc || _activePopoverWc.reelEl !== chipNode) {
                 openChipPopover(chipNode);
             }
-        } else if (_popoverIsChip) {
-            // Cursor moved away from any wildcard — close chip popover
-            closePopover();
+            hideInlineHint();
+        } else {
+            if (_popoverIsChip) {
+                // Cursor moved away from any wildcard — close chip popover
+                closePopover();
+            }
+            // Check for __ hint when cursor moves
+            if (!checkDoubleUnderscoreHint()) {
+                hideInlineHint();
+            }
         }
     });
 
@@ -2307,7 +2497,20 @@ function switchToEdit(block, opts) {
             e.preventDefault(); cleanup(); addSiblingBlock(block); return;
         }
         if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
-            e.preventDefault(); cleanup(); addChildBlock(block); return;
+            e.preventDefault();
+            // If popover is open, reveal form and focus its input instead of nesting
+            if (_activePopoverWc) {
+                var landingEl = popoverEl.querySelector('.wc-popover-tab-landing');
+                var formEl = popoverEl.querySelector('.wc-popover-form');
+                if (landingEl.style.display !== 'none') {
+                    landingEl.style.display = 'none';
+                    formEl.style.display = '';
+                }
+                var popInput = popoverEl.querySelector('.wc-popover-input');
+                if (popInput) popInput.focus();
+                return;
+            }
+            cleanup(); addChildBlock(block); return;
         }
         if (e.key === 'd' && (e.ctrlKey || e.metaKey) && e.shiftKey) {
             e.preventDefault(); cleanup(); duplicateBlock(block); return;

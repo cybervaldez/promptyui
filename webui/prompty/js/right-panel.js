@@ -1500,7 +1500,7 @@ PU.rightPanel = {
             composition: PU.state.previewMode.compositionId,
             locked_values: PU.helpers.deepClone(PU.state.previewMode.lockedValues),
             active_operation: PU.state.buildComposition.activeOperation || null,
-            shortlist: PU.shortlist.getSessionData()
+            shortlist_curation: PU.shortlist.getSessionData()
         };
     },
 
@@ -1550,9 +1550,11 @@ PU.rightPanel = {
                     }
                 }
 
-                // Hydrate shortlist
-                if (promptSession.shortlist && Array.isArray(promptSession.shortlist)) {
-                    PU.shortlist.hydrateFromSession(promptSession.shortlist);
+                // Hydrate shortlist curation (Phase 2 object format, backward compat with Phase 1 array)
+                if (promptSession.shortlist_curation && typeof promptSession.shortlist_curation === 'object') {
+                    PU.shortlist.hydrateFromSession(promptSession.shortlist_curation);
+                } else if (promptSession.dimmed_entries && Array.isArray(promptSession.dimmed_entries)) {
+                    PU.shortlist.hydrateFromSession(promptSession.dimmed_entries);
                 }
             }
         } catch (e) {
@@ -1577,7 +1579,7 @@ PU.rightPanel = {
         if (current.composition !== baseline.composition) return true;
         if (current.active_operation !== baseline.active_operation) return true;
         if (JSON.stringify(current.locked_values) !== JSON.stringify(baseline.locked_values)) return true;
-        if (JSON.stringify(current.shortlist) !== JSON.stringify(baseline.shortlist)) return true;
+        if (JSON.stringify(current.shortlist_curation) !== JSON.stringify(baseline.shortlist_curation)) return true;
 
         return false;
     },

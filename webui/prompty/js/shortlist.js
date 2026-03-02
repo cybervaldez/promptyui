@@ -1,20 +1,19 @@
 /**
- * Shortlist — Composition curation via ancestor expansion.
+ * Shortlist — Auto-populated from resolved variation data with pinning.
  *
- * Each shortlist entry is { text, sources: [{blockPath, comboKey}] }.
- * - text: Resolved text for a single block
- * - sources: Always length 1, pointing to this block's path + combo
+ * The shortlist always mirrors ALL variations computed for the current preview.
+ * Data source: PU.state.previewMode.resolvedVariations (populated by editor-mode.js).
+ * Users curate by **dimming** (excluding) entries instead of adding/removing.
+ * **Pinned** entries survive composition navigation (cross-composition cherry-picking).
+ * Orphaned pins (whose variations leave the preview) show warnings.
  *
- * Clicking a child auto-adds ancestors as separate entries:
- * - Ancestors without existing entries get ALL combos (locked wildcards expand)
- * - Ancestors already in shortlist are skipped
- * - Leaf gets just the specific clicked combo
- *
+ * Each shortlist entry is { text, sources: [{blockPath, comboKey}], _orphan? }.
  * Items live in PU.state.previewMode.shortlist[].
+ * Dimmed keys live in PU.state.previewMode.dimmedEntries (Set of "blockPath|comboKey").
+ * Pinned keys live in PU.state.previewMode.pinnedEntries (Set of "blockPath|comboKey").
+ * Frozen texts for orphan display in PU.state.previewMode.pinnedTexts (Map).
  */
 PU.shortlist = {
-
-    MAX_PICKS: 100,
 
     // ── Combo Key Utility ─────────────────────────────────────────────
 
@@ -38,402 +37,285 @@ PU.shortlist = {
         return values;
     },
 
-    // ── Lookup Cache ──────────────────────────────────────────────────
-
-    _lookupSet: null,
-
-    /** Build a Set of "blockPath|comboKey" from ALL sources for O(1) has() checks. */
-    _buildLookup() {
-        const entries = PU.state.previewMode.shortlist;
-        const set = new Set();
-        for (const entry of entries) {
-            for (const src of entry.sources) {
-                set.add(`${src.blockPath}|${src.comboKey}`);
-            }
-        }
-        PU.shortlist._lookupSet = set;
-        return set;
+    /**
+     * Split a key ("blockPath|comboKey") into [blockPath, comboKey].
+     * blockPath is always before the first `|` that isn't part of a `name=value` pair.
+     * Since blockPath is numeric dot-separated (e.g. "0.1") and never contains `=`,
+     * we split on the first `|`.
+     */
+    _splitKey(key) {
+        const sepIdx = key.indexOf('|');
+        if (sepIdx < 0) return [key, ''];
+        return [key.substring(0, sepIdx), key.substring(sepIdx + 1)];
     },
 
     // ── Queries ───────────────────────────────────────────────────────
-
-    /** Check if a specific block+combo is in ANY entry's sources. */
-    has(blockPath, comboKey) {
-        const set = PU.shortlist._lookupSet || PU.shortlist._buildLookup();
-        return set.has(`${blockPath}|${comboKey}`);
-    },
-
-    /** Check if a block appears in ANY entry's sources. */
-    hasBlock(blockPath) {
-        return PU.state.previewMode.shortlist.some(entry =>
-            entry.sources.some(s => s.blockPath === blockPath)
-        );
-    },
 
     /** Total shortlisted entries. */
     count() {
         return PU.state.previewMode.shortlist.length;
     },
 
-    // ── Core API ──────────────────────────────────────────────────────
+    // ── Auto-Populate ───────────────────────────────────────────────
 
     /**
-     * Add a variation to the shortlist with ancestor expansion.
-     * For each block in the ancestor chain (root → leaf):
-     * - Ancestors with existing entries → skip
-     * - Ancestors without entries → add ALL combos (locked wildcards expand)
-     * - Leaf → add just the clicked combo
+     * Populate shortlist from resolved variation data in state.
+     * Reads PU.state.previewMode.resolvedVariations (set by editor-mode.js).
+     * Pinned entries not in the data are injected as orphans.
      */
-    add(blockPath, combo) {
-        const items = PU.state.previewMode.shortlist;
-        const comboKey = PU.shortlist.comboToKey(combo);
+    populateFromPreview() {
+        const variations = PU.state.previewMode.resolvedVariations || [];
+        const items = [];
+        const seenKeys = new Set();
 
-        // Check if this exact leaf+combo already exists
-        if (items.some(e => e.sources[0].blockPath === blockPath && e.sources[0].comboKey === comboKey)) return;
+        for (const v of variations) {
+            const key = `${v.blockPath}|${v.comboKey}`;
+            seenKeys.add(key);
 
-        const prompt = PU.helpers.getActivePrompt();
-        if (!prompt || !prompt.text) return;
-
-        const lookup = PU.preview.getFullWildcardLookup();
-        const locked = PU.state.previewMode.lockedValues;
-        const { wildcardCounts, extTextCount } = PU.shared.getCompositionParams();
-        const compId = PU.state.previewMode.compositionId;
-        const [, wcIndices] = PU.preview.compositionToIndices(compId, extTextCount, wildcardCounts);
-        const container = document.querySelector('[data-testid="pu-preview-body"]');
-
-        // Build ancestor chain: ["0", "0.0", ..., blockPath]
-        const parts = blockPath.split('.');
-        const chain = [];
-        for (let i = 1; i <= parts.length; i++) {
-            chain.push(parts.slice(0, i).join('.'));
-        }
-
-        let addedCount = 0;
-        let skippedCount = 0;
-
-        for (const path of chain) {
-            const block = PU.shortlist._getBlock(prompt.text, path);
-            if (!block) continue;
-
-            if (path === blockPath) {
-                // LEAF: add just the specific clicked combo
-                if (items.length >= PU.shortlist.MAX_PICKS) { skippedCount++; break; }
-                const text = PU.shortlist._resolveBlockText(path, comboKey, block, container, lookup, wcIndices);
-                items.push({ text, sources: [{ blockPath: path, comboKey }] });
-                addedCount++;
-            } else {
-                // ANCESTOR: skip if block already has ANY entries
-                if (items.some(e => e.sources[0].blockPath === path)) continue;
-
-                // Build ALL combos for this block (locked wildcards expand)
-                const allCombos = PU.shortlist._buildBlockCombos(block, lookup, locked, wcIndices);
-
-                for (const ancestorCombo of allCombos) {
-                    if (items.length >= PU.shortlist.MAX_PICKS) {
-                        skippedCount += allCombos.length - allCombos.indexOf(ancestorCombo);
-                        break;
-                    }
-                    const ck = PU.shortlist.comboToKey(ancestorCombo);
-                    const text = PU.shortlist._resolveBlockText(path, ck, block, container, lookup, wcIndices);
-                    items.push({ text, sources: [{ blockPath: path, comboKey: ck }] });
-                    addedCount++;
-                }
+            // Keep frozen text fresh for pinned entries
+            if (PU.state.previewMode.pinnedEntries.has(key)) {
+                PU.state.previewMode.pinnedTexts.set(key, v.text);
             }
+
+            items.push({
+                text: v.text,
+                sources: [{ blockPath: v.blockPath, comboKey: v.comboKey }]
+            });
         }
 
-        if (skippedCount > 0) {
-            PU.actions.showToast(`Added ${addedCount} of ${addedCount + skippedCount} (limit reached)`, 'info');
-        }
-
-        PU.shortlist._lookupSet = null;
-        PU.shortlist._afterChange();
-    },
-
-    /**
-     * Build ALL Cartesian combos for a block's wildcards, respecting locks.
-     * Locked wildcards expand to multiple values; unlocked pin to odometer.
-     */
-    _buildBlockCombos(block, lookup, locked, wcIndices) {
-        const wcNames = PU.shortlist._getBlockWildcards(block);
-        if (wcNames.length === 0) return [[]]; // 1 empty combo (no wildcards)
-
-        const dims = [];
-        for (const name of wcNames) {
-            const lockedVals = (locked[name] && locked[name].length > 0) ? locked[name] : null;
-            const allVals = lookup[name] || [];
-            if (lockedVals) {
-                dims.push({ name, values: lockedVals });
-            } else {
-                const idx = wcIndices[name] || 0;
-                dims.push({ name, values: [allVals[idx % allVals.length] || '?'] });
-            }
-        }
-
-        return PU.editorMode._cartesianProduct(dims, PU.shortlist.MAX_PICKS);
-    },
-
-    /**
-     * Resolve a block's text for a given combo.
-     * For blocks without wildcards (ext_text, plain), grabs from DOM.
-     * For blocks with wildcards, uses inline resolution with combo values.
-     */
-    _resolveBlockText(blockPath, comboKey, block, container, lookup, wcIndices) {
-        const hasWildcards = PU.shortlist._getBlockWildcards(block).length > 0;
-
-        // For blocks WITHOUT wildcards (ext_text or plain), grab from DOM
-        if (!hasWildcards && container) {
-            const blockEl = container.querySelector(`.pu-preview-block[data-path="${blockPath}"]`);
-            if (blockEl) {
-                const textDiv = blockEl.querySelector('.pu-preview-text');
-                if (textDiv) {
-                    const clone = textDiv.cloneNode(true);
-                    clone.querySelectorAll('.pu-tree-connector, .pu-preview-parent-conn').forEach(el => el.remove());
-                    return clone.textContent.trim();
-                }
-            }
-        }
-
-        // For blocks WITH wildcards, try matching variation div first
-        if (hasWildcards && comboKey && container) {
-            const blockEl = container.querySelector(`.pu-preview-block[data-path="${blockPath}"]`);
-            if (blockEl) {
-                const varDiv = blockEl.querySelector(`.pu-preview-variation[data-combo-key="${comboKey}"]`);
-                if (varDiv) return varDiv.textContent.trim();
-            }
-        }
-
-        // Inline resolution — replace wildcards with combo values
-        const content = block.content || '';
-        if (!comboKey) return content;
-        const values = PU.shortlist._parseComboKey(comboKey);
-        return content.replace(/__([a-zA-Z0-9_-]+)__/g, (match, name) => {
-            if (values[name] !== undefined) return values[name];
-            const allVals = lookup[name] || [];
-            if (allVals.length === 0) return match;
-            const idx = wcIndices[name] || 0;
-            return allVals[idx % allVals.length];
-        });
-    },
-
-    /** Remove an entry by blockPath + comboKey (used by footer × button). */
-    remove(blockPath, comboKey) {
-        PU.shortlist._removeWithCascadeCheck(blockPath, comboKey,
-            e => e.sources[0].blockPath === blockPath && e.sources[0].comboKey === comboKey
-        );
-    },
-
-    /** Remove entry matching this block+combo (used by preview toggle). */
-    _removeBySource(blockPath, comboKey) {
-        PU.shortlist._removeWithCascadeCheck(blockPath, comboKey,
-            e => e.sources.some(s => s.blockPath === blockPath && s.comboKey === comboKey)
-        );
-    },
-
-    /** Remove all entries for a blockPath. */
-    removeBlock(blockPath) {
-        PU.shortlist._removeWithCascadeCheck(blockPath, null,
-            e => e.sources[0].blockPath === blockPath
-        );
-    },
-
-    /** Check if any shortlist entries exist for descendant paths. */
-    _hasDescendantEntries(blockPath) {
-        const prefix = blockPath + '.';
-        return PU.state.previewMode.shortlist.some(e =>
-            e.sources[0].blockPath.startsWith(prefix)
-        );
-    },
-
-    /** Remove with cascade confirmation when descendants exist. */
-    _removeWithCascadeCheck(blockPath, comboKey, removeFilter) {
-        const hasDescendants = PU.shortlist._hasDescendantEntries(blockPath);
-
-        if (hasDescendants) {
-            const prefix = blockPath + '.';
-            const descCount = PU.state.previewMode.shortlist.filter(e =>
-                e.sources[0].blockPath.startsWith(prefix)
-            ).length;
-
-            if (confirm(`Also remove ${descCount} descendant entries?`)) {
-                PU.state.previewMode.shortlist = PU.state.previewMode.shortlist.filter(e => {
-                    const bp = e.sources[0].blockPath;
-                    return !removeFilter(e) && !bp.startsWith(prefix);
+        // Inject orphaned pinned entries (not found in current data)
+        for (const key of PU.state.previewMode.pinnedEntries) {
+            if (!seenKeys.has(key)) {
+                const [bp, ck] = PU.shortlist._splitKey(key);
+                const frozenText = PU.state.previewMode.pinnedTexts.get(key) || '(orphaned)';
+                items.push({
+                    text: frozenText,
+                    sources: [{ blockPath: bp, comboKey: ck }],
+                    _orphan: true
                 });
-            } else {
-                PU.state.previewMode.shortlist = PU.state.previewMode.shortlist.filter(e => !removeFilter(e));
             }
-        } else {
-            PU.state.previewMode.shortlist = PU.state.previewMode.shortlist.filter(e => !removeFilter(e));
         }
 
-        PU.shortlist._lookupSet = null;
-        PU.shortlist._afterChange();
+        PU.state.previewMode.shortlist = items;
     },
 
-    /** Clear the entire shortlist. */
-    clearAll() {
-        PU.state.previewMode.shortlist = [];
-        PU.state.previewMode.dimmedEntries = new Set();
-        PU.shortlist._lookupSet = null;
-        PU.shortlist._afterChange();
+    // ── Dim State ────────────────────────────────────────────────────
+
+    /** Check if a specific block+combo is dimmed. */
+    _isDimmed(blockPath, comboKey) {
+        return PU.state.previewMode.dimmedEntries.has(`${blockPath}|${comboKey}`);
     },
 
-    /** Common post-mutation handler. */
-    _afterChange() {
+    /** Toggle dim state for a single entry. */
+    toggleDim(blockPath, comboKey) {
+        const key = `${blockPath}|${comboKey}`;
+        const set = PU.state.previewMode.dimmedEntries;
+        set.has(key) ? set.delete(key) : set.add(key);
         PU.shortlist.render();
-        if (PU.state.ui.editorMode === 'review' || PU.state.ui.editorMode === 'preview') {
-            PU.editorMode.renderPreview();
+    },
+
+    /**
+     * Toggle dim for all entries in a separator range.
+     * Range = the path itself + after siblings + all descendants of each.
+     */
+    toggleDimBlock(separatorPath) {
+        const entries = PU.state.previewMode.shortlist.filter(e =>
+            PU.shortlist._isInSeparatorRange(e.sources[0].blockPath, separatorPath)
+        );
+        const set = PU.state.previewMode.dimmedEntries;
+        const allDimmed = entries.length > 0 && entries.every(e =>
+            set.has(`${e.sources[0].blockPath}|${e.sources[0].comboKey}`)
+        );
+        for (const e of entries) {
+            const key = `${e.sources[0].blockPath}|${e.sources[0].comboKey}`;
+            if (allDimmed) {
+                set.delete(key);
+            } else {
+                set.add(key);
+            }
         }
+        PU.shortlist.render();
+    },
+
+    /**
+     * Check if a blockPath falls within a separator range.
+     * Range includes: separatorPath, its descendants, after siblings, and their descendants.
+     * E.g., separator "0.1" matches "0.1", "0.1.0", "0.2", "0.2.3", but not "0.0" or "1.0".
+     */
+    _isInSeparatorRange(blockPath, separatorPath) {
+        const sepParts = separatorPath.split('.');
+        const bpParts = blockPath.split('.');
+
+        // Must be at least as deep as the separator path
+        if (bpParts.length < sepParts.length) return false;
+
+        // All parent parts (before the last) must match exactly
+        for (let i = 0; i < sepParts.length - 1; i++) {
+            if (bpParts[i] !== sepParts[i]) return false;
+        }
+
+        // The part at separator depth must be >= separator's last index
+        return parseInt(bpParts[sepParts.length - 1], 10) >= parseInt(sepParts[sepParts.length - 1], 10);
+    },
+
+    // ── Pin State ────────────────────────────────────────────────────
+
+    /** Check if a specific block+combo is pinned. */
+    _isPinned(blockPath, comboKey) {
+        return PU.state.previewMode.pinnedEntries.has(`${blockPath}|${comboKey}`);
+    },
+
+    /**
+     * Toggle pin state for a single entry.
+     * On pin: capture current resolved text into pinnedTexts.
+     * On unpin: remove from both sets.
+     */
+    togglePin(blockPath, comboKey) {
+        const key = `${blockPath}|${comboKey}`;
+        const pinned = PU.state.previewMode.pinnedEntries;
+        const texts = PU.state.previewMode.pinnedTexts;
+
+        if (pinned.has(key)) {
+            pinned.delete(key);
+            texts.delete(key);
+        } else {
+            pinned.add(key);
+            const text = PU.shortlist._resolveTextForKey(blockPath, comboKey);
+            if (text) texts.set(key, text);
+        }
+
+        PU.shortlist.render();
+    },
+
+    /** Resolve text for a given key from shortlist array or resolved variations. */
+    _resolveTextForKey(blockPath, comboKey) {
+        const entry = PU.state.previewMode.shortlist.find(e =>
+            e.sources[0].blockPath === blockPath && e.sources[0].comboKey === comboKey
+        );
+        if (entry) return entry.text;
+
+        const v = (PU.state.previewMode.resolvedVariations || []).find(
+            v => v.blockPath === blockPath && v.comboKey === comboKey
+        );
+        return v ? v.text : null;
+    },
+
+    /**
+     * Detect orphans: pinned entries not in current resolved variations.
+     * Returns array of { blockPath, comboKey, text }.
+     */
+    _detectOrphans() {
+        const variations = PU.state.previewMode.resolvedVariations || [];
+        const activeKeys = new Set(variations.map(v => `${v.blockPath}|${v.comboKey}`));
+        const orphans = [];
+        for (const key of PU.state.previewMode.pinnedEntries) {
+            if (!activeKeys.has(key)) {
+                const [bp, ck] = PU.shortlist._splitKey(key);
+                orphans.push({
+                    blockPath: bp,
+                    comboKey: ck,
+                    text: PU.state.previewMode.pinnedTexts.get(key) || '(unavailable)'
+                });
+            }
+        }
+        return orphans;
     },
 
     // ── UI Handlers ─────────────────────────────────────────────────
 
-    /** Toggle a variation in/out of the shortlist. */
-    toggleVariation(blockPath, comboKey) {
-        if (PU.shortlist.has(blockPath, comboKey)) {
-            // Green → remove all entries containing this source
-            PU.shortlist._removeBySource(blockPath, comboKey);
+    /** Route click on a variation: Shift+click → pin, regular click → dim. */
+    toggleVariation(blockPath, comboKey, event) {
+        if (event && event.shiftKey) {
+            PU.shortlist.togglePin(blockPath, comboKey);
         } else {
-            const combo = comboKey.split('|').filter(p => p).map(pair => {
-                const eqIdx = pair.indexOf('=');
-                return { name: pair.substring(0, eqIdx), value: pair.substring(eqIdx + 1) };
-            });
-            PU.shortlist.add(blockPath, combo);
+            PU.shortlist.toggleDim(blockPath, comboKey);
         }
     },
 
-    // ── Hover Preview ───────────────────────────────────────────────
+    /** Route click on a shortlist item: Shift+click → pin, regular click → dim. */
+    _handleItemClick(blockPath, comboKey, event) {
+        if (event && event.shiftKey) {
+            PU.shortlist.togglePin(blockPath, comboKey);
+        } else {
+            PU.shortlist.toggleDim(blockPath, comboKey);
+        }
+    },
+
+    // ── Segment Highlighting (Preview ↔ Shortlist) ────────────────────
+
+    /** Highlight entire shortlist items that contain a segment matching the given path. */
+    _highlightItemsBySegmentPath(blockPath) {
+        document.querySelectorAll(`.pu-shortlist-segment[data-segment-path="${blockPath}"]`).forEach(seg => {
+            const item = seg.closest('.pu-shortlist-item');
+            if (item) item.classList.add('pu-shortlist-hover-from-preview');
+        });
+    },
+
+    /** Highlight the shortlist item matching a hovered preview block path. */
+    _highlightShortlistItem(blockPath, comboKey) {
+        const panel = document.querySelector('[data-testid="pu-shortlist-body"]');
+        if (!panel) return;
+        const selector = `.pu-shortlist-item[data-block-path="${blockPath}"][data-combo-key="${comboKey || ''}"]`;
+        const item = panel.querySelector(selector);
+        if (item) {
+            item.classList.add('pu-shortlist-hover-from-preview');
+            item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    },
+
+    /** Clear all reverse hover highlights from shortlist. */
+    _clearShortlistHighlights() {
+        document.querySelectorAll('.pu-shortlist-hover-from-preview').forEach(
+            el => el.classList.remove('pu-shortlist-hover-from-preview')
+        );
+    },
 
     /**
-     * Highlight ancestor blocks when hovering a variation.
-     * If ancestor has a pick → green highlight on that variation.
-     * If ancestor has no pick → blue highlight on ALL variations.
+     * Attach mouseenter/mouseleave on shortlist items to highlight
+     * corresponding preview template blocks.
      */
-    _highlightAncestors(blockPath, container) {
-        const parts = blockPath.split('.');
-        for (let i = 1; i < parts.length; i++) {
-            const ancestorPath = parts.slice(0, i).join('.');
-            const ancestorBlock = container.querySelector(`.pu-preview-block[data-path="${ancestorPath}"]`);
-            if (!ancestorBlock) continue;
+    _attachShortlistHoverListeners(body) {
+        const items = body.querySelectorAll('.pu-shortlist-item[data-block-path]');
+        items.forEach(item => {
+            item.addEventListener('mouseenter', () => {
+                const container = document.querySelector('[data-testid="pu-preview-body"]');
+                if (!container) return;
 
-            const ancestorVars = ancestorBlock.querySelectorAll('.pu-preview-variation');
-
-            if (ancestorVars.length === 0) {
-                // Block has no variation divs (e.g., ext_text) — highlight the block text
-                const textDiv = ancestorBlock.querySelector('.pu-preview-text');
-                if (textDiv) textDiv.classList.add('pu-shortlist-hover-all');
-                continue;
-            }
-
-            if (PU.shortlist.hasBlock(ancestorPath)) {
-                // Collect combo keys from all sources that reference this ancestor
-                const pickKeys = new Set();
-                for (const entry of PU.state.previewMode.shortlist) {
-                    for (const src of entry.sources) {
-                        if (src.blockPath === ancestorPath) pickKeys.add(src.comboKey);
-                    }
+                // Highlight only the item's own preview block (not ancestors — structure already mirrors)
+                const bp = item.dataset.blockPath;
+                const ownBlock = container.querySelector(`.pu-preview-block[data-path="${bp}"]`);
+                if (ownBlock) {
+                    ownBlock.classList.add('pu-preview-block-hover');
+                    ownBlock.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }
-                let matched = false;
-                ancestorVars.forEach(av => {
-                    if (pickKeys.has(av.dataset.comboKey)) {
-                        av.classList.add('pu-shortlist-hover-pick');
-                        matched = true;
+            });
+            item.addEventListener('mouseleave', () => {
+                const container = document.querySelector('[data-testid="pu-preview-body"]');
+                if (!container) return;
+                container.querySelectorAll('.pu-preview-block-hover').forEach(
+                    el => el.classList.remove('pu-preview-block-hover')
+                );
+            });
+        });
+
+        // Separator hover: preview which shortlist items are in the range
+        const seps = body.querySelectorAll('.pu-shortlist-separator[data-separator-path]');
+        seps.forEach(sep => {
+            sep.addEventListener('mouseenter', (e) => {
+                e.stopPropagation();
+                const sepPath = sep.dataset.separatorPath;
+                if (!sepPath) return;
+                // Highlight all shortlist items in range
+                body.querySelectorAll('.pu-shortlist-item[data-block-path]').forEach(item => {
+                    if (PU.shortlist._isInSeparatorRange(item.dataset.blockPath, sepPath)) {
+                        item.classList.add('pu-shortlist-hover-from-preview');
                     }
                 });
-                // Pick exists but isn't visible at current composition — highlight all
-                if (!matched) {
-                    ancestorVars.forEach(av => av.classList.add('pu-shortlist-hover-all'));
-                }
-            } else {
-                ancestorVars.forEach(av => av.classList.add('pu-shortlist-hover-all'));
-            }
-        }
-    },
-
-    /** Remove all ancestor hover highlights. */
-    _clearAncestorHighlights(container) {
-        container.querySelectorAll('.pu-shortlist-hover-pick').forEach(
-            el => el.classList.remove('pu-shortlist-hover-pick')
-        );
-        container.querySelectorAll('.pu-shortlist-hover-all').forEach(
-            el => el.classList.remove('pu-shortlist-hover-all')
-        );
-    },
-
-    // ── Hover Tip ─────────────────────────────────────────────────────
-
-    /** Compute variation count for a block (locked wildcards multiply, unlocked = 1). */
-    _blockVariationCount(block, lookup, locked) {
-        const wcNames = PU.shortlist._getBlockWildcards(block);
-        let count = 1;
-        for (const name of wcNames) {
-            const lockedVals = (locked[name] && locked[name].length > 0) ? locked[name] : null;
-            if (lockedVals) count *= lockedVals.length;
-        }
-        return count;
-    },
-
-    /** Show hover tip describing what clicking a variation will add. */
-    _showHoverTip(blockPath, comboKey, variationText) {
-        const tip = document.querySelector('[data-testid="pu-footer-tip"]');
-        if (!tip) return;
-
-        const prompt = PU.helpers.getActivePrompt();
-        if (!prompt || !prompt.text) return;
-
-        const lookup = PU.preview.getFullWildcardLookup();
-        const locked = PU.state.previewMode.lockedValues;
-
-        // Build ancestor chain
-        const parts = blockPath.split('.');
-        const chain = [];
-        for (let i = 1; i <= parts.length; i++) {
-            chain.push(parts.slice(0, i).join('.'));
-        }
-
-        const segments = [];
-        let total = 1;
-
-        for (const path of chain) {
-            const block = PU.shortlist._getBlock(prompt.text, path);
-            if (!block) continue;
-            const count = PU.shortlist._blockVariationCount(block, lookup, locked);
-            total *= count;
-
-            if (path === blockPath) {
-                // Leaf: show the hovered text (truncated)
-                const truncated = variationText.length > 60
-                    ? variationText.substring(0, 57) + '...'
-                    : variationText;
-                segments.push(truncated);
-            } else {
-                // Ancestor: show path + count
-                const hasEntries = PU.state.previewMode.shortlist.some(e => e.sources[0].blockPath === path);
-                if (hasEntries) {
-                    const pickCount = PU.state.previewMode.shortlist.filter(e => e.sources[0].blockPath === path).length;
-                    segments.push(`${path}: ${pickCount} pick${pickCount !== 1 ? 's' : ''}`);
-                } else {
-                    segments.push(`${path}: ${count} item${count !== 1 ? 's' : ''}`);
-                }
-            }
-        }
-
-        const isShortlisted = PU.shortlist.has(blockPath, comboKey);
-        const action = isShortlisted ? 'click to remove' : 'click to add';
-        const chainText = segments.join(' \u00b7 ');
-        const totalSuffix = chain.length > 1 ? ` (Total: ${total.toLocaleString()})` : '';
-
-        tip.textContent = `${action} "${chainText}${totalSuffix}"`;
-        tip.classList.add('visible');
-    },
-
-    /** Hide the hover tip. */
-    _hideHoverTip() {
-        const tip = document.querySelector('[data-testid="pu-footer-tip"]');
-        if (tip) {
-            tip.classList.remove('visible');
-            tip.textContent = '';
-        }
+            });
+            sep.addEventListener('mouseleave', () => {
+                PU.shortlist._clearShortlistHighlights();
+            });
+        });
     },
 
     // ── Footer Panel ──────────────────────────────────────────────────
@@ -447,7 +329,7 @@ PU.shortlist = {
     /** Check if shortlist UI should be visible. */
     _isVisible() {
         const mode = PU.state.ui.editorMode;
-        return (mode === 'preview' || mode === 'review') && PU.state.previewMode.shortlist.length > 0;
+        return mode === 'preview' || mode === 'review';
     },
 
     /** Render the shortlist footer panel. */
@@ -465,56 +347,187 @@ PU.shortlist = {
         if (countEl) countEl.textContent = PU.shortlist.count();
 
         const body = panel.querySelector('[data-testid="pu-shortlist-body"]');
-        if (!body) return;
-
-        body.innerHTML = PU.shortlist._renderTreeView(PU.state.previewMode.shortlist);
-    },
-
-    // ── Dim State ────────────────────────────────────────────────────
-
-    /** Check if a specific block+combo is dimmed. */
-    _isDimmed(blockPath, comboKey) {
-        return (PU.state.previewMode.dimmedEntries || new Set()).has(`${blockPath}|${comboKey}`);
-    },
-
-    /** Toggle dim state for a single entry. */
-    toggleDim(blockPath, comboKey) {
-        if (!PU.state.previewMode.dimmedEntries) PU.state.previewMode.dimmedEntries = new Set();
-        const key = `${blockPath}|${comboKey}`;
-        if (PU.state.previewMode.dimmedEntries.has(key)) {
-            PU.state.previewMode.dimmedEntries.delete(key);
-        } else {
-            PU.state.previewMode.dimmedEntries.add(key);
+        if (body) {
+            body.innerHTML = PU.shortlist._renderTreeView(PU.state.previewMode.shortlist);
+            PU.shortlist._attachShortlistHoverListeners(body);
         }
+
+        // Render action bar
+        const actionBar = panel.querySelector('[data-testid="pu-shortlist-action-bar"]');
+        if (actionBar) {
+            actionBar.innerHTML = PU.shortlist._renderActionBar();
+        }
+    },
+
+    /** Clear all dim and pin states, re-populate, re-render. */
+    clearAll() {
+        PU.state.previewMode.dimmedEntries = new Set();
+        PU.state.previewMode.pinnedEntries = new Set();
+        PU.state.previewMode.pinnedTexts = new Map();
+        // Re-populate to remove orphaned entries from shortlist array
+        PU.shortlist.populateFromPreview();
         PU.shortlist.render();
     },
 
-    /** Toggle dim for all entries under a block path. */
-    toggleDimBlock(blockPath) {
-        if (!PU.state.previewMode.dimmedEntries) PU.state.previewMode.dimmedEntries = new Set();
-        const entries = PU.state.previewMode.shortlist.filter(e => e.sources[0].blockPath === blockPath);
-        const allDimmed = entries.every(e =>
-            PU.state.previewMode.dimmedEntries.has(`${e.sources[0].blockPath}|${e.sources[0].comboKey}`)
-        );
-        for (const e of entries) {
-            const key = `${e.sources[0].blockPath}|${e.sources[0].comboKey}`;
-            if (allDimmed) {
-                PU.state.previewMode.dimmedEntries.delete(key);
-            } else {
-                PU.state.previewMode.dimmedEntries.add(key);
-            }
-        }
+    /** Common post-mutation handler (shortlist panel only — no full re-render). */
+    _afterChange() {
         PU.shortlist.render();
     },
 
-    // ── Tree View Renderer ───────────────────────────────────────────
+    // ── Action Bar ──────────────────────────────────────────────────
 
     /**
-     * Render tree view — entries grouped by blockPath with tree connectors.
-     * Each item shows the full resolved prompt (ancestor texts ── joined).
+     * Render contextual action bar HTML.
+     * Shows pin count, orphan resolve button, and commit selection button.
+     */
+    _renderActionBar() {
+        const dimCount = PU.state.previewMode.dimmedEntries.size;
+        const pinCount = PU.state.previewMode.pinnedEntries.size;
+        const orphans = PU.shortlist._detectOrphans();
+        const hasCuration = dimCount > 0 || pinCount > 0;
+
+        const esc = PU.blocks.escapeHtml;
+        let html = '<div class="pu-shortlist-actions">';
+
+        if (pinCount > 0) {
+            html += `<span class="pu-shortlist-action-summary" data-testid="pu-shortlist-pin-summary">\uD83D\uDCCC ${pinCount} pinned</span>`;
+        }
+
+        if (orphans.length > 0) {
+            html += `<button class="pu-btn pu-btn-small pu-btn-warning" onclick="PU.shortlist.showOrphanModal()" data-testid="pu-shortlist-resolve-orphans">\u26A0 Resolve ${orphans.length} Orphan${orphans.length > 1 ? 's' : ''}</button>`;
+        }
+
+        html += '<span style="flex:1"></span>';
+
+        const activeCount = PU.state.previewMode.shortlist.filter(e => {
+            const key = `${e.sources[0].blockPath}|${e.sources[0].comboKey}`;
+            return !PU.state.previewMode.dimmedEntries.has(key);
+        }).length;
+        const disabledAttr = hasCuration ? '' : ' disabled';
+        html += `<button class="pu-btn pu-btn-small pu-btn-primary" onclick="PU.shortlist.commitSelection()"${disabledAttr} data-testid="pu-shortlist-commit">Commit Selection (${activeCount})</button>`;
+
+        html += '</div>';
+        return html;
+    },
+
+    // ── Orphan Resolution Modal ─────────────────────────────────────
+
+    /** Show the orphan resolution modal. */
+    showOrphanModal() {
+        const orphans = PU.shortlist._detectOrphans();
+        if (orphans.length === 0) return;
+
+        PU.overlay.dismissAll();
+
+        const esc = PU.blocks.escapeHtml;
+        let listHtml = '';
+        for (const o of orphans) {
+            const key = `${o.blockPath}|${o.comboKey}`;
+            const safeKey = esc(key).replace(/'/g, '&#39;');
+            const wildcardInfo = PU.shortlist._comboKeyToDisplay(o.comboKey) || 'no wildcards';
+            const truncText = o.text.length > 120 ? o.text.substring(0, 117) + '...' : o.text;
+
+            listHtml += `<div class="pu-orphan-entry" data-key="${esc(key)}" data-testid="pu-orphan-entry">`;
+            listHtml += `<div class="pu-orphan-info">`;
+            listHtml += `<div class="pu-orphan-path">${esc(o.blockPath)}</div>`;
+            listHtml += `<div class="pu-orphan-wildcards">${esc(wildcardInfo)}</div>`;
+            listHtml += `<div class="pu-orphan-text">${esc(truncText)}</div>`;
+            listHtml += `</div>`;
+            listHtml += `<div class="pu-orphan-actions">`;
+            listHtml += `<button class="pu-btn pu-btn-small" onclick="PU.shortlist.resolveOrphan('${safeKey}', 'unpin')">Unpin</button>`;
+            listHtml += `</div>`;
+            listHtml += `</div>`;
+        }
+
+        const modalHtml = `<div class="pu-modal-overlay" data-testid="pu-orphan-modal-overlay" onclick="if(event.target===this) PU.shortlist.closeOrphanModal()">
+            <div class="pu-modal" style="width: 560px;">
+                <div class="pu-modal-header">
+                    <h3>\u26A0 Orphaned Pins</h3>
+                    <button class="pu-modal-close" onclick="PU.shortlist.closeOrphanModal()">&times;</button>
+                </div>
+                <div class="pu-modal-body">
+                    <p class="pu-orphan-desc">These pinned entries are no longer in the current composition. They may reappear when navigating to other compositions.</p>
+                    ${listHtml}
+                </div>
+                <div class="pu-modal-footer">
+                    <button class="pu-btn pu-btn-small" onclick="PU.shortlist.unpinAllOrphans()">Unpin All Orphans</button>
+                    <span style="flex:1"></span>
+                    <button class="pu-btn pu-btn-small pu-btn-primary" onclick="PU.shortlist.closeOrphanModal()">Done</button>
+                </div>
+            </div>
+        </div>`;
+
+        // Remove existing modal if any, then inject
+        const existing = document.querySelector('[data-testid="pu-orphan-modal-overlay"]');
+        if (existing) existing.remove();
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    },
+
+    /** Close orphan modal. */
+    closeOrphanModal() {
+        const modal = document.querySelector('[data-testid="pu-orphan-modal-overlay"]');
+        if (modal) modal.remove();
+    },
+
+    /**
+     * Resolve a single orphan by unpinning it.
+     * Removes from pinnedEntries + pinnedTexts, removes entry from modal UI.
+     */
+    resolveOrphan(key, action) {
+        if (action === 'unpin') {
+            PU.state.previewMode.pinnedEntries.delete(key);
+            PU.state.previewMode.pinnedTexts.delete(key);
+        }
+
+        // Remove from modal UI
+        const entryEl = document.querySelector(`[data-testid="pu-orphan-modal-overlay"] .pu-orphan-entry[data-key="${key}"]`);
+        if (entryEl) entryEl.remove();
+
+        // Close modal if no more orphans
+        const remaining = document.querySelectorAll('[data-testid="pu-orphan-modal-overlay"] .pu-orphan-entry');
+        if (!remaining || remaining.length === 0) {
+            PU.shortlist.closeOrphanModal();
+        }
+
+        // Re-populate to remove orphaned entry from shortlist
+        PU.shortlist.populateFromPreview();
+        PU.shortlist.render();
+    },
+
+    /** Unpin all orphaned entries at once. */
+    unpinAllOrphans() {
+        const orphans = PU.shortlist._detectOrphans();
+        for (const o of orphans) {
+            const key = `${o.blockPath}|${o.comboKey}`;
+            PU.state.previewMode.pinnedEntries.delete(key);
+            PU.state.previewMode.pinnedTexts.delete(key);
+        }
+        PU.shortlist.closeOrphanModal();
+        PU.shortlist.populateFromPreview();
+        PU.shortlist.render();
+    },
+
+    /**
+     * Commit Selection: export the curated set (undimmed entries).
+     * Future: integrate with build pipeline.
+     */
+    commitSelection() {
+        const items = PU.state.previewMode.shortlist.filter(e => {
+            const key = `${e.sources[0].blockPath}|${e.sources[0].comboKey}`;
+            return !PU.state.previewMode.dimmedEntries.has(key);
+        });
+        PU.actions.showToast(`Selection committed: ${items.length} entries`, 'success');
+    },
+
+    // ── Flat List Renderer ────────────────────────────────────────────
+
+    /**
+     * Render flat list — entries grouped by blockPath, no tree chrome.
+     * Pinned entries sort first within each group.
+     * Each item shows segmented resolved text (ancestor ── own) for hover targeting.
      */
     _renderTreeView(items) {
-        if (items.length === 0) return '<div class="pu-rp-note">No items shortlisted</div>';
+        if (items.length === 0) return '<div class="pu-rp-note">No items in preview</div>';
 
         const esc = PU.blocks.escapeHtml;
 
@@ -526,7 +539,7 @@ PU.shortlist = {
             groups[bp].push(entry);
         }
 
-        // 2. Sort paths hierarchically (tree order)
+        // 2. Sort paths hierarchically
         const paths = Object.keys(groups).sort((a, b) => {
             const ap = a.split('.').map(Number);
             const bp = b.split('.').map(Number);
@@ -538,111 +551,76 @@ PU.shortlist = {
             return 0;
         });
 
-        // 3. Precompute ancestor text cache (first entry per path)
+        // 3. Sort pinned entries first within each group
+        for (const p of paths) {
+            groups[p].sort((a, b) => {
+                const aPinned = PU.shortlist._isPinned(a.sources[0].blockPath, a.sources[0].comboKey) ? 0 : 1;
+                const bPinned = PU.shortlist._isPinned(b.sources[0].blockPath, b.sources[0].comboKey) ? 0 : 1;
+                return aPinned - bPinned;
+            });
+        }
+
+        // 4. Precompute ancestor text cache (first entry per path)
         const ancestorText = {};
         for (const path of paths) {
             ancestorText[path] = groups[path][0].text;
         }
 
-        // Helper: is this path the last sibling at its depth?
-        function isLastSibling(path) {
-            const parts = path.split('.');
-            if (parts.length <= 1) return true;
-            const parentPrefix = parts.slice(0, -1).join('.') + '.';
-            const siblings = paths.filter(p => {
-                const pp = p.split('.');
-                return pp.length === parts.length && p.startsWith(parentPrefix);
-            });
-            return siblings[siblings.length - 1] === path;
-        }
-
-        // 4. Render tree groups
+        // 5. Render flat list with segmented text
         let html = '';
         for (const path of paths) {
             const entries = groups[path];
-            const depth = path.split('.').length;
-            const lastSib = isLastSibling(path);
-
-            // Tree connector prefix for path header
-            let connectorStr = '';
-            if (depth > 1) {
-                const parentParts = path.split('.');
-                let parentPrefix = '';
-                for (let d = 1; d < parentParts.length - 1; d++) {
-                    const ap = parentParts.slice(0, d).join('.');
-                    parentPrefix += isLastSibling(ap) ? '\u00a0\u00a0' : '\u2502\u00a0';
-                }
-                connectorStr = parentPrefix + (lastSib ? '\u2514\u2500\u2500\u00a0' : '\u251c\u2500\u2500\u00a0');
-            }
-
-            // Build ancestor chain text for this block's entries
-            const ancestorChain = [];
             const parts = path.split('.');
+
+            // Build ancestor chain with paths
+            const ancestorChain = [];
             for (let i = 1; i < parts.length; i++) {
                 const aPath = parts.slice(0, i).join('.');
-                if (ancestorText[aPath]) ancestorChain.push(ancestorText[aPath]);
+                if (ancestorText[aPath]) {
+                    ancestorChain.push({ path: aPath, text: ancestorText[aPath] });
+                }
             }
 
             const safePath = esc(path).replace(/'/g, '&#39;');
 
-            // Path header (clickable for batch dim)
-            html += `<div class="pu-shortlist-group" data-path="${esc(path)}" data-testid="pu-shortlist-group-${esc(path)}">`;
-            html += `<div class="pu-shortlist-path-header" onclick="PU.shortlist.toggleDimBlock('${safePath}')" data-testid="pu-shortlist-path-header-${esc(path)}">`;
-            html += `<span class="pu-shortlist-connector">${connectorStr}</span>`;
-            html += `<span class="pu-shortlist-path-label">${esc(path)}</span>`;
-            html += `<span class="pu-shortlist-group-count">(${entries.length})</span>`;
-            html += '</div>';
-
-            // Entries
             for (const entry of entries) {
                 const src = entry.sources[0];
-                const isDimmed = PU.shortlist._isDimmed(src.blockPath, src.comboKey);
-                const dimCls = isDimmed ? ' pu-shortlist-dimmed' : '';
+                const isPinned = PU.shortlist._isPinned(src.blockPath, src.comboKey);
+                const isOrphan = entry._orphan || false;
 
-                // Full text = ancestor segments + own text, joined with ──
-                const fullText = [...ancestorChain, entry.text].join(' \u2500\u2500 ');
+                let cls = 'pu-shortlist-item';
+                if (PU.shortlist._isDimmed(src.blockPath, src.comboKey)) cls += ' pu-shortlist-dimmed';
+                if (isPinned) cls += ' pu-shortlist-pinned';
+                if (isOrphan) cls += ' pu-shortlist-orphan';
 
                 const safeKey = esc(src.comboKey).replace(/'/g, '&#39;');
-                const safeBlockPath = esc(src.blockPath).replace(/'/g, '&#39;');
+                const safeBp = esc(src.blockPath).replace(/'/g, '&#39;');
 
-                html += `<div class="pu-shortlist-item${dimCls}" data-testid="pu-shortlist-item-${esc(path)}" data-block-path="${esc(src.blockPath)}" data-combo-key="${esc(src.comboKey)}" onclick="PU.shortlist.toggleDim('${safeBlockPath}', '${safeKey}')">`;
-                html += `<span class="pu-shortlist-connector">\u250a\u00a0</span>`;
-                html += `<span class="pu-shortlist-item-text" data-testid="pu-shortlist-resolved">${esc(fullText)}</span>`;
+                const pinIcon = isPinned ? '<span class="pu-shortlist-pin-icon">\uD83D\uDCCC</span>' : '';
+                const orphanIcon = isOrphan ? '<span class="pu-shortlist-orphan-icon" title="Not in current composition">\u26A0</span>' : '';
+
+                // Build segmented text with separator range-select targets
+                // Each separator's path = the NEXT segment's path (the range start)
+                let textHtml = '';
+                for (let j = 0; j < ancestorChain.length; j++) {
+                    const a = ancestorChain[j];
+                    const nextPath = j + 1 < ancestorChain.length ? ancestorChain[j + 1].path : path;
+                    const safeNext = esc(nextPath).replace(/'/g, '&#39;');
+                    textHtml += `<span class="pu-shortlist-segment" data-segment-path="${esc(a.path)}">${esc(a.text)}</span>`;
+                    textHtml += `<span class="pu-shortlist-separator" data-separator-path="${esc(nextPath)}" onclick="event.stopPropagation(); PU.shortlist.toggleDimBlock('${safeNext}')" title="Select from here: ${esc(nextPath)} and after"> \u2500\u2500 </span>`;
+                }
+                textHtml += `<span class="pu-shortlist-segment pu-shortlist-segment-own" data-segment-path="${esc(path)}">${esc(entry.text)}</span>`;
+
+                html += `<div class="${cls}" data-testid="pu-shortlist-item-${esc(path)}" data-block-path="${esc(src.blockPath)}" data-combo-key="${esc(src.comboKey)}" onclick="PU.shortlist._handleItemClick('${safeBp}', '${safeKey}', event)">`;
+                html += pinIcon + orphanIcon;
+                html += `<span class="pu-shortlist-item-text" data-testid="pu-shortlist-resolved">${textHtml}</span>`;
                 html += '</div>';
             }
-
-            html += '</div>';
         }
         return html;
     },
 
-    // ── Block Helpers ────────────────────────────────────────────────
-
-    /** Navigate the block tree to get a block at a given path. */
-    _getBlock(blocks, path) {
-        const parts = path.split('.');
-        let current = blocks;
-        for (let i = 0; i < parts.length; i++) {
-            const idx = parseInt(parts[i], 10);
-            if (!current || !current[idx]) return null;
-            if (i === parts.length - 1) return current[idx];
-            current = current[idx].after;
-        }
-        return null;
-    },
-
-    /** Get wildcard names from block content. */
-    _getBlockWildcards(block) {
-        const content = block.content || '';
-        const names = [];
-        const seen = new Set();
-        const pattern = /__([a-zA-Z0-9_-]+)__/g;
-        let m;
-        while ((m = pattern.exec(content)) !== null) {
-            if (!seen.has(m[1])) { seen.add(m[1]); names.push(m[1]); }
-        }
-        return names;
-    },
+    // ── Display Helpers ──────────────────────────────────────────────
 
     /**
      * Convert a comboKey to a display string.
@@ -658,25 +636,44 @@ PU.shortlist = {
 
     // ── Persistence ───────────────────────────────────────────────────
 
-    /** Get shortlist data for session snapshot. */
+    /** Get shortlist curation data for session snapshot. */
     getSessionData() {
-        return PU.state.previewMode.shortlist.map(entry => ({
-            text: entry.text,
-            sources: entry.sources.map(s => ({ block: s.blockPath, combo: s.comboKey }))
-        }));
+        return {
+            dimmed: [...PU.state.previewMode.dimmedEntries],
+            pinned: [...PU.state.previewMode.pinnedEntries],
+            pinnedTexts: Object.fromEntries(PU.state.previewMode.pinnedTexts)
+        };
     },
 
-    /** Hydrate shortlist from session data. */
+    /** Hydrate shortlist curation from session data (backward-compatible). */
     hydrateFromSession(data) {
-        if (!Array.isArray(data)) return;
-        PU.state.previewMode.shortlist = data
-            .filter(entry => entry && entry.text && Array.isArray(entry.sources))
-            .map(entry => ({
-                text: String(entry.text),
-                sources: entry.sources
-                    .filter(s => s && s.block !== undefined)
-                    .map(s => ({ blockPath: String(s.block), comboKey: String(s.combo || '') }))
-            }));
-        PU.shortlist._lookupSet = null;
+        // Backward compat: Phase 1 stored dimmed_entries as a plain string array
+        if (Array.isArray(data)) {
+            PU.state.previewMode.dimmedEntries = new Set(
+                data.filter(item => typeof item === 'string')
+            );
+            return;
+        }
+
+        if (!data || typeof data !== 'object') return;
+
+        // Phase 2 format: { dimmed, pinned, pinnedTexts }
+        if (Array.isArray(data.dimmed)) {
+            PU.state.previewMode.dimmedEntries = new Set(
+                data.dimmed.filter(item => typeof item === 'string')
+            );
+        }
+        if (Array.isArray(data.pinned)) {
+            PU.state.previewMode.pinnedEntries = new Set(
+                data.pinned.filter(item => typeof item === 'string')
+            );
+        }
+        if (data.pinnedTexts && typeof data.pinnedTexts === 'object') {
+            PU.state.previewMode.pinnedTexts = new Map(
+                Object.entries(data.pinnedTexts).filter(([k, v]) =>
+                    typeof k === 'string' && typeof v === 'string'
+                )
+            );
+        }
     }
 };

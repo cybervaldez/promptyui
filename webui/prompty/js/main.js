@@ -406,6 +406,9 @@ PU.actions = {
         PU.state.previewMode.focusedWildcards = [];
         PU.state.previewMode.selectedWildcards = {};
         PU.state.previewMode.shortlist = [];
+        PU.state.previewMode.dimmedEntries = new Set();
+        PU.state.previewMode.pinnedEntries = new Set();
+        PU.state.previewMode.pinnedTexts = new Map();
 
         // Hide focus banner if visible (stale bulb focus from previous prompt)
         PU.rightPanel._removeFocus();

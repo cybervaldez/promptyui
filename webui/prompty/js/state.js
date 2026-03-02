@@ -190,6 +190,9 @@ PU.state = {
         hiddenBlocks: new Set(), // Block paths hidden by user checkbox in sidebar tree
         variationMode: 'summary', // 'summary' = per-wildcard pills, 'expanded' = full Cartesian
         shortlist: [],            // Array of { text, sources: [{blockPath, comboKey}] }
+        dimmedEntries: new Set(), // Set of "blockPath|comboKey" keys excluded from shortlist
+        pinnedEntries: new Set(), // Set of "blockPath|comboKey" — survives populateFromPreview()
+        pinnedTexts: new Map(),   // Map<"bp|ck", string> — frozen text for orphan display
         _extTextCache: {},    // Cached ext_text API data: { "scope/name": data }
         _sessionBaseline: null // Snapshot of persisted session state (for dirty detection)
     }

@@ -105,23 +105,25 @@ def handle_session_save(handler, job_id, params):
         if 'active_operation' in data:
             if data['active_operation'] is None or isinstance(data['active_operation'], str):
                 clean_data['active_operation'] = data['active_operation']
-        if 'shortlist' in data and isinstance(data['shortlist'], list):
-            clean_shortlist = []
-            for item in data['shortlist']:
-                if isinstance(item, dict) and 'text' in item and 'sources' in item:
-                    clean_item = {
-                        'text': str(item['text']),
-                        'sources': []
-                    }
-                    if isinstance(item['sources'], list):
-                        for src in item['sources']:
-                            if isinstance(src, dict) and 'block' in src:
-                                clean_item['sources'].append({
-                                    'block': str(src['block']),
-                                    'combo': str(src.get('combo', ''))
-                                })
-                    clean_shortlist.append(clean_item)
-            clean_data['shortlist'] = clean_shortlist
+        if 'shortlist_curation' in data and isinstance(data['shortlist_curation'], dict):
+            curation = {}
+            sc = data['shortlist_curation']
+            if 'dimmed' in sc and isinstance(sc['dimmed'], list):
+                curation['dimmed'] = [str(e) for e in sc['dimmed'] if isinstance(e, str)]
+            if 'pinned' in sc and isinstance(sc['pinned'], list):
+                curation['pinned'] = [str(e) for e in sc['pinned'] if isinstance(e, str)]
+            if 'pinnedTexts' in sc and isinstance(sc['pinnedTexts'], dict):
+                curation['pinnedTexts'] = {
+                    str(k): str(v) for k, v in sc['pinnedTexts'].items()
+                    if isinstance(k, str) and isinstance(v, str)
+                }
+            clean_data['shortlist_curation'] = curation
+        elif 'dimmed_entries' in data and isinstance(data['dimmed_entries'], list):
+            # Backward compat: Phase 1 format
+            clean_data['dimmed_entries'] = [
+                str(entry) for entry in data['dimmed_entries']
+                if isinstance(entry, str)
+            ]
 
         existing['prompts'][prompt_id] = clean_data
 

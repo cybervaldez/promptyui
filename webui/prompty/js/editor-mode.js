@@ -137,8 +137,9 @@ PU.editorMode = {
         const { lookup } = PU.shared.getCompositionParams();
         const locked = PU.state.previewMode.lockedValues;
 
-        // Render block-by-block (template view)
-        const blocks = PU.editorMode._renderBlockByBlock(textItems, resolutions, effectiveDepth, lookup, locked);
+        // Render block-by-block (template view) + collect variation data
+        const { blocks, variationData } = PU.editorMode._renderBlockByBlock(textItems, resolutions, effectiveDepth, lookup, locked);
+        PU.state.previewMode.resolvedVariations = variationData;
 
         // Render depth stepper
         PU.editorMode._renderDepthStepper(maxDepth);
@@ -168,67 +169,33 @@ PU.editorMode = {
 
         body.innerHTML = bannerHtml + blocks.map((b, i) => {
             const focusCls = b.focusState === 'dimmed' ? ' pu-preview-focus-dimmed' : (b.focusState === 'match' ? ' pu-preview-focus-match' : '');
-            const parentCls = b.hasChildren ? ' pu-preview-has-children' : '';
-            const childCls = b.depth > 1 ? ' pu-preview-child' : '';
-            return `<div class="pu-preview-block${focusCls}${parentCls}${childCls}" data-depth="${b.depth}" data-path="${PU.blocks.escapeHtml(b.path)}" data-testid="pu-preview-block-${i}" data-focus="${b.focusState || ''}">
+            return `<div class="pu-preview-block${focusCls}" data-path="${PU.blocks.escapeHtml(b.path)}" data-testid="pu-preview-block-${i}" data-focus="${b.focusState || ''}">
                 <div class="pu-preview-text">${b.html}</div>
-                ${b.belowHtml || ''}
             </div>`;
         }).join('');
 
-        // Attach hover listeners for child blocks to highlight parent connectors
+        // Attach segment-level hover listeners for shortlist linking
         PU.editorMode._attachPreviewHoverListeners(body);
 
-        // Sync shortlist footer panel visibility and count
+        // Auto-populate shortlist from state, render panel
+        PU.shortlist.populateFromPreview();
         PU.shortlist.render();
     },
 
-    /** Attach mouseenter/mouseleave on child preview blocks to highlight parent connectors + tree connectors. */
+    /** Attach block-level hover on preview rows to highlight the block + matching shortlist items. */
     _attachPreviewHoverListeners(container) {
-        const childBlocks = container.querySelectorAll('.pu-preview-child');
-        childBlocks.forEach(block => {
-            block.addEventListener('mouseenter', () => {
-                const path = block.dataset.path;
-                if (!path) return;
-                // Highlight own tree connector
-                const conn = block.querySelector('.pu-tree-connector');
-                if (conn) conn.classList.add('pu-tree-hover');
-                // Highlight ALL ancestor blocks (regardless of level)
-                const parts = path.split('.');
-                for (let i = 1; i < parts.length; i++) {
-                    const ancestorPath = parts.slice(0, i).join('.');
-                    const ancestorBlock = container.querySelector(`.pu-preview-block[data-path="${ancestorPath}"]`);
-                    if (ancestorBlock) ancestorBlock.classList.add('pu-preview-child-hovered');
-                }
-            });
-            block.addEventListener('mouseleave', () => {
-                const path = block.dataset.path;
-                if (!path) return;
-                const conn = block.querySelector('.pu-tree-connector');
-                if (conn) conn.classList.remove('pu-tree-hover');
-                const parts = path.split('.');
-                for (let i = 1; i < parts.length; i++) {
-                    const ancestorPath = parts.slice(0, i).join('.');
-                    const ancestorBlock = container.querySelector(`.pu-preview-block[data-path="${ancestorPath}"]`);
-                    if (ancestorBlock) ancestorBlock.classList.remove('pu-preview-child-hovered');
-                }
-            });
-        });
-
-        // Shortlist hover: highlight ancestor variations + show hover tip
         if (PU.state.ui.editorMode === 'preview' || PU.state.ui.editorMode === 'review') {
-            const varDivs = container.querySelectorAll('.pu-preview-variation[data-block-path]');
-            varDivs.forEach(v => {
-                v.addEventListener('mouseenter', () => {
-                    const blockPath = v.dataset.blockPath;
-                    if (blockPath) {
-                        PU.shortlist._highlightAncestors(blockPath, container);
-                        PU.shortlist._showHoverTip(blockPath, v.dataset.comboKey, v.textContent.trim());
-                    }
+            const allBlocks = container.querySelectorAll('.pu-preview-block[data-path]');
+            allBlocks.forEach(block => {
+                block.addEventListener('mouseenter', () => {
+                    const path = block.dataset.path;
+                    if (!path) return;
+                    block.classList.add('pu-preview-block-hover');
+                    PU.shortlist._highlightItemsBySegmentPath(path);
                 });
-                v.addEventListener('mouseleave', () => {
-                    PU.shortlist._clearAncestorHighlights(container);
-                    PU.shortlist._hideHoverTip();
+                block.addEventListener('mouseleave', () => {
+                    block.classList.remove('pu-preview-block-hover');
+                    PU.shortlist._clearShortlistHighlights();
                 });
             });
         }
@@ -242,17 +209,24 @@ PU.editorMode = {
     },
 
     /**
-     * Walk the block tree depth-first, render template view + summary/expanded below.
-     * Returns array of {path, depth, html, belowHtml}.
-     * Adds tree connectors (├── / └──) for child blocks matching the write view.
+     * Walk the block tree depth-first, render flat rows with ancestor segments.
+     * Returns {blocks: [{path, depth, html}], variationData: [{blockPath, comboKey, text}]}.
+     * Each row prepends faded ancestor text with ── separators, highlighting only the own block.
      */
     _renderBlockByBlock(textItems, resolutions, maxDepth, lookup, locked) {
         const results = [];
+        const variationData = [];
         const hiddenBlocks = PU.state.previewMode.hiddenBlocks;
         const { wildcardCounts, extTextCount } = PU.shared.getCompositionParams();
         const compId = PU.state.previewMode.compositionId;
         const [, wcIndices] = PU.preview.compositionToIndices(compId, extTextCount, wildcardCounts);
         const varMode = PU.state.previewMode.variationMode || 'summary';
+
+        const isPreviewMode = PU.state.ui.editorMode === 'preview' || PU.state.ui.editorMode === 'review';
+        const esc = PU.blocks.escapeHtml;
+
+        // Store each block's own template HTML for ancestor chain lookups
+        const pathToTemplateHtml = {};
 
         // Compute focus filter (empty = no filtering)
         const focused = PU.state.previewMode.focusedWildcards;
@@ -275,6 +249,21 @@ PU.editorMode = {
             for (const path of focusMatchPaths) focusParentPaths.delete(path);
         }
 
+        /** Build faded ancestor segments HTML for a given path. */
+        function buildAncestorSegments(path) {
+            const parts = path.split('.');
+            let html = '';
+            for (let i = 1; i < parts.length; i++) {
+                const aPath = parts.slice(0, i).join('.');
+                const aHtml = pathToTemplateHtml[aPath];
+                if (aHtml) {
+                    html += `<span class="pu-preview-segment pu-preview-segment-ancestor" data-segment-path="${esc(aPath)}">${aHtml}</span>`;
+                    html += `<span class="pu-preview-separator"> \u2500\u2500 </span>`;
+                }
+            }
+            return html;
+        }
+
         function traverse(blocks, prefix, depth, hasTrailingMore) {
             if (!Array.isArray(blocks)) return;
             blocks.forEach((block, idx) => {
@@ -287,19 +276,7 @@ PU.editorMode = {
 
                 const isExtText = 'ext_text' in block;
                 const rawContent = block.content || '';
-                const isChild = depth > 1;
-                const isLast = (idx === blocks.length - 1) && !hasTrailingMore;
                 const hasChildren = block.after && block.after.length > 0;
-
-                // Tree connector for child blocks (├── / └──)
-                const connectorHtml = isChild
-                    ? `<span class="pu-tree-connector">${isLast ? '\u2514\u2500\u2500 ' : '\u251C\u2500\u2500 '}</span>`
-                    : '';
-
-                // Parent connector for blocks with children (── ▾)
-                const parentConnHtml = hasChildren
-                    ? '<span class="pu-preview-parent-conn">\u2500\u2500 \u25BE</span>'
-                    : '';
 
                 // Find wildcards in this block
                 const blockWcNames = [];
@@ -315,20 +292,40 @@ PU.editorMode = {
                     }
                 }
 
-                let html, belowHtml;
+                let ownHtml;
 
                 if (isExtText) {
-                    html = PU.editorMode._convertMarkersToHighlights(res.resolvedMarkerText);
-                    belowHtml = '';
+                    const rawTemplate = (res.resolvedMarkerText || '').replace(/\{\{([^:]+):([^}]+)\}\}/g, '__$1__');
+                    const hasExtWc = /__[a-zA-Z0-9_-]+__/.test(rawTemplate);
+                    const labelHtml = `<span class="pu-ext-text-label">${esc(block.ext_text)}</span>`;
+                    const templateHtml = hasExtWc ? ' ' + PU.editorMode._convertToTemplateView(rawTemplate) : '';
+                    ownHtml = labelHtml + templateHtml;
+                    if (isPreviewMode) {
+                        const plainText = (res.resolvedMarkerText || '').replace(/\{\{([^:]+):([^}]+)\}\}/g, '$2');
+                        variationData.push({ blockPath: path, comboKey: '', text: plainText });
+                    }
                 } else if (blockWcNames.length > 0) {
-                    html = PU.editorMode._convertToTemplateView(rawContent);
-                    belowHtml = PU.editorMode._renderBlockVariations(rawContent, blockWcNames, lookup, locked, wcIndices, varMode, path);
+                    ownHtml = PU.editorMode._convertToTemplateView(rawContent);
+                    if (isPreviewMode) {
+                        const blockVars = PU.editorMode._computeBlockVariations(rawContent, blockWcNames, lookup, locked, wcIndices, varMode, path);
+                        for (const v of blockVars) variationData.push(v);
+                    }
                 } else {
-                    html = PU.blocks.escapeHtml(rawContent);
-                    belowHtml = '';
+                    ownHtml = esc(rawContent);
+                    if (isPreviewMode) {
+                        variationData.push({ blockPath: path, comboKey: '', text: rawContent });
+                    }
                 }
 
-                // Determine focus state for this block: 'match', 'parent', 'dimmed', or null (no focus active)
+                // Store own template HTML for ancestor lookups by child blocks
+                pathToTemplateHtml[path] = ownHtml;
+
+                // Build segmented row: faded ancestor segments + separators + own segment
+                const ancestorHtml = buildAncestorSegments(path);
+                const segmentedHtml = ancestorHtml
+                    + `<span class="pu-preview-segment pu-preview-segment-own" data-segment-path="${esc(path)}">${ownHtml}</span>`;
+
+                // Determine focus state
                 let focusState = null;
                 if (focusMatchPaths) {
                     if (focusMatchPaths.has(path)) focusState = 'match';
@@ -336,19 +333,22 @@ PU.editorMode = {
                     else focusState = 'dimmed';
                 }
 
-                results.push({ path, depth, html: connectorHtml + html + parentConnHtml, belowHtml, focusState, hasChildren });
+                results.push({ path, depth, html: segmentedHtml, focusState, hasChildren });
 
-                // Traverse children with tree connectors (no variant labels needed — connectors show branching)
+                // Traverse children
                 if (hasChildren) {
                     const maxBranches = 3;
                     if (block.after.length > maxBranches) {
                         traverse(block.after.slice(0, maxBranches), path, depth + 1, true);
                         if (depth + 1 <= maxDepth) {
                             const moreCount = block.after.length - maxBranches;
+                            // "More" row: ancestor chain includes current path
+                            const moreAncestorHtml = buildAncestorSegments(path)
+                                + `<span class="pu-preview-segment pu-preview-segment-ancestor" data-segment-path="${esc(path)}">${ownHtml}</span>`
+                                + `<span class="pu-preview-separator"> \u2500\u2500 </span>`;
                             results.push({
                                 path: `${path}._more`, depth: depth + 1,
-                                html: `<span class="pu-tree-connector">\u2514\u2500\u2500 </span><span class="pu-preview-variant-label">+${moreCount} more branch${moreCount > 1 ? 'es' : ''}</span>`,
-                                belowHtml: ''
+                                html: moreAncestorHtml + `<span class="pu-preview-variant-label">+${moreCount} more branch${moreCount > 1 ? 'es' : ''}</span>`
                             });
                         }
                     } else {
@@ -359,7 +359,7 @@ PU.editorMode = {
         }
 
         traverse(textItems, '', 1, false);
-        return results;
+        return { blocks: results, variationData };
     },
 
     /** Compute deepest level in the block tree (1-based). */
@@ -413,13 +413,12 @@ PU.editorMode = {
     },
 
     /**
-     * Render resolved text variations below a template block.
-     * Summary mode: deduplicated, capped at 20 (overlay editor pattern).
-     * Expanded mode: all Cartesian combos, capped at 100.
-     * Both: faded static text + bold wildcard values.
+     * Compute resolved text variations for a block with wildcards.
+     * Returns array of {blockPath, comboKey, text} for shortlist population.
+     * Summary mode: deduplicated, capped at 20. Expanded: capped at 100.
      */
-    _renderBlockVariations(content, blockWcNames, lookup, locked, wcIndices, mode, blockPath) {
-        if (!blockWcNames || blockWcNames.length === 0 || !content) return '';
+    _computeBlockVariations(content, blockWcNames, lookup, locked, wcIndices, mode, blockPath) {
+        if (!blockWcNames || blockWcNames.length === 0 || !content) return [];
 
         // Build dimensions — locked wildcards vary, unlocked pinned to current value
         const dims = [];
@@ -444,82 +443,40 @@ PU.editorMode = {
 
         const isSummary = mode !== 'expanded';
         const MAX_SHOW = isSummary ? 20 : 100;
-        // For summary, sample more to allow deduplication
         const sampleCount = isSummary ? Math.min(totalCombos, MAX_SHOW * 3) : Math.min(totalCombos, MAX_SHOW);
         const combos = PU.editorMode._cartesianProduct(dims, sampleCount);
 
-        // Shortlist support: build lookup once, check preview/review mode
-        const isPreviewMode = PU.state.ui.editorMode === 'preview' || PU.state.ui.editorMode === 'review';
-        const slLookup = isPreviewMode ? PU.shortlist._buildLookup() : null;
-        const esc = PU.blocks.escapeHtml;
-
-        // Build resolved items (deduplicate in summary mode)
-        const items = [];
+        const results = [];
         const seen = isSummary ? new Set() : null;
         for (const combo of combos) {
-            if (items.length >= MAX_SHOW) break;
+            if (results.length >= MAX_SHOW) break;
 
-            // Build marker text for highlighting
-            let markerText = content;
+            // Compute plain resolved text
+            let plain = content;
             for (const { name, value } of combo) {
-                markerText = markerText.split(`__${name}__`).join(`{{${name}:${value}}}`);
+                plain = plain.split(`__${name}__`).join(value);
             }
             // Resolve remaining wildcards with odometer values
-            markerText = markerText.replace(/__([a-zA-Z0-9_-]+)__/g, (match, wcName) => {
+            plain = plain.replace(/__([a-zA-Z0-9_-]+)__/g, (match, wcName) => {
                 const allVals = lookup[wcName] || [];
                 if (allVals.length === 0) return match;
                 const idx = wcIndices[wcName] || 0;
-                return `{{${wcName}:${allVals[idx % allVals.length]}}}`;
+                return allVals[idx % allVals.length];
             });
 
             if (isSummary) {
-                // Deduplicate by plain resolved text
-                let plain = content;
-                for (const { name, value } of combo) {
-                    plain = plain.split(`__${name}__`).join(value);
-                }
                 if (seen.has(plain)) continue;
                 seen.add(plain);
             }
 
-            const safe = PU.preview.escapeHtmlPreservingMarkers(markerText);
-            const highlighted = safe.replace(/\{\{([^:]+):([^}]+)\}\}/g, (_, n, v) => {
-                return `<b class="pu-variation-wc-val">${esc(v)}</b>`;
+            results.push({
+                blockPath,
+                comboKey: PU.shortlist.comboToKey(combo),
+                text: plain
             });
-            items.push({ html: highlighted, combo });
         }
 
-        if (items.length === 0) return '';
-
-        // "More" indicator
-        let moreHtml = '';
-        if (totalCombos > MAX_SHOW) {
-            const moreCount = totalCombos > 10000 ? '10,000+' : (totalCombos - items.length).toLocaleString();
-            const hint = isSummary ? ' — lock wildcards to narrow' : '';
-            moreHtml = `<div class="pu-preview-variation-more" data-testid="pu-variation-more">+${moreCount} more${hint}</div>`;
-        }
-
-        const scrollClass = items.length > 6 ? ' pu-preview-variations-scroll' : '';
-        let html = `<div class="pu-preview-variations${scrollClass}" data-testid="pu-preview-variations">`;
-        for (const item of items) {
-            // Shortlist: entire variation div is clickable toggle
-            let slCls = '';
-            let clickAttr = '';
-            if (isPreviewMode && blockPath) {
-                const key = PU.shortlist.comboToKey(item.combo);
-                const isShortlisted = slLookup.has(`${blockPath}|${key}`);
-                const safeKey = esc(key).replace(/'/g, '&#39;');
-                const safePath = esc(blockPath).replace(/'/g, '&#39;');
-                if (isShortlisted) slCls = ' pu-shortlisted';
-                clickAttr = ` onclick="PU.shortlist.toggleVariation('${safePath}', '${safeKey}')"`;
-            }
-            const dataAttrs = (isPreviewMode && blockPath)
-                ? ` data-block-path="${esc(blockPath)}" data-combo-key="${esc(PU.shortlist.comboToKey(item.combo))}"`
-                : '';
-            html += `<div class="pu-preview-variation${slCls}"${clickAttr}${dataAttrs} data-testid="pu-shortlist-var">${item.html}</div>`;
-        }
-        html += moreHtml + '</div>';
-        return html;
+        return results;
     },
 
     /** Compute Cartesian product of dimensions (capped at maxCount).

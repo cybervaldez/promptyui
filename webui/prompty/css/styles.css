@@ -908,41 +908,35 @@ body {
     color: var(--pu-accent);
 }
 
-/* Preview blocks — individual blocks with visual separation */
+/* Preview blocks — flat rows with ancestor segments */
 .pu-preview-block {
-    margin-bottom: var(--pu-space-md);
+    margin-bottom: var(--pu-space-sm);
 }
-.pu-preview-block[data-depth="2"] {
-    padding-left: var(--pu-space-lg);
+
+/* Preview segments: ancestor chain (faded) + own block (highlighted) */
+.pu-preview-segment {
+    transition: background 0.15s ease, opacity 0.15s ease;
 }
-.pu-preview-block[data-depth="3"] {
-    padding-left: calc(var(--pu-space-lg) * 2);
+.pu-preview-segment-ancestor {
+    opacity: 0.35;
 }
-.pu-preview-block[data-depth="4"],
-.pu-preview-block[data-depth="5"] {
-    padding-left: calc(var(--pu-space-lg) * 3);
+.pu-preview-block:hover .pu-preview-segment-ancestor {
+    opacity: 0.5;
 }
-/* Preview parent connector — always visible (read-only context) */
-.pu-preview-parent-conn {
-    display: inline;
-    font-family: var(--pu-font-mono);
-    font-size: 12px;
+.pu-preview-segment-own {
+    opacity: 1;
+}
+
+/* Preview separator between ancestor and own segments */
+.pu-preview-separator {
     color: var(--pu-text-muted);
     opacity: 0.4;
-    margin-left: 6px;
+    font-family: var(--pu-font-mono);
+    font-size: 10px;
     user-select: none;
-    white-space: pre;
-    transition: color 0.15s ease, opacity 0.15s ease;
 }
-/* When a child is hovered, parent's connector turns warning (yellow) */
-.pu-preview-child-hovered .pu-preview-parent-conn {
-    color: var(--pu-warning);
-    opacity: 1;
-}
-/* Child's tree connector turns orange on hover */
-.pu-tree-connector.pu-tree-hover {
-    color: var(--pu-orange);
-    opacity: 1;
+.pu-preview-block:hover .pu-preview-separator {
+    opacity: 0.7;
 }
 /* Sidebar block tree connector (├── / └──) */
 .pu-rp-bt-connector {
@@ -1040,53 +1034,20 @@ body {
     border-bottom-color: #e67e22;
 }
 
-/* Resolved variations below template blocks (both summary + expanded) */
-.pu-preview-variations {
-    margin-top: var(--pu-space-sm);
-    padding-left: var(--pu-space-sm);
-}
-.pu-preview-variations-scroll {
-    max-height: 220px;
-    overflow-y: auto;
-}
-.pu-preview-variation {
-    position: relative;
-    font-size: var(--pu-font-size-sm);
-    color: var(--pu-text-muted);
-    line-height: 1.5;
-    padding: var(--pu-space-xs) var(--pu-space-sm);
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    transition: background var(--pu-transition-fast);
-}
-.pu-preview-variation:hover {
-    background: rgba(255, 255, 255, 0.03);
-}
-.pu-variation-wc-val {
-    font-weight: 600;
-    color: var(--pu-text-primary);
-}
-.pu-preview-variation-more {
-    font-size: var(--pu-font-size-2xs);
-    color: var(--pu-text-muted);
-    padding: var(--pu-space-xs) var(--pu-space-sm);
-    font-style: italic;
+/* (variation divs removed — shortlist is now the resolved prompts view) */
+
+/* ext_text reference label (shown as template in preview, like wildcard placeholders) */
+.pu-ext-text-label {
+    font-family: var(--pu-font-mono);
+    font-size: var(--pu-font-size-xs);
+    color: var(--pu-orange);
+    opacity: 0.7;
 }
 
-/* ── Shortlist: Clickable Variations ────────────── */
-.pu-preview-variation[onclick] {
-    cursor: pointer;
-    padding-right: var(--pu-space-sm);
-}
-.pu-preview-variation[onclick]:hover {
+/* ── Preview: Template Block Hover (from shortlist) ── */
+.pu-preview-block.pu-preview-block-hover {
     background: rgba(255, 255, 255, 0.05);
-}
-.pu-preview-variation.pu-shortlisted {
-    box-shadow: inset 3px 0 0 var(--pu-success);
-    background: var(--pu-success-bg);
-}
-.pu-preview-variation.pu-shortlisted:hover {
-    background: rgba(77, 170, 87, 0.18);
+    box-shadow: inset 3px 0 0 var(--pu-accent);
 }
 
 /* ── Shortlist: Footer Panel ────────────────────── */
@@ -1152,38 +1113,21 @@ body {
     transform: rotate(-90deg);
 }
 
-/* Shortlist tree view — groups by block path */
-.pu-shortlist-group {
-    margin: 0;
+/* Shortlist: segment-based resolved text */
+.pu-shortlist-segment {
+    transition: background 0.15s ease;
 }
-.pu-shortlist-path-header {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 0;
-    cursor: pointer;
+.pu-shortlist-separator {
+    color: var(--pu-text-muted);
+    opacity: 0.5;
+    cursor: e-resize;
     user-select: none;
-    font-size: 11px;
-}
-.pu-shortlist-path-header:hover {
-    background: rgba(255, 255, 255, 0.03);
-}
-.pu-shortlist-connector {
-    font-family: var(--pu-font-mono);
-    color: var(--pu-text-muted);
-    opacity: 0.4;
-    white-space: pre;
-    flex-shrink: 0;
-}
-.pu-shortlist-path-label {
     font-family: var(--pu-font-mono);
     font-size: 10px;
-    font-weight: 600;
+}
+.pu-shortlist-separator:hover {
     color: var(--pu-accent);
-}
-.pu-shortlist-group-count {
-    font-size: 10px;
-    color: var(--pu-text-muted);
+    opacity: 1;
 }
 
 /* Individual items */
@@ -1214,14 +1158,114 @@ body {
     text-decoration: line-through;
 }
 
-/* ── Shortlist: Hover Preview Highlights ────────── */
-.pu-preview-variation.pu-shortlist-hover-pick {
-    background: var(--pu-success-bg);
-}
-.pu-preview-variation.pu-shortlist-hover-all,
-.pu-preview-text.pu-shortlist-hover-all {
+/* ── Shortlist: Pinned state ────────────────────── */
+.pu-shortlist-item.pu-shortlist-pinned {
     background: var(--pu-accent-bg);
+    border-left: 2px solid var(--pu-accent);
+    padding-left: 6px;
 }
+.pu-shortlist-pin-icon {
+    flex-shrink: 0;
+    margin-right: 4px;
+    font-size: 10px;
+}
+/* Orphan: warning border + bg */
+.pu-shortlist-item.pu-shortlist-orphan {
+    border-left: 2px solid var(--pu-warning);
+    background: var(--pu-warning-bg);
+    padding-left: 6px;
+}
+.pu-shortlist-item.pu-shortlist-orphan.pu-shortlist-pinned {
+    border-left-color: var(--pu-warning);
+    background: var(--pu-warning-bg);
+}
+.pu-shortlist-orphan-icon {
+    flex-shrink: 0;
+    margin-right: 4px;
+    font-size: 10px;
+    color: var(--pu-warning);
+}
+
+/* ── Shortlist: Action Bar ─────────────────────── */
+.pu-shortlist-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-top: 1px solid var(--pu-border);
+    font-size: 11px;
+}
+.pu-shortlist-action-summary {
+    color: var(--pu-accent);
+    font-weight: 500;
+    font-size: 10px;
+}
+.pu-btn-warning {
+    color: var(--pu-warning);
+    border-color: var(--pu-warning);
+    background: var(--pu-warning-bg);
+}
+.pu-btn-warning:hover {
+    background: var(--pu-warning-light);
+}
+.pu-shortlist-panel.collapsed .pu-shortlist-action-bar {
+    display: none;
+}
+
+/* ── Shortlist: Orphan Modal ───────────────────── */
+.pu-orphan-desc {
+    color: var(--pu-text-secondary);
+    font-size: 13px;
+    margin-bottom: 16px;
+}
+.pu-orphan-entry {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--pu-warning);
+    border-radius: var(--pu-radius);
+    background: var(--pu-warning-bg);
+    margin-bottom: 8px;
+}
+.pu-orphan-info {
+    flex: 1;
+    min-width: 0;
+}
+.pu-orphan-path {
+    font-family: var(--pu-font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--pu-accent);
+}
+.pu-orphan-wildcards {
+    font-size: 11px;
+    color: var(--pu-text-muted);
+    margin-top: 2px;
+}
+.pu-orphan-text {
+    font-size: 12px;
+    color: var(--pu-text-secondary);
+    margin-top: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.pu-orphan-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+/* ── Shortlist: Reverse Hover (preview → shortlist) ── */
+.pu-shortlist-item.pu-shortlist-hover-from-preview {
+    background: var(--pu-accent-bg);
+    box-shadow: inset 3px 0 0 var(--pu-accent);
+}
+
+/* (variation hover highlight styles removed — replaced by segment highlighting) */
 
 /* ── Shortlist: Mode Gating (preview + review) ──── */
 /* Shortlist UI shows when preview container is active (preview/review modes) */
