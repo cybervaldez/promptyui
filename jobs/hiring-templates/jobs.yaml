@@ -140,21 +140,25 @@ prompts:
       - name: "approach"
         text: ["personalized", "automated", "hybrid"]
 
-  # STRESS TEST — All composition features: ext_text, themes, bucketing, nesting, many wildcards
+  # STRESS TEST — All composition features: ext_text, themes, bucketing, 3-tier nesting, many wildcards
   - id: "stress-test-prompt"
     ext: "hiring"
     wildcards_max: 3
     text:
-      # Root 1: Local wildcards + deep nesting (3 levels)
+      # Root 1: Local wildcards + 3-tier nesting
       - content: "As a __persona__, write a __format__ about __topic__"
         after:
           - content: "Use a __tone__ tone targeting __audience__"
+            after:
+              - content: "Open with a __hook__ that references __industry__ trends"
           - content: "Include __count__ examples from __industry__"
-      # Root 2: ext_text theme (hiring/roles) — brings in seniority wildcard
+      # Root 2: ext_text theme (hiring/roles) — brings in seniority wildcard + 3-tier nesting
       - ext_text: "hiring/roles"
         ext_text_max: 3
         after:
           - content: "For each role, describe __seniority__-level expectations around __metric__"
+            after:
+              - content: "Compare against __benchmark__ benchmarks for __industry__"
       # Root 3: ext_text theme (hiring/frameworks) — brings in evaluation_focus + interview_style
       - ext_text: "hiring/frameworks"
         ext_text_max: 2
@@ -177,6 +181,10 @@ prompts:
         text: ["2", "3", "5"]
       - name: "industry"
         text: ["tech", "finance", "healthcare", "retail"]
+      - name: "hook"
+        text: ["statistic", "anecdote", "provocative question", "bold claim"]
+      - name: "benchmark"
+        text: ["industry-average", "top-quartile", "FAANG"]
       - name: "section"
         text: ["executive summary", "action items", "timeline", "budget"]
       - name: "metric"

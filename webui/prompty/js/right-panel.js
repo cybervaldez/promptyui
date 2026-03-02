@@ -443,6 +443,7 @@ PU.rightPanel = {
         if (popover.style.display !== 'none') {
             PU.rightPanel.hideDefaultsPopover();
         } else {
+            PU.overlay.dismissPopovers();
             PU.rightPanel.renderDefaultsPopover();
             // Position fixed popover below the gear button
             const btn = document.querySelector('[data-testid="pu-header-defaults-btn"]');
@@ -854,7 +855,7 @@ PU.rightPanel = {
         PU.rightPanel._updateTopBar(prompt, allNames.length);
 
         // Attach chip click handlers
-        // Click = preview (update selectedWildcards['*'] + re-render)
+        // Click = select (update selectedWildcards['*'] + re-render)
         // Ctrl+Click = toggle lock (add/remove from lockedValues)
         container.querySelectorAll('.pu-rp-wc-v').forEach(chip => {
             chip.addEventListener('click', (e) => {
@@ -887,16 +888,24 @@ PU.rightPanel = {
         });
 
         // Hover wildcard entry → highlight associated blocks in editor
-        // (skip transient hover highlight when a focus is already pinned)
+        // When focus is active, show a hover preview overlay (what would be added)
         container.querySelectorAll('.pu-rp-wc-entry').forEach(entry => {
             entry.addEventListener('mouseenter', () => {
-                if (PU.state.previewMode.focusedWildcards.length > 0) return;
                 const wcName = entry.dataset.wcName;
-                if (wcName) PU.rightPanel._highlightBlocksForWildcard(wcName);
+                if (!wcName) return;
+                if (PU.state.previewMode.focusedWildcards.length > 0) {
+                    // Focus active — show hover preview of what this wildcard would add
+                    PU.rightPanel._showHoverPreview(wcName);
+                } else {
+                    PU.rightPanel._highlightBlocksForWildcard(wcName);
+                }
             });
             entry.addEventListener('mouseleave', () => {
-                if (PU.state.previewMode.focusedWildcards.length > 0) return;
-                PU.rightPanel._clearBlockHighlights();
+                if (PU.state.previewMode.focusedWildcards.length > 0) {
+                    PU.rightPanel._clearHoverPreview();
+                } else {
+                    PU.rightPanel._clearBlockHighlights();
+                }
             });
         });
 
@@ -981,6 +990,68 @@ PU.rightPanel = {
         blocksContainer.querySelectorAll('.pu-block').forEach(block => {
             block.classList.remove('pu-highlight-match', 'pu-highlight-parent');
         });
+    },
+
+    /**
+     * Show hover preview overlay when focus is active.
+     * Temporarily unhides blocks that would become visible if this wildcard's bulb were clicked.
+     * Uses pu-hover-preview-match / pu-hover-preview-parent classes that layer on top of focus.
+     */
+    _showHoverPreview(wcName) {
+        const blocksContainer = document.querySelector('[data-testid="pu-blocks-container"]');
+        if (!blocksContainer) return;
+
+        const map = PU.editor._wildcardToBlocks;
+        if (!map) return;
+
+        // Already focused — skip preview for active wildcards
+        if (PU.state.previewMode.focusedWildcards.includes(wcName)) return;
+
+        const matchingPaths = map[wcName] || new Set();
+
+        // Compute parent paths for the hovered wildcard
+        const parentPaths = new Set();
+        for (const path of matchingPaths) {
+            const parts = path.split('.');
+            for (let i = 1; i < parts.length; i++) {
+                parentPaths.add(parts.slice(0, i).join('.'));
+            }
+        }
+        for (const path of matchingPaths) parentPaths.delete(path);
+
+        // Apply preview classes (these layer on top of focus without replacing it)
+        blocksContainer.querySelectorAll('.pu-block').forEach(block => {
+            const path = block.dataset.path;
+            block.classList.remove('pu-hover-preview-match', 'pu-hover-preview-parent');
+            if (matchingPaths.has(path)) {
+                block.classList.add('pu-hover-preview-match');
+            } else if (parentPaths.has(path)) {
+                block.classList.add('pu-hover-preview-parent');
+            }
+        });
+    },
+
+    /**
+     * Remove hover preview overlay — only clears preview classes, keeps focus intact.
+     */
+    _clearHoverPreview() {
+        const blocksContainer = document.querySelector('[data-testid="pu-blocks-container"]');
+        if (!blocksContainer) return;
+
+        blocksContainer.querySelectorAll('.pu-block').forEach(block => {
+            block.classList.remove('pu-hover-preview-match', 'pu-hover-preview-parent');
+        });
+    },
+
+    /** Count all blocks recursively (including nested children). */
+    _countAllBlocks(textItems) {
+        if (!Array.isArray(textItems)) return 0;
+        let count = 0;
+        for (const item of textItems) {
+            count++;
+            if (item && item.after) count += PU.rightPanel._countAllBlocks(item.after);
+        }
+        return count;
     },
 
     // ============================================
@@ -1141,7 +1212,7 @@ PU.rightPanel = {
 
     /**
      * Render a single wildcard entry with header (name + path) + flat chips.
-     * Click = preview, Ctrl+Click = lock/unlock.
+     * Click = select, Ctrl+Click = lock/unlock.
      * Operation mode: replaced-val chips show replacement text with asterisk.
      */
     _renderWcEntry(wc, values, activeIdx, blockPins, lockedValues) {
@@ -1214,7 +1285,7 @@ PU.rightPanel = {
             } else if (isLocked) {
                 titleAttr = ` title="Locked — Ctrl+Click to unlock"`;
             } else {
-                titleAttr = ` title="Click to preview, Ctrl+Click to lock"`;
+                titleAttr = ` title="Click to select, Ctrl+Click to lock"`;
             }
 
             return `<span class="${cls}" data-testid="pu-rp-wc-chip-${safeName}-${i}" data-wc-name="${safeName}" data-value="${esc(originalValue)}" data-idx="${i}"${titleAttr}${extraAttrs}>${lockIcon}${esc(displayValue)}${asterisk}</span>`;
@@ -1242,9 +1313,9 @@ PU.rightPanel = {
         }
 
         const isFocused = PU.state.previewMode.focusedWildcards.includes(name);
-        // Only show bulb icon when 2+ text blocks (focus is meaningless with 1 block)
+        // Only show bulb icon when 2+ total blocks (including nested children)
         const promptData = PU.helpers.getActivePrompt();
-        const textBlockCount = (promptData && Array.isArray(promptData.text)) ? promptData.text.length : 0;
+        const textBlockCount = PU.rightPanel._countAllBlocks(promptData && promptData.text);
         const focusIcon = textBlockCount >= 2
             ? `<span class="pu-wc-focus-icon${isFocused ? ' active' : ''}" data-testid="pu-wc-focus-${safeName}" data-wc-name="${safeName}" title="${isFocused ? 'Remove from focus' : 'Illuminate: show blocks using this wildcard'}">&#128161;</span>`
             : '';
@@ -1280,17 +1351,45 @@ PU.rightPanel = {
 
         const { wcNames, wildcardCounts, extTextCount, total } = PU.shared.getCompositionParams();
 
-        // Gap 5: Hide entirely when no wildcards exist
+        // Hide entirely when no wildcards exist
         if (wcNames.length === 0 && extTextCount <= 1) {
             container.innerHTML = '';
             return;
         }
 
+        const mode = PU.state.ui.editorMode;
         const lockedValues = PU.state.previewMode.lockedValues || {};
-
-        // Composition count: product of locked value counts (or 1 per wildcard if unlocked)
-        // This IS the export batch size
         const lockedTotal = PU.shared.computeLockedTotal(wildcardCounts, extTextCount, lockedValues);
+
+        // ── Write mode: passive count only ──
+        if (mode === 'write') {
+            container.dataset.debugVariant = 'passive';
+            container.dataset.debugTotal = total;
+            container.innerHTML = `
+                <div class="pu-rp-ops-nav">
+                    <span class="pu-rp-ops-nav-text" data-testid="pu-rp-nav-label">${total.toLocaleString()} compositions</span>
+                </div>
+            `;
+            return;
+        }
+
+        // ── Preview mode: combination count only (no pagination) ──
+        if (mode === 'preview') {
+            const hasLocks = Object.values(lockedValues).some(v => v && v.length > 0);
+            const displayTotal = hasLocks ? lockedTotal : total;
+            container.dataset.debugVariant = 'preview-count';
+            container.dataset.debugTotal = displayTotal;
+            container.innerHTML = `
+                <div class="pu-rp-ops-nav">
+                    <span class="pu-rp-ops-nav-text" data-testid="pu-rp-nav-label"><b>${displayTotal.toLocaleString()}</b> combinations</span>
+                </div>
+            `;
+            return;
+        }
+
+        // ── Review mode (and custom): full power ──
+        container.dataset.debugVariant = 'full';
+        container.dataset.debugTotal = lockedTotal;
 
         // Per-wildcard dimension summary
         let dimsHtml = '';
@@ -1328,7 +1427,7 @@ PU.rightPanel = {
             <div class="pu-rp-ops-bottom-row">
                 <span class="pu-rp-ops-total" data-testid="pu-rp-ops-total">${lockedTotal.toLocaleString()} compositions</span>
                 <span class="pu-rp-ops-size" data-testid="pu-rp-ops-size">~${sizeStr}</span>
-                <button class="pu-rp-ops-export-btn" data-testid="pu-rp-export-btn" onclick="PU.buildComposition.exportTxt()">Export${PU.state.buildComposition.activeOperation ? `<span class="variant-label">&middot; ${PU.blocks.escapeHtml(PU.state.buildComposition.activeOperation)}</span>` : ' .txt'}</button>
+                <button class="pu-rp-ops-export-btn" data-testid="pu-rp-export-btn" onclick="PU.generate.exportTxt()">Export${PU.state.buildComposition.activeOperation ? `<span class="variant-label">&middot; ${PU.blocks.escapeHtml(PU.state.buildComposition.activeOperation)}</span>` : ' .txt'}</button>
             </div>
             ${PU.rightPanel.isSessionDirty() ? `<button class="pu-rp-session-save-btn" data-testid="pu-rp-session-save" onclick="PU.rightPanel.saveSession()">Save session</button>` : ''}
         `;
@@ -1400,7 +1499,8 @@ PU.rightPanel = {
         return {
             composition: PU.state.previewMode.compositionId,
             locked_values: PU.helpers.deepClone(PU.state.previewMode.lockedValues),
-            active_operation: PU.state.buildComposition.activeOperation || null
+            active_operation: PU.state.buildComposition.activeOperation || null,
+            shortlist: PU.shortlist.getSessionData()
         };
     },
 
@@ -1449,6 +1549,11 @@ PU.rightPanel = {
                         }
                     }
                 }
+
+                // Hydrate shortlist
+                if (promptSession.shortlist && Array.isArray(promptSession.shortlist)) {
+                    PU.shortlist.hydrateFromSession(promptSession.shortlist);
+                }
             }
         } catch (e) {
             console.warn('Failed to load session:', e);
@@ -1472,6 +1577,7 @@ PU.rightPanel = {
         if (current.composition !== baseline.composition) return true;
         if (current.active_operation !== baseline.active_operation) return true;
         if (JSON.stringify(current.locked_values) !== JSON.stringify(baseline.locked_values)) return true;
+        if (JSON.stringify(current.shortlist) !== JSON.stringify(baseline.shortlist)) return true;
 
         return false;
     },
@@ -1504,7 +1610,7 @@ PU.rightPanel = {
     /**
      * Toggle a locked wildcard value.
      * Locked values define the Cartesian product dimensions for export.
-     * Click = preview (handled by previewValue), Ctrl+Click = lock (handled here).
+     * Click = select (handled by previewValue), Ctrl+Click = lock (handled here).
      */
     async toggleLock(wcName, value) {
         const locked = PU.state.previewMode.lockedValues;
@@ -2186,7 +2292,7 @@ PU.rightPanel = {
         if (!panel) return;
         panel.classList.add('collapsed');
         PU.state.ui.rightPanelCollapsed = true;
-        PU.rightPanel._updateToggleIcon(true);
+        PU.rightPanel._updateToggleButton(true);
         PU.helpers.saveUIState();
     },
 
@@ -2198,7 +2304,7 @@ PU.rightPanel = {
         if (!panel) return;
         panel.classList.remove('collapsed');
         PU.state.ui.rightPanelCollapsed = false;
-        PU.rightPanel._updateToggleIcon(false);
+        PU.rightPanel._updateToggleButton(false);
         PU.helpers.saveUIState();
     },
 
@@ -2230,16 +2336,32 @@ PU.rightPanel = {
         if (PU.state.ui.rightPanelCollapsed) {
             const panel = document.querySelector('[data-testid="pu-right-panel"]');
             if (panel) panel.classList.add('collapsed');
-            PU.rightPanel._updateToggleIcon(true);
+            PU.rightPanel._updateToggleButton(true);
         }
     },
 
+    /** Mode-label mapping for sidebar toggle button. */
+    _TOGGLE_LABELS: {
+        write: 'Wildcards',
+        preview: 'Filters',
+        review: 'Inspector',
+        custom: 'Inspector'
+    },
+
     /**
-     * Update toggle icon in panel header.
+     * Update toggle button: icon, label, and tooltip based on mode + collapsed state.
      */
-    _updateToggleIcon(collapsed) {
+    _updateToggleButton(collapsed) {
         const headerBtn = document.querySelector('[data-testid="pu-rp-collapse-btn"]');
         if (headerBtn) headerBtn.innerHTML = collapsed ? '&#9664;' : '&#9654;';
+
+        const mode = PU.state.ui.editorMode;
+        const label = PU.rightPanel._TOGGLE_LABELS[mode] || PU.rightPanel._TOGGLE_LABELS.write;
+
+        const labelEl = document.querySelector('[data-testid="pu-rp-toggle-label"]');
+        if (labelEl) labelEl.textContent = label;
+
+        if (headerBtn) headerBtn.title = `${label} panel (])`;
     },
 
     /**

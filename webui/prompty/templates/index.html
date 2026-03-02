@@ -31,17 +31,6 @@
                     </button>
                     <div class="pu-defaults-popover" data-testid="pu-defaults-popover" style="display: none;"></div>
                 </div>
-                <div class="pu-header-btn-group" data-testid="pu-header-build-group">
-                    <button class="pu-btn pu-btn-group-main" data-testid="pu-header-build-btn" onclick="PU.buildComposition.toggle()">Build</button>
-                    <button class="pu-btn pu-btn-group-caret" data-testid="pu-header-build-menu-btn" onclick="PU.buildMenu.toggle()">&#9662;</button>
-                    <div class="pu-header-dropdown" data-testid="pu-build-menu" style="display: none;">
-                        <button class="pu-header-dropdown-item" data-testid="pu-build-menu-pipeline" onclick="PU.pipeline.open()">Pipeline View</button>
-                        <button class="pu-header-dropdown-item" data-testid="pu-build-menu-gallery" onclick="PU.gallery.open()">Sampler Gallery</button>
-                        <button class="pu-header-dropdown-item" data-testid="pu-build-menu-panel" onclick="PU.buildMenu.close(); PU.buildComposition.toggle()">Quick Build</button>
-                        <div class="pu-header-dropdown-divider"></div>
-                        <button class="pu-header-dropdown-item" data-testid="pu-build-menu-save-yaml" onclick="PU.buildMenu.close(); PU.export.open()">Save YAML&hellip;</button>
-                    </div>
-                </div>
                 <button class="pu-btn pu-btn-accent" data-testid="pu-header-generate-btn" onclick="PU.generate.open()">Generate</button>
                 <button class="pu-btn pu-mobile-panel-btn" data-testid="pu-mobile-rp-btn"
                         onclick="PU.rightPanel.togglePanel()">&#9881;</button>
@@ -105,12 +94,63 @@
                                 <option value="stack">Stack</option>
                                 <option value="ticker">Ticker</option>
                             </select>
+                            <button class="pu-btn pu-btn-ghost pu-btn-sm" data-testid="pu-save-yaml-btn"
+                                    onclick="PU.export.open()" title="Save YAML...">Save YAML</button>
                         </div>
+                    </div>
+
+                    <!-- Editor Mode Strip -->
+                    <div class="pu-mode-strip" data-testid="pu-mode-strip">
+                        <div class="pu-mode-presets" data-testid="pu-mode-presets">
+                            <button class="pu-mode-btn active" data-mode="write" data-testid="pu-mode-write"
+                                    onclick="PU.editorMode.setPreset('write')">Write</button>
+                            <button class="pu-mode-btn" data-mode="preview" data-testid="pu-mode-preview"
+                                    onclick="PU.editorMode.setPreset('preview')">Preview</button>
+                            <button class="pu-mode-btn" data-mode="review" data-testid="pu-mode-review"
+                                    onclick="PU.editorMode.setPreset('review')">Review</button>
+                        </div>
+                        <button class="pu-mode-gear" data-testid="pu-mode-gear"
+                                onclick="PU.editorMode.toggleGearPopover(event)"
+                                aria-label="Layer settings" title="Layer settings">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                 stroke-linecap="round" stroke-linejoin="round" width="13" height="13">
+                                <circle cx="12" cy="12" r="3"/>
+                                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                            </svg>
+                        </button>
+                        <div class="pu-mode-gear-popover" data-testid="pu-mode-gear-popover" style="display: none;"></div>
                     </div>
 
                     <!-- Blocks Container -->
                     <div class="pu-blocks-container" data-testid="pu-blocks-container">
                         <!-- Blocks rendered by JS -->
+                    </div>
+
+                    <!-- Preview Container (visible only in Preview mode) -->
+                    <div class="pu-preview-container" data-testid="pu-preview-container" style="display: none;">
+                        <div class="pu-preview-nav" data-testid="pu-preview-nav">
+                            <div class="pu-preview-depth-stepper" data-testid="pu-preview-depth-stepper"></div>
+                        </div>
+                        <div class="pu-lock-strip" data-testid="pu-lock-strip" style="display: none;"></div>
+                        <div class="pu-preview-body" data-testid="pu-preview-body">
+                            <div class="pu-rp-note">Select a prompt to see resolved output</div>
+                        </div>
+                        <div class="pu-lock-popup" data-testid="pu-lock-popup" style="display: none;"></div>
+                    </div>
+
+                    <!-- Shortlist Footer Panel (Review mode only, CSS-gated) -->
+                    <div class="pu-shortlist-panel" data-testid="pu-shortlist-panel" style="display: none;">
+                        <div class="pu-shortlist-header" data-testid="pu-shortlist-header"
+                             onclick="PU.shortlist.togglePanel()">
+                            <span class="pu-shortlist-title">Shortlist</span>
+                            <span class="pu-shortlist-count" data-testid="pu-shortlist-count">0</span>
+                            <span class="pu-shortlist-limit"> picks</span>
+                            <span style="flex:1"></span>
+                            <button class="pu-shortlist-clear-btn" data-testid="pu-shortlist-clear"
+                                    onclick="event.stopPropagation(); PU.shortlist.clearAll()">Clear</button>
+                            <span class="pu-shortlist-chevron">&#9660;</span>
+                        </div>
+                        <div class="pu-shortlist-body" data-testid="pu-shortlist-body"></div>
                     </div>
 
                     <!-- Add Block Buttons -->
@@ -140,50 +180,64 @@
                     <span class="pu-rp-op-selector" data-testid="pu-rp-op-selector"></span>
                     <span class="pu-rp-top-spacer"></span>
                     <span class="pu-rp-top-stats" data-testid="pu-rp-wc-count"></span>
+                    <span class="pu-rp-toggle-label" data-testid="pu-rp-toggle-label">Wildcards</span>
                     <button class="pu-panel-collapse-btn" data-testid="pu-rp-collapse-btn"
-                            onclick="PU.rightPanel.togglePanel()" title="Collapse panel (])">&#9654;</button>
+                            onclick="PU.rightPanel.togglePanel()" title="Wildcards panel (])">&#9654;</button>
                     <!-- Operation dropdown (hidden by default) -->
                     <div class="pu-rp-op-dropdown" data-testid="pu-rp-op-dropdown" style="display: none;"></div>
                 </div>
-                <!-- Tab Strip -->
+                <!-- Tab Strip (Review mode only — hidden in Write/Preview) -->
                 <div class="pu-rp-tab-strip" data-testid="pu-rp-tab-strip">
                     <button class="pu-rp-tab active" data-testid="pu-rp-tab-wildcards" data-tab="wildcards"
                             onclick="PU.rightPanel.switchTab('wildcards')">Wildcards</button>
                     <button class="pu-rp-tab" data-testid="pu-rp-tab-annotations" data-tab="annotations"
                             onclick="PU.rightPanel.switchTab('annotations')">Annotations</button>
                 </div>
-                <!-- Tab Pane: Wildcards (default active) -->
-                <div class="pu-rp-tab-pane active" data-testid="pu-rp-tab-pane-wildcards" data-pane="wildcards">
-                    <!-- Wildcard stream (scrollable, relative for popover positioning) -->
-                    <div class="pu-rp-wc-stream" data-testid="pu-rp-wc-stream" style="position: relative;">
-                        <div class="pu-rp-note">No wildcards or themes yet. The panel shows the composition navigator once wildcards are added.</div>
-                    </div>
-                </div>
-                <!-- Tab Pane: Annotations -->
-                <div class="pu-rp-tab-pane" data-testid="pu-rp-tab-pane-annotations" data-pane="annotations">
-                    <!-- Prompt Annotations Bar (collapsible, editable key-value editor) -->
-                    <div class="pu-rp-prompt-ann" data-testid="pu-rp-prompt-ann">
-                        <div class="pu-rp-prompt-ann-header" data-testid="pu-rp-prompt-ann-header" onclick="PU.rightPanel.togglePromptAnnotations()">
-                            <svg class="pu-rp-prompt-ann-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="11" height="11"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-                            <span>PROMPT ANNOTATIONS</span>
-                            <span class="pu-rp-prompt-ann-count" data-testid="pu-rp-prompt-ann-count"></span>
-                            <button class="pu-rp-prompt-ann-toggle" data-testid="pu-rp-prompt-ann-toggle">&#9660;</button>
-                        </div>
-                        <div class="pu-rp-prompt-ann-body" data-testid="pu-rp-prompt-ann-body">
-                            <!-- Rendered by JS -->
+
+                <!-- Editor Content (Write + Review modes — shared DOM) -->
+                <div class="pu-rp-editor-content" data-testid="pu-rp-editor-content">
+                    <!-- Inline prompt annotations (Write mode only — collapsible) -->
+                    <div class="pu-rp-prompt-ann-inline" data-testid="pu-rp-prompt-ann-inline">
+                        <div class="pu-rp-prompt-ann" data-testid="pu-rp-prompt-ann">
+                            <div class="pu-rp-prompt-ann-header" data-testid="pu-rp-prompt-ann-header" onclick="PU.rightPanel.togglePromptAnnotations()">
+                                <svg class="pu-rp-prompt-ann-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="11" height="11"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+                                <span>PROMPT ANNOTATIONS</span>
+                                <span class="pu-rp-prompt-ann-count" data-testid="pu-rp-prompt-ann-count"></span>
+                                <button class="pu-rp-prompt-ann-toggle" data-testid="pu-rp-prompt-ann-toggle">&#9660;</button>
+                            </div>
+                            <div class="pu-rp-prompt-ann-body" data-testid="pu-rp-prompt-ann-body">
+                                <!-- Rendered by JS -->
+                            </div>
                         </div>
                     </div>
-                    <!-- Hierarchy overview (read-only, defaults → prompt → per-block) -->
-                    <div class="pu-rp-ann-overview" data-testid="pu-rp-ann-overview">
-                        <div class="pu-rp-note">Select a prompt to see annotations</div>
+                    <!-- Tab Pane: Wildcards (default active) -->
+                    <div class="pu-rp-tab-pane active" data-testid="pu-rp-tab-pane-wildcards" data-pane="wildcards">
+                        <!-- Wildcard stream (scrollable, relative for popover positioning) -->
+                        <div class="pu-rp-wc-stream" data-testid="pu-rp-wc-stream" style="position: relative;">
+                            <div class="pu-rp-note">No wildcards or themes yet. The panel shows the composition navigator once wildcards are added.</div>
+                        </div>
                     </div>
+                    <!-- Tab Pane: Annotations (Review mode — hierarchy overview) -->
+                    <div class="pu-rp-tab-pane" data-testid="pu-rp-tab-pane-annotations" data-pane="annotations">
+                        <!-- Hierarchy overview (read-only, defaults → prompt → per-block) -->
+                        <div class="pu-rp-ann-overview" data-testid="pu-rp-ann-overview">
+                            <div class="pu-rp-note">Select a prompt to see annotations</div>
+                        </div>
+                    </div>
+
+                    <!-- Replacement popover (hidden by default, positioned absolutely) -->
+                    <div class="pu-rp-replace-popover" data-testid="pu-rp-replace-popover" style="display: none;"></div>
+
+                    <!-- Push-to-theme popover (hidden by default, positioned absolutely) -->
+                    <div class="pu-rp-push-popover" data-testid="pu-rp-push-popover" style="display: none;"></div>
                 </div>
 
-                <!-- Replacement popover (hidden by default, positioned absolutely) -->
-                <div class="pu-rp-replace-popover" data-testid="pu-rp-replace-popover" style="display: none;"></div>
-
-                <!-- Push-to-theme popover (hidden by default, positioned absolutely) -->
-                <div class="pu-rp-push-popover" data-testid="pu-rp-push-popover" style="display: none;"></div>
+                <!-- Preview Content (Preview mode only — composition inspector) -->
+                <div class="pu-rp-preview-content" data-testid="pu-rp-preview-content" style="display: none;">
+                    <div class="pu-rp-comp-values" data-testid="pu-rp-comp-values">
+                        <div class="pu-rp-note">Select a prompt to see composition values</div>
+                    </div>
+                </div>
 
                 <!-- Compositions section (fixed bottom) -->
                 <div class="pu-rp-ops-section" data-testid="pu-rp-ops-section">
@@ -266,77 +320,6 @@
                                 </label>
                             </div>
                         </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Build Composition Panel (slide-out) -->
-        <div class="pu-build-panel" data-testid="pu-build-panel" style="display: none;">
-            <div class="pu-build-header">
-                <span class="pu-build-title">BUILD COMPOSITION</span>
-                <button class="pu-focus-close" data-testid="pu-build-close-btn"
-                        onclick="PU.buildComposition.close()">&times;</button>
-            </div>
-            <div class="pu-build-body">
-                <!-- Defaults Section -->
-                <div class="pu-build-section">
-                    <div class="pu-build-section-label">DEFAULTS</div>
-                    <div class="pu-build-section-hint">Shared across all prompts</div>
-                    <div class="pu-build-defaults-form">
-                        <div class="pu-build-field">
-                            <label>ext scope:</label>
-                            <select data-testid="pu-build-defaults-ext"
-                                    onchange="PU.buildComposition.updateDefault('ext', this.value)">
-                                <option value="">Loading...</option>
-                            </select>
-                        </div>
-                        <div class="pu-build-field">
-                            <label>ext_text_max:</label>
-                            <input type="number" min="0" value="0"
-                                   data-testid="pu-build-defaults-ext-text-max"
-                                   onchange="PU.buildComposition.updateDefault('ext_text_max', this.value)">
-                            <span class="pu-build-hint">0 = all</span>
-                        </div>
-                        <div class="pu-build-field">
-                            <label>wc_max:</label>
-                            <input type="number" min="0" value="0"
-                                   data-testid="pu-build-defaults-ext-wc-max"
-                                   onchange="PU.buildComposition.updateDefault('wildcards_max', this.value)">
-                            <span class="pu-build-hint">0 = all</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Prompt Section -->
-                <div class="pu-build-section">
-                    <div class="pu-build-section-label">PROMPT</div>
-                    <div data-testid="pu-build-prompt-section"></div>
-                </div>
-
-                <!-- Operation Section (Phase 2 stub) -->
-                <div class="pu-build-section">
-                    <div class="pu-build-section-label">OPERATION</div>
-                    <div data-testid="pu-build-operation-section">
-                        <div class="pu-build-empty">None</div>
-                    </div>
-                </div>
-
-                <!-- Navigator Section -->
-                <div class="pu-build-section">
-                    <div class="pu-build-section-label">NAVIGATE</div>
-                    <div data-testid="pu-build-navigator"></div>
-                </div>
-
-                <!-- Export Section -->
-                <div class="pu-build-section">
-                    <div class="pu-build-section-label">EXPORT</div>
-                    <div data-testid="pu-build-export-section">
-                        <div class="pu-build-export-controls">
-                            <button class="pu-btn pu-btn-primary" data-testid="pu-build-export-btn"
-                                    onclick="PU.buildComposition.exportTxt()">Export .txt</button>
-                        </div>
-                        <div class="pu-build-export-estimate" data-testid="pu-build-export-estimate"></div>
                     </div>
                 </div>
             </div>
@@ -439,45 +422,6 @@
             </div>
         </div>
 
-        <!-- Pipeline View Modal -->
-        <div class="pu-modal-overlay" data-testid="pu-pipeline-modal" style="display: none;">
-            <div class="pu-modal pu-modal-wide">
-                <div class="pu-modal-header">
-                    <h2>Pipeline View</h2>
-                    <button class="pu-modal-close" data-testid="pu-pipeline-close-btn" onclick="PU.pipeline.close()">&times;</button>
-                </div>
-                <div class="pu-modal-body" data-testid="pu-pipeline-body">
-                    <div class="pu-pipeline-empty">Loading...</div>
-                </div>
-                <div class="pu-modal-footer pu-pipeline-footer">
-                    <div class="pu-pipeline-progress" data-testid="pu-pipeline-progress">
-                        <div class="pu-pipeline-progress-bar">
-                            <div class="pu-pipeline-progress-fill" data-testid="pu-pipeline-progress-fill"></div>
-                        </div>
-                        <span class="pu-pipeline-progress-label" data-testid="pu-pipeline-progress-label"></span>
-                    </div>
-                    <button class="pu-btn pu-btn-primary" data-testid="pu-pipeline-action-btn" data-run-state="idle" onclick="PU.pipeline.handleAction()">&#9654; Run</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Sampler Gallery Modal -->
-        <div class="pu-modal-overlay" data-testid="pu-gallery-modal" style="display: none;">
-            <div class="pu-modal pu-modal-wide">
-                <div class="pu-modal-header">
-                    <h2>Sampler Gallery</h2>
-                    <button class="pu-modal-close" data-testid="pu-gallery-close-btn" onclick="PU.gallery.close()">&times;</button>
-                </div>
-                <div class="pu-modal-body" data-testid="pu-gallery-body">
-                    <div class="pu-gallery-empty">Loading...</div>
-                </div>
-                <div class="pu-modal-footer">
-                    <span class="pu-gallery-status" data-testid="pu-gallery-status"></span>
-                    <button class="pu-btn" data-testid="pu-gallery-refresh-btn" onclick="PU.gallery.refresh()">&#8635; Resample</button>
-                </div>
-            </div>
-        </div>
-
         <!-- Generate Modal -->
         <div class="pu-modal-overlay pu-gen-modal-overlay" data-testid="pu-generate-modal" style="display: none;">
             <div class="pu-modal pu-gen-modal">
@@ -505,7 +449,7 @@
                             <span>Sim failure</span>
                         </label>
                         <button class="pu-gen-btn-ghost" onclick="PU.generate.close()">Close</button>
-                        <button class="pu-gen-btn-primary" data-testid="pu-gen-export-btn">Export</button>
+                        <button class="pu-gen-btn-primary" data-testid="pu-gen-export-btn" onclick="PU.generate.exportTxt()">Export</button>
                     </div>
                 </div>
             </div>
@@ -537,13 +481,12 @@
     <script src="js/shared.js"></script>
     <script src="js/focus.js"></script>
     <script src="js/wildcard-popover.js"></script>
-    <script src="js/build-composition.js"></script>
     <script src="js/themes.js"></script>
     <script src="js/move-to-theme.js"></script>
-    <script src="js/pipeline.js"></script>
     <script src="js/generate.js"></script>
-    <script src="js/gallery.js"></script>
     <script src="js/export.js"></script>
+    <script src="js/shortlist.js"></script>
+    <script src="js/editor-mode.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>

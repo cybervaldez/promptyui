@@ -165,20 +165,6 @@ PU.preview = {
         return [...names];
     },
 
-    /**
-     * Simple seeded random number generator (mulberry32)
-     * Returns a function that generates deterministic random numbers 0-1
-     * @deprecated Use compositionToIndices() for wildcard selection instead
-     */
-    seededRandom(seed) {
-        return function() {
-            let t = seed += 0x6D2B79F5;
-            t = Math.imul(t ^ t >>> 15, t | 1);
-            t ^= t + Math.imul(t ^ t >>> 7, t | 61);
-            return ((t ^ t >>> 14) >>> 0) / 4294967296;
-        };
-    },
-
 
     /**
      * Generate semantic node ID from edit path (e.g., "0" → "node-0").

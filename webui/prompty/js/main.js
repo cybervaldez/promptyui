@@ -18,6 +18,9 @@ PU.actions = {
         // Load URL parameters
         PU.actions.parseUrlParams();
 
+        // Initialize editor mode (restore persisted mode before first render)
+        PU.editorMode.init();
+
         // Load extensions first (needed for dropdown population)
         await PU.rightPanel.init();
 
@@ -83,6 +86,14 @@ PU.actions = {
             }
         }
 
+        // Re-trigger preview rendering if deep-linked to preview mode
+        // (blocks are now loaded after sidebar.init, so renderPreview has data)
+        if (PU.state.ui.editorMode === 'preview') {
+            PU.editorMode.renderPreview();
+            PU.editorMode.renderSidebarPreview();
+            PU.rightPanel.renderOpsSection();
+        }
+
         // Sync URL after init — clears stale params (e.g. focus path that failed to restore)
         PU.actions.updateUrl();
 
@@ -144,6 +155,28 @@ PU.actions = {
             if (vizSelect) vizSelect.value = viz;
         }
 
+        // Set editor mode from URL if provided
+        const editorMode = params.get('editorMode');
+        if (editorMode && ['write', 'preview', 'review'].includes(editorMode)) {
+            PU.state.ui.editorMode = editorMode;
+            PU.state.ui.editorLayers = { ...PU.editorMode.PRESETS[editorMode] };
+        }
+
+        // Set preview depth from URL if provided
+        const depth = params.get('depth');
+        if (depth) {
+            const depthVal = parseInt(depth, 10);
+            if (!isNaN(depthVal) && depthVal >= 1) {
+                PU.state.previewMode.previewDepth = depthVal;
+            }
+        }
+
+        // Set right panel tab from URL (Review mode only)
+        const rightTab = params.get('rightTab');
+        if (rightTab && ['wildcards', 'annotations'].includes(rightTab)) {
+            PU.state.ui.rightPanelTab = rightTab;
+        }
+
         const focusPath = params.get('focus');
         if (focusPath && /^[0-9]+(\.[0-9]+)*$/.test(focusPath)) {
             PU.state.focusMode.pendingPath = focusPath;
@@ -183,6 +216,15 @@ PU.actions = {
             if (PU.state.focusMode.active && PU.state.focusMode.blockPath) {
                 params.set('modal', 'focus');
                 params.set('focus', PU.state.focusMode.blockPath);
+            }
+            if (PU.state.ui.editorMode !== 'write') {
+                params.set('editorMode', PU.state.ui.editorMode);
+            }
+            if (PU.state.ui.editorMode === 'preview' && PU.state.previewMode.previewDepth !== null) {
+                params.set('depth', PU.state.previewMode.previewDepth);
+            }
+            if (PU.state.ui.editorMode === 'review' && PU.state.ui.rightPanelTab !== 'wildcards') {
+                params.set('rightTab', PU.state.ui.rightPanelTab);
             }
         }
 
@@ -363,6 +405,7 @@ PU.actions = {
         PU.state.previewMode.lockedValues = {};
         PU.state.previewMode.focusedWildcards = [];
         PU.state.previewMode.selectedWildcards = {};
+        PU.state.previewMode.shortlist = [];
 
         // Hide focus banner if visible (stale bulb focus from previous prompt)
         PU.rightPanel._removeFocus();

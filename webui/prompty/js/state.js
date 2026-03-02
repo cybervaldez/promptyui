@@ -110,10 +110,15 @@ PU.state = {
         outputGroupCollapsed: {},
         outputFilters: {},
         outputFilterCollapsed: {},
-        rpSectionsCollapsed: {},   // (deprecated — kept for compat)
         rightPanelTab: 'wildcards', // Active right panel tab: 'wildcards' | 'annotations'
         rightPanelCollapsed: false,
-        leftSidebarCollapsed: false
+        leftSidebarCollapsed: false,
+        editorMode: 'write',      // Active editor mode: 'write' | 'preview' | 'review' | 'custom'
+        editorLayers: {            // Granular layer visibility (gear popover)
+            annotations: false,
+            compositions: false,
+            artifacts: false
+        }
     },
 
     // Preview state
@@ -133,26 +138,11 @@ PU.state = {
         draftParentPath: null    // Parent path for nested draft blocks
     },
 
-    // Build Composition panel state
+    // Build composition operations state (used by right panel)
     buildComposition: {
-        visible: false,
         operations: [],              // Available build hook (operation) file names
         activeOperation: null,       // Currently selected operation (build hook) name
         activeOperationData: null,   // Loaded operation (build hook) YAML content
-        generating: false            // Loading state for Export button
-    },
-
-    // Pipeline modal state
-    pipeline: {
-        visible: false,
-        runState: 'idle',       // idle | running | stopping | paused | complete | error
-        globalCompleted: 0,
-        globalTotal: 0,
-        blockStates: {},        // block_path -> state
-        blockProgress: {},      // block_path -> { completed, total }
-        stageTimes: {},         // block_path -> { stage: [ms, ms, ...] }
-        blockArtifacts: {},     // block_path -> [{name, type, mod_id, preview}, ...]
-        stats: null,            // Final stats from run_complete
     },
 
     // Export modal state
@@ -195,6 +185,11 @@ PU.state = {
         selectedWildcards: {},  // Per-block wildcard overrides: { blockPath: { wcName: value } }
         lockedValues: {},       // Locked wildcard values: { wcName: ["val1", "val2"] }
         focusedWildcards: [],   // Wildcard names for multi-focus mode (bulb toggle, OR union)
+        previewDepth: null,     // null = all depths, 1/2/3 = limit visible depth
+        maxTreeDepth: 1,        // computed: deepest level in current prompt
+        hiddenBlocks: new Set(), // Block paths hidden by user checkbox in sidebar tree
+        variationMode: 'summary', // 'summary' = per-wildcard pills, 'expanded' = full Cartesian
+        shortlist: [],            // Array of { text, sources: [{blockPath, comboKey}] }
         _extTextCache: {},    // Cached ext_text API data: { "scope/name": data }
         _sessionBaseline: null // Snapshot of persisted session state (for dirty detection)
     }
@@ -273,7 +268,9 @@ PU.helpers = {
             outputLabelMode: PU.state.ui.outputLabelMode,
             rightPanelCollapsed: PU.state.ui.rightPanelCollapsed,
             leftSidebarCollapsed: PU.state.ui.leftSidebarCollapsed,
-            rightPanelTab: PU.state.ui.rightPanelTab
+            rightPanelTab: PU.state.ui.rightPanelTab,
+            editorMode: PU.state.ui.editorMode,
+            editorLayers: PU.state.ui.editorLayers
         };
         localStorage.setItem('pu_ui_state', JSON.stringify(uiState));
     },
@@ -295,6 +292,12 @@ PU.helpers = {
                 PU.state.ui.rightPanelCollapsed = state.rightPanelCollapsed || false;
                 PU.state.ui.leftSidebarCollapsed = state.leftSidebarCollapsed || false;
                 PU.state.ui.rightPanelTab = state.rightPanelTab || 'wildcards';
+                if (state.editorMode && ['write', 'preview', 'review', 'custom'].includes(state.editorMode)) {
+                    PU.state.ui.editorMode = state.editorMode;
+                }
+                if (state.editorLayers && typeof state.editorLayers === 'object') {
+                    PU.state.ui.editorLayers = { ...PU.state.ui.editorLayers, ...state.editorLayers };
+                }
             }
         } catch (e) {
             console.warn('Failed to load UI state:', e);

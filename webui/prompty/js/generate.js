@@ -1023,6 +1023,97 @@ PU.generate = {
     _sleep(ms) {
         return new Promise(r => setTimeout(r, ms));
     },
+
+    // ── Export .txt ───────────────────────────────────────────
+
+    /**
+     * Export all compositions directly to .txt file.
+     * Resolves one composition at a time to avoid holding everything in memory.
+     */
+    async exportTxt() {
+        const prompt = PU.helpers.getActivePrompt();
+        if (!prompt) return;
+
+        const textItems = prompt.text || [];
+        if (!Array.isArray(textItems) || textItems.length === 0) return;
+
+        const { lookup, wcNames, wildcardCounts, extTextCount, total } = PU.shared.getCompositionParams();
+
+        if (total === 0) return;
+
+        // Find the Export button (could be in Generate modal or right panel)
+        const btn = document.querySelector('[data-testid="pu-gen-export-btn"]')
+            || document.querySelector('[data-testid="pu-rp-export-btn"]');
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = `Exporting... 0/${total}`;
+        }
+
+        this._exporting = true;
+        const savedCompId = PU.state.previewMode.compositionId;
+        const chunks = [];
+        const BATCH_SIZE = 100;
+
+        for (let i = 0; i < total; i++) {
+            if (!this._exporting) break;
+
+            PU.state.previewMode.compositionId = i;
+
+            const resolutions = await PU.preview.buildBlockResolutions(textItems, {
+                skipOdometerUpdate: true,
+                ignoreOverrides: true
+            });
+            const terminals = PU.preview.computeTerminalOutputs(textItems, resolutions);
+
+            const [extIdx, wcIndices] = PU.preview.compositionToIndices(i, extTextCount, wildcardCounts);
+            const label = wcNames.map(name => {
+                const val = lookup[name][wcIndices[name] || 0] || '?';
+                return `${name}=${val}`;
+            }).join(', ');
+
+            let entry = `---\nComposition ${i}: ${label}\n---\n`;
+            entry += terminals.map(t => t.text).join('\n\n');
+            entry += '\n\n';
+            chunks.push(entry);
+
+            // Update progress every batch
+            if (i % BATCH_SIZE === 0 && btn) {
+                btn.textContent = `Exporting... ${i + 1}/${total}`;
+                // Yield to browser to prevent freeze
+                await new Promise(r => setTimeout(r, 0));
+            }
+        }
+
+        // Restore composition ID
+        PU.state.previewMode.compositionId = savedCompId;
+        this._exporting = false;
+
+        // Build blob from chunks and download
+        const blob = new Blob(chunks, { type: 'text/plain' });
+        const jobId = PU.state.activeJobId || 'unknown';
+        const promptId = PU.state.activePromptId || 'unknown';
+        const filename = `${jobId}_${promptId}_compositions.txt`;
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        const sizeStr = PU.shared.formatBytes(blob.size);
+        PU.actions.showToast(`Exported ${chunks.length} compositions (${sizeStr})`, 'success');
+
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Export';
+        }
+
+        // Re-render editor to restore current composition preview
+        await PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
+    },
 };
 
 // Register modal for overlay dismiss

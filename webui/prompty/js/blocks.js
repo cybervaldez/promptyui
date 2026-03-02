@@ -184,7 +184,7 @@ PU.blocks = {
         const rightEdge = (viz !== 'compact') ? PU.blocks._renderRightEdgeActions(path, pathId, isChild, canMove, item) : '';
         const annotationBadge = PU.blocks._renderAnnotationBadge(item, path, pathId);
         const tokenChip = PU.blocks._renderTokenCounter(path, pathId, resolution);
-        const commentHtml = PU.blocks._renderInlineComment(item, path, pathId);
+        const commentHtml = PU.blocks._renderShowOnCardUniversals(item, path, pathId);
 
         if (resolution) {
             return `
@@ -222,7 +222,7 @@ PU.blocks = {
         const accumulatedHtml = resolution ? PU.blocks.renderAccumulatedText(resolution) : '';
         const annotationBadge = PU.blocks._renderAnnotationBadge(item, path, pathId);
         const tokenChip = PU.blocks._renderTokenCounter(path, pathId, resolution);
-        const commentHtml = PU.blocks._renderInlineComment(item, path, pathId);
+        const commentHtml = PU.blocks._renderShowOnCardUniversals(item, path, pathId);
 
         if (viz === 'compact') {
             const treeConnector = isChild
@@ -1389,11 +1389,6 @@ PU.blocks = {
             html += `<div class="pu-block-universal-pills" data-testid="pu-block-pills-${pathId}">${pillsHtml}</div>`;
         }
         return html;
-    },
-
-    /** @deprecated Use _renderShowOnCardUniversals instead */
-    _renderInlineComment(item, path, pathId) {
-        return PU.blocks._renderShowOnCardUniversals(item, path, pathId);
     },
 
     addNestedBlockAtPath(textArray, parentPath, blockType) {
