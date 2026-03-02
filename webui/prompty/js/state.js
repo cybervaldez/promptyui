@@ -189,6 +189,8 @@ PU.state = {
         maxTreeDepth: 1,        // computed: deepest level in current prompt
         hiddenBlocks: new Set(), // Block paths hidden by user checkbox in sidebar tree
         variationMode: 'summary', // 'summary' = per-wildcard pills, 'expanded' = full Cartesian
+        pathBudgets: {},          // Per-path overridden budgets from "show more" clicks: { blockPath: budget }
+        pathOverflow: {},         // Per-path remaining count: { blockPath: remainingCount }
         shortlist: [],            // Array of { text, sources: [{blockPath, comboKey}] }
         dimmedEntries: new Set(), // Set of "blockPath|comboKey" keys excluded from shortlist
         pinnedEntries: new Set(), // Set of "blockPath|comboKey" — survives populateFromPreview()

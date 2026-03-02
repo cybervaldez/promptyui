@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mindmap — Shortlist-Style Inline Expansion</title>
+<script src="https://unpkg.com/leader-line@1.0.7/leader-line.min.js"></script>
+<style>
+:root {
+    --bg-deep: #0a0a0a;
+    --bg-surface: #161b22;
+    --bg-elevated: #1c2128;
+    --text-primary: #e6edf3;
+    --text-secondary: #8b949e;
+    --text-muted: #484f58;
+    --accent-green: #3fb950;
+    --accent-amber: #ff6b35;
+    --accent-blue: #58a6ff;
+    --accent-purple: #bc8cff;
+    --font-mono: 'Courier New', Courier, monospace;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    font-family: var(--font-mono);
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    padding: 2rem;
+    overflow: hidden;
+}
+h1 { font-size: 1rem; color: var(--text-secondary); margin-bottom: 0.3rem; }
+.subtitle { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 1rem; }
+
+/* ══════════════════════════════════════
+   SCROLL / PAN VIEWPORT
+   ══════════════════════════════════════ */
+.mm-viewport {
+    overflow-x: auto;
+    overflow-y: hidden;
+    cursor: grab;
+    position: relative;
+    border: 1px solid rgba(72, 79, 88, 0.2);
+    border-radius: 6px;
+    background: rgba(22, 27, 34, 0.3);
+    padding: 1.5rem 1rem;
+    scrollbar-width: thin;
+    scrollbar-color: var(--text-muted) transparent;
+}
+.mm-viewport:active { cursor: grabbing; }
+.mm-viewport::-webkit-scrollbar { height: 6px; }
+.mm-viewport::-webkit-scrollbar-track { background: transparent; }
+.mm-viewport::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 3px; }
+
+/* ══════════════════════════════════════
+   FLOW: one flat horizontal line
+   (mirrors shortlist resolved format)
+   ══════════════════════════════════════ */
+.mm-flow {
+    display: inline-flex;
+    align-items: center;
+    min-width: 100%;
+    gap: 0;
+    position: relative;
+    white-space: nowrap;
+    justify-content: center;
+    padding: 0 2rem;
+}
+
+/* ── Text segment (prompt text fragment) ── */
+.mm-segment {
+    position: relative;
+    z-index: 2;
+    padding: 0.4em 0.7em;
+    background: var(--bg-elevated);
+    border: 1px solid rgba(72, 79, 88, 0.4);
+    border-radius: 4px;
+    font-size: 0.72rem;
+    color: var(--text-primary);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* ── Block separator: ── (matches pu-shortlist-separator) ── */
+.mm-block-sep {
+    position: relative;
+    z-index: 10;
+    padding: 0 1.5em;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    flex-shrink: 0;
+    user-select: none;
+    letter-spacing: 0.2em;
+}
+
+/* ── Wildcard fan (vertical column of values) ── */
+.mm-fan {
+    position: relative;
+    z-index: 2;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 120px;
+    padding: 0 3rem;
+    flex-shrink: 0;
+}
+
+.mm-fan-label {
+    font-size: 0.48rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.35em;
+    white-space: nowrap;
+}
+
+.mm-fan-values {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4em;
+}
+
+/* ── Value pill ── */
+.mm-val {
+    padding: 0.22em 0.65em;
+    border-radius: 3px;
+    font-size: 0.63rem;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: transform 0.1s, background 0.1s;
+    position: relative;
+    z-index: 2;
+}
+.mm-val:hover { transform: scale(1.08); }
+.mm-val.selected {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+    font-weight: 700;
+}
+
+/* ── Color themes per wildcard ── */
+.mm-fan.wc-amber .mm-fan-label { color: var(--accent-amber); }
+.mm-fan.wc-amber .mm-val { background: rgba(255, 107, 53, 0.1); color: var(--accent-amber); }
+.mm-fan.wc-amber .mm-val:hover { background: rgba(255, 107, 53, 0.22); }
+
+.mm-fan.wc-blue .mm-fan-label { color: var(--accent-blue); }
+.mm-fan.wc-blue .mm-val { background: rgba(88, 166, 255, 0.1); color: var(--accent-blue); }
+.mm-fan.wc-blue .mm-val:hover { background: rgba(88, 166, 255, 0.22); }
+
+.mm-fan.wc-green .mm-fan-label { color: var(--accent-green); }
+.mm-fan.wc-green .mm-val { background: rgba(63, 185, 80, 0.1); color: var(--accent-green); }
+.mm-fan.wc-green .mm-val:hover { background: rgba(63, 185, 80, 0.22); }
+
+.mm-fan.wc-purple .mm-fan-label { color: var(--accent-purple); }
+.mm-fan.wc-purple .mm-val { background: rgba(188, 140, 255, 0.1); color: var(--accent-purple); }
+.mm-fan.wc-purple .mm-val:hover { background: rgba(188, 140, 255, 0.22); }
+
+/* ── Total badge ── */
+.mm-total {
+    position: relative;
+    z-index: 2;
+    padding: 0.35em 0.8em;
+    background: rgba(63, 185, 80, 0.06);
+    border: 1px solid rgba(63, 185, 80, 0.25);
+    border-radius: 16px;
+    font-size: 0.65rem;
+    color: var(--accent-green);
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-left: 2rem;
+}
+
+/* ── Resolved output (matches shortlist item format) ── */
+.mm-output {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background: var(--bg-surface);
+    border: 1px solid rgba(72, 79, 88, 0.3);
+    border-radius: 6px;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+}
+.mm-output strong { color: var(--text-primary); }
+.mm-output .label { color: var(--text-muted); font-size: 0.55rem; margin-bottom: 0.5em; }
+.mm-output .sep { color: var(--text-muted); opacity: 0.5; }
+
+/* ── Legend ── */
+.legend {
+    display: flex;
+    gap: 1.5em;
+    margin-bottom: 1rem;
+    font-size: 0.6rem;
+    color: var(--text-muted);
+}
+.legend-item { display: flex; align-items: center; gap: 0.4em; }
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+/* ── Pan hint ── */
+.pan-hint {
+    font-size: 0.55rem;
+    color: var(--text-muted);
+    opacity: 0.5;
+    margin-bottom: 0.5rem;
+}
+
+/* ── LeaderLine global ── */
+.leader-line { opacity: 0.3 !important; }
+</style>
+</head>
+<body>
+
+<h1>Mindmap — Shortlist-Style Expansion</h1>
+<p class="subtitle">Mirrors the shortlist resolved view. Blocks joined by ── separators. Wildcards fan out inline. Click values to resolve.</p>
+
+<div class="legend" id="legend"></div>
+<div class="pan-hint">Drag to pan / scroll horizontally</div>
+<div class="mm-viewport" id="viewport">
+    <div class="mm-flow" id="flow"></div>
+</div>
+<div class="mm-output" id="output"></div>
+
+<script>
+var DATA = {
+    blocks: [
+        { text: 'A cabin in the forest, __season__', depth: 0 },
+        { text: 'painted in __style__', depth: 1 }
+    ],
+    wildcards: {
+        season: { values: ['autumn', 'winter', 'spring', 'summer'], color: 'amber' },
+        style:  { values: ['watercolor', 'oil', 'digital', 'pencil'], color: 'blue' }
+    }
+};
+
+var selected = {};
+Object.keys(DATA.wildcards).forEach(function(name) { selected[name] = 0; });
+
+var COLORS = { amber: '#ff6b35', blue: '#58a6ff', green: '#3fb950', purple: '#bc8cff' };
+
+// LeaderLine instances
+var activeLines = [];
+
+/* ══════════════════════════
+   PAN / DRAG-TO-SCROLL
+   ══════════════════════════ */
+(function() {
+    var vp = document.getElementById('viewport');
+    var isDragging = false;
+    var startX = 0;
+    var scrollStart = 0;
+
+    vp.addEventListener('mousedown', function(e) {
+        if (e.target.classList.contains('mm-val')) return;
+        isDragging = true;
+        startX = e.clientX;
+        scrollStart = vp.scrollLeft;
+        vp.style.cursor = 'grabbing';
+        e.preventDefault();
+    });
+
+    window.addEventListener('mousemove', function(e) {
+        if (!isDragging) return;
+        vp.scrollLeft = scrollStart - (e.clientX - startX);
+    });
+
+    window.addEventListener('mouseup', function() {
+        if (!isDragging) return;
+        isDragging = false;
+        vp.style.cursor = 'grab';
+    });
+
+    vp.addEventListener('scroll', function() {
+        repositionLines();
+    });
+})();
+
+/* ── Build legend ── */
+function buildLegend() {
+    var legend = document.getElementById('legend');
+    legend.innerHTML = '';
+    Object.keys(DATA.wildcards).forEach(function(name) {
+        var wc = DATA.wildcards[name];
+        var item = document.createElement('div');
+        item.className = 'legend-item';
+        item.innerHTML = '<span class="legend-dot" style="background:' + COLORS[wc.color] + '"></span> ' + name;
+        legend.appendChild(item);
+    });
+}
+
+/* ── Parse block text into segments ── */
+function parseBlockText(text) {
+    var segments = [];
+    var regex = /__(\w+)__/g;
+    var lastIdx = 0;
+    var match;
+    while ((match = regex.exec(text)) !== null) {
+        if (match.index > lastIdx) {
+            var before = text.slice(lastIdx, match.index).replace(/,\s*$/, ',').trim();
+            if (before) segments.push({ type: 'text', text: before });
+        }
+        segments.push({ type: 'wc', name: match[1] });
+        lastIdx = match.index + match[0].length;
+    }
+    if (lastIdx < text.length) {
+        var after = text.slice(lastIdx).trim();
+        if (after) segments.push({ type: 'text', text: after });
+    }
+    return segments;
+}
+
+/* ── Clear LeaderLines ── */
+function clearLines() {
+    activeLines.forEach(function(line) {
+        try { line.remove(); } catch (e) {}
+    });
+    activeLines = [];
+}
+
+/* ── Reposition lines ── */
+function repositionLines() {
+    activeLines.forEach(function(line) {
+        try { line.position(); } catch (e) {}
+    });
+}
+
+/* ── Draw LeaderLine connectors ── */
+function drawConnectors() {
+    clearLines();
+
+    var flow = document.getElementById('flow');
+    var allChildren = Array.prototype.slice.call(flow.children);
+    var fans = flow.querySelectorAll('.mm-fan');
+
+    fans.forEach(function(fan) {
+        var idx = allChildren.indexOf(fan);
+        var leftEl = findNeighbor(allChildren, idx, -1);
+        var rightEl = findNeighbor(allChildren, idx, 1);
+        var values = fan.querySelectorAll('.mm-val');
+        if (values.length === 0) return;
+
+        var wcName = fan.getAttribute('data-wc');
+        var color = '#484f58';
+        if (wcName && DATA.wildcards[wcName]) {
+            color = COLORS[DATA.wildcards[wcName].color] || color;
+        }
+
+        values.forEach(function(valEl) {
+            // Fan-out: left neighbor → value
+            if (leftEl) {
+                activeLines.push(new LeaderLine(leftEl, valEl, {
+                    color: color,
+                    size: 1.5,
+                    path: 'fluid',
+                    startSocket: 'right',
+                    endSocket: 'left',
+                    startPlug: 'behind',
+                    endPlug: 'behind'
+                }));
+            }
+
+            // Fan-in: value → right neighbor
+            if (rightEl) {
+                activeLines.push(new LeaderLine(valEl, rightEl, {
+                    color: color,
+                    size: 1.5,
+                    path: 'fluid',
+                    startSocket: 'right',
+                    endSocket: 'left',
+                    startPlug: 'behind',
+                    endPlug: 'behind'
+                }));
+            }
+        });
+    });
+}
+
+/* ── Find nearest non-separator, non-fan neighbor ── */
+function findNeighbor(children, fromIdx, direction) {
+    var i = fromIdx + direction;
+    while (i >= 0 && i < children.length) {
+        var el = children[i];
+        // Skip separators — connect to segments, fans, or total badge
+        if (!el.classList.contains('mm-block-sep')) {
+            return el;
+        }
+        i += direction;
+    }
+    return null;
+}
+
+/* ══════════════
+   RENDER
+   ══════════════ */
+function render() {
+    clearLines();
+
+    var flow = document.getElementById('flow');
+    flow.innerHTML = '';
+
+    var total = 1;
+    Object.keys(DATA.wildcards).forEach(function(name) {
+        total *= DATA.wildcards[name].values.length;
+    });
+
+    // Flatten all blocks into one horizontal line,
+    // separated by ── between blocks (like shortlist)
+    DATA.blocks.forEach(function(block, bi) {
+        // Block separator between blocks (mirrors pu-shortlist-separator)
+        if (bi > 0) {
+            var sep = document.createElement('div');
+            sep.className = 'mm-block-sep';
+            sep.textContent = ' \u2500\u2500 ';
+            flow.appendChild(sep);
+        }
+
+        var segments = parseBlockText(block.text);
+
+        segments.forEach(function(seg) {
+            if (seg.type === 'text') {
+                var frag = document.createElement('div');
+                frag.className = 'mm-segment';
+                frag.textContent = seg.text;
+                flow.appendChild(frag);
+
+            } else if (seg.type === 'wc') {
+                var wc = DATA.wildcards[seg.name];
+                if (!wc) return;
+
+                var fan = document.createElement('div');
+                fan.className = 'mm-fan wc-' + wc.color;
+                fan.setAttribute('data-wc', seg.name);
+
+                var label = document.createElement('div');
+                label.className = 'mm-fan-label';
+                label.textContent = seg.name + ' (' + wc.values.length + ')';
+                fan.appendChild(label);
+
+                var valuesWrap = document.createElement('div');
+                valuesWrap.className = 'mm-fan-values';
+
+                wc.values.forEach(function(val, vi) {
+                    var pill = document.createElement('div');
+                    pill.className = 'mm-val';
+                    if (selected[seg.name] === vi) pill.classList.add('selected');
+                    pill.textContent = val;
+                    pill.addEventListener('click', (function(name, idx) {
+                        return function() {
+                            selected[name] = idx;
+                            render();
+                        };
+                    })(seg.name, vi));
+                    valuesWrap.appendChild(pill);
+                });
+
+                fan.appendChild(valuesWrap);
+                flow.appendChild(fan);
+            }
+        });
+    });
+
+    // Total badge
+    var badge = document.createElement('div');
+    badge.className = 'mm-total';
+    badge.textContent = total + ' compositions';
+    flow.appendChild(badge);
+
+    // Draw LeaderLine after DOM settles
+    requestAnimationFrame(function() {
+        drawConnectors();
+    });
+
+    renderOutput();
+}
+
+/* ── Resolved output (mirrors shortlist item format) ── */
+function renderOutput() {
+    var out = document.getElementById('output');
+    var parts = [];
+
+    DATA.blocks.forEach(function(block, bi) {
+        var text = block.text.replace(/__(\w+)__/g, function(m, name) {
+            var wc = DATA.wildcards[name];
+            if (!wc) return m;
+            return '<strong style="color:' + COLORS[wc.color] + '">' + wc.values[selected[name] || 0] + '</strong>';
+        });
+        parts.push(text);
+    });
+
+    // Join with ── separator (like shortlist)
+    var resolved = parts.join(' <span class="sep">\u2500\u2500</span> ');
+    out.innerHTML = '<div class="label">RESOLVED (shortlist format \u2014 click values to change)</div>' + resolved;
+}
+
+/* ── Resize ── */
+var resizeTimer;
+window.addEventListener('resize', function() {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(repositionLines, 100);
+});
+
+buildLegend();
+render();
+</script>
+</body>
+</html>

@@ -1186,6 +1186,19 @@ body {
     color: var(--pu-warning);
 }
 
+/* ── Shortlist: Show More ─────────────────────── */
+.pu-shortlist-show-more {
+    padding: 2px 12px 2px 24px;
+    cursor: pointer;
+}
+.pu-shortlist-show-more-text {
+    font-size: var(--pu-font-size-2xs);
+    color: var(--pu-accent);
+}
+.pu-shortlist-show-more:hover .pu-shortlist-show-more-text {
+    text-decoration: underline;
+}
+
 /* ── Shortlist: Action Bar ─────────────────────── */
 .pu-shortlist-actions {
     display: flex;
@@ -1350,12 +1363,6 @@ body[data-editor-mode="write"] .pu-shortlist-panel {
     text-overflow: ellipsis;
     white-space: nowrap;
     flex: 1;
-}
-.pu-lock-popup-item.is-current label { font-weight: 600; }
-.pu-lock-popup-item .pu-lock-current-dot {
-    font-size: var(--pu-font-size-2xs);
-    color: var(--pu-accent);
-    flex-shrink: 0;
 }
 .pu-lock-popup-footer {
     padding: var(--pu-space-sm) var(--pu-space-md);
@@ -4056,6 +4063,14 @@ body[data-layer-annotations="0"] .pu-inline-comment { display: none !important; 
     color: var(--pu-text-primary);
     font-weight: 600;
 }
+.pu-rp-ops-expand-all {
+    margin-left: auto;
+    font-size: var(--pu-font-size-2xs);
+    color: var(--pu-accent);
+    cursor: pointer;
+    white-space: nowrap;
+}
+.pu-rp-ops-expand-all:hover { text-decoration: underline; }
 
 /* Preview mode nav variant: centered with arrows */
 .pu-rp-ops-nav--preview {

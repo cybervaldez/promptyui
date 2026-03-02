@@ -135,6 +135,7 @@ PU.editorMode = {
 
         // Get composition params for variations
         const { lookup } = PU.shared.getCompositionParams();
+        PU.editorMode._ensureLockDefaults(); // auto-fill first-value defaults
         const locked = PU.state.previewMode.lockedValues;
 
         // Render block-by-block (template view) + collect variation data
@@ -212,6 +213,9 @@ PU.editorMode = {
      * Walk the block tree depth-first, render flat rows with ancestor segments.
      * Returns {blocks: [{path, depth, html}], variationData: [{blockPath, comboKey, text}]}.
      * Each row prepends faded ancestor text with ── separators, highlighting only the own block.
+     *
+     * Two-pass allocation for shortlist: first counts effectiveCombos per block,
+     * then computes sqrt-proportional budgets, then generates variations to budget.
      */
     _renderBlockByBlock(textItems, resolutions, maxDepth, lookup, locked) {
         const results = [];
@@ -264,6 +268,99 @@ PU.editorMode = {
             return html;
         }
 
+        // ── Pass 1: Collect block metadata (effectiveCombos, type) ──
+        const blockMeta = []; // { path, type, effectiveCombos, blockWcNames, rawContent, block, res, depth }
+        function collectMeta(blocks, prefix, depth) {
+            if (!Array.isArray(blocks)) return;
+            blocks.forEach((block, idx) => {
+                const path = prefix ? `${prefix}.${idx}` : String(idx);
+                if (hiddenBlocks.has(path)) return;
+                if (depth > maxDepth) return;
+
+                const res = resolutions.get(path);
+                if (!res) return;
+
+                const isExtText = 'ext_text' in block;
+                const rawContent = block.content || '';
+                const hasChildren = block.after && block.after.length > 0;
+
+                // Find wildcards in this block
+                const blockWcNames = [];
+                if (!isExtText && rawContent) {
+                    const wcPattern = /__([a-zA-Z0-9_-]+)__/g;
+                    let m;
+                    const seen = new Set();
+                    while ((m = wcPattern.exec(rawContent)) !== null) {
+                        if (!seen.has(m[1]) && lookup[m[1]]) {
+                            seen.add(m[1]);
+                            blockWcNames.push(m[1]);
+                        }
+                    }
+                }
+
+                // Compute effectiveCombos for this block
+                let effectiveCombos = 1;
+                if (!isExtText && blockWcNames.length > 0) {
+                    for (const name of blockWcNames) {
+                        const lockedVals = (locked[name] && locked[name].length > 0) ? locked[name] : null;
+                        if (lockedVals) {
+                            effectiveCombos *= lockedVals.length;
+                        }
+                        // Unlocked (pinned to odometer) contributes 1 — no multiply needed
+                    }
+                }
+
+                const type = isExtText ? 'ext_text' : (blockWcNames.length > 0 ? 'wildcard' : 'static');
+                blockMeta.push({ path, type, effectiveCombos, blockWcNames, rawContent, block, res, depth, hasChildren });
+
+                // Recurse children (respecting maxBranches truncation)
+                if (hasChildren) {
+                    const maxBranches = 3;
+                    if (block.after.length > maxBranches) {
+                        collectMeta(block.after.slice(0, maxBranches), path, depth + 1);
+                    } else {
+                        collectMeta(block.after, path, depth + 1);
+                    }
+                }
+            });
+        }
+        if (isPreviewMode) collectMeta(textItems, '', 1);
+
+        // ── Pass 2: Compute sqrt-proportional allocation ──
+        const pathBudgets = PU.state.previewMode.pathBudgets;
+        const pathOverflow = {};
+        const allocatedBudgets = {}; // { path: budget }
+
+        if (isPreviewMode && blockMeta.length > 0) {
+            // Only blocks with effectiveCombos > 1 need allocation
+            const varyingBlocks = blockMeta.filter(b => b.effectiveCombos > 1);
+            const numPaths = blockMeta.length;
+            const totalBudget = Math.max(numPaths * 2, 30); // At least 2 per path, min 30
+
+            if (varyingBlocks.length > 0) {
+                const sqrtSum = varyingBlocks.reduce((s, b) => s + Math.sqrt(b.effectiveCombos), 0);
+                // Budget for static/ext_text blocks = 1 each
+                const staticCount = blockMeta.filter(b => b.effectiveCombos <= 1).length;
+                const remainingBudget = totalBudget - staticCount;
+
+                for (const b of varyingBlocks) {
+                    // Check for user-overridden budget (from "show more" clicks)
+                    if (pathBudgets[b.path]) {
+                        allocatedBudgets[b.path] = Math.min(pathBudgets[b.path], 50);
+                    } else {
+                        const share = Math.max(2, Math.floor(Math.sqrt(b.effectiveCombos) / sqrtSum * remainingBudget));
+                        allocatedBudgets[b.path] = Math.min(share, b.effectiveCombos);
+                    }
+                }
+            }
+
+            // Static/ext_text blocks always get budget 1
+            for (const b of blockMeta) {
+                if (b.effectiveCombos <= 1) allocatedBudgets[b.path] = 1;
+            }
+        }
+
+        // ── Pass 3: Traverse and generate (same depth-first order) ──
         function traverse(blocks, prefix, depth, hasTrailingMore) {
             if (!Array.isArray(blocks)) return;
             blocks.forEach((block, idx) => {
@@ -307,8 +404,20 @@ PU.editorMode = {
                 } else if (blockWcNames.length > 0) {
                     ownHtml = PU.editorMode._convertToTemplateView(rawContent);
                     if (isPreviewMode) {
-                        const blockVars = PU.editorMode._computeBlockVariations(rawContent, blockWcNames, lookup, locked, wcIndices, varMode, path);
+                        const budget = allocatedBudgets[path] || 20;
+                        const blockVars = PU.editorMode._computeBlockVariations(rawContent, blockWcNames, lookup, locked, wcIndices, varMode, path, budget);
                         for (const v of blockVars) variationData.push(v);
+
+                        // Compute overflow for "show more" links
+                        let effectiveCombos = 1;
+                        for (const name of blockWcNames) {
+                            const lv = (locked[name] && locked[name].length > 0) ? locked[name] : null;
+                            if (lv) effectiveCombos *= lv.length;
+                        }
+                        const remaining = effectiveCombos - blockVars.length;
+                        if (remaining > 0) {
+                            pathOverflow[path] = remaining;
+                        }
                     }
                 } else {
                     ownHtml = esc(rawContent);
@@ -359,6 +468,10 @@ PU.editorMode = {
         }
 
         traverse(textItems, '', 1, false);
+
+        // Store overflow for shortlist renderer
+        PU.state.previewMode.pathOverflow = pathOverflow;
+
         return { blocks: results, variationData };
     },
 
@@ -415,9 +528,9 @@ PU.editorMode = {
     /**
      * Compute resolved text variations for a block with wildcards.
      * Returns array of {blockPath, comboKey, text} for shortlist population.
-     * Summary mode: deduplicated, capped at 20. Expanded: capped at 100.
+     * Budget param controls max entries (from allocation). Falls back to 20/100.
      */
-    _computeBlockVariations(content, blockWcNames, lookup, locked, wcIndices, mode, blockPath) {
+    _computeBlockVariations(content, blockWcNames, lookup, locked, wcIndices, mode, blockPath, budget) {
         if (!blockWcNames || blockWcNames.length === 0 || !content) return [];
 
         // Build dimensions — locked wildcards vary, unlocked pinned to current value
@@ -442,7 +555,7 @@ PU.editorMode = {
         }
 
         const isSummary = mode !== 'expanded';
-        const MAX_SHOW = isSummary ? 20 : 100;
+        const MAX_SHOW = budget || (isSummary ? 20 : 100);
         const sampleCount = isSummary ? Math.min(totalCombos, MAX_SHOW * 3) : Math.min(totalCombos, MAX_SHOW);
         const combos = PU.editorMode._cartesianProduct(dims, sampleCount);
 
@@ -567,12 +680,7 @@ PU.editorMode = {
         const { wildcardCounts, extTextCount } = PU.shared.getCompositionParams();
         const locked = PU.state.previewMode.lockedValues;
         const hypothetical = { ...locked };
-        // If all are checked, that's effectively "no lock"
-        if (checked.size === allVals.length) {
-            delete hypothetical[wcName];
-        } else {
-            hypothetical[wcName] = [...checked];
-        }
+        hypothetical[wcName] = checked.size === 0 ? [allVals[0]] : [...checked];
         const impact = PU.shared.computeLockedTotal(wildcardCounts, extTextCount, hypothetical);
 
         let html = `<div class="pu-lock-popup-header">
@@ -587,15 +695,11 @@ PU.editorMode = {
         for (let i = 0; i < allVals.length; i++) {
             const val = allVals[i];
             const isChecked = checked.has(val) ? 'checked' : '';
-            const isCurrent = val === currentVal;
-            const currentClass = isCurrent ? ' is-current' : '';
-            const dot = isCurrent ? '<span class="pu-lock-current-dot">\u25CF</span>' : '';
             const eVal = PU.blocks.escapeHtml(val);
-            html += `<div class="pu-lock-popup-item${currentClass}">
+            html += `<div class="pu-lock-popup-item">
                 <input type="checkbox" ${isChecked} data-val="${eVal}"
                        onchange="PU.editorMode._lockPopupToggle('${eVal.replace(/'/g, "\\'")}', this.checked)">
                 <label onclick="this.previousElementSibling.click()" title="${eVal}">${eVal}</label>
-                ${dot}
             </div>`;
         }
 
@@ -660,20 +764,19 @@ PU.editorMode = {
         const current = state.currentChecked;
         const locked = PU.state.previewMode.lockedValues;
 
-        if (current.size === 0 || current.size === allVals.length) {
-            delete locked[state.wcName];
+        if (current.size === 0) {
+            locked[state.wcName] = [allVals[0]]; // Default to first value
         } else {
             locked[state.wcName] = [...current];
         }
 
+        // Reset show-more budgets — lock change invalidates allocation
+        PU.state.previewMode.pathBudgets = {};
+
         // Sync to selectedWildcards for preview
         const sw = PU.state.previewMode.selectedWildcards;
         if (!sw['*']) sw['*'] = {};
-        if (locked[state.wcName] && locked[state.wcName].length > 0) {
-            sw['*'][state.wcName] = locked[state.wcName][locked[state.wcName].length - 1];
-        } else {
-            delete sw['*'][state.wcName];
-        }
+        sw['*'][state.wcName] = locked[state.wcName][locked[state.wcName].length - 1];
 
         PU.editorMode.renderPreview();
         PU.editorMode.renderSidebarPreview();
@@ -700,7 +803,7 @@ PU.editorMode = {
         if (!strip) return;
 
         const locked = PU.state.previewMode.lockedValues;
-        const entries = Object.entries(locked).filter(([, vals]) => vals && vals.length > 0);
+        const entries = Object.entries(locked).filter(([, vals]) => vals && vals.length > 1);
 
         if (entries.length === 0) {
             strip.style.display = 'none';
@@ -793,14 +896,62 @@ PU.editorMode = {
         PU.rightPanel.renderOpsSection();
     },
 
-    /** Clear all wildcard locks. */
+    /** Ensure every wildcard has a locked default (first value).
+     *  If reset=true, wipe existing locks first. */
+    _ensureLockDefaults(reset = false) {
+        const lookup = PU.preview.getFullWildcardLookup();
+        const locked = reset ? {} : PU.state.previewMode.lockedValues;
+        if (reset) PU.state.previewMode.lockedValues = locked;
+        for (const [name, values] of Object.entries(lookup)) {
+            if ((!locked[name] || locked[name].length === 0) && values.length > 0) {
+                locked[name] = [values[0]];
+            } else if (locked[name] && values.length > 0) {
+                // Filter out stale values no longer in the wildcard lookup
+                const valid = locked[name].filter(v => values.includes(v));
+                locked[name] = valid.length > 0 ? valid : [values[0]];
+            }
+        }
+        // Clean stale entries for wildcards that no longer exist
+        for (const name of Object.keys(locked)) {
+            if (!lookup[name]) delete locked[name];
+        }
+    },
+
+    /** Clear all wildcard locks (reset to first-value defaults). */
     clearAllLocks() {
-        PU.state.previewMode.lockedValues = {};
+        PU.editorMode._ensureLockDefaults(true);
+        PU.state.previewMode.pathBudgets = {}; // Reset all show-more expansions
         const sw = PU.state.previewMode.selectedWildcards;
         delete sw['*'];
         PU.editorMode.renderPreview();
         PU.editorMode.renderSidebarPreview();
         PU.rightPanel.renderOpsSection();
+    },
+
+    /** Expand all wildcards to their full value set (full Cartesian product). */
+    expandAllLocks() {
+        const lookup = PU.preview.getFullWildcardLookup();
+        const locked = PU.state.previewMode.lockedValues;
+        for (const [name, values] of Object.entries(lookup)) {
+            if (values.length > 0) {
+                locked[name] = [...values];
+            }
+        }
+        PU.editorMode.renderPreview();
+        PU.editorMode.renderSidebarPreview();
+        PU.rightPanel.renderOpsSection();
+    },
+
+    /** Show more variations for a specific block path (doubles shown count, caps at 50). */
+    showMoreVariations(blockPath) {
+        const budgets = PU.state.previewMode.pathBudgets;
+        // Use current shortlist count for this path as the base (not the stored budget)
+        const currentCount = PU.state.previewMode.shortlist.filter(
+            i => i.sources[0].blockPath === blockPath
+        ).length;
+        const base = Math.max(currentCount, budgets[blockPath] || 2);
+        budgets[blockPath] = Math.min(base * 2, 50);
+        PU.editorMode.renderPreview();
     },
 
     /** Set preview depth and re-render. */

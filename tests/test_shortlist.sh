@@ -534,6 +534,283 @@ agent-browser eval 'PU.rightPanel.saveSession()' 2>/dev/null
 sleep 0.5
 
 # ============================================================================
+# TEST: Lock Defaults (wildcards default to first value)
+# ============================================================================
+echo ""
+log_info "TEST: Lock defaults auto-initialized"
+
+LOCK_KEYS=$(agent-browser eval 'Object.keys(PU.state.previewMode.lockedValues).length' 2>/dev/null)
+[ "$LOCK_KEYS" != "0" ] && log_pass "lockedValues has entries after render ($LOCK_KEYS wildcards)" || log_fail "lockedValues empty: $LOCK_KEYS"
+
+# Each wildcard should be locked to exactly 1 value (the first)
+ALL_SINGLE=$(agent-browser eval '
+    const locked = PU.state.previewMode.lockedValues;
+    Object.values(locked).every(v => v && v.length === 1) ? "true" : "false"
+' 2>/dev/null | tr -d '"')
+[ "$ALL_SINGLE" = "true" ] && log_pass "All wildcards locked to single (first) value" || log_fail "Not all single-value: $ALL_SINGLE"
+
+echo ""
+log_info "TEST: No dot in lock popup"
+
+# Open a lock popup directly
+agent-browser eval '
+    const lookup = PU.preview.getFullWildcardLookup();
+    const names = Object.keys(lookup).sort();
+    if (names.length > 0) {
+        const anchor = document.querySelector(".pu-rp-wc-v[data-wc-name]") || document.body;
+        PU.editorMode.openLockPopup(names[0], anchor);
+    }
+' 2>/dev/null
+sleep 0.5
+
+DOT_COUNT=$(agent-browser eval 'document.querySelectorAll(".pu-lock-current-dot").length' 2>/dev/null | tr -d '"')
+[ "$DOT_COUNT" = "0" ] && log_pass "No dot indicator in lock popup" || log_fail "Dot count: $DOT_COUNT"
+
+# Close popup
+agent-browser eval 'PU.editorMode.closeLockPopup()' 2>/dev/null
+sleep 0.3
+
+echo ""
+log_info "TEST: Lock strip hidden at defaults"
+
+STRIP_DISPLAY=$(agent-browser eval '
+    const strip = document.querySelector("[data-testid=\"pu-lock-strip\"]");
+    strip ? getComputedStyle(strip).display : "none"
+' 2>/dev/null | tr -d '"')
+[ "$STRIP_DISPLAY" = "none" ] && log_pass "Lock strip hidden when all at defaults" || log_fail "Strip display: $STRIP_DISPLAY"
+
+echo ""
+log_info "TEST: Select all expands dimension"
+
+# Open lock popup, select all, apply, and verify via lockedValues state
+agent-browser eval '
+    const lookup = PU.preview.getFullWildcardLookup();
+    const names = Object.keys(lookup).sort();
+    if (names.length > 0) {
+        const anchor = document.querySelector(".pu-rp-wc-v[data-wc-name]") || document.body;
+        PU.editorMode.openLockPopup(names[0], anchor);
+        PU.editorMode._lockPopupSelectAll();
+        PU.editorMode.closeLockPopup();
+    }
+' 2>/dev/null
+sleep 0.5
+
+# Verify the first wildcard now has all values locked (not just 1)
+ALL_CHECKED=$(agent-browser eval '(() => { const lookup = PU.preview.getFullWildcardLookup(); const names = Object.keys(lookup).sort(); const locked = PU.state.previewMode.lockedValues[names[0]]; const all = lookup[names[0]]; return locked && all && locked.length === all.length ? "true" : "locked=" + (locked ? locked.length : "null") + ",all=" + (all ? all.length : "null"); })()' 2>/dev/null | tr -d '"')
+[ "$ALL_CHECKED" = "true" ] && log_pass "Select All locks all values for wildcard" || log_fail "All checked: $ALL_CHECKED"
+
+STRIP_AFTER=$(agent-browser eval '
+    const strip = document.querySelector("[data-testid=\"pu-lock-strip\"]");
+    strip ? getComputedStyle(strip).display : "none"
+' 2>/dev/null | tr -d '"')
+[ "$STRIP_AFTER" != "none" ] && log_pass "Lock strip visible after expanding a wildcard" || log_fail "Strip still hidden: $STRIP_AFTER"
+
+# Reset locks back to defaults for clean state
+agent-browser eval 'PU.editorMode.clearAllLocks()' 2>/dev/null
+sleep 0.5
+
+# ============================================================================
+# TEST: Value-level staleness check
+# ============================================================================
+echo ""
+log_info "TEST: Value-level staleness filters invalid locked values"
+
+# Inject a stale value and run ensureLockDefaults
+STALE_RESULT=$(agent-browser eval '(() => {
+    const lookup = PU.preview.getFullWildcardLookup();
+    const names = Object.keys(lookup).sort();
+    if (names.length === 0) return "no-wc";
+    const wc = names[0];
+    PU.state.previewMode.lockedValues[wc] = ["__STALE_VALUE__", lookup[wc][0]];
+    PU.editorMode._ensureLockDefaults();
+    const locked = PU.state.previewMode.lockedValues[wc];
+    const hasStale = locked.includes("__STALE_VALUE__");
+    const hasValid = locked.includes(lookup[wc][0]);
+    return !hasStale && hasValid ? "true" : "stale=" + hasStale + ",valid=" + hasValid;
+})()' 2>/dev/null | tr -d '"')
+[ "$STALE_RESULT" = "true" ] && log_pass "Stale value filtered, valid value retained" || log_fail "Staleness: $STALE_RESULT"
+
+# Test: all stale values resets to first
+ALL_STALE=$(agent-browser eval '(() => {
+    const lookup = PU.preview.getFullWildcardLookup();
+    const names = Object.keys(lookup).sort();
+    if (names.length === 0) return "no-wc";
+    const wc = names[0];
+    PU.state.previewMode.lockedValues[wc] = ["__GONE1__", "__GONE2__"];
+    PU.editorMode._ensureLockDefaults();
+    const locked = PU.state.previewMode.lockedValues[wc];
+    return locked.length === 1 && locked[0] === lookup[wc][0] ? "true" : JSON.stringify(locked);
+})()' 2>/dev/null | tr -d '"')
+[ "$ALL_STALE" = "true" ] && log_pass "All-stale values reset to first value" || log_fail "All stale: $ALL_STALE"
+
+# Clean up
+agent-browser eval 'PU.editorMode._ensureLockDefaults(true)' 2>/dev/null
+
+# ============================================================================
+# TEST: "X of Y" display in ops section
+# ============================================================================
+echo ""
+log_info "TEST: Ops section shows X of Y format"
+
+# Re-render to ensure fresh state
+agent-browser eval 'PU.editorMode.clearAllLocks()' 2>/dev/null
+sleep 0.5
+
+NAV_LABEL=$(agent-browser eval 'document.querySelector("[data-testid=\"pu-rp-nav-label\"]")?.textContent' 2>/dev/null | tr -d '"')
+HAS_OF=$(echo "$NAV_LABEL" | grep -q " of " && echo "true" || echo "false")
+[ "$HAS_OF" = "true" ] && log_pass "Nav label contains 'of' format: $NAV_LABEL" || log_fail "Nav label missing 'of': $NAV_LABEL"
+
+# ============================================================================
+# TEST: Expand All button
+# ============================================================================
+echo ""
+log_info "TEST: Expand All button appears and works"
+
+# At defaults (not full space), Expand All should be visible
+EXPAND_BTN=$(agent-browser eval '!!document.querySelector("[data-testid=\"pu-rp-expand-all\"]")' 2>/dev/null | tr -d '"')
+[ "$EXPAND_BTN" = "true" ] && log_pass "Expand All button visible at defaults" || log_fail "Expand All missing: $EXPAND_BTN"
+
+# Click Expand All
+agent-browser eval 'PU.editorMode.expandAllLocks()' 2>/dev/null
+sleep 0.5
+
+# After expand all, lockedTotal should equal raw (unbucketed) total
+FULL_MATCH=$(agent-browser eval '(() => {
+    const { wildcardCounts, extTextCount } = PU.shared.getCompositionParams();
+    const lockedValues = PU.state.previewMode.lockedValues;
+    const lockedTotal = PU.shared.computeLockedTotal(wildcardCounts, extTextCount, lockedValues);
+    const rawTotal = PU.preview.computeTotalCompositions(extTextCount, wildcardCounts);
+    return lockedTotal === rawTotal ? "true" : "locked=" + lockedTotal + ",rawTotal=" + rawTotal;
+})()' 2>/dev/null | tr -d '"')
+[ "$FULL_MATCH" = "true" ] && log_pass "Expand All produces full Cartesian space" || log_fail "Full match: $FULL_MATCH"
+
+# After expand all, Expand All button should be hidden
+EXPAND_GONE=$(agent-browser eval '!document.querySelector("[data-testid=\"pu-rp-expand-all\"]")' 2>/dev/null | tr -d '"')
+[ "$EXPAND_GONE" = "true" ] && log_pass "Expand All button hidden when fully expanded" || log_fail "Expand All still visible: $EXPAND_GONE"
+
+# Reset for clean state
+agent-browser eval 'PU.editorMode.clearAllLocks()' 2>/dev/null
+sleep 0.5
+
+# ============================================================================
+# TEST: Per-path allocation — default locks produce 1 entry per block
+# ============================================================================
+echo ""
+log_info "TEST: Per-path allocation — defaults have 1 per block, no show-more"
+
+# At default locks, each block should have exactly 1 variation
+# Count unique blockPaths in shortlist
+UNIQUE_PATHS=$(agent-browser eval '(() => {
+    const items = PU.state.previewMode.shortlist;
+    const paths = new Set(items.map(i => i.sources[0].blockPath));
+    return paths.size;
+})()' 2>/dev/null | tr -d '"')
+TOTAL_ITEMS=$(agent-browser eval 'PU.state.previewMode.shortlist.length' 2>/dev/null | tr -d '"')
+[ "$UNIQUE_PATHS" = "$TOTAL_ITEMS" ] && log_pass "At defaults: $TOTAL_ITEMS items = $UNIQUE_PATHS unique paths (1 per block)" || log_fail "Expected 1 per block: $TOTAL_ITEMS items vs $UNIQUE_PATHS paths"
+
+# No show-more links should exist at defaults
+SHOW_MORE_COUNT=$(agent-browser eval 'document.querySelectorAll(".pu-shortlist-show-more").length' 2>/dev/null | tr -d '"')
+[ "$SHOW_MORE_COUNT" = "0" ] && log_pass "No show-more links at defaults" || log_fail "Found $SHOW_MORE_COUNT show-more links at defaults"
+
+# No pathOverflow should exist at defaults
+OVERFLOW_COUNT=$(agent-browser eval 'Object.keys(PU.state.previewMode.pathOverflow || {}).length' 2>/dev/null | tr -d '"')
+[ "$OVERFLOW_COUNT" = "0" ] && log_pass "No path overflow at defaults" || log_fail "Found $OVERFLOW_COUNT overflow entries at defaults"
+
+# ============================================================================
+# TEST: Expanding wildcards creates overflow and show-more links
+# ============================================================================
+echo ""
+log_info "TEST: Expanding wildcards creates show-more links"
+
+# Expand ALL wildcards to create heavy Cartesian product that exceeds per-path budget
+agent-browser eval '(() => {
+    const lookup = PU.preview.getFullWildcardLookup();
+    const locked = PU.state.previewMode.lockedValues;
+    for (const [name, values] of Object.entries(lookup)) {
+        if (values.length > 1) locked[name] = [...values];
+    }
+    PU.state.previewMode.pathBudgets = {};
+    PU.editorMode.renderPreview();
+})()' 2>/dev/null
+sleep 1
+
+# After expanding all, items should be more than unique paths
+TOTAL_AFTER=$(agent-browser eval 'PU.state.previewMode.shortlist.length' 2>/dev/null | tr -d '"')
+PATHS_AFTER=$(agent-browser eval '(() => {
+    const items = PU.state.previewMode.shortlist;
+    return new Set(items.map(i => i.sources[0].blockPath)).size;
+})()' 2>/dev/null | tr -d '"')
+
+[ "$TOTAL_AFTER" -gt "$PATHS_AFTER" ] && log_pass "After expanding all: $TOTAL_AFTER items > $PATHS_AFTER paths" || log_fail "Expected more items than paths: $TOTAL_AFTER items, $PATHS_AFTER paths"
+
+# Check for overflow / show-more links
+OVERFLOW_AFTER=$(agent-browser eval 'Object.keys(PU.state.previewMode.pathOverflow || {}).length' 2>/dev/null | tr -d '"')
+SHOW_MORE_AFTER=$(agent-browser eval 'document.querySelectorAll(".pu-shortlist-show-more").length' 2>/dev/null | tr -d '"')
+
+[ "$OVERFLOW_AFTER" -gt "0" ] && log_pass "Overflow entries found: $OVERFLOW_AFTER paths" || log_fail "Expected overflow after expanding all wildcards"
+[ "$SHOW_MORE_AFTER" -gt "0" ] && log_pass "Show-more links rendered: $SHOW_MORE_AFTER" || log_fail "No show-more links despite overflow"
+
+# ============================================================================
+# TEST: Show more doubles budget and loads more entries
+# ============================================================================
+echo ""
+log_info "TEST: Show more loads additional entries"
+
+# Find a path with overflow and click show more
+OVERFLOW_PATH=$(agent-browser eval '(() => {
+    const overflow = PU.state.previewMode.pathOverflow || {};
+    const paths = Object.keys(overflow);
+    return paths.length > 0 ? paths[0] : "";
+})()' 2>/dev/null | tr -d '"')
+
+# Count items for this path before show-more
+BEFORE_COUNT=$(agent-browser eval "(() => {
+    const items = PU.state.previewMode.shortlist;
+    return items.filter(i => i.sources[0].blockPath === '$OVERFLOW_PATH').length;
+})()" 2>/dev/null | tr -d '"')
+
+# Click show more for this path
+agent-browser eval "PU.editorMode.showMoreVariations('$OVERFLOW_PATH')" 2>/dev/null
+sleep 1
+
+# Count items after show-more
+AFTER_COUNT=$(agent-browser eval "(() => {
+    const items = PU.state.previewMode.shortlist;
+    return items.filter(i => i.sources[0].blockPath === '$OVERFLOW_PATH').length;
+})()" 2>/dev/null | tr -d '"')
+
+[ "$AFTER_COUNT" -gt "$BEFORE_COUNT" ] && log_pass "Show more loaded entries: $BEFORE_COUNT -> $AFTER_COUNT for path $OVERFLOW_PATH" || log_fail "Show more didn't increase: $BEFORE_COUNT -> $AFTER_COUNT"
+
+# ============================================================================
+# TEST: Clear all locks resets allocation and removes show-more
+# ============================================================================
+echo ""
+log_info "TEST: Clear all locks resets allocation"
+
+agent-browser eval 'PU.editorMode.clearAllLocks()' 2>/dev/null
+sleep 1
+
+# Should be back to 1 per block
+RESET_PATHS=$(agent-browser eval '(() => {
+    const items = PU.state.previewMode.shortlist;
+    return new Set(items.map(i => i.sources[0].blockPath)).size;
+})()' 2>/dev/null | tr -d '"')
+RESET_ITEMS=$(agent-browser eval 'PU.state.previewMode.shortlist.length' 2>/dev/null | tr -d '"')
+[ "$RESET_PATHS" = "$RESET_ITEMS" ] && log_pass "After clear: $RESET_ITEMS items = $RESET_PATHS paths (1 per block)" || log_fail "After clear: $RESET_ITEMS items vs $RESET_PATHS paths"
+
+# No show-more links
+RESET_MORE=$(agent-browser eval 'document.querySelectorAll(".pu-shortlist-show-more").length' 2>/dev/null | tr -d '"')
+[ "$RESET_MORE" = "0" ] && log_pass "No show-more links after clear" || log_fail "Found $RESET_MORE show-more links after clear"
+
+# pathBudgets should be empty
+RESET_BUDGETS=$(agent-browser eval 'Object.keys(PU.state.previewMode.pathBudgets).length' 2>/dev/null | tr -d '"')
+[ "$RESET_BUDGETS" = "0" ] && log_pass "pathBudgets cleared after reset" || log_fail "pathBudgets not cleared: $RESET_BUDGETS entries"
+
+# Final cleanup — save clean session
+agent-browser eval 'PU.rightPanel.saveSession()' 2>/dev/null
+sleep 0.5
+
+# ============================================================================
 # SUMMARY
 # ============================================================================
 echo ""

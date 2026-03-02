@@ -54,10 +54,12 @@ PU.rightPanel = {
                     PU.rightPanel.clearFocus();
                     return;
                 }
-                // Priority 2: clear all locks
+                // Priority 2: reset expanded locks to first-value defaults
                 const locked = PU.state.previewMode.lockedValues;
-                if (Object.keys(locked).length > 0) {
-                    PU.state.previewMode.lockedValues = {};
+                const hasNonDefault = Object.values(locked).some(v => v && v.length > 1);
+                if (hasNonDefault) {
+                    PU.editorMode._ensureLockDefaults(true);
+                    PU.state.previewMode.pathBudgets = {}; // Reset show-more expansions
                     const sw = PU.state.previewMode.selectedWildcards;
                     if (sw['*']) delete sw['*'];
                     PU.rightPanel.render();
@@ -1360,6 +1362,8 @@ PU.rightPanel = {
         const mode = PU.state.ui.editorMode;
         const lockedValues = PU.state.previewMode.lockedValues || {};
         const lockedTotal = PU.shared.computeLockedTotal(wildcardCounts, extTextCount, lockedValues);
+        // Raw (unbucketed) total — same basis as computeLockedTotal for "X of Y"
+        const rawTotal = PU.preview.computeTotalCompositions(extTextCount, wildcardCounts);
 
         // ── Write mode: passive count only ──
         if (mode === 'write') {
@@ -1375,13 +1379,15 @@ PU.rightPanel = {
 
         // ── Preview mode: combination count only (no pagination) ──
         if (mode === 'preview') {
-            const hasLocks = Object.values(lockedValues).some(v => v && v.length > 0);
-            const displayTotal = hasLocks ? lockedTotal : total;
+            const displayTotal = lockedTotal;
+            const isFullSpace = lockedTotal === rawTotal;
+            const expandAllHtml = !isFullSpace ? `<a class="pu-rp-ops-expand-all" data-testid="pu-rp-expand-all" onclick="PU.editorMode.expandAllLocks()">Expand All</a>` : '';
             container.dataset.debugVariant = 'preview-count';
             container.dataset.debugTotal = displayTotal;
             container.innerHTML = `
                 <div class="pu-rp-ops-nav">
-                    <span class="pu-rp-ops-nav-text" data-testid="pu-rp-nav-label"><b>${displayTotal.toLocaleString()}</b> combinations</span>
+                    <span class="pu-rp-ops-nav-text" data-testid="pu-rp-nav-label"><b>${displayTotal.toLocaleString()}</b> of ${rawTotal.toLocaleString()}</span>
+                    ${expandAllHtml}
                 </div>
             `;
             return;
@@ -1419,13 +1425,17 @@ PU.rightPanel = {
         const sampleSize = 200;
         const sizeStr = PU.shared.formatBytes(sampleSize * lockedTotal);
 
+        const isFullSpace = lockedTotal === rawTotal;
+        const expandAllHtml = !isFullSpace ? `<a class="pu-rp-ops-expand-all" data-testid="pu-rp-expand-all" onclick="PU.editorMode.expandAllLocks()">Expand All</a>` : '';
+
         container.innerHTML = `
             <div class="pu-rp-ops-nav">
-                <span class="pu-rp-ops-nav-text" data-testid="pu-rp-nav-label"><b>${lockedTotal.toLocaleString()}</b> compositions</span>
+                <span class="pu-rp-ops-nav-text" data-testid="pu-rp-nav-label"><b>${lockedTotal.toLocaleString()}</b> of ${rawTotal.toLocaleString()}</span>
+                ${expandAllHtml}
             </div>
             ${dimsHtml ? `<div class="pu-rp-ops-dims" data-testid="pu-rp-ops-dims">${dimsHtml}</div>` : ''}
             <div class="pu-rp-ops-bottom-row">
-                <span class="pu-rp-ops-total" data-testid="pu-rp-ops-total">${lockedTotal.toLocaleString()} compositions</span>
+                <span class="pu-rp-ops-total" data-testid="pu-rp-ops-total">${lockedTotal.toLocaleString()} of ${rawTotal.toLocaleString()}</span>
                 <span class="pu-rp-ops-size" data-testid="pu-rp-ops-size">~${sizeStr}</span>
                 <button class="pu-rp-ops-export-btn" data-testid="pu-rp-export-btn" onclick="PU.generate.exportTxt()">Export${PU.state.buildComposition.activeOperation ? `<span class="variant-label">&middot; ${PU.blocks.escapeHtml(PU.state.buildComposition.activeOperation)}</span>` : ' .txt'}</button>
             </div>
@@ -1537,6 +1547,9 @@ PU.rightPanel = {
                         await PU.rightPanel.selectOperation(opName);
                     }
                 }
+
+                // Normalize locked values (fill defaults, clean stale values)
+                PU.editorMode._ensureLockDefaults();
 
                 // Sync locked values to selectedWildcards['*'] for preview
                 const locked = PU.state.previewMode.lockedValues;

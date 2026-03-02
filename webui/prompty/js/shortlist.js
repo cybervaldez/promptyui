@@ -567,6 +567,7 @@ PU.shortlist = {
         }
 
         // 5. Render flat list with segmented text
+        const overflow = PU.state.previewMode.pathOverflow || {};
         let html = '';
         for (const path of paths) {
             const entries = groups[path];
@@ -614,6 +615,13 @@ PU.shortlist = {
                 html += `<div class="${cls}" data-testid="pu-shortlist-item-${esc(path)}" data-block-path="${esc(src.blockPath)}" data-combo-key="${esc(src.comboKey)}" onclick="PU.shortlist._handleItemClick('${safeBp}', '${safeKey}', event)">`;
                 html += pinIcon + orphanIcon;
                 html += `<span class="pu-shortlist-item-text" data-testid="pu-shortlist-resolved">${textHtml}</span>`;
+                html += '</div>';
+            }
+
+            // Render "+N more" link if this path has overflow
+            if (overflow[path] && overflow[path] > 0) {
+                html += `<div class="pu-shortlist-show-more" data-testid="pu-shortlist-show-more-${esc(path)}" onclick="event.stopPropagation(); PU.editorMode.showMoreVariations('${safePath}')">`;
+                html += `<span class="pu-shortlist-show-more-text">+${overflow[path].toLocaleString()} more</span>`;
                 html += '</div>';
             }
         }

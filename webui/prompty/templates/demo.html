@@ -263,7 +263,7 @@ body {
 .wc-popover-tab-landing {
     display: none;
     text-align: center;
-    padding: 0.6em 0;
+    padding: 0.8em 0;
     font-size: 0.7rem;
     color: var(--text-muted);
 }
@@ -279,6 +279,9 @@ body {
     padding: 0.15em 0.4em;
     line-height: 1;
     animation: hint-key-glow 2s ease-in-out infinite;
+}
+.wc-popover-tab-landing strong {
+    color: var(--text-primary);
 }
 @media (prefers-reduced-motion: reduce) {
     .wc-popover-tab-landing kbd { animation: none; border-color: rgba(255, 107, 53, 0.5); }
@@ -331,43 +334,23 @@ body {
     border-color: var(--reel-value);
 }
 /* ── Inline editor hint (floating below cursor) ── */
-.q-inline-hint {
+.q-edit-tip {
     position: absolute;
-    z-index: 20;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%) translateY(100%);
+    padding-top: calc(0.6em + 15px);
+    text-align: center;
     pointer-events: none;
     font-family: var(--font-mono);
-    font-size: 0.6rem;
-    color: var(--text-muted);
+    font-size: 0.55rem;
+    color: var(--text-primary);
+    opacity: 0.45;
+    transition: opacity 0.3s ease;
     white-space: nowrap;
-    opacity: 0;
-    transition: opacity 0.15s ease;
 }
-.q-inline-hint.visible {
-    opacity: 1;
-}
-.q-inline-hint kbd {
-    font-family: var(--font-mono);
-    font-size: 0.6rem;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    color: var(--accent-amber);
-    background: rgba(255, 107, 53, 0.08);
-    border: 1px solid rgba(255, 107, 53, 0.3);
-    border-radius: 3px;
-    padding: 0.1em 0.35em;
-    line-height: 1;
-    animation: hint-key-glow 2s ease-in-out infinite;
-}
-.q-inline-hint .hint-dim {
-    color: var(--text-secondary);
-}
-@keyframes hint-key-glow {
-    0%, 100% { box-shadow: 0 0 3px rgba(255, 107, 53, 0.1); border-color: rgba(255, 107, 53, 0.2); }
-    50% { box-shadow: 0 0 10px rgba(255, 107, 53, 0.4), 0 0 3px rgba(255, 107, 53, 0.2); border-color: rgba(255, 107, 53, 0.5); }
-}
-@media (prefers-reduced-motion: reduce) {
-    .q-inline-hint kbd { animation: none; border-color: rgba(255, 107, 53, 0.5); }
-}
+.q-edit-tip.hidden { opacity: 0; }
+.q-edit-tip code { color: var(--text-secondary); }
 
 .wc-popover-input::placeholder {
     color: var(--text-muted);
@@ -1454,13 +1437,16 @@ function renderPopoverContent() {
 
     inputEl.value = '';
 
-    // Empty chip + auto-open: show TAB landing, hide form
+    // Empty chip + auto-open: show TAB landing, hide form and header
     if (_popoverIsChip && !_popoverFromClick && wcData.values.length === 0) {
-        landingEl.style.display = '';
+        nameEl.style.display = 'none';
+        landingEl.innerHTML = 'Press <kbd>TAB</kbd> to add values to <strong>' + wcData.name + '</strong>';
+        landingEl.style.display = 'block';
         formEl.style.display = 'none';
         inputEl.blur();
     } else {
-        // Has values or explicit click: show form directly
+        // Has values or explicit click: show header, form directly
+        nameEl.style.display = '';
         landingEl.style.display = 'none';
         formEl.style.display = '';
         if (_popoverIsChip && !_popoverFromClick) {
@@ -2051,10 +2037,10 @@ function createQBlock(initialText, depth, wildcardValues, placeholder) {
     });
     editEl.appendChild(actionsBar);
 
-    // Floating inline hint (positioned relative to editEl)
-    var inlineHint = document.createElement('div');
-    inlineHint.className = 'q-inline-hint';
-    editEl.appendChild(inlineHint);
+    var editTip = document.createElement('div');
+    editTip.className = 'q-edit-tip';
+    editTip.innerHTML = 'Tip: Type <code>__wildcard__</code> to create a wildcard list';
+    editEl.appendChild(editTip);
 
     blockEl.appendChild(editEl);
 
@@ -2083,62 +2069,14 @@ function createQBlock(initialText, depth, wildcardValues, placeholder) {
         quill.setText(initialText, 'silent');
     }
 
-    // ── Inline hint positioning ──
-    function showInlineHint(html, anchorEl) {
-        inlineHint.innerHTML = html;
-        // Position below the anchor element
-        var editRect = editEl.getBoundingClientRect();
-        var anchorRect = anchorEl.getBoundingClientRect();
-        inlineHint.style.left = (anchorRect.left - editRect.left) + 'px';
-        inlineHint.style.top = (anchorRect.bottom - editRect.top + 4) + 'px';
-        inlineHint.classList.add('visible');
-    }
-    function hideInlineHint() {
-        inlineHint.classList.remove('visible');
-    }
+    // Hide tip immediately if block already has wildcards
+    requestAnimationFrame(function() {
+        if (quill.root.querySelector('.ql-wildcard-chip')) editTip.classList.add('hidden');
+    });
 
-    // ── Detect __ prefix for wildcard completion hint ──
-    function checkDoubleUnderscoreHint() {
-        var range = quill.getSelection();
-        if (!range || range.length !== 0) { hideInlineHint(); return false; }
-        var idx = range.index;
-
-        // Build plain text up to cursor (skipping embeds)
-        var contents = quill.getContents();
-        var textBefore = '';
-        var charCount = 0;
-        for (var i = 0; i < contents.ops.length; i++) {
-            var op = contents.ops[i];
-            if (typeof op.insert === 'string') {
-                var remaining = idx - charCount;
-                if (remaining <= op.insert.length) {
-                    textBefore += op.insert.slice(0, remaining);
-                    break;
-                }
-                textBefore += op.insert;
-                charCount += op.insert.length;
-            } else {
-                charCount += 1; // embed
-            }
-        }
-
-        // Check if text before cursor ends with __ but isn't a complete __name__ pattern
-        if (textBefore.length >= 2 && textBefore.slice(-2) === '__') {
-            // Make sure it's not the closing __ of a complete pattern
-            var prefix = textBefore.slice(0, -2);
-            if (!/__([\w-]+)$/.test(prefix)) {
-                // Show hint at cursor position
-                var cursorBounds = quill.getBounds(idx);
-                var fakeAnchor = { getBoundingClientRect: function() {
-                    var er = editEl.getBoundingClientRect();
-                    return { left: er.left + cursorBounds.left, right: er.left + cursorBounds.left + 1,
-                             top: er.top + cursorBounds.top, bottom: er.top + cursorBounds.bottom };
-                }};
-                showInlineHint('<span class="hint-dim">wrap with</span> __wildcard__', fakeAnchor);
-                return true;
-            }
-        }
-        return false;
+    function updateTipVisibility() {
+        var hasWildcard = quill.root.querySelector('.ql-wildcard-chip');
+        editTip.classList.toggle('hidden', !!hasWildcard);
     }
 
     quill.on('text-change', function(delta, oldDelta, source) {
@@ -2148,13 +2086,12 @@ function createQBlock(initialText, depth, wildcardValues, placeholder) {
         var text = serializeQuill(quill).replace(/\u200B/g, '').trim();
         if (text) actionsBar.classList.add('visible');
         else actionsBar.classList.remove('visible');
-        // Check for __ hint after text changes
-        requestAnimationFrame(function() { checkDoubleUnderscoreHint(); });
+        updateTipVisibility();
     });
 
     // Show popover when cursor lands adjacent to a wildcard chip
     quill.on('selection-change', function(range, oldRange, source) {
-        if (!range || range.length !== 0) { hideInlineHint(); return; }
+        if (!range || range.length !== 0) return;
         if (source !== 'user') return;
         var idx = range.index;
 
@@ -2181,15 +2118,10 @@ function createQBlock(initialText, depth, wildcardValues, placeholder) {
             if (!_activePopoverWc || _activePopoverWc.reelEl !== chipNode) {
                 openChipPopover(chipNode);
             }
-            hideInlineHint();
         } else {
             if (_popoverIsChip) {
                 // Cursor moved away from any wildcard — close chip popover
                 closePopover();
-            }
-            // Check for __ hint when cursor moves
-            if (!checkDoubleUnderscoreHint()) {
-                hideInlineHint();
             }
         }
     });
@@ -2496,6 +2428,14 @@ function switchToEdit(block, opts) {
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
             e.preventDefault(); cleanup(); addSiblingBlock(block); return;
         }
+        if (e.key === 'Tab' && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            e.preventDefault();
+            var idx = qState.blocks.indexOf(block);
+            if (idx > 0) {
+                cleanup(); switchToEdit(qState.blocks[idx - 1], { cursorAt: 'end' });
+            }
+            return;
+        }
         if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
             e.preventDefault();
             // If popover is open, reveal form and focus its input instead of nesting
@@ -2508,6 +2448,27 @@ function switchToEdit(block, opts) {
                 }
                 var popInput = popoverEl.querySelector('.wc-popover-input');
                 if (popInput) popInput.focus();
+                return;
+            }
+            // Empty block: Tab moves to next block, or creates new root if last
+            var blockText = serializeQuill(block.quill).replace(/\u200B/g, '').trim();
+            if (!blockText) {
+                var idx = qState.blocks.indexOf(block);
+                if (idx < qState.blocks.length - 1) {
+                    cleanup(); switchToEdit(qState.blocks[idx + 1], { cursorAt: 'start' });
+                } else {
+                    // Empty last block: remove it and land on the add-block placeholder
+                    cleanup();
+                    block.lineEl.remove();
+                    var bi = qState.blocks.indexOf(block);
+                    if (bi !== -1) qState.blocks.splice(bi, 1);
+                    clearEditFocus();
+                    updateQConnectors();
+                    qRecalc();
+                    // Focus the "click to write" placeholder
+                    var addBtn = document.getElementById('q-add-block');
+                    if (addBtn) addBtn.click();
+                }
                 return;
             }
             cleanup(); addChildBlock(block); return;
