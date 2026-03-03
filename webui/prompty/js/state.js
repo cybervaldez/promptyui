@@ -191,8 +191,9 @@ PU.state = {
         variationMode: 'summary', // 'summary' = per-wildcard pills, 'expanded' = full Cartesian
         pathBudgets: {},          // Per-path overridden budgets from "show more" clicks: { blockPath: budget }
         pathOverflow: {},         // Per-path remaining count: { blockPath: remainingCount }
-        shortlist: [],            // Array of { text, sources: [{blockPath, comboKey}] }
-        dimmedEntries: new Set(), // Set of "blockPath|comboKey" keys excluded from shortlist
+        magnifiedPath: null,      // null = full view, "0.1" = zoomed into subtree at that path
+        compositions: [],         // Array of { text, sources: [{blockPath, comboKey}] }
+        dimmedEntries: new Set(), // Set of "blockPath|comboKey" keys excluded from compositions
         pinnedEntries: new Set(), // Set of "blockPath|comboKey" — survives populateFromPreview()
         pinnedTexts: new Map(),   // Map<"bp|ck", string> — frozen text for orphan display
         _extTextCache: {},    // Cached ext_text API data: { "scope/name": data }

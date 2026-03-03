@@ -175,15 +175,15 @@ PU.editorMode = {
             </div>`;
         }).join('');
 
-        // Attach segment-level hover listeners for shortlist linking
+        // Attach segment-level hover listeners for compositions linking
         PU.editorMode._attachPreviewHoverListeners(body);
 
-        // Auto-populate shortlist from state, render panel
-        PU.shortlist.populateFromPreview();
-        PU.shortlist.render();
+        // Auto-populate compositions from state, render panel
+        PU.compositions.populateFromPreview();
+        PU.compositions.render();
     },
 
-    /** Attach block-level hover on preview rows to highlight the block + matching shortlist items. */
+    /** Attach block-level hover on preview rows to highlight the block + matching compositions items. */
     _attachPreviewHoverListeners(container) {
         if (PU.state.ui.editorMode === 'preview' || PU.state.ui.editorMode === 'review') {
             const allBlocks = container.querySelectorAll('.pu-preview-block[data-path]');
@@ -192,11 +192,11 @@ PU.editorMode = {
                     const path = block.dataset.path;
                     if (!path) return;
                     block.classList.add('pu-preview-block-hover');
-                    PU.shortlist._highlightItemsBySegmentPath(path);
+                    PU.compositions._highlightItemsBySegmentPath(path);
                 });
                 block.addEventListener('mouseleave', () => {
                     block.classList.remove('pu-preview-block-hover');
-                    PU.shortlist._clearShortlistHighlights();
+                    PU.compositions._clearCompositionsHighlights();
                 });
             });
         }
@@ -214,7 +214,7 @@ PU.editorMode = {
      * Returns {blocks: [{path, depth, html}], variationData: [{blockPath, comboKey, text}]}.
      * Each row prepends faded ancestor text with ── separators, highlighting only the own block.
      *
-     * Two-pass allocation for shortlist: first counts effectiveCombos per block,
+     * Two-pass allocation for compositions: first counts effectiveCombos per block,
      * then computes sqrt-proportional budgets, then generates variations to budget.
      */
     _renderBlockByBlock(textItems, resolutions, maxDepth, lookup, locked) {
@@ -284,9 +284,33 @@ PU.editorMode = {
                 const rawContent = block.content || '';
                 const hasChildren = block.after && block.after.length > 0;
 
-                // Find wildcards in this block
+                // Find wildcards in this block's content (or ext_text resolved template)
                 const blockWcNames = [];
-                if (!isExtText && rawContent) {
+                let extTextValues = null; // Array of ext_text strings for ext_text blocks
+                if (isExtText) {
+                    // Get ext_text values from cache
+                    const extName = block.ext_text;
+                    const extPrefix = PU.helpers.getActivePrompt()?.ext || PU.helpers.getActiveJob()?.defaults?.ext || '';
+                    const needsPrefix = extPrefix && !extName.startsWith(extPrefix + '/');
+                    const cacheKey = needsPrefix ? `${extPrefix}/${extName}` : extName;
+                    const extData = (PU.state.previewMode._extTextCache || {})[cacheKey];
+                    if (extData && extData.text && extData.text.length > 0) {
+                        extTextValues = extData.text;
+                    }
+                    // Find wildcards in the ext_text template (from resolved marker text)
+                    const rawTemplate = (res.resolvedMarkerText || '').replace(/\{\{([^:]+):([^}]+)\}\}/g, '__$1__');
+                    if (rawTemplate) {
+                        const wcPattern = /__([a-zA-Z0-9_-]+)__/g;
+                        let m;
+                        const seen = new Set();
+                        while ((m = wcPattern.exec(rawTemplate)) !== null) {
+                            if (!seen.has(m[1]) && lookup[m[1]]) {
+                                seen.add(m[1]);
+                                blockWcNames.push(m[1]);
+                            }
+                        }
+                    }
+                } else if (rawContent) {
                     const wcPattern = /__([a-zA-Z0-9_-]+)__/g;
                     let m;
                     const seen = new Set();
@@ -300,18 +324,24 @@ PU.editorMode = {
 
                 // Compute effectiveCombos for this block
                 let effectiveCombos = 1;
-                if (!isExtText && blockWcNames.length > 0) {
+                if (isExtText && extTextValues) {
+                    effectiveCombos = extTextValues.length;
+                    // Multiply by locked wildcard dimensions in the ext_text template
+                    for (const name of blockWcNames) {
+                        const lockedVals = (locked[name] && locked[name].length > 0) ? locked[name] : null;
+                        if (lockedVals) effectiveCombos *= lockedVals.length;
+                    }
+                } else if (blockWcNames.length > 0) {
                     for (const name of blockWcNames) {
                         const lockedVals = (locked[name] && locked[name].length > 0) ? locked[name] : null;
                         if (lockedVals) {
                             effectiveCombos *= lockedVals.length;
                         }
-                        // Unlocked (pinned to odometer) contributes 1 — no multiply needed
                     }
                 }
 
                 const type = isExtText ? 'ext_text' : (blockWcNames.length > 0 ? 'wildcard' : 'static');
-                blockMeta.push({ path, type, effectiveCombos, blockWcNames, rawContent, block, res, depth, hasChildren });
+                blockMeta.push({ path, type, effectiveCombos, blockWcNames, rawContent, block, res, depth, hasChildren, extTextValues });
 
                 // Recurse children (respecting maxBranches truncation)
                 if (hasChildren) {
@@ -332,29 +362,60 @@ PU.editorMode = {
         const allocatedBudgets = {}; // { path: budget }
 
         if (isPreviewMode && blockMeta.length > 0) {
+            const magnified = PU.state.previewMode.magnifiedPath;
+            // When magnified, boost budget for blocks in the magnified subtree
+            const isMagnified = (path) => magnified && (path === magnified || path.startsWith(magnified + '.'));
+
             // Only blocks with effectiveCombos > 1 need allocation
             const varyingBlocks = blockMeta.filter(b => b.effectiveCombos > 1);
             const numPaths = blockMeta.length;
             const totalBudget = Math.max(numPaths * 2, 30); // At least 2 per path, min 30
 
             if (varyingBlocks.length > 0) {
-                const sqrtSum = varyingBlocks.reduce((s, b) => s + Math.sqrt(b.effectiveCombos), 0);
-                // Budget for static/ext_text blocks = 1 each
-                const staticCount = blockMeta.filter(b => b.effectiveCombos <= 1).length;
-                const remainingBudget = totalBudget - staticCount;
+                if (magnified) {
+                    // Magnified mode: give magnified subtree a proportionally larger budget
+                    const magBlocks = varyingBlocks.filter(b => isMagnified(b.path));
+                    const otherBlocks = varyingBlocks.filter(b => !isMagnified(b.path));
+                    const staticCount = blockMeta.filter(b => b.effectiveCombos <= 1).length;
 
-                for (const b of varyingBlocks) {
-                    // Check for user-overridden budget (from "show more" clicks)
-                    if (pathBudgets[b.path]) {
-                        allocatedBudgets[b.path] = Math.min(pathBudgets[b.path], 50);
-                    } else {
-                        const share = Math.max(2, Math.floor(Math.sqrt(b.effectiveCombos) / sqrtSum * remainingBudget));
-                        allocatedBudgets[b.path] = Math.min(share, b.effectiveCombos);
+                    // Give 80% of budget to magnified subtree, 20% to rest
+                    const magBudget = Math.floor((totalBudget - staticCount) * 0.8);
+                    const otherBudget = totalBudget - staticCount - magBudget;
+
+                    // Allocate within magnified blocks
+                    if (magBlocks.length > 0) {
+                        const magSqrtSum = magBlocks.reduce((s, b) => s + Math.sqrt(b.effectiveCombos), 0);
+                        for (const b of magBlocks) {
+                            if (pathBudgets[b.path]) {
+                                allocatedBudgets[b.path] = Math.min(pathBudgets[b.path], 50);
+                            } else {
+                                const share = Math.max(2, Math.floor(Math.sqrt(b.effectiveCombos) / magSqrtSum * magBudget));
+                                allocatedBudgets[b.path] = Math.min(share, b.effectiveCombos);
+                            }
+                        }
+                    }
+                    // Minimal allocation to non-magnified blocks
+                    for (const b of otherBlocks) {
+                        allocatedBudgets[b.path] = pathBudgets[b.path] ? Math.min(pathBudgets[b.path], 50) : 1;
+                    }
+                } else {
+                    // Normal mode: sqrt-proportional across all blocks
+                    const sqrtSum = varyingBlocks.reduce((s, b) => s + Math.sqrt(b.effectiveCombos), 0);
+                    const staticCount = blockMeta.filter(b => b.effectiveCombos <= 1).length;
+                    const remainingBudget = totalBudget - staticCount;
+
+                    for (const b of varyingBlocks) {
+                        if (pathBudgets[b.path]) {
+                            allocatedBudgets[b.path] = Math.min(pathBudgets[b.path], 50);
+                        } else {
+                            const share = Math.max(2, Math.floor(Math.sqrt(b.effectiveCombos) / sqrtSum * remainingBudget));
+                            allocatedBudgets[b.path] = Math.min(share, b.effectiveCombos);
+                        }
                     }
                 }
             }
 
-            // Static/ext_text blocks always get budget 1
+            // Static blocks (effectiveCombos = 1) always get budget 1
             for (const b of blockMeta) {
                 if (b.effectiveCombos <= 1) allocatedBudgets[b.path] = 1;
             }
@@ -398,8 +459,50 @@ PU.editorMode = {
                     const templateHtml = hasExtWc ? ' ' + PU.editorMode._convertToTemplateView(rawTemplate) : '';
                     ownHtml = labelHtml + templateHtml;
                     if (isPreviewMode) {
-                        const plainText = (res.resolvedMarkerText || '').replace(/\{\{([^:]+):([^}]+)\}\}/g, '$2');
-                        variationData.push({ blockPath: path, comboKey: '', text: plainText });
+                        // Get ext_text values from cache
+                        const extName = block.ext_text;
+                        const extPrefix = PU.helpers.getActivePrompt()?.ext || PU.helpers.getActiveJob()?.defaults?.ext || '';
+                        const needsPrefix = extPrefix && !extName.startsWith(extPrefix + '/');
+                        const cacheKey = needsPrefix ? `${extPrefix}/${extName}` : extName;
+                        const extData = (PU.state.previewMode._extTextCache || {})[cacheKey];
+                        const extValues = (extData && extData.text && extData.text.length > 0) ? extData.text : null;
+
+                        if (extValues && extValues.length > 1) {
+                            // Expand ext_text as a dimension: each value produces an entry
+                            const budget = allocatedBudgets[path] || 20;
+                            // Find wildcards in the ext_text template
+                            const extWcNames = [];
+                            if (rawTemplate) {
+                                const wcPattern = /__([a-zA-Z0-9_-]+)__/g;
+                                let m;
+                                const seen = new Set();
+                                while ((m = wcPattern.exec(rawTemplate)) !== null) {
+                                    if (!seen.has(m[1]) && lookup[m[1]]) {
+                                        seen.add(m[1]);
+                                        extWcNames.push(m[1]);
+                                    }
+                                }
+                            }
+                            const blockVars = PU.editorMode._computeExtTextVariations(
+                                extValues, extWcNames, lookup, locked, wcIndices, path, budget
+                            );
+                            for (const v of blockVars) variationData.push(v);
+
+                            // Compute overflow
+                            let effectiveCombos = extValues.length;
+                            for (const name of extWcNames) {
+                                const lv = (locked[name] && locked[name].length > 0) ? locked[name] : null;
+                                if (lv) effectiveCombos *= lv.length;
+                            }
+                            const remaining = effectiveCombos - blockVars.length;
+                            if (remaining > 0) {
+                                pathOverflow[path] = remaining;
+                            }
+                        } else {
+                            // Single ext_text value: one entry (original behavior)
+                            const plainText = (res.resolvedMarkerText || '').replace(/\{\{([^:]+):([^}]+)\}\}/g, '$2');
+                            variationData.push({ blockPath: path, comboKey: '', text: plainText });
+                        }
                     }
                 } else if (blockWcNames.length > 0) {
                     ownHtml = PU.editorMode._convertToTemplateView(rawContent);
@@ -469,7 +572,7 @@ PU.editorMode = {
 
         traverse(textItems, '', 1, false);
 
-        // Store overflow for shortlist renderer
+        // Store overflow for compositions renderer
         PU.state.previewMode.pathOverflow = pathOverflow;
 
         return { blocks: results, variationData };
@@ -527,7 +630,7 @@ PU.editorMode = {
 
     /**
      * Compute resolved text variations for a block with wildcards.
-     * Returns array of {blockPath, comboKey, text} for shortlist population.
+     * Returns array of {blockPath, comboKey, text} for compositions population.
      * Budget param controls max entries (from allocation). Falls back to 20/100.
      */
     _computeBlockVariations(content, blockWcNames, lookup, locked, wcIndices, mode, blockPath, budget) {
@@ -584,7 +687,76 @@ PU.editorMode = {
 
             results.push({
                 blockPath,
-                comboKey: PU.shortlist.comboToKey(combo),
+                comboKey: PU.compositions.comboToKey(combo),
+                text: plain
+            });
+        }
+
+        return results;
+    },
+
+    /**
+     * Compute variations for an ext_text block.
+     * Each ext_text value is a dimension; wildcards within are additional dimensions.
+     * Returns array of {blockPath, comboKey, text} for compositions panel.
+     */
+    _computeExtTextVariations(extValues, extWcNames, lookup, locked, wcIndices, blockPath, budget) {
+        // Build dimensions: ext_text values + locked wildcards
+        const dims = [{ name: '_ext', values: extValues }];
+        for (const name of extWcNames) {
+            const lockedVals = (locked[name] && locked[name].length > 0) ? locked[name] : null;
+            const allVals = lookup[name] || [];
+            if (lockedVals) {
+                dims.push({ name, values: lockedVals });
+            } else {
+                const idx = wcIndices[name] || 0;
+                dims.push({ name, values: [allVals[idx % allVals.length] || '?'] });
+            }
+        }
+
+        let totalCombos = 1;
+        for (const dim of dims) {
+            totalCombos *= dim.values.length;
+            if (totalCombos > 10000) { totalCombos = 10001; break; }
+        }
+
+        const MAX_SHOW = budget || 20;
+        const sampleCount = Math.min(totalCombos, MAX_SHOW * 3);
+        const combos = PU.editorMode._cartesianProduct(dims, sampleCount);
+
+        const results = [];
+        const seen = new Set();
+        for (const combo of combos) {
+            if (results.length >= MAX_SHOW) break;
+
+            // The _ext dimension holds the raw ext_text template string
+            const extEntry = combo.find(c => c.name === '_ext');
+            let plain = extEntry ? extEntry.value : '';
+
+            // Resolve wildcards in the ext_text template
+            for (const { name, value } of combo) {
+                if (name === '_ext') continue;
+                plain = plain.split(`__${name}__`).join(value);
+            }
+            // Resolve remaining wildcards with odometer values
+            plain = plain.replace(/__([a-zA-Z0-9_-]+)__/g, (match, wcName) => {
+                const allVals = lookup[wcName] || [];
+                if (allVals.length === 0) return match;
+                const idx = wcIndices[wcName] || 0;
+                return allVals[idx % allVals.length];
+            });
+
+            if (seen.has(plain)) continue;
+            seen.add(plain);
+
+            // Build combo key: ext=<short label> + wildcard dims
+            const wcCombo = combo.filter(c => c.name !== '_ext');
+            // Use first few chars of ext value as label
+            const extLabel = (extEntry ? extEntry.value : '').substring(0, 40).replace(/__[a-zA-Z0-9_-]+__/g, '*').trim();
+            const fullCombo = [{ name: 'ext', value: extLabel }, ...wcCombo];
+            results.push({
+                blockPath,
+                comboKey: PU.compositions.comboToKey(fullCombo),
                 text: plain
             });
         }
@@ -921,6 +1093,7 @@ PU.editorMode = {
     clearAllLocks() {
         PU.editorMode._ensureLockDefaults(true);
         PU.state.previewMode.pathBudgets = {}; // Reset all show-more expansions
+        PU.state.previewMode.magnifiedPath = null; // Clear magnifier
         const sw = PU.state.previewMode.selectedWildcards;
         delete sw['*'];
         PU.editorMode.renderPreview();
@@ -945,8 +1118,8 @@ PU.editorMode = {
     /** Show more variations for a specific block path (doubles shown count, caps at 50). */
     showMoreVariations(blockPath) {
         const budgets = PU.state.previewMode.pathBudgets;
-        // Use current shortlist count for this path as the base (not the stored budget)
-        const currentCount = PU.state.previewMode.shortlist.filter(
+        // Use current compositions count for this path as the base (not the stored budget)
+        const currentCount = PU.state.previewMode.compositions.filter(
             i => i.sources[0].blockPath === blockPath
         ).length;
         const base = Math.max(currentCount, budgets[blockPath] || 2);

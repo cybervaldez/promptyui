@@ -105,9 +105,11 @@ def handle_session_save(handler, job_id, params):
         if 'active_operation' in data:
             if data['active_operation'] is None or isinstance(data['active_operation'], str):
                 clean_data['active_operation'] = data['active_operation']
-        if 'shortlist_curation' in data and isinstance(data['shortlist_curation'], dict):
+        # Accept both new key (compositions_curation) and old key (shortlist_curation)
+        curation_key = 'compositions_curation' if 'compositions_curation' in data else 'shortlist_curation'
+        if curation_key in data and isinstance(data[curation_key], dict):
             curation = {}
-            sc = data['shortlist_curation']
+            sc = data[curation_key]
             if 'dimmed' in sc and isinstance(sc['dimmed'], list):
                 curation['dimmed'] = [str(e) for e in sc['dimmed'] if isinstance(e, str)]
             if 'pinned' in sc and isinstance(sc['pinned'], list):
@@ -117,7 +119,7 @@ def handle_session_save(handler, job_id, params):
                     str(k): str(v) for k, v in sc['pinnedTexts'].items()
                     if isinstance(k, str) and isinstance(v, str)
                 }
-            clean_data['shortlist_curation'] = curation
+            clean_data['compositions_curation'] = curation
         elif 'dimmed_entries' in data and isinstance(data['dimmed_entries'], list):
             # Backward compat: Phase 1 format
             clean_data['dimmed_entries'] = [

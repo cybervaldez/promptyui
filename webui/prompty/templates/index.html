@@ -138,20 +138,20 @@
                         <div class="pu-lock-popup" data-testid="pu-lock-popup" style="display: none;"></div>
                     </div>
 
-                    <!-- Shortlist Footer Panel (Review mode only, CSS-gated) -->
-                    <div class="pu-shortlist-panel" data-testid="pu-shortlist-panel" style="display: none;">
-                        <div class="pu-shortlist-header" data-testid="pu-shortlist-header"
-                             onclick="PU.shortlist.togglePanel()">
-                            <span class="pu-shortlist-title">Shortlist</span>
-                            <span class="pu-shortlist-count" data-testid="pu-shortlist-count">0</span>
-                            <span class="pu-shortlist-limit"> items</span>
+                    <!-- Compositions Footer Panel (Review mode only, CSS-gated) -->
+                    <div class="pu-compositions-panel" data-testid="pu-compositions-panel" style="display: none;">
+                        <div class="pu-compositions-header" data-testid="pu-compositions-header"
+                             onclick="PU.compositions.togglePanel()">
+                            <span class="pu-compositions-title">Compositions</span>
+                            <span class="pu-compositions-count" data-testid="pu-compositions-count">0</span>
+                            <span class="pu-compositions-limit"> items</span>
                             <span style="flex:1"></span>
-                            <button class="pu-shortlist-clear-btn" data-testid="pu-shortlist-clear"
-                                    onclick="event.stopPropagation(); PU.shortlist.clearAll()">Clear All</button>
-                            <span class="pu-shortlist-chevron">&#9660;</span>
+                            <button class="pu-compositions-clear-btn" data-testid="pu-compositions-clear"
+                                    onclick="event.stopPropagation(); PU.compositions.clearAll()">Clear All</button>
+                            <span class="pu-compositions-chevron">&#9660;</span>
                         </div>
-                        <div class="pu-shortlist-body" data-testid="pu-shortlist-body"></div>
-                        <div class="pu-shortlist-action-bar" data-testid="pu-shortlist-action-bar"></div>
+                        <div class="pu-compositions-body" data-testid="pu-compositions-body"></div>
+                        <div class="pu-compositions-action-bar" data-testid="pu-compositions-action-bar"></div>
                     </div>
 
                     <!-- Add Block Buttons -->
@@ -250,8 +250,6 @@
         <!-- Footer Helper Bar -->
         <footer class="pu-footer" data-testid="pu-footer">
             <div class="pu-footer-shortcuts" data-testid="pu-footer-shortcuts">
-                <span class="pu-footer-prefix">Keyboard Shortcuts</span>
-                <span class="pu-footer-sep">&mdash;</span>
                 <span class="pu-footer-label" data-testid="pu-footer-job-browser"
                       onclick="PU.sidebar.togglePanel()">Open</span>
                 <kbd>[</kbd>
@@ -259,6 +257,9 @@
                 <span class="pu-footer-label" data-testid="pu-footer-composer"
                       onclick="PU.rightPanel.togglePanel()">Compose</span>
                 <kbd>]</kbd>
+                <span class="pu-footer-comma">,</span>
+                <span class="pu-footer-label">Clear</span>
+                <kbd>Esc</kbd>
             </div>
             <div class="pu-footer-tip" data-testid="pu-footer-tip"></div>
         </footer>
@@ -486,7 +487,7 @@
     <script src="js/move-to-theme.js"></script>
     <script src="js/generate.js"></script>
     <script src="js/export.js"></script>
-    <script src="js/shortlist.js"></script>
+    <script src="js/compositions.js"></script>
     <script src="js/editor-mode.js"></script>
     <script src="js/main.js"></script>
 </body>

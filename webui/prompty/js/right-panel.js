@@ -54,7 +54,12 @@ PU.rightPanel = {
                     PU.rightPanel.clearFocus();
                     return;
                 }
-                // Priority 2: reset expanded locks to first-value defaults
+                // Priority 2: clear magnifier
+                if (PU.state.previewMode.magnifiedPath) {
+                    PU.compositions.clearMagnify();
+                    return;
+                }
+                // Priority 3: reset expanded locks to first-value defaults
                 const locked = PU.state.previewMode.lockedValues;
                 const hasNonDefault = Object.values(locked).some(v => v && v.length > 1);
                 if (hasNonDefault) {
@@ -1510,7 +1515,7 @@ PU.rightPanel = {
             composition: PU.state.previewMode.compositionId,
             locked_values: PU.helpers.deepClone(PU.state.previewMode.lockedValues),
             active_operation: PU.state.buildComposition.activeOperation || null,
-            shortlist_curation: PU.shortlist.getSessionData()
+            compositions_curation: PU.compositions.getSessionData()
         };
     },
 
@@ -1563,11 +1568,12 @@ PU.rightPanel = {
                     }
                 }
 
-                // Hydrate shortlist curation (Phase 2 object format, backward compat with Phase 1 array)
-                if (promptSession.shortlist_curation && typeof promptSession.shortlist_curation === 'object') {
-                    PU.shortlist.hydrateFromSession(promptSession.shortlist_curation);
+                // Hydrate compositions curation (backward compat: shortlist_curation, dimmed_entries)
+                const curationData = promptSession.compositions_curation || promptSession.shortlist_curation;
+                if (curationData && typeof curationData === 'object') {
+                    PU.compositions.hydrateFromSession(curationData);
                 } else if (promptSession.dimmed_entries && Array.isArray(promptSession.dimmed_entries)) {
-                    PU.shortlist.hydrateFromSession(promptSession.dimmed_entries);
+                    PU.compositions.hydrateFromSession(promptSession.dimmed_entries);
                 }
             }
         } catch (e) {
@@ -1592,7 +1598,7 @@ PU.rightPanel = {
         if (current.composition !== baseline.composition) return true;
         if (current.active_operation !== baseline.active_operation) return true;
         if (JSON.stringify(current.locked_values) !== JSON.stringify(baseline.locked_values)) return true;
-        if (JSON.stringify(current.shortlist_curation) !== JSON.stringify(baseline.shortlist_curation)) return true;
+        if (JSON.stringify(current.compositions_curation) !== JSON.stringify(baseline.compositions_curation)) return true;
 
         return false;
     },

@@ -1,19 +1,19 @@
 /**
- * Shortlist — Auto-populated from resolved variation data with pinning.
+ * Compositions Panel — Shows all resolved prompts with budget-limited allocation.
  *
- * The shortlist always mirrors ALL variations computed for the current preview.
+ * Mirrors ALL variations computed for the current preview (wildcard + ext_text).
  * Data source: PU.state.previewMode.resolvedVariations (populated by editor-mode.js).
  * Users curate by **dimming** (excluding) entries instead of adding/removing.
  * **Pinned** entries survive composition navigation (cross-composition cherry-picking).
  * Orphaned pins (whose variations leave the preview) show warnings.
  *
- * Each shortlist entry is { text, sources: [{blockPath, comboKey}], _orphan? }.
- * Items live in PU.state.previewMode.shortlist[].
+ * Each entry is { text, sources: [{blockPath, comboKey}], _orphan? }.
+ * Items live in PU.state.previewMode.compositions[].
  * Dimmed keys live in PU.state.previewMode.dimmedEntries (Set of "blockPath|comboKey").
  * Pinned keys live in PU.state.previewMode.pinnedEntries (Set of "blockPath|comboKey").
  * Frozen texts for orphan display in PU.state.previewMode.pinnedTexts (Map).
  */
-PU.shortlist = {
+PU.compositions = {
 
     // ── Combo Key Utility ─────────────────────────────────────────────
 
@@ -51,15 +51,15 @@ PU.shortlist = {
 
     // ── Queries ───────────────────────────────────────────────────────
 
-    /** Total shortlisted entries. */
+    /** Total composition entries. */
     count() {
-        return PU.state.previewMode.shortlist.length;
+        return PU.state.previewMode.compositions.length;
     },
 
     // ── Auto-Populate ───────────────────────────────────────────────
 
     /**
-     * Populate shortlist from resolved variation data in state.
+     * Populate compositions from resolved variation data in state.
      * Reads PU.state.previewMode.resolvedVariations (set by editor-mode.js).
      * Pinned entries not in the data are injected as orphans.
      */
@@ -86,7 +86,7 @@ PU.shortlist = {
         // Inject orphaned pinned entries (not found in current data)
         for (const key of PU.state.previewMode.pinnedEntries) {
             if (!seenKeys.has(key)) {
-                const [bp, ck] = PU.shortlist._splitKey(key);
+                const [bp, ck] = PU.compositions._splitKey(key);
                 const frozenText = PU.state.previewMode.pinnedTexts.get(key) || '(orphaned)';
                 items.push({
                     text: frozenText,
@@ -96,7 +96,7 @@ PU.shortlist = {
             }
         }
 
-        PU.state.previewMode.shortlist = items;
+        PU.state.previewMode.compositions = items;
     },
 
     // ── Dim State ────────────────────────────────────────────────────
@@ -111,7 +111,7 @@ PU.shortlist = {
         const key = `${blockPath}|${comboKey}`;
         const set = PU.state.previewMode.dimmedEntries;
         set.has(key) ? set.delete(key) : set.add(key);
-        PU.shortlist.render();
+        PU.compositions.render();
     },
 
     /**
@@ -119,8 +119,8 @@ PU.shortlist = {
      * Range = the path itself + after siblings + all descendants of each.
      */
     toggleDimBlock(separatorPath) {
-        const entries = PU.state.previewMode.shortlist.filter(e =>
-            PU.shortlist._isInSeparatorRange(e.sources[0].blockPath, separatorPath)
+        const entries = PU.state.previewMode.compositions.filter(e =>
+            PU.compositions._isInSeparatorRange(e.sources[0].blockPath, separatorPath)
         );
         const set = PU.state.previewMode.dimmedEntries;
         const allDimmed = entries.length > 0 && entries.every(e =>
@@ -134,7 +134,7 @@ PU.shortlist = {
                 set.add(key);
             }
         }
-        PU.shortlist.render();
+        PU.compositions.render();
     },
 
     /**
@@ -180,16 +180,16 @@ PU.shortlist = {
             texts.delete(key);
         } else {
             pinned.add(key);
-            const text = PU.shortlist._resolveTextForKey(blockPath, comboKey);
+            const text = PU.compositions._resolveTextForKey(blockPath, comboKey);
             if (text) texts.set(key, text);
         }
 
-        PU.shortlist.render();
+        PU.compositions.render();
     },
 
-    /** Resolve text for a given key from shortlist array or resolved variations. */
+    /** Resolve text for a given key from compositions array or resolved variations. */
     _resolveTextForKey(blockPath, comboKey) {
-        const entry = PU.state.previewMode.shortlist.find(e =>
+        const entry = PU.state.previewMode.compositions.find(e =>
             e.sources[0].blockPath === blockPath && e.sources[0].comboKey === comboKey
         );
         if (entry) return entry.text;
@@ -210,7 +210,7 @@ PU.shortlist = {
         const orphans = [];
         for (const key of PU.state.previewMode.pinnedEntries) {
             if (!activeKeys.has(key)) {
-                const [bp, ck] = PU.shortlist._splitKey(key);
+                const [bp, ck] = PU.compositions._splitKey(key);
                 orphans.push({
                     blockPath: bp,
                     comboKey: ck,
@@ -226,56 +226,56 @@ PU.shortlist = {
     /** Route click on a variation: Shift+click → pin, regular click → dim. */
     toggleVariation(blockPath, comboKey, event) {
         if (event && event.shiftKey) {
-            PU.shortlist.togglePin(blockPath, comboKey);
+            PU.compositions.togglePin(blockPath, comboKey);
         } else {
-            PU.shortlist.toggleDim(blockPath, comboKey);
+            PU.compositions.toggleDim(blockPath, comboKey);
         }
     },
 
-    /** Route click on a shortlist item: Shift+click → pin, regular click → dim. */
+    /** Route click on a compositions item: Shift+click → pin, regular click → dim. */
     _handleItemClick(blockPath, comboKey, event) {
         if (event && event.shiftKey) {
-            PU.shortlist.togglePin(blockPath, comboKey);
+            PU.compositions.togglePin(blockPath, comboKey);
         } else {
-            PU.shortlist.toggleDim(blockPath, comboKey);
+            PU.compositions.toggleDim(blockPath, comboKey);
         }
     },
 
-    // ── Segment Highlighting (Preview ↔ Shortlist) ────────────────────
+    // ── Segment Highlighting (Preview ↔ Compositions) ────────────────────
 
-    /** Highlight entire shortlist items that contain a segment matching the given path. */
+    /** Highlight entire compositions items that contain a segment matching the given path. */
     _highlightItemsBySegmentPath(blockPath) {
-        document.querySelectorAll(`.pu-shortlist-segment[data-segment-path="${blockPath}"]`).forEach(seg => {
-            const item = seg.closest('.pu-shortlist-item');
-            if (item) item.classList.add('pu-shortlist-hover-from-preview');
+        document.querySelectorAll(`.pu-compositions-segment[data-segment-path="${blockPath}"]`).forEach(seg => {
+            const item = seg.closest('.pu-compositions-item');
+            if (item) item.classList.add('pu-compositions-hover-from-preview');
         });
     },
 
-    /** Highlight the shortlist item matching a hovered preview block path. */
-    _highlightShortlistItem(blockPath, comboKey) {
-        const panel = document.querySelector('[data-testid="pu-shortlist-body"]');
+    /** Highlight the compositions item matching a hovered preview block path. */
+    _highlightCompositionsItem(blockPath, comboKey) {
+        const panel = document.querySelector('[data-testid="pu-compositions-body"]');
         if (!panel) return;
-        const selector = `.pu-shortlist-item[data-block-path="${blockPath}"][data-combo-key="${comboKey || ''}"]`;
+        const selector = `.pu-compositions-item[data-block-path="${blockPath}"][data-combo-key="${comboKey || ''}"]`;
         const item = panel.querySelector(selector);
         if (item) {
-            item.classList.add('pu-shortlist-hover-from-preview');
+            item.classList.add('pu-compositions-hover-from-preview');
             item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
     },
 
-    /** Clear all reverse hover highlights from shortlist. */
-    _clearShortlistHighlights() {
-        document.querySelectorAll('.pu-shortlist-hover-from-preview').forEach(
-            el => el.classList.remove('pu-shortlist-hover-from-preview')
+    /** Clear all reverse hover highlights from compositions. */
+    _clearCompositionsHighlights() {
+        document.querySelectorAll('.pu-compositions-hover-from-preview').forEach(
+            el => el.classList.remove('pu-compositions-hover-from-preview')
         );
     },
 
     /**
-     * Attach mouseenter/mouseleave on shortlist items to highlight
+     * Attach mouseenter/mouseleave on compositions items to highlight
      * corresponding preview template blocks.
      */
-    _attachShortlistHoverListeners(body) {
-        const items = body.querySelectorAll('.pu-shortlist-item[data-block-path]');
+    _attachCompositionsHoverListeners(body) {
+        const items = body.querySelectorAll('.pu-compositions-item[data-block-path]');
         items.forEach(item => {
             item.addEventListener('mouseenter', () => {
                 const container = document.querySelector('[data-testid="pu-preview-body"]');
@@ -298,22 +298,24 @@ PU.shortlist = {
             });
         });
 
-        // Separator hover: preview which shortlist items are in the range
-        const seps = body.querySelectorAll('.pu-shortlist-separator[data-separator-path]');
+        // Separator hover: preview which compositions items are in the range + footer tip
+        const seps = body.querySelectorAll('.pu-compositions-separator[data-separator-path]');
         seps.forEach(sep => {
             sep.addEventListener('mouseenter', (e) => {
                 e.stopPropagation();
                 const sepPath = sep.dataset.separatorPath;
                 if (!sepPath) return;
-                // Highlight all shortlist items in range
-                body.querySelectorAll('.pu-shortlist-item[data-block-path]').forEach(item => {
-                    if (PU.shortlist._isInSeparatorRange(item.dataset.blockPath, sepPath)) {
-                        item.classList.add('pu-shortlist-hover-from-preview');
+                // Highlight all compositions items in range
+                body.querySelectorAll('.pu-compositions-item[data-block-path]').forEach(item => {
+                    if (PU.compositions._isInSeparatorRange(item.dataset.blockPath, sepPath)) {
+                        item.classList.add('pu-compositions-hover-from-preview');
                     }
                 });
+                PU.rightPanel._showFooterTip('<kbd>click</kbd> magnify · <kbd>⇧click</kbd> dim');
             });
             sep.addEventListener('mouseleave', () => {
-                PU.shortlist._clearShortlistHighlights();
+                PU.compositions._clearCompositionsHighlights();
+                PU.rightPanel._hideFooterTip();
             });
         });
     },
@@ -322,41 +324,106 @@ PU.shortlist = {
 
     /** Toggle the footer panel open/closed. */
     togglePanel() {
-        const panel = document.querySelector('[data-testid="pu-shortlist-panel"]');
+        const panel = document.querySelector('[data-testid="pu-compositions-panel"]');
         if (panel) panel.classList.toggle('collapsed');
     },
 
-    /** Check if shortlist UI should be visible. */
+    /** Check if compositions UI should be visible. */
     _isVisible() {
         const mode = PU.state.ui.editorMode;
         return mode === 'preview' || mode === 'review';
     },
 
-    /** Render the shortlist footer panel. */
+    /** Render the compositions footer panel. */
     render() {
-        const panel = document.querySelector('[data-testid="pu-shortlist-panel"]');
+        const panel = document.querySelector('[data-testid="pu-compositions-panel"]');
         if (!panel) return;
 
-        if (!PU.shortlist._isVisible()) {
+        if (!PU.compositions._isVisible()) {
             panel.style.display = 'none';
             return;
         }
         panel.style.display = '';
 
-        const countEl = panel.querySelector('[data-testid="pu-shortlist-count"]');
-        if (countEl) countEl.textContent = PU.shortlist.count();
+        const magnified = PU.state.previewMode.magnifiedPath;
 
-        const body = panel.querySelector('[data-testid="pu-shortlist-body"]');
+        // Filter entries when magnified
+        let items = PU.state.previewMode.compositions;
+        if (magnified) {
+            items = items.filter(e => {
+                const bp = e.sources[0].blockPath;
+                return bp === magnified || bp.startsWith(magnified + '.');
+            });
+        }
+
+        const countEl = panel.querySelector('[data-testid="pu-compositions-count"]');
+        if (countEl) countEl.textContent = items.length;
+
+        const body = panel.querySelector('[data-testid="pu-compositions-body"]');
         if (body) {
-            body.innerHTML = PU.shortlist._renderTreeView(PU.state.previewMode.shortlist);
-            PU.shortlist._attachShortlistHoverListeners(body);
+            // Breadcrumb when magnified
+            let breadcrumbHtml = '';
+            if (magnified) {
+                breadcrumbHtml = PU.compositions._renderBreadcrumb(magnified);
+            }
+            body.innerHTML = breadcrumbHtml + PU.compositions._renderTreeView(items);
+            PU.compositions._attachCompositionsHoverListeners(body);
         }
 
         // Render action bar
-        const actionBar = panel.querySelector('[data-testid="pu-shortlist-action-bar"]');
+        const actionBar = panel.querySelector('[data-testid="pu-compositions-action-bar"]');
         if (actionBar) {
-            actionBar.innerHTML = PU.shortlist._renderActionBar();
+            actionBar.innerHTML = PU.compositions._renderActionBar();
         }
+    },
+
+    // ── Magnifier ─────────────────────────────────────────────────────
+
+    /** Magnify into a subtree (filter compositions to this path and descendants). */
+    magnify(path) {
+        PU.state.previewMode.magnifiedPath = path;
+        PU.compositions.render();
+    },
+
+    /** Clear magnification — show all compositions. */
+    clearMagnify() {
+        PU.state.previewMode.magnifiedPath = null;
+        PU.compositions.render();
+    },
+
+    /** Render breadcrumb for magnified path. */
+    _renderBreadcrumb(magnifiedPath) {
+        const esc = PU.blocks.escapeHtml;
+        const parts = magnifiedPath.split('.');
+        let html = '<div class="pu-compositions-breadcrumb" data-testid="pu-compositions-breadcrumb">';
+        html += `<span class="pu-compositions-crumb pu-compositions-crumb-link" onclick="PU.compositions.clearMagnify()" data-testid="pu-compositions-crumb-all">All</span>`;
+
+        for (let i = 0; i < parts.length; i++) {
+            const subPath = parts.slice(0, i + 1).join('.');
+            const isLast = i === parts.length - 1;
+
+            // Try to get a label for this path segment from resolved variations
+            let label = subPath;
+            const entry = PU.state.previewMode.compositions.find(e => e.sources[0].blockPath === subPath);
+            if (entry) {
+                // Use first 30 chars of text as label
+                label = entry.text.substring(0, 30).trim();
+                if (entry.text.length > 30) label += '...';
+            }
+
+            html += '<span class="pu-compositions-crumb-sep"> &rsaquo; </span>';
+            if (isLast) {
+                html += `<span class="pu-compositions-crumb pu-compositions-crumb-current">${esc(label)}</span>`;
+            } else {
+                const safePath = esc(subPath).replace(/'/g, '&#39;');
+                html += `<span class="pu-compositions-crumb pu-compositions-crumb-link" onclick="PU.compositions.magnify('${safePath}')">${esc(label)}</span>`;
+            }
+        }
+
+        html += '<span style="flex:1"></span>';
+        html += `<button class="pu-compositions-crumb-close" onclick="PU.compositions.clearMagnify()" data-testid="pu-compositions-crumb-close" title="Clear focus">&times;</button>`;
+        html += '</div>';
+        return html;
     },
 
     /** Clear all dim and pin states, re-populate, re-render. */
@@ -364,14 +431,14 @@ PU.shortlist = {
         PU.state.previewMode.dimmedEntries = new Set();
         PU.state.previewMode.pinnedEntries = new Set();
         PU.state.previewMode.pinnedTexts = new Map();
-        // Re-populate to remove orphaned entries from shortlist array
-        PU.shortlist.populateFromPreview();
-        PU.shortlist.render();
+        // Re-populate to remove orphaned entries from compositions array
+        PU.compositions.populateFromPreview();
+        PU.compositions.render();
     },
 
-    /** Common post-mutation handler (shortlist panel only — no full re-render). */
+    /** Common post-mutation handler (compositions panel only — no full re-render). */
     _afterChange() {
-        PU.shortlist.render();
+        PU.compositions.render();
     },
 
     // ── Action Bar ──────────────────────────────────────────────────
@@ -383,28 +450,28 @@ PU.shortlist = {
     _renderActionBar() {
         const dimCount = PU.state.previewMode.dimmedEntries.size;
         const pinCount = PU.state.previewMode.pinnedEntries.size;
-        const orphans = PU.shortlist._detectOrphans();
+        const orphans = PU.compositions._detectOrphans();
         const hasCuration = dimCount > 0 || pinCount > 0;
 
         const esc = PU.blocks.escapeHtml;
-        let html = '<div class="pu-shortlist-actions">';
+        let html = '<div class="pu-compositions-actions">';
 
         if (pinCount > 0) {
-            html += `<span class="pu-shortlist-action-summary" data-testid="pu-shortlist-pin-summary">\uD83D\uDCCC ${pinCount} pinned</span>`;
+            html += `<span class="pu-compositions-action-summary" data-testid="pu-compositions-pin-summary">\uD83D\uDCCC ${pinCount} pinned</span>`;
         }
 
         if (orphans.length > 0) {
-            html += `<button class="pu-btn pu-btn-small pu-btn-warning" onclick="PU.shortlist.showOrphanModal()" data-testid="pu-shortlist-resolve-orphans">\u26A0 Resolve ${orphans.length} Orphan${orphans.length > 1 ? 's' : ''}</button>`;
+            html += `<button class="pu-btn pu-btn-small pu-btn-warning" onclick="PU.compositions.showOrphanModal()" data-testid="pu-compositions-resolve-orphans">\u26A0 Resolve ${orphans.length} Orphan${orphans.length > 1 ? 's' : ''}</button>`;
         }
 
         html += '<span style="flex:1"></span>';
 
-        const activeCount = PU.state.previewMode.shortlist.filter(e => {
+        const activeCount = PU.state.previewMode.compositions.filter(e => {
             const key = `${e.sources[0].blockPath}|${e.sources[0].comboKey}`;
             return !PU.state.previewMode.dimmedEntries.has(key);
         }).length;
         const disabledAttr = hasCuration ? '' : ' disabled';
-        html += `<button class="pu-btn pu-btn-small pu-btn-primary" onclick="PU.shortlist.commitSelection()"${disabledAttr} data-testid="pu-shortlist-commit">Commit Selection (${activeCount})</button>`;
+        html += `<button class="pu-btn pu-btn-small pu-btn-primary" onclick="PU.compositions.commitSelection()"${disabledAttr} data-testid="pu-compositions-commit">Commit Selection (${activeCount})</button>`;
 
         html += '</div>';
         return html;
@@ -414,7 +481,7 @@ PU.shortlist = {
 
     /** Show the orphan resolution modal. */
     showOrphanModal() {
-        const orphans = PU.shortlist._detectOrphans();
+        const orphans = PU.compositions._detectOrphans();
         if (orphans.length === 0) return;
 
         PU.overlay.dismissAll();
@@ -424,7 +491,7 @@ PU.shortlist = {
         for (const o of orphans) {
             const key = `${o.blockPath}|${o.comboKey}`;
             const safeKey = esc(key).replace(/'/g, '&#39;');
-            const wildcardInfo = PU.shortlist._comboKeyToDisplay(o.comboKey) || 'no wildcards';
+            const wildcardInfo = PU.compositions._comboKeyToDisplay(o.comboKey) || 'no wildcards';
             const truncText = o.text.length > 120 ? o.text.substring(0, 117) + '...' : o.text;
 
             listHtml += `<div class="pu-orphan-entry" data-key="${esc(key)}" data-testid="pu-orphan-entry">`;
@@ -434,25 +501,25 @@ PU.shortlist = {
             listHtml += `<div class="pu-orphan-text">${esc(truncText)}</div>`;
             listHtml += `</div>`;
             listHtml += `<div class="pu-orphan-actions">`;
-            listHtml += `<button class="pu-btn pu-btn-small" onclick="PU.shortlist.resolveOrphan('${safeKey}', 'unpin')">Unpin</button>`;
+            listHtml += `<button class="pu-btn pu-btn-small" onclick="PU.compositions.resolveOrphan('${safeKey}', 'unpin')">Unpin</button>`;
             listHtml += `</div>`;
             listHtml += `</div>`;
         }
 
-        const modalHtml = `<div class="pu-modal-overlay" data-testid="pu-orphan-modal-overlay" onclick="if(event.target===this) PU.shortlist.closeOrphanModal()">
+        const modalHtml = `<div class="pu-modal-overlay" data-testid="pu-orphan-modal-overlay" onclick="if(event.target===this) PU.compositions.closeOrphanModal()">
             <div class="pu-modal" style="width: 560px;">
                 <div class="pu-modal-header">
                     <h3>\u26A0 Orphaned Pins</h3>
-                    <button class="pu-modal-close" onclick="PU.shortlist.closeOrphanModal()">&times;</button>
+                    <button class="pu-modal-close" onclick="PU.compositions.closeOrphanModal()">&times;</button>
                 </div>
                 <div class="pu-modal-body">
                     <p class="pu-orphan-desc">These pinned entries are no longer in the current composition. They may reappear when navigating to other compositions.</p>
                     ${listHtml}
                 </div>
                 <div class="pu-modal-footer">
-                    <button class="pu-btn pu-btn-small" onclick="PU.shortlist.unpinAllOrphans()">Unpin All Orphans</button>
+                    <button class="pu-btn pu-btn-small" onclick="PU.compositions.unpinAllOrphans()">Unpin All Orphans</button>
                     <span style="flex:1"></span>
-                    <button class="pu-btn pu-btn-small pu-btn-primary" onclick="PU.shortlist.closeOrphanModal()">Done</button>
+                    <button class="pu-btn pu-btn-small pu-btn-primary" onclick="PU.compositions.closeOrphanModal()">Done</button>
                 </div>
             </div>
         </div>`;
@@ -486,25 +553,25 @@ PU.shortlist = {
         // Close modal if no more orphans
         const remaining = document.querySelectorAll('[data-testid="pu-orphan-modal-overlay"] .pu-orphan-entry');
         if (!remaining || remaining.length === 0) {
-            PU.shortlist.closeOrphanModal();
+            PU.compositions.closeOrphanModal();
         }
 
-        // Re-populate to remove orphaned entry from shortlist
-        PU.shortlist.populateFromPreview();
-        PU.shortlist.render();
+        // Re-populate to remove orphaned entry from compositions
+        PU.compositions.populateFromPreview();
+        PU.compositions.render();
     },
 
     /** Unpin all orphaned entries at once. */
     unpinAllOrphans() {
-        const orphans = PU.shortlist._detectOrphans();
+        const orphans = PU.compositions._detectOrphans();
         for (const o of orphans) {
             const key = `${o.blockPath}|${o.comboKey}`;
             PU.state.previewMode.pinnedEntries.delete(key);
             PU.state.previewMode.pinnedTexts.delete(key);
         }
-        PU.shortlist.closeOrphanModal();
-        PU.shortlist.populateFromPreview();
-        PU.shortlist.render();
+        PU.compositions.closeOrphanModal();
+        PU.compositions.populateFromPreview();
+        PU.compositions.render();
     },
 
     /**
@@ -512,7 +579,7 @@ PU.shortlist = {
      * Future: integrate with build pipeline.
      */
     commitSelection() {
-        const items = PU.state.previewMode.shortlist.filter(e => {
+        const items = PU.state.previewMode.compositions.filter(e => {
             const key = `${e.sources[0].blockPath}|${e.sources[0].comboKey}`;
             return !PU.state.previewMode.dimmedEntries.has(key);
         });
@@ -554,8 +621,8 @@ PU.shortlist = {
         // 3. Sort pinned entries first within each group
         for (const p of paths) {
             groups[p].sort((a, b) => {
-                const aPinned = PU.shortlist._isPinned(a.sources[0].blockPath, a.sources[0].comboKey) ? 0 : 1;
-                const bPinned = PU.shortlist._isPinned(b.sources[0].blockPath, b.sources[0].comboKey) ? 0 : 1;
+                const aPinned = PU.compositions._isPinned(a.sources[0].blockPath, a.sources[0].comboKey) ? 0 : 1;
+                const bPinned = PU.compositions._isPinned(b.sources[0].blockPath, b.sources[0].comboKey) ? 0 : 1;
                 return aPinned - bPinned;
             });
         }
@@ -586,19 +653,19 @@ PU.shortlist = {
 
             for (const entry of entries) {
                 const src = entry.sources[0];
-                const isPinned = PU.shortlist._isPinned(src.blockPath, src.comboKey);
+                const isPinned = PU.compositions._isPinned(src.blockPath, src.comboKey);
                 const isOrphan = entry._orphan || false;
 
-                let cls = 'pu-shortlist-item';
-                if (PU.shortlist._isDimmed(src.blockPath, src.comboKey)) cls += ' pu-shortlist-dimmed';
-                if (isPinned) cls += ' pu-shortlist-pinned';
-                if (isOrphan) cls += ' pu-shortlist-orphan';
+                let cls = 'pu-compositions-item';
+                if (PU.compositions._isDimmed(src.blockPath, src.comboKey)) cls += ' pu-compositions-dimmed';
+                if (isPinned) cls += ' pu-compositions-pinned';
+                if (isOrphan) cls += ' pu-compositions-orphan';
 
                 const safeKey = esc(src.comboKey).replace(/'/g, '&#39;');
                 const safeBp = esc(src.blockPath).replace(/'/g, '&#39;');
 
-                const pinIcon = isPinned ? '<span class="pu-shortlist-pin-icon">\uD83D\uDCCC</span>' : '';
-                const orphanIcon = isOrphan ? '<span class="pu-shortlist-orphan-icon" title="Not in current composition">\u26A0</span>' : '';
+                const pinIcon = isPinned ? '<span class="pu-compositions-pin-icon">\uD83D\uDCCC</span>' : '';
+                const orphanIcon = isOrphan ? '<span class="pu-compositions-orphan-icon" title="Not in current composition">\u26A0</span>' : '';
 
                 // Build segmented text with separator range-select targets
                 // Each separator's path = the NEXT segment's path (the range start)
@@ -607,21 +674,21 @@ PU.shortlist = {
                     const a = ancestorChain[j];
                     const nextPath = j + 1 < ancestorChain.length ? ancestorChain[j + 1].path : path;
                     const safeNext = esc(nextPath).replace(/'/g, '&#39;');
-                    textHtml += `<span class="pu-shortlist-segment" data-segment-path="${esc(a.path)}">${esc(a.text)}</span>`;
-                    textHtml += `<span class="pu-shortlist-separator" data-separator-path="${esc(nextPath)}" onclick="event.stopPropagation(); PU.shortlist.toggleDimBlock('${safeNext}')" title="Select from here: ${esc(nextPath)} and after"> \u2500\u2500 </span>`;
+                    textHtml += `<span class="pu-compositions-segment" data-segment-path="${esc(a.path)}">${esc(a.text)}</span>`;
+                    textHtml += `<span class="pu-compositions-separator" data-separator-path="${esc(nextPath)}" onclick="event.stopPropagation(); if(event.shiftKey){PU.compositions.toggleDimBlock('${safeNext}')}else{PU.compositions.magnify('${safeNext}')}"> \u2500\u2500 </span>`;
                 }
-                textHtml += `<span class="pu-shortlist-segment pu-shortlist-segment-own" data-segment-path="${esc(path)}">${esc(entry.text)}</span>`;
+                textHtml += `<span class="pu-compositions-segment pu-compositions-segment-own" data-segment-path="${esc(path)}">${esc(entry.text)}</span>`;
 
-                html += `<div class="${cls}" data-testid="pu-shortlist-item-${esc(path)}" data-block-path="${esc(src.blockPath)}" data-combo-key="${esc(src.comboKey)}" onclick="PU.shortlist._handleItemClick('${safeBp}', '${safeKey}', event)">`;
+                html += `<div class="${cls}" data-testid="pu-compositions-item-${esc(path)}" data-block-path="${esc(src.blockPath)}" data-combo-key="${esc(src.comboKey)}" onclick="PU.compositions._handleItemClick('${safeBp}', '${safeKey}', event)">`;
                 html += pinIcon + orphanIcon;
-                html += `<span class="pu-shortlist-item-text" data-testid="pu-shortlist-resolved">${textHtml}</span>`;
+                html += `<span class="pu-compositions-item-text" data-testid="pu-compositions-resolved">${textHtml}</span>`;
                 html += '</div>';
             }
 
             // Render "+N more" link if this path has overflow
             if (overflow[path] && overflow[path] > 0) {
-                html += `<div class="pu-shortlist-show-more" data-testid="pu-shortlist-show-more-${esc(path)}" onclick="event.stopPropagation(); PU.editorMode.showMoreVariations('${safePath}')">`;
-                html += `<span class="pu-shortlist-show-more-text">+${overflow[path].toLocaleString()} more</span>`;
+                html += `<div class="pu-compositions-show-more" data-testid="pu-compositions-show-more-${esc(path)}" onclick="event.stopPropagation(); PU.editorMode.showMoreVariations('${safePath}')">`;
+                html += `<span class="pu-compositions-show-more-text">+${overflow[path].toLocaleString()} more</span>`;
                 html += '</div>';
             }
         }
@@ -644,7 +711,7 @@ PU.shortlist = {
 
     // ── Persistence ───────────────────────────────────────────────────
 
-    /** Get shortlist curation data for session snapshot. */
+    /** Get compositions curation data for session snapshot. */
     getSessionData() {
         return {
             dimmed: [...PU.state.previewMode.dimmedEntries],
@@ -653,7 +720,7 @@ PU.shortlist = {
         };
     },
 
-    /** Hydrate shortlist curation from session data (backward-compatible). */
+    /** Hydrate compositions curation from session data (backward-compatible). */
     hydrateFromSession(data) {
         // Backward compat: Phase 1 stored dimmed_entries as a plain string array
         if (Array.isArray(data)) {
