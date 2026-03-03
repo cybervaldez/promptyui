@@ -52,7 +52,7 @@ h1 { font-size: 1rem; color: var(--text-secondary); margin-bottom: 0.3rem; }
 
 /* ══════════════════════════════════════
    FLOW: one flat horizontal line
-   (mirrors shortlist resolved format)
+   (mirrors compositions resolved format)
    ══════════════════════════════════════ */
 .mm-flow {
     display: inline-flex;
@@ -79,7 +79,7 @@ h1 { font-size: 1rem; color: var(--text-secondary); margin-bottom: 0.3rem; }
     flex-shrink: 0;
 }
 
-/* ── Block separator: ── (matches pu-shortlist-separator) ── */
+/* ── Block separator: ── (matches pu-compositions-separator) ── */
 .mm-block-sep {
     position: relative;
     z-index: 10;
@@ -171,7 +171,7 @@ h1 { font-size: 1rem; color: var(--text-secondary); margin-bottom: 0.3rem; }
     margin-left: 2rem;
 }
 
-/* ── Resolved output (matches shortlist item format) ── */
+/* ── Resolved output (matches compositions item format) ── */
 .mm-output {
     margin-top: 1.5rem;
     padding: 1rem;
@@ -211,7 +211,7 @@ h1 { font-size: 1rem; color: var(--text-secondary); margin-bottom: 0.3rem; }
 <body>
 
 <h1>Mindmap — Shortlist-Style Expansion</h1>
-<p class="subtitle">Mirrors the shortlist resolved view. Blocks joined by ── separators. Wildcards fan out inline. Click values to resolve.</p>
+<p class="subtitle">Mirrors the compositions resolved view. Blocks joined by ── separators. Wildcards fan out inline. Click values to resolve.</p>
 
 <div class="legend" id="legend"></div>
 <div class="pan-hint">Drag to pan / scroll horizontally</div>
@@ -403,9 +403,9 @@ function render() {
     });
 
     // Flatten all blocks into one horizontal line,
-    // separated by ── between blocks (like shortlist)
+    // separated by ── between blocks (like compositions)
     DATA.blocks.forEach(function(block, bi) {
-        // Block separator between blocks (mirrors pu-shortlist-separator)
+        // Block separator between blocks (mirrors pu-compositions-separator)
         if (bi > 0) {
             var sep = document.createElement('div');
             sep.className = 'mm-block-sep';
@@ -472,7 +472,7 @@ function render() {
     renderOutput();
 }
 
-/* ── Resolved output (mirrors shortlist item format) ── */
+/* ── Resolved output (mirrors compositions item format) ── */
 function renderOutput() {
     var out = document.getElementById('output');
     var parts = [];
@@ -486,9 +486,9 @@ function renderOutput() {
         parts.push(text);
     });
 
-    // Join with ── separator (like shortlist)
+    // Join with ── separator (like compositions)
     var resolved = parts.join(' <span class="sep">\u2500\u2500</span> ');
-    out.innerHTML = '<div class="label">RESOLVED (shortlist format \u2014 click values to change)</div>' + resolved;
+    out.innerHTML = '<div class="label">RESOLVED (compositions format \u2014 click values to change)</div>' + resolved;
 }
 
 /* ── Resize ── */

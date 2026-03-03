@@ -367,6 +367,37 @@ body {
     align-items: center;
     padding: 6rem 2rem 4rem;
     border-top: 1px solid rgba(72, 79, 88, 0.2);
+    position: relative;
+}
+.scroll-indicator {
+    position: absolute;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    pointer-events: none;
+    text-align: center;
+    font-family: var(--font-mono);
+}
+.scroll-indicator.visible { opacity: 0.5; }
+.scroll-indicator-text {
+    display: block;
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 0.3rem;
+}
+.scroll-indicator .chevron {
+    display: block;
+    animation: bounce-chevron 2s ease infinite;
+    font-size: 1.5rem;
+    color: var(--text-secondary);
+}
+@keyframes bounce-chevron {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(6px); }
 }
 
 .quill-title {
@@ -679,6 +710,68 @@ body {
     background: rgba(82, 156, 202, 0.12);
     border-color: var(--reel-value);
     color: var(--reel-value);
+}
+
+/* ═══════════════════════════════════════════
+   SECTION: All Resolved Prompts
+   ═══════════════════════════════════════════ */
+.resolved-all-section {
+    min-height: 100vh;
+    padding-top: 5rem;
+}
+.resolved-all-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5em;
+}
+.resolved-card {
+    padding: 1em 1.2em;
+    background: var(--bg-elevated);
+    border: 1px solid rgba(72, 79, 88, 0.2);
+    border-radius: 6px;
+    font-size: 0.82rem;
+    line-height: 1.65;
+    color: var(--text-primary);
+}
+.resolved-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.4em;
+}
+.resolved-card-id {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+}
+.resolved-card-pills {
+    display: flex;
+    gap: 0.4em;
+    flex-wrap: wrap;
+}
+.resolved-card-pill {
+    font-size: 0.55rem;
+    padding: 1px 6px;
+    border: 1px solid rgba(72, 79, 88, 0.3);
+    border-radius: 9999px;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+}
+.resolved-card-text {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+.resolved-card-child {
+    opacity: 0.6;
+    padding-left: 1.5em;
+    border-left: 1px solid rgba(72, 79, 88, 0.3);
+    margin-top: 0.3em;
+}
+.resolved-all-cap {
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 1em;
 }
 
 /* ═══════════════════════════════════════════
@@ -1146,6 +1239,12 @@ body {
         <div class="math-label visible" id="quill-label">compositions</div>
         <button class="q-save-continue-btn" id="quill-save-btn" data-testid="quill-save-btn">Save Current and Continue</button>
     </div>
+
+    <!-- Scroll-down indicator (shown after Save) -->
+    <div class="scroll-indicator" id="scroll-indicator" data-testid="scroll-indicator">
+        <span class="scroll-indicator-text">resolved prompts below</span>
+        <span class="chevron">&#x2304;</span>
+    </div>
 </section>
 
 <script src="/vendor/quill/quill.js"></script>
@@ -1494,11 +1593,24 @@ function submitPopoverInput(inputEl) {
 
 var _popoverEscPressed = false;
 
-// Input handler — Enter to submit, Escape to cancel
+// Input handler — Tab/Enter to submit (stay in input), Escape to cancel
 popoverEl.querySelector('.wc-popover-input').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') {
+    if (e.key === 'Tab' || e.key === 'Enter') {
         e.preventDefault();
-        submitPopoverInput(this);
+        var val = this.value.trim();
+        if (val) {
+            // Has text: add value and stay in input for more
+            submitPopoverInput(this);
+            this.focus();
+        } else {
+            // Empty: if a block is being edited, close popover and return focus
+            var editingBlock = document.querySelector('.q-block.editing');
+            if (editingBlock) {
+                closePopover();
+                var block = qState.blocks.find(function(b) { return b.lineEl === editingBlock; });
+                if (block && block.quill) block.quill.focus();
+            }
+        }
         return;
     }
     if (e.key === 'Escape') {
@@ -2568,6 +2680,17 @@ initQuillSection();
 </script>
 
 <!-- ═══════════════════════════════════════════
+     SECTION 2b: All Resolved Prompts
+     ═══════════════════════════════════════════ -->
+<section class="demo-section resolved-all-section" id="resolved-all-section" data-testid="resolved-all-section" style="display: none;">
+    <h2 class="demo-section-title">Your Resolved Prompts</h2>
+    <p class="demo-section-subtitle">Every combination — <span id="resolved-all-count" data-testid="resolved-all-count"></span> compositions</p>
+    <div class="resolved-all-cap" id="resolved-all-cap" data-testid="resolved-all-cap" style="display: none;"></div>
+    <div class="resolved-all-grid" id="resolved-all-grid" data-testid="resolved-all-grid"></div>
+    <button class="q-save-continue-btn" id="resolved-all-continue-btn" data-testid="resolved-all-continue-btn">Continue to Navigator</button>
+</section>
+
+<!-- ═══════════════════════════════════════════
      SECTION 3: Navigating Compositions
      ═══════════════════════════════════════════ -->
 <section class="demo-section" id="preview-section" style="display: none;">
@@ -2805,6 +2928,73 @@ function initPreviewSection() {
 
     demoPreviewRender();
     initBucketArea();
+}
+
+/** Render ALL resolved compositions as cards in the resolved-all section */
+function renderAllResolved() {
+    var st = demoPreviewState;
+    var grid = document.getElementById('resolved-all-grid');
+    var countEl = document.getElementById('resolved-all-count');
+    var capEl = document.getElementById('resolved-all-cap');
+    grid.innerHTML = '';
+
+    var MAX_CARDS = 100;
+    var total = st.total;
+    var capped = total > MAX_CARDS;
+    var renderCount = capped ? MAX_CARDS : total;
+
+    countEl.textContent = total;
+    if (capped) {
+        capEl.style.display = '';
+        capEl.textContent = 'Showing ' + renderCount + ' of ' + total;
+    } else {
+        capEl.style.display = 'none';
+    }
+
+    var wcCounts = {};
+    var sortedNames = Object.keys(st.wildcards).sort();
+    sortedNames.forEach(function(n) { wcCounts[n] = st.wildcards[n].values.length; });
+
+    for (var compId = 0; compId < renderCount; compId++) {
+        var indices = demoCompositionToIndices(compId, wcCounts);
+
+        // Build card
+        var card = document.createElement('div');
+        card.className = 'resolved-card';
+        card.setAttribute('data-testid', 'resolved-card-' + compId);
+
+        // Header: ID + wildcard pills
+        var header = document.createElement('div');
+        header.className = 'resolved-card-header';
+
+        var idLabel = document.createElement('span');
+        idLabel.className = 'resolved-card-id';
+        idLabel.textContent = '#' + (compId + 1);
+        header.appendChild(idLabel);
+
+        var pills = document.createElement('div');
+        pills.className = 'resolved-card-pills';
+        sortedNames.forEach(function(name) {
+            var wc = st.wildcards[name];
+            var idx = indices[name] || 0;
+            var pill = document.createElement('span');
+            pill.className = 'resolved-card-pill';
+            pill.textContent = name + '=' + (wc.values[idx] || '?');
+            pills.appendChild(pill);
+        });
+        header.appendChild(pills);
+        card.appendChild(header);
+
+        // Resolved text per block
+        st.blocks.forEach(function(block) {
+            var textDiv = document.createElement('div');
+            textDiv.className = 'resolved-card-text' + (block.depth > 0 ? ' resolved-card-child' : '');
+            textDiv.textContent = demoResolveBlock(block.text, st.wildcards, indices);
+            card.appendChild(textDiv);
+        });
+
+        grid.appendChild(card);
+    }
 }
 
 /* ── Phase 2: Bucketed navigation (within same section) ── */
@@ -3348,9 +3538,29 @@ function initAnnSection() {
    SECTION TRANSITIONS
    ══════════════════════════════════════════════════ */
 
-// Section 2 → Section 3 (Navigating Compositions — flat + buckets)
+// Section 2 → Section 2b (All Resolved Prompts)
 document.getElementById('quill-save-btn').addEventListener('click', function() {
     initPreviewSection();
+    renderAllResolved();
+    document.getElementById('resolved-all-section').style.display = '';
+    document.getElementById('scroll-indicator').classList.add('visible');
+});
+
+// Hide scroll indicator once user scrolls past editor
+(function() {
+    var indicator = document.getElementById('scroll-indicator');
+    var quillSection = document.querySelector('.quill-section');
+    window.addEventListener('scroll', function() {
+        if (!indicator.classList.contains('visible')) return;
+        var rect = quillSection.getBoundingClientRect();
+        if (rect.bottom < window.innerHeight * 0.3) {
+            indicator.classList.remove('visible');
+        }
+    });
+})();
+
+// Section 2b → Section 3 (Navigating Compositions — flat + buckets)
+document.getElementById('resolved-all-continue-btn').addEventListener('click', function() {
     document.getElementById('preview-section').style.display = '';
     document.getElementById('preview-section').scrollIntoView({ behavior: 'smooth' });
 });
