@@ -357,7 +357,13 @@ PU.compositions = {
         }
 
         const countEl = panel.querySelector('[data-testid="pu-compositions-count"]');
-        if (countEl) countEl.textContent = items.length;
+        if (countEl) {
+            // Show the analytical total (matching the sidebar) not the rendered entries count
+            const { wildcardCounts, extTextCount } = PU.shared.getCompositionParams();
+            const lockedValues = PU.state.previewMode.lockedValues || {};
+            const lockedTotal = PU.shared.computeLockedTotal(wildcardCounts, extTextCount, lockedValues);
+            countEl.textContent = lockedTotal.toLocaleString();
+        }
 
         const body = panel.querySelector('[data-testid="pu-compositions-body"]');
         if (body) {
@@ -383,12 +389,14 @@ PU.compositions = {
     magnify(path) {
         PU.state.previewMode.magnifiedPath = path;
         PU.compositions.render();
+        PU.actions.updateUrl();
     },
 
     /** Clear magnification — show all compositions. */
     clearMagnify() {
         PU.state.previewMode.magnifiedPath = null;
         PU.compositions.render();
+        PU.actions.updateUrl();
     },
 
     /** Render breadcrumb for magnified path. */

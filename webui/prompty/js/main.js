@@ -182,6 +182,12 @@ PU.actions = {
             PU.state.focusMode.pendingPath = focusPath;
         }
 
+        // Set magnified path from URL if provided
+        const magnify = params.get('magnify');
+        if (magnify && /^[0-9]+(\.[0-9]+)*$/.test(magnify)) {
+            PU.state.previewMode.magnifiedPath = magnify;
+        }
+
         if (modal === 'export') {
             // Will open after init
             setTimeout(() => PU.export.open(), 500);
@@ -225,6 +231,9 @@ PU.actions = {
             }
             if (PU.state.ui.editorMode === 'review' && PU.state.ui.rightPanelTab !== 'wildcards') {
                 params.set('rightTab', PU.state.ui.rightPanelTab);
+            }
+            if (PU.state.previewMode.magnifiedPath) {
+                params.set('magnify', PU.state.previewMode.magnifiedPath);
             }
         }
 

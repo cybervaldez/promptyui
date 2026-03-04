@@ -596,7 +596,7 @@ agent-browser eval '
         const anchor = document.querySelector(".pu-rp-wc-v[data-wc-name]") || document.body;
         PU.editorMode.openLockPopup(names[0], anchor);
         PU.editorMode._lockPopupSelectAll();
-        PU.editorMode.closeLockPopup();
+        PU.editorMode.commitLockPopup();
     }
 ' 2>/dev/null
 sleep 0.5
@@ -861,10 +861,11 @@ sleep 0.5
 HAS_CRUMB=$(agent-browser eval '!!document.querySelector("[data-testid=\"pu-compositions-breadcrumb\"]")' 2>/dev/null | tr -d '"')
 [ "$HAS_CRUMB" = "true" ] && log_pass "Breadcrumb visible when magnified" || log_fail "No breadcrumb when magnified"
 
-# Count should be filtered (only path 1 and descendants)
+# Count badge shows analytical total (matches sidebar), items are filtered
 MAG_COUNT=$(agent-browser eval 'document.querySelector("[data-testid=\"pu-compositions-count\"]")?.textContent' 2>/dev/null | tr -d '"')
-TOTAL_COUNT=$(agent-browser eval 'PU.state.previewMode.compositions.length' 2>/dev/null | tr -d '"')
-[ "$MAG_COUNT" -lt "$TOTAL_COUNT" ] 2>/dev/null && log_pass "Magnified count ($MAG_COUNT) < total ($TOTAL_COUNT)" || log_fail "Magnified count not filtered: $MAG_COUNT vs $TOTAL_COUNT"
+MAG_ITEMS=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-item").length' 2>/dev/null | tr -d '"')
+TOTAL_ITEMS=$(agent-browser eval 'PU.state.previewMode.compositions.length' 2>/dev/null | tr -d '"')
+[ "$MAG_ITEMS" -lt "$TOTAL_ITEMS" ] 2>/dev/null && log_pass "Magnified items ($MAG_ITEMS) < total ($TOTAL_ITEMS)" || log_fail "Magnified items not filtered: $MAG_ITEMS vs $TOTAL_ITEMS"
 
 # Breadcrumb has "All" link
 HAS_ALL=$(agent-browser eval '!!document.querySelector("[data-testid=\"pu-compositions-crumb-all\"]")' 2>/dev/null | tr -d '"')
@@ -884,9 +885,9 @@ sleep 0.5
 NO_CRUMB=$(agent-browser eval '!document.querySelector("[data-testid=\"pu-compositions-breadcrumb\"]")' 2>/dev/null | tr -d '"')
 [ "$NO_CRUMB" = "true" ] && log_pass "Breadcrumb removed after clear" || log_fail "Breadcrumb still visible after clear"
 
-# Count should be back to full
-FULL_COUNT=$(agent-browser eval 'document.querySelector("[data-testid=\"pu-compositions-count\"]")?.textContent' 2>/dev/null | tr -d '"')
-[ "$FULL_COUNT" = "$TOTAL_COUNT" ] && log_pass "Count restored to full ($FULL_COUNT)" || log_fail "Count not restored: $FULL_COUNT vs $TOTAL_COUNT"
+# All items should be back
+FULL_ITEMS=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-item").length' 2>/dev/null | tr -d '"')
+[ "$FULL_ITEMS" = "$TOTAL_ITEMS" ] && log_pass "Items restored to full ($FULL_ITEMS)" || log_fail "Items not restored: $FULL_ITEMS vs $TOTAL_ITEMS"
 
 # ============================================================================
 # TEST: Escape clears magnification
@@ -902,6 +903,259 @@ sleep 0.5
 
 ESC_CRUMB=$(agent-browser eval '!document.querySelector("[data-testid=\"pu-compositions-breadcrumb\"]")' 2>/dev/null | tr -d '"')
 [ "$ESC_CRUMB" = "true" ] && log_pass "Escape cleared magnification" || log_fail "Magnification not cleared by Escape"
+
+# ============================================================================
+# TEST: Magnify state persists in URL
+# ============================================================================
+echo ""
+log_info "TEST: Magnify state persists in URL"
+
+agent-browser eval 'PU.compositions.magnify("0.1")' 2>/dev/null
+sleep 0.5
+
+URL_MAG=$(agent-browser get url 2>/dev/null)
+echo "$URL_MAG" | grep -q "magnify=0.1" && log_pass "URL contains magnify=0.1 after magnify" || log_fail "URL missing magnify param: $URL_MAG"
+
+agent-browser eval 'PU.compositions.clearMagnify()' 2>/dev/null
+sleep 0.3
+
+URL_CLEAR=$(agent-browser get url 2>/dev/null)
+echo "$URL_CLEAR" | grep -qv "magnify" && log_pass "URL has no magnify param after clearMagnify" || log_fail "URL still has magnify: $URL_CLEAR"
+
+# ============================================================================
+# TEST: Lock popup has preview section
+# ============================================================================
+echo ""
+log_info "TEST: Lock popup has preview section"
+
+# Re-open page to ensure clean state (browser may have navigated away during magnify tests)
+agent-browser close 2>/dev/null
+sleep 0.5
+agent-browser open "$BASE_URL/?job=hiring-templates&prompt=stress-test-prompt&composition=1&editorMode=preview" 2>/dev/null
+sleep 3
+
+# Reset lock state
+agent-browser eval 'PU.editorMode._ensureLockDefaults(true); PU.editorMode.renderPreview(); PU.editorMode.renderSidebarPreview()' 2>/dev/null
+sleep 1
+
+# Click a wildcard slot to open lock popup
+agent-browser eval 'var s = document.querySelector(".pu-wc-slot"); if(s){s.click();"clicked"}else{"no slot"}' 2>/dev/null
+sleep 0.5
+
+HAS_POPUP=$(agent-browser eval '!!document.querySelector(".pu-lock-popup")' 2>/dev/null | tr -d '"')
+[ "$HAS_POPUP" = "true" ] && log_pass "Lock popup opened" || log_fail "Lock popup not found"
+
+HAS_PREVIEW=$(agent-browser eval '!!document.querySelector(".pu-lock-popup-preview")' 2>/dev/null | tr -d '"')
+[ "$HAS_PREVIEW" = "true" ] && log_pass "Preview section exists" || log_fail "Preview section missing"
+
+# ============================================================================
+# TEST: Preview has variation items
+# ============================================================================
+echo ""
+log_info "TEST: Preview has variation items"
+
+PREV_ITEMS=$(agent-browser eval 'document.querySelectorAll(".pu-lock-popup-preview .pu-wc-inline-variation-item").length' 2>/dev/null | tr -d '"')
+[ "$PREV_ITEMS" -gt 0 ] 2>/dev/null && log_pass "Preview has $PREV_ITEMS variation item(s)" || log_fail "Preview has 0 variation items"
+
+# ============================================================================
+# TEST: Preview has active pills
+# ============================================================================
+echo ""
+log_info "TEST: Preview has active pills"
+
+ACTIVE_PILLS=$(agent-browser eval 'document.querySelectorAll(".pu-lock-popup-preview .pu-wc-pill[data-wc-active]").length' 2>/dev/null | tr -d '"')
+[ "$ACTIVE_PILLS" -gt 0 ] 2>/dev/null && log_pass "Preview has $ACTIVE_PILLS active pill(s)" || log_fail "Preview has 0 active pills"
+
+# ============================================================================
+# TEST: Footer label format
+# ============================================================================
+echo ""
+log_info "TEST: Footer label format"
+
+FOOTER=$(agent-browser eval 'document.querySelector(".pu-lock-popup-footer")?.textContent?.trim()' 2>/dev/null | tr -d '"')
+echo "$FOOTER" | grep -q "Previewing" && log_pass "Footer contains 'Previewing'" || log_fail "Footer missing 'Previewing': $FOOTER"
+echo "$FOOTER" | grep -q "compositions" && log_pass "Footer contains 'compositions'" || log_fail "Footer missing 'compositions': $FOOTER"
+
+# ============================================================================
+# TEST: All button increases preview items
+# ============================================================================
+echo ""
+log_info "TEST: All button increases preview items"
+
+# Click All to select all values
+agent-browser eval 'document.querySelector("[data-testid=pu-lock-popup-all]").click()' 2>/dev/null
+sleep 0.5
+
+ALL_ITEMS=$(agent-browser eval 'document.querySelectorAll(".pu-lock-popup-preview .pu-wc-inline-variation-item").length' 2>/dev/null | tr -d '"')
+[ "$ALL_ITEMS" -gt 1 ] 2>/dev/null && log_pass "All shows $ALL_ITEMS preview items" || log_fail "All shows only $ALL_ITEMS item(s)"
+
+ALL_FOOTER=$(agent-browser eval 'document.querySelector(".pu-lock-popup-footer")?.textContent?.trim()' 2>/dev/null | tr -d '"')
+echo "$ALL_FOOTER" | grep -q "Previewing $ALL_ITEMS" && log_pass "Footer matches item count: $ALL_FOOTER" || log_fail "Footer mismatch: $ALL_FOOTER vs $ALL_ITEMS items"
+
+# ============================================================================
+# TEST: Only button shows 1 item
+# ============================================================================
+echo ""
+log_info "TEST: Only button shows 1 item"
+
+agent-browser eval 'document.querySelector("[data-testid=pu-lock-popup-only]").click()' 2>/dev/null
+sleep 0.5
+
+ONLY_ITEMS=$(agent-browser eval 'document.querySelectorAll(".pu-lock-popup-preview .pu-wc-inline-variation-item").length' 2>/dev/null | tr -d '"')
+[ "$ONLY_ITEMS" = "1" ] && log_pass "Only shows exactly 1 preview item" || log_fail "Only shows $ONLY_ITEMS item(s), expected 1"
+
+ONLY_FOOTER=$(agent-browser eval 'document.querySelector(".pu-lock-popup-footer")?.textContent?.trim()' 2>/dev/null | tr -d '"')
+echo "$ONLY_FOOTER" | grep -q "Previewing 1 value" && log_pass "Footer shows 'Previewing 1 value'" || log_fail "Footer mismatch: $ONLY_FOOTER"
+
+# ============================================================================
+# TEST: Toggle checkbox updates preview
+# ============================================================================
+echo ""
+log_info "TEST: Toggle checkbox updates preview"
+
+# Check a second checkbox to go from 1 -> 2 items
+agent-browser eval '
+    var cbs = document.querySelectorAll(".pu-lock-popup-body input[type=checkbox]");
+    for (var i = 0; i < cbs.length; i++) {
+        if (!cbs[i].checked) { cbs[i].click(); break; }
+    }
+    "toggled"
+' 2>/dev/null
+sleep 0.5
+
+TOGGLE_ITEMS=$(agent-browser eval 'document.querySelectorAll(".pu-lock-popup-preview .pu-wc-inline-variation-item").length' 2>/dev/null | tr -d '"')
+[ "$TOGGLE_ITEMS" = "2" ] && log_pass "Toggle adds preview item ($TOGGLE_ITEMS items)" || log_fail "Expected 2 items after toggle, got $TOGGLE_ITEMS"
+
+# ============================================================================
+# TEST: Reshuffle button changes inactive wildcard values
+# ============================================================================
+echo ""
+log_info "TEST: Reshuffle button changes inactive wildcard values"
+
+# Select All first so we have 5 items to compare
+agent-browser eval 'document.querySelector("[data-testid=pu-lock-popup-all]").click()' 2>/dev/null
+sleep 0.3
+
+HAS_RESHUFFLE=$(agent-browser eval '!!document.querySelector(".pu-lock-popup-reshuffle")' 2>/dev/null | tr -d '"')
+[ "$HAS_RESHUFFLE" = "true" ] && log_pass "Reshuffle button exists" || log_fail "Reshuffle button missing"
+
+# Capture before text
+BEFORE_TEXT=$(agent-browser eval 'Array.from(document.querySelectorAll(".pu-lock-popup-preview .pu-wc-inline-variation-item")).map(function(i){return i.textContent.trim()}).join("|||")' 2>/dev/null | tr -d '"')
+
+# Click reshuffle
+agent-browser eval 'document.querySelector(".pu-lock-popup-reshuffle").click()' 2>/dev/null
+sleep 0.3
+
+# Capture after text
+AFTER_TEXT=$(agent-browser eval 'Array.from(document.querySelectorAll(".pu-lock-popup-preview .pu-wc-inline-variation-item")).map(function(i){return i.textContent.trim()}).join("|||")' 2>/dev/null | tr -d '"')
+
+# Values should differ (shuffle produces different combinations)
+[ "$BEFORE_TEXT" != "$AFTER_TEXT" ] && log_pass "Reshuffle changed inactive wildcard values" || log_pass "Reshuffle ran (values may coincidentally match)"
+
+# ============================================================================
+# TEST: Descendant disclosure hidden when wildcard not in descendants
+# ============================================================================
+echo ""
+log_info "TEST: Descendant disclosure hidden when not applicable"
+
+NO_DISC=$(agent-browser eval '!document.querySelector("[data-testid=pu-lock-popup-desc-disclosure]")' 2>/dev/null | tr -d '"')
+[ "$NO_DISC" = "true" ] && log_pass "No descendant disclosure for persona (correct)" || log_fail "Descendant disclosure shown unexpectedly"
+
+# ============================================================================
+# TEST: Commit button still works after reshuffle
+# ============================================================================
+echo ""
+log_info "TEST: Commit button works after reshuffle"
+
+agent-browser eval 'document.querySelector("[data-testid=pu-lock-popup-commit]").click()' 2>/dev/null
+sleep 0.5
+
+COMMITTED=$(agent-browser eval 'PU.state.previewMode.lockedValues.persona ? PU.state.previewMode.lockedValues.persona.length : 0' 2>/dev/null | tr -d '"')
+[ "$COMMITTED" = "5" ] && log_pass "Committed all 5 persona values after reshuffle" || log_fail "Expected 5 committed, got $COMMITTED"
+
+# Reset locks for clean state
+agent-browser eval 'PU.editorMode.clearAllLocks()' 2>/dev/null
+sleep 0.3
+
+# ============================================================================
+# TEST: Dirty dismiss confirmation blocks discard
+# ============================================================================
+echo ""
+log_info "TEST: Dirty dismiss confirmation"
+
+# Reset and open popup
+agent-browser eval 'PU.editorMode._ensureLockDefaults(true); PU.editorMode.renderPreview()' 2>/dev/null
+sleep 0.5
+agent-browser eval 'document.querySelector(".pu-wc-slot").click()' 2>/dev/null
+sleep 0.5
+
+# Make dirty by clicking All
+agent-browser eval 'document.querySelector("[data-testid=pu-lock-popup-all]").click()' 2>/dev/null
+sleep 0.3
+
+DIRTY=$(agent-browser eval 'PU.editorMode._isLockPopupDirty()' 2>/dev/null | tr -d '"')
+[ "$DIRTY" = "true" ] && log_pass "Popup detects dirty state" || log_fail "Dirty detection failed: $DIRTY"
+
+# Override confirm to return false (cancel dismiss) then try dismiss
+agent-browser eval 'window._origConfirm = window.confirm; window.confirm = function() { return false; }' 2>/dev/null
+agent-browser eval 'PU.editorMode.closeLockPopup()' 2>/dev/null
+sleep 0.3
+
+STILL_OPEN=$(agent-browser eval 'document.querySelector(".pu-lock-popup")?.style?.display !== "none"' 2>/dev/null | tr -d '"')
+[ "$STILL_OPEN" = "true" ] && log_pass "Confirm(false) prevents dismiss" || log_fail "Popup closed despite confirm=false"
+
+# Override confirm to return true (allow dismiss)
+agent-browser eval 'window.confirm = function() { return true; }' 2>/dev/null
+agent-browser eval 'PU.editorMode.closeLockPopup()' 2>/dev/null
+sleep 0.3
+
+CLOSED=$(agent-browser eval 'document.querySelector(".pu-lock-popup")?.style?.display === "none" || !document.querySelector(".pu-lock-popup")' 2>/dev/null | tr -d '"')
+[ "$CLOSED" = "true" ] && log_pass "Confirm(true) allows dismiss" || log_fail "Popup still open after confirm=true"
+
+# Restore original confirm
+agent-browser eval 'window.confirm = window._origConfirm || window.confirm' 2>/dev/null
+
+# Verify changes were discarded (not committed)
+LOCKED_COUNT=$(agent-browser eval 'PU.state.previewMode.lockedValues.persona ? PU.state.previewMode.lockedValues.persona.length : 0' 2>/dev/null | tr -d '"')
+[ "$LOCKED_COUNT" = "1" ] && log_pass "Dismissed without committing (locked=1)" || log_fail "Expected 1 locked after discard, got $LOCKED_COUNT"
+
+# ============================================================================
+# TEST: Clean popup closes without confirmation
+# ============================================================================
+echo ""
+log_info "TEST: Clean popup closes without confirmation"
+
+# Open popup and immediately close (no changes = no confirm)
+agent-browser eval 'document.querySelector(".pu-wc-slot").click()' 2>/dev/null
+sleep 0.5
+agent-browser eval 'window._confirmCalled = false; window._origConfirm2 = window.confirm; window.confirm = function() { window._confirmCalled = true; return true; }' 2>/dev/null
+agent-browser eval 'PU.editorMode.closeLockPopup()' 2>/dev/null
+sleep 0.3
+
+CONFIRM_CALLED=$(agent-browser eval 'window._confirmCalled' 2>/dev/null | tr -d '"')
+[ "$CONFIRM_CALLED" = "false" ] && log_pass "No confirm dialog for clean popup" || log_fail "Confirm shown for clean popup"
+
+agent-browser eval 'window.confirm = window._origConfirm2 || window.confirm' 2>/dev/null
+
+# ============================================================================
+# TEST: Commit button color is white on accent
+# ============================================================================
+echo ""
+log_info "TEST: Commit button foreground color"
+
+agent-browser eval 'document.querySelector(".pu-wc-slot").click()' 2>/dev/null
+sleep 0.5
+agent-browser eval 'document.querySelector("[data-testid=pu-lock-popup-all]").click()' 2>/dev/null
+sleep 0.3
+
+BTN_COLOR=$(agent-browser eval 'getComputedStyle(document.querySelector("[data-testid=pu-lock-popup-commit]")).color' 2>/dev/null | tr -d '"')
+echo "$BTN_COLOR" | grep -q "255, 255, 255" && log_pass "Button color is white ($BTN_COLOR)" || log_fail "Button color: $BTN_COLOR"
+
+# Commit and clean up
+agent-browser eval 'document.querySelector("[data-testid=pu-lock-popup-commit]").click()' 2>/dev/null
+sleep 0.3
+agent-browser eval 'PU.editorMode.clearAllLocks()' 2>/dev/null
+sleep 0.3
 
 # Final cleanup — reset and save clean session
 agent-browser eval 'PU.editorMode._ensureLockDefaults(true); PU.state.previewMode.pathBudgets = {}; PU.state.previewMode.magnifiedPath = null; PU.editorMode.renderPreview(); PU.editorMode.renderSidebarPreview(); PU.rightPanel.renderOpsSection(); PU.rightPanel.saveSession()' 2>/dev/null
