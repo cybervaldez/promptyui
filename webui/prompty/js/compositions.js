@@ -356,6 +356,12 @@ PU.compositions = {
             });
         }
 
+        // Append ephemeral preview entries from lock popup
+        const previewItems = PU.state.previewMode.previewCompositions || [];
+        if (previewItems.length > 0) {
+            items = [...items, ...previewItems];
+        }
+
         const countEl = panel.querySelector('[data-testid="pu-compositions-count"]');
         if (countEl) {
             // Show the analytical total (matching the sidebar) not the rendered entries count
@@ -626,9 +632,12 @@ PU.compositions = {
             return 0;
         });
 
-        // 3. Sort pinned entries first within each group
+        // 3. Sort: pinned first, preview last within each group
         for (const p of paths) {
             groups[p].sort((a, b) => {
+                const aPreview = a._preview ? 1 : 0;
+                const bPreview = b._preview ? 1 : 0;
+                if (aPreview !== bPreview) return aPreview - bPreview;
                 const aPinned = PU.compositions._isPinned(a.sources[0].blockPath, a.sources[0].comboKey) ? 0 : 1;
                 const bPinned = PU.compositions._isPinned(b.sources[0].blockPath, b.sources[0].comboKey) ? 0 : 1;
                 return aPinned - bPinned;
@@ -659,21 +668,28 @@ PU.compositions = {
 
             const safePath = esc(path).replace(/'/g, '&#39;');
 
-            for (const entry of entries) {
+            const hasOverflow = overflow[path] && overflow[path] > 0;
+
+            for (let ei = 0; ei < entries.length; ei++) {
+                const entry = entries[ei];
                 const src = entry.sources[0];
                 const isPinned = PU.compositions._isPinned(src.blockPath, src.comboKey);
                 const isOrphan = entry._orphan || false;
+                const isPreview = entry._preview || false;
+                const isLast = ei === entries.length - 1;
 
                 let cls = 'pu-compositions-item';
                 if (PU.compositions._isDimmed(src.blockPath, src.comboKey)) cls += ' pu-compositions-dimmed';
                 if (isPinned) cls += ' pu-compositions-pinned';
                 if (isOrphan) cls += ' pu-compositions-orphan';
+                if (isPreview) cls += ' pu-compositions-preview';
 
                 const safeKey = esc(src.comboKey).replace(/'/g, '&#39;');
                 const safeBp = esc(src.blockPath).replace(/'/g, '&#39;');
 
                 const pinIcon = isPinned ? '<span class="pu-compositions-pin-icon">\uD83D\uDCCC</span>' : '';
                 const orphanIcon = isOrphan ? '<span class="pu-compositions-orphan-icon" title="Not in current composition">\u26A0</span>' : '';
+                const previewIcon = isPreview ? '<span class="pu-compositions-preview-icon">\u2192</span>' : '';
 
                 // Build segmented text with separator range-select targets
                 // Each separator's path = the NEXT segment's path (the range start)
@@ -687,16 +703,19 @@ PU.compositions = {
                 }
                 textHtml += `<span class="pu-compositions-segment pu-compositions-segment-own" data-segment-path="${esc(path)}">${esc(entry.text)}</span>`;
 
-                html += `<div class="${cls}" data-testid="pu-compositions-item-${esc(path)}" data-block-path="${esc(src.blockPath)}" data-combo-key="${esc(src.comboKey)}" onclick="PU.compositions._handleItemClick('${safeBp}', '${safeKey}', event)">`;
-                html += pinIcon + orphanIcon;
-                html += `<span class="pu-compositions-item-text" data-testid="pu-compositions-resolved">${textHtml}</span>`;
-                html += '</div>';
-            }
+                // Append "+N more" inline at end of last item
+                if (isLast && hasOverflow && !isPreview) {
+                    textHtml += ` <a class="pu-compositions-show-more-inline" data-testid="pu-compositions-show-more-${esc(path)}" onclick="event.stopPropagation(); PU.editorMode.showMoreVariations('${safePath}')">+${overflow[path].toLocaleString()} more</a>`;
+                }
+                // Preview overflow indicator
+                if (isPreview && entry._previewOverflow > 0 && isLast) {
+                    textHtml += ` <span class="pu-compositions-preview-more">+${entry._previewOverflow.toLocaleString()} more</span>`;
+                }
 
-            // Render "+N more" link if this path has overflow
-            if (overflow[path] && overflow[path] > 0) {
-                html += `<div class="pu-compositions-show-more" data-testid="pu-compositions-show-more-${esc(path)}" onclick="event.stopPropagation(); PU.editorMode.showMoreVariations('${safePath}')">`;
-                html += `<span class="pu-compositions-show-more-text">+${overflow[path].toLocaleString()} more</span>`;
+                const clickHandler = isPreview ? '' : ` onclick="PU.compositions._handleItemClick('${safeBp}', '${safeKey}', event)"`;
+                html += `<div class="${cls}" data-testid="pu-compositions-item-${esc(path)}" data-block-path="${esc(src.blockPath)}" data-combo-key="${esc(src.comboKey)}"${clickHandler}>`;
+                html += pinIcon + orphanIcon + previewIcon;
+                html += `<span class="pu-compositions-item-text" data-testid="pu-compositions-resolved">${textHtml}</span>`;
                 html += '</div>';
             }
         }

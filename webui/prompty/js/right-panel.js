@@ -509,6 +509,20 @@ PU.rightPanel = {
             }
         }
 
+        // Delimiter settings (editable)
+        const delimiterKeys = ['prompts_delimiter', 'ext_text_delimiter'];
+        const delimiterDefaults = { prompts_delimiter: ' ', ext_text_delimiter: ', ' };
+        for (const key of delimiterKeys) {
+            const val = defaults[key] !== undefined ? defaults[key] : delimiterDefaults[key];
+            infoHtml += `<div class="pu-defaults-popover-row">
+                <label>${esc(key)}</label>
+                <input type="text" class="pu-defaults-popover-input" data-testid="pu-defaults-${escAttr(key)}"
+                       value="${escAttr(val)}"
+                       onchange="PU.actions.updateDefaults('${escAttr(key)}', this.value)"
+                       onclick="event.stopPropagation()">
+            </div>`;
+        }
+
         // Annotations (editable)
         let annRows = '';
         for (const [key, value] of Object.entries(annotations)) {

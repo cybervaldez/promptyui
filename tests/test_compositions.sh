@@ -711,7 +711,7 @@ TOTAL_ITEMS=$(agent-browser eval 'PU.state.previewMode.compositions.length' 2>/d
 [ "$TOTAL_ITEMS" -gt "10" ] 2>/dev/null && log_pass "At defaults: $TOTAL_ITEMS entries (ext_text blocks expanded)" || log_fail "Expected > 10 entries, got $TOTAL_ITEMS"
 
 # No show-more links should exist at defaults
-SHOW_MORE_COUNT=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-show-more").length' 2>/dev/null | tr -d '"')
+SHOW_MORE_COUNT=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-show-more-inline").length' 2>/dev/null | tr -d '"')
 [ "$SHOW_MORE_COUNT" = "0" ] && log_pass "No show-more links at defaults" || log_fail "Found $SHOW_MORE_COUNT show-more links at defaults"
 
 # No pathOverflow should exist at defaults
@@ -747,7 +747,7 @@ PATHS_AFTER=$(agent-browser eval '(() => {
 
 # Check for overflow / show-more links
 OVERFLOW_AFTER=$(agent-browser eval 'Object.keys(PU.state.previewMode.pathOverflow || {}).length' 2>/dev/null | tr -d '"')
-SHOW_MORE_AFTER=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-show-more").length' 2>/dev/null | tr -d '"')
+SHOW_MORE_AFTER=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-show-more-inline").length' 2>/dev/null | tr -d '"')
 
 [ "$OVERFLOW_AFTER" -gt "0" ] && log_pass "Overflow entries found: $OVERFLOW_AFTER paths" || log_fail "Expected overflow after expanding all wildcards"
 [ "$SHOW_MORE_AFTER" -gt "0" ] && log_pass "Show-more links rendered: $SHOW_MORE_AFTER" || log_fail "No show-more links despite overflow"
@@ -801,7 +801,7 @@ RESET_ITEMS=$(agent-browser eval 'PU.state.previewMode.compositions.length' 2>/d
 [ "$RESET_ITEMS" -ge "$RESET_PATHS" ] && log_pass "After clear: $RESET_ITEMS items >= $RESET_PATHS paths (ext_text expanded)" || log_fail "After clear: $RESET_ITEMS items vs $RESET_PATHS paths"
 
 # Show-more links may exist for ext_text blocks with overflow
-RESET_MORE=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-show-more").length' 2>/dev/null | tr -d '"')
+RESET_MORE=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-show-more-inline").length' 2>/dev/null | tr -d '"')
 log_info "Show-more links after clear: $RESET_MORE"
 
 # pathBudgets should be empty
@@ -954,7 +954,7 @@ HAS_PREVIEW=$(agent-browser eval '!!document.querySelector(".pu-lock-popup-previ
 echo ""
 log_info "TEST: Preview has variation items"
 
-PREV_ITEMS=$(agent-browser eval 'document.querySelectorAll(".pu-lock-popup-preview .pu-wc-inline-variation-item").length' 2>/dev/null | tr -d '"')
+PREV_ITEMS=$(agent-browser eval 'document.querySelectorAll(".pu-lock-popup-preview > .pu-wc-inline-variations > .pu-wc-inline-variation-item").length' 2>/dev/null | tr -d '"')
 [ "$PREV_ITEMS" -gt 0 ] 2>/dev/null && log_pass "Preview has $PREV_ITEMS variation item(s)" || log_fail "Preview has 0 variation items"
 
 # ============================================================================
@@ -972,9 +972,19 @@ ACTIVE_PILLS=$(agent-browser eval 'document.querySelectorAll(".pu-lock-popup-pre
 echo ""
 log_info "TEST: Footer label format"
 
-FOOTER=$(agent-browser eval 'document.querySelector(".pu-lock-popup-footer")?.textContent?.trim()' 2>/dev/null | tr -d '"')
-echo "$FOOTER" | grep -q "Previewing" && log_pass "Footer contains 'Previewing'" || log_fail "Footer missing 'Previewing': $FOOTER"
-echo "$FOOTER" | grep -q "compositions" && log_pass "Footer contains 'compositions'" || log_fail "Footer missing 'compositions': $FOOTER"
+FOOTER=$(agent-browser eval 'document.querySelector("[data-testid=pu-lock-popup-footer-total]")?.textContent?.trim()' 2>/dev/null | tr -d '"')
+echo "$FOOTER" | grep -q "Total Compositions" && log_pass "Footer shows 'Total Compositions'" || log_fail "Footer missing 'Total Compositions': $FOOTER"
+
+# Check "see computation" disclosure exists
+HAS_COMPUTATION=$(agent-browser eval '!!document.querySelector("[data-testid=pu-lock-popup-computation]")' 2>/dev/null | tr -d '"')
+[ "$HAS_COMPUTATION" = "true" ] && log_pass "Computation disclosure exists" || log_fail "Computation disclosure missing"
+
+# Check copy button exists
+HAS_COPY=$(agent-browser eval '!!document.querySelector("[data-testid=pu-lock-popup-copy]")' 2>/dev/null | tr -d '"')
+[ "$HAS_COPY" = "true" ] && log_pass "Copy button exists" || log_fail "Copy button missing"
+
+PREVIEW_LABEL=$(agent-browser eval 'document.querySelector(".pu-lock-popup-preview-label")?.textContent?.trim()' 2>/dev/null | tr -d '"')
+echo "$PREVIEW_LABEL" | grep -q "Previewing" && log_pass "Preview label contains 'Previewing'" || log_fail "Preview label missing 'Previewing': $PREVIEW_LABEL"
 
 # ============================================================================
 # TEST: All button increases preview items
@@ -986,11 +996,15 @@ log_info "TEST: All button increases preview items"
 agent-browser eval 'document.querySelector("[data-testid=pu-lock-popup-all]").click()' 2>/dev/null
 sleep 0.5
 
-ALL_ITEMS=$(agent-browser eval 'document.querySelectorAll(".pu-lock-popup-preview .pu-wc-inline-variation-item").length' 2>/dev/null | tr -d '"')
+ALL_ITEMS=$(agent-browser eval 'document.querySelectorAll(".pu-lock-popup-preview > .pu-wc-inline-variations > .pu-wc-inline-variation-item").length' 2>/dev/null | tr -d '"')
 [ "$ALL_ITEMS" -gt 1 ] 2>/dev/null && log_pass "All shows $ALL_ITEMS preview items" || log_fail "All shows only $ALL_ITEMS item(s)"
 
-ALL_FOOTER=$(agent-browser eval 'document.querySelector(".pu-lock-popup-footer")?.textContent?.trim()' 2>/dev/null | tr -d '"')
-echo "$ALL_FOOTER" | grep -q "Previewing $ALL_ITEMS" && log_pass "Footer matches item count: $ALL_FOOTER" || log_fail "Footer mismatch: $ALL_FOOTER vs $ALL_ITEMS items"
+ALL_LABEL=$(agent-browser eval 'document.querySelector(".pu-lock-popup-preview-label")?.textContent?.trim()' 2>/dev/null | tr -d '"')
+echo "$ALL_LABEL" | grep -q "Previewing $ALL_ITEMS" && log_pass "Preview label matches item count: $ALL_LABEL" || log_fail "Label mismatch: $ALL_LABEL vs $ALL_ITEMS items"
+
+# After "All", selection differs from initial — footer should show arrow (→ U+2192)
+ALL_FOOTER=$(agent-browser eval 'document.querySelector("[data-testid=pu-lock-popup-footer-total]")?.textContent?.trim()' 2>/dev/null | tr -d '"')
+echo "$ALL_FOOTER" | grep -q '→' && log_pass "Footer shows arrow when selection changed" || log_fail "Footer missing arrow: $ALL_FOOTER"
 
 # ============================================================================
 # TEST: Only button shows 1 item
@@ -1001,11 +1015,11 @@ log_info "TEST: Only button shows 1 item"
 agent-browser eval 'document.querySelector("[data-testid=pu-lock-popup-only]").click()' 2>/dev/null
 sleep 0.5
 
-ONLY_ITEMS=$(agent-browser eval 'document.querySelectorAll(".pu-lock-popup-preview .pu-wc-inline-variation-item").length' 2>/dev/null | tr -d '"')
+ONLY_ITEMS=$(agent-browser eval 'document.querySelectorAll(".pu-lock-popup-preview > .pu-wc-inline-variations > .pu-wc-inline-variation-item").length' 2>/dev/null | tr -d '"')
 [ "$ONLY_ITEMS" = "1" ] && log_pass "Only shows exactly 1 preview item" || log_fail "Only shows $ONLY_ITEMS item(s), expected 1"
 
-ONLY_FOOTER=$(agent-browser eval 'document.querySelector(".pu-lock-popup-footer")?.textContent?.trim()' 2>/dev/null | tr -d '"')
-echo "$ONLY_FOOTER" | grep -q "Previewing 1 value" && log_pass "Footer shows 'Previewing 1 value'" || log_fail "Footer mismatch: $ONLY_FOOTER"
+ONLY_LABEL=$(agent-browser eval 'document.querySelector(".pu-lock-popup-preview-label")?.textContent?.trim()' 2>/dev/null | tr -d '"')
+echo "$ONLY_LABEL" | grep -q "Previewing 1 value" && log_pass "Preview label shows 'Previewing 1 value'" || log_fail "Label mismatch: $ONLY_LABEL"
 
 # ============================================================================
 # TEST: Toggle checkbox updates preview
@@ -1023,55 +1037,58 @@ agent-browser eval '
 ' 2>/dev/null
 sleep 0.5
 
-TOGGLE_ITEMS=$(agent-browser eval 'document.querySelectorAll(".pu-lock-popup-preview .pu-wc-inline-variation-item").length' 2>/dev/null | tr -d '"')
+TOGGLE_ITEMS=$(agent-browser eval 'document.querySelectorAll(".pu-lock-popup-preview > .pu-wc-inline-variations > .pu-wc-inline-variation-item").length' 2>/dev/null | tr -d '"')
 [ "$TOGGLE_ITEMS" = "2" ] && log_pass "Toggle adds preview item ($TOGGLE_ITEMS items)" || log_fail "Expected 2 items after toggle, got $TOGGLE_ITEMS"
 
 # ============================================================================
-# TEST: Reshuffle button changes inactive wildcard values
+# TEST: Nav buttons change inactive wildcard values
 # ============================================================================
 echo ""
-log_info "TEST: Reshuffle button changes inactive wildcard values"
+log_info "TEST: Nav buttons change inactive wildcard values"
 
 # Select All first so we have 5 items to compare
 agent-browser eval 'document.querySelector("[data-testid=pu-lock-popup-all]").click()' 2>/dev/null
 sleep 0.3
 
-HAS_RESHUFFLE=$(agent-browser eval '!!document.querySelector(".pu-lock-popup-reshuffle")' 2>/dev/null | tr -d '"')
-[ "$HAS_RESHUFFLE" = "true" ] && log_pass "Reshuffle button exists" || log_fail "Reshuffle button missing"
+HAS_NAV=$(agent-browser eval '!!document.querySelector("[data-testid=pu-lock-popup-next]")' 2>/dev/null | tr -d '"')
+[ "$HAS_NAV" = "true" ] && log_pass "Nav buttons exist" || log_fail "Nav buttons missing"
 
 # Capture before text
 BEFORE_TEXT=$(agent-browser eval 'Array.from(document.querySelectorAll(".pu-lock-popup-preview .pu-wc-inline-variation-item")).map(function(i){return i.textContent.trim()}).join("|||")' 2>/dev/null | tr -d '"')
 
-# Click reshuffle
-agent-browser eval 'document.querySelector(".pu-lock-popup-reshuffle").click()' 2>/dev/null
+# Click next
+agent-browser eval 'document.querySelector("[data-testid=pu-lock-popup-next]").click()' 2>/dev/null
 sleep 0.3
 
 # Capture after text
 AFTER_TEXT=$(agent-browser eval 'Array.from(document.querySelectorAll(".pu-lock-popup-preview .pu-wc-inline-variation-item")).map(function(i){return i.textContent.trim()}).join("|||")' 2>/dev/null | tr -d '"')
 
-# Values should differ (shuffle produces different combinations)
-[ "$BEFORE_TEXT" != "$AFTER_TEXT" ] && log_pass "Reshuffle changed inactive wildcard values" || log_pass "Reshuffle ran (values may coincidentally match)"
+# Values should differ (stepping changes combinations)
+[ "$BEFORE_TEXT" != "$AFTER_TEXT" ] && log_pass "Next button changed inactive wildcard values" || log_pass "Next ran (values may coincidentally match)"
 
 # ============================================================================
-# TEST: Descendant disclosure hidden when wildcard not in descendants
+# TEST: Descendant disclosure shows for block with descendants
 # ============================================================================
 echo ""
-log_info "TEST: Descendant disclosure hidden when not applicable"
+log_info "TEST: Descendant disclosure present for persona (block 0 has children)"
 
-NO_DISC=$(agent-browser eval '!document.querySelector("[data-testid=pu-lock-popup-desc-disclosure]")' 2>/dev/null | tr -d '"')
-[ "$NO_DISC" = "true" ] && log_pass "No descendant disclosure for persona (correct)" || log_fail "Descendant disclosure shown unexpectedly"
+HAS_DISC=$(agent-browser eval '!!document.querySelector("[data-testid=pu-lock-popup-desc-disclosure]")' 2>/dev/null | tr -d '"')
+[ "$HAS_DISC" = "true" ] && log_pass "Descendant disclosure shown for persona (block 0 has descendants)" || log_fail "Descendant disclosure missing"
+
+DESC_ITEMS=$(agent-browser eval 'document.querySelectorAll("[data-testid=pu-lock-popup-desc-disclosure] .pu-lock-popup-desc-item").length' 2>/dev/null | tr -d '"')
+[ "$DESC_ITEMS" -gt 0 ] 2>/dev/null && log_pass "Descendant disclosure has $DESC_ITEMS items" || log_fail "Descendant disclosure has no items"
 
 # ============================================================================
-# TEST: Commit button still works after reshuffle
+# TEST: Commit button still works after nav step
 # ============================================================================
 echo ""
-log_info "TEST: Commit button works after reshuffle"
+log_info "TEST: Commit button works after nav step"
 
 agent-browser eval 'document.querySelector("[data-testid=pu-lock-popup-commit]").click()' 2>/dev/null
 sleep 0.5
 
 COMMITTED=$(agent-browser eval 'PU.state.previewMode.lockedValues.persona ? PU.state.previewMode.lockedValues.persona.length : 0' 2>/dev/null | tr -d '"')
-[ "$COMMITTED" = "5" ] && log_pass "Committed all 5 persona values after reshuffle" || log_fail "Expected 5 committed, got $COMMITTED"
+[ "$COMMITTED" = "5" ] && log_pass "Committed all 5 persona values after nav" || log_fail "Expected 5 committed, got $COMMITTED"
 
 # Reset locks for clean state
 agent-browser eval 'PU.editorMode.clearAllLocks()' 2>/dev/null
@@ -1157,8 +1174,81 @@ sleep 0.3
 agent-browser eval 'PU.editorMode.clearAllLocks()' 2>/dev/null
 sleep 0.3
 
+# ============================================================================
+# TEST: Preview compositions appear when toggling wildcard in lock popup
+# ============================================================================
+echo ""
+log_info "TEST: Preview compositions in lock popup"
+
+# Reset state first
+agent-browser eval 'PU.editorMode._ensureLockDefaults(true); PU.state.previewMode.pathBudgets = {}; PU.state.previewMode.magnifiedPath = null; PU.state.previewMode.previewCompositions = []; PU.editorMode.renderPreview(); PU.editorMode.renderSidebarPreview(); PU.rightPanel.renderOpsSection()' 2>/dev/null
+sleep 0.5
+
+# Check no preview entries initially
+PREVIEW_COUNT=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-preview").length' 2>/dev/null | tr -d '"')
+[ "$PREVIEW_COUNT" = "0" ] && log_pass "No preview entries initially" || log_fail "Preview entries found before popup: $PREVIEW_COUNT"
+
+# Open lock popup
+agent-browser eval 'document.querySelector(".pu-wc-slot").click()' 2>/dev/null
+sleep 0.5
+
+# Click "All" to select all values
+agent-browser eval 'document.querySelector("[data-testid=pu-lock-popup-all]").click()' 2>/dev/null
+sleep 0.5
+
+# Check preview entries appear
+PREVIEW_COUNT=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-preview").length' 2>/dev/null | tr -d '"')
+[ "$PREVIEW_COUNT" -gt 0 ] 2>/dev/null && log_pass "Preview entries appear on toggle ($PREVIEW_COUNT)" || log_fail "No preview entries after toggle: $PREVIEW_COUNT"
+
+# Check preview entries have arrow icon
+ARROW_COUNT=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-preview-icon").length' 2>/dev/null | tr -d '"')
+[ "$ARROW_COUNT" -gt 0 ] 2>/dev/null && log_pass "Preview entries have arrow icon ($ARROW_COUNT)" || log_fail "No arrow icons: $ARROW_COUNT"
+
+# Check preview entries are non-interactive (pointer-events: none)
+PE=$(agent-browser eval 'getComputedStyle(document.querySelector(".pu-compositions-preview")).pointerEvents' 2>/dev/null | tr -d '"')
+[ "$PE" = "none" ] && log_pass "Preview entries non-interactive" || log_fail "Pointer events: $PE"
+
+# Check preview overflow indicator exists ("+N more")
+OVERFLOW=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-preview-more").length' 2>/dev/null | tr -d '"')
+[ "$OVERFLOW" -gt 0 ] 2>/dev/null && log_pass "Preview overflow indicator present" || log_info "No preview overflow (may not apply to this wildcard)"
+
+# Close popup without committing — previews should disappear
+agent-browser eval 'window._origConfirm3 = window.confirm; window.confirm = function() { return true; }' 2>/dev/null
+agent-browser eval 'PU.editorMode.closeLockPopup()' 2>/dev/null
+sleep 0.3
+agent-browser eval 'window.confirm = window._origConfirm3 || window.confirm' 2>/dev/null
+
+PREVIEW_AFTER=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-preview").length' 2>/dev/null | tr -d '"')
+[ "$PREVIEW_AFTER" = "0" ] && log_pass "Preview entries removed on cancel" || log_fail "Preview entries remain after cancel: $PREVIEW_AFTER"
+
+# Now test commit flow: open popup, select all, commit
+agent-browser eval 'document.querySelector(".pu-wc-slot").click()' 2>/dev/null
+sleep 0.5
+agent-browser eval 'document.querySelector("[data-testid=pu-lock-popup-all]").click()' 2>/dev/null
+sleep 0.5
+
+# Verify previews exist before commit
+PRE_COMMIT=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-preview").length' 2>/dev/null | tr -d '"')
+[ "$PRE_COMMIT" -gt 0 ] 2>/dev/null && log_pass "Previews present before commit ($PRE_COMMIT)" || log_fail "No previews before commit"
+
+# Commit
+agent-browser eval 'document.querySelector("[data-testid=pu-lock-popup-commit]").click()' 2>/dev/null
+sleep 0.5
+
+# Verify no preview entries after commit (they become real entries)
+POST_COMMIT=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-preview").length' 2>/dev/null | tr -d '"')
+[ "$POST_COMMIT" = "0" ] && log_pass "No preview entries after commit" || log_fail "Preview entries remain after commit: $POST_COMMIT"
+
+# Verify real entries exist after commit
+REAL_COUNT=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-item").length' 2>/dev/null | tr -d '"')
+[ "$REAL_COUNT" -gt 0 ] 2>/dev/null && log_pass "Real entries present after commit ($REAL_COUNT)" || log_fail "No real entries after commit"
+
+# Clean up
+agent-browser eval 'PU.editorMode.clearAllLocks()' 2>/dev/null
+sleep 0.3
+
 # Final cleanup — reset and save clean session
-agent-browser eval 'PU.editorMode._ensureLockDefaults(true); PU.state.previewMode.pathBudgets = {}; PU.state.previewMode.magnifiedPath = null; PU.editorMode.renderPreview(); PU.editorMode.renderSidebarPreview(); PU.rightPanel.renderOpsSection(); PU.rightPanel.saveSession()' 2>/dev/null
+agent-browser eval 'PU.editorMode._ensureLockDefaults(true); PU.state.previewMode.pathBudgets = {}; PU.state.previewMode.magnifiedPath = null; PU.state.previewMode.previewCompositions = []; PU.editorMode.renderPreview(); PU.editorMode.renderSidebarPreview(); PU.rightPanel.renderOpsSection(); PU.rightPanel.saveSession()' 2>/dev/null
 sleep 0.5
 
 # ============================================================================

@@ -193,6 +193,7 @@ PU.state = {
         pathOverflow: {},         // Per-path remaining count: { blockPath: remainingCount }
         magnifiedPath: null,      // null = full view, "0.1" = zoomed into subtree at that path
         compositions: [],         // Array of { text, sources: [{blockPath, comboKey}] }
+        previewCompositions: [],  // Ephemeral entries from lock popup [{text, sources, _preview, _previewOverflow?}]
         dimmedEntries: new Set(), // Set of "blockPath|comboKey" keys excluded from compositions
         pinnedEntries: new Set(), // Set of "blockPath|comboKey" — survives populateFromPreview()
         pinnedTexts: new Map(),   // Map<"bp|ck", string> — frozen text for orphan display

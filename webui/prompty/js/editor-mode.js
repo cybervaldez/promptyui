@@ -175,6 +175,12 @@ PU.editorMode = {
             </div>`;
         }).join('');
 
+        // Strip interactivity from wildcard slots in ancestor segments
+        body.querySelectorAll('.pu-preview-segment-ancestor .pu-wc-slot').forEach(slot => {
+            slot.removeAttribute('onclick');
+            slot.classList.add('pu-wc-slot-ancestor');
+        });
+
         // Attach segment-level hover listeners for compositions linking
         PU.editorMode._attachPreviewHoverListeners(body);
 
@@ -499,14 +505,16 @@ PU.editorMode = {
                             // Merge ancestor wildcards for ext_text blocks too
                             const extOwnSet = new Set(extOwnWcNames);
                             const extAllWcNames = [...extOwnWcNames, ...(ancestorWcNames || []).filter(n => !extOwnSet.has(n))];
+                            // Only vary on own wildcards — inherited ones produce duplicate text.
+                            const extVarWcNames = extOwnWcNames.length > 0 ? extOwnWcNames : extAllWcNames;
                             const blockVars = PU.editorMode._computeExtTextVariations(
-                                extValues, extAllWcNames, lookup, locked, wcIndices, path, budget
+                                extValues, extVarWcNames, lookup, locked, wcIndices, path, budget
                             );
                             for (const v of blockVars) variationData.push(v);
 
-                            // Compute overflow
+                            // Compute overflow using same dimensions as variation generation
                             let effectiveCombos = extValues.length;
-                            for (const name of extAllWcNames) {
+                            for (const name of extVarWcNames) {
                                 const lv = (locked[name] && locked[name].length > 0) ? locked[name] : null;
                                 if (lv) effectiveCombos *= lv.length;
                             }
@@ -524,12 +532,15 @@ PU.editorMode = {
                     ownHtml = ownWcNames.length > 0 ? PU.editorMode._convertToTemplateView(rawContent) : esc(rawContent);
                     if (isPreviewMode) {
                         const budget = allocatedBudgets[path] || 20;
-                        const blockVars = PU.editorMode._computeBlockVariations(rawContent, allWcNames, lookup, locked, wcIndices, varMode, path, budget);
+                        // Only vary on own wildcards — inherited ones don't appear in content
+                        // so they'd produce duplicate text.
+                        const varWcNames = ownWcNames.length > 0 ? ownWcNames : allWcNames;
+                        const blockVars = PU.editorMode._computeBlockVariations(rawContent, varWcNames, lookup, locked, wcIndices, varMode, path, budget);
                         for (const v of blockVars) variationData.push(v);
 
-                        // Compute overflow for "show more" links
+                        // Compute overflow using same dimensions as variation generation
                         let effectiveCombos = 1;
-                        for (const name of allWcNames) {
+                        for (const name of varWcNames) {
                             const lv = (locked[name] && locked[name].length > 0) ? locked[name] : null;
                             if (lv) effectiveCombos *= lv.length;
                         }
@@ -815,6 +826,106 @@ PU.editorMode = {
         PU.editorMode.renderPreview();
     },
 
+    // ── Preview Compositions (ephemeral lock popup feedback) ────────────
+
+    /**
+     * Walk block tree and find blocks whose content contains __wcName__.
+     * Returns [{blockPath, content, ownWcNames}] for non-ext_text blocks.
+     */
+    _findBlocksWithWildcard(textItems, wcName) {
+        const results = [];
+        const walk = (items, prefix) => {
+            if (!Array.isArray(items)) return;
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                const path = prefix != null ? `${prefix}.${i}` : String(i);
+                const content = item.content || '';
+                const isExt = 'ext_text' in item;
+                if (!isExt && content.includes(`__${wcName}__`)) {
+                    // Collect own wildcards from content
+                    const ownWcNames = [];
+                    const seen = new Set();
+                    const matches = content.match(/__([a-zA-Z0-9_-]+)__/g) || [];
+                    for (const m of matches) {
+                        const name = m.replace(/__/g, '');
+                        if (!seen.has(name)) { seen.add(name); ownWcNames.push(name); }
+                    }
+                    results.push({ blockPath: path, content, ownWcNames });
+                }
+                if (item.after) walk(item.after, path);
+            }
+        };
+        walk(textItems, null);
+        return results;
+    },
+
+    /**
+     * Compute preview compositions from lock popup state.
+     * Builds hypothetical locked state and generates capped variations.
+     */
+    _computePreviewCompositions() {
+        const state = PU.editorMode._lockPopupState;
+        if (!state) {
+            PU.state.previewMode.previewCompositions = [];
+            return;
+        }
+        const checked = state.currentChecked;
+        if (checked.size === 0) {
+            PU.state.previewMode.previewCompositions = [];
+            return;
+        }
+
+        const prompt = PU.helpers.getActivePrompt();
+        if (!prompt || !prompt.text) {
+            PU.state.previewMode.previewCompositions = [];
+            return;
+        }
+
+        const lookup = PU.preview.getFullWildcardLookup();
+        const { wildcardCounts, extTextCount } = PU.shared.getCompositionParams();
+        const compId = PU.state.previewMode.compositionId;
+        const [, wcIndices] = PU.preview.compositionToIndices(compId, extTextCount, wildcardCounts);
+
+        // Build hypothetical locked state
+        const locked = {};
+        const realLocked = PU.state.previewMode.lockedValues;
+        for (const k of Object.keys(realLocked)) {
+            locked[k] = [...realLocked[k]];
+        }
+        locked[state.wcName] = [...checked];
+
+        // Find blocks that use this wildcard
+        const affectedBlocks = PU.editorMode._findBlocksWithWildcard(prompt.text, state.wcName);
+
+        const MAX_PREVIEW = 5;
+        const results = [];
+
+        for (const { blockPath, content, ownWcNames } of affectedBlocks) {
+            if (results.length >= MAX_PREVIEW) break;
+            const remaining = MAX_PREVIEW - results.length;
+            const blockVars = PU.editorMode._computeBlockVariations(
+                content, ownWcNames, lookup, locked, wcIndices, 'summary', blockPath, remaining
+            );
+            for (const v of blockVars) {
+                if (results.length >= MAX_PREVIEW) break;
+                results.push({
+                    text: v.text,
+                    sources: [{ blockPath: v.blockPath, comboKey: v.comboKey }],
+                    _preview: true
+                });
+            }
+        }
+
+        // Compute hypothetical total and attach overflow to last entry
+        const hypotheticalTotal = PU.shared.computeLockedTotal(wildcardCounts, extTextCount, locked);
+        const overflow = Math.max(0, hypotheticalTotal - results.length);
+        if (overflow > 0 && results.length > 0) {
+            results[results.length - 1]._previewOverflow = overflow;
+        }
+
+        PU.state.previewMode.previewCompositions = results;
+    },
+
     // ── Lock Popup ──────────────────────────────────────────────────────
 
     _lockPopupState: null, // { wcName, initialChecked: Set, anchor: Element }
@@ -822,6 +933,7 @@ PU.editorMode = {
     /** Open the lock popup for a wildcard. */
     openLockPopup(wcName, anchorEl) {
         PU.overlay.dismissPopovers();
+        PU.state.previewMode.previewCompositions = [];
 
         const lookup = PU.preview.getFullWildcardLookup();
         const allVals = lookup[wcName];
@@ -918,14 +1030,48 @@ PU.editorMode = {
         const initial = state.initialChecked;
         const changed = checked.size !== initial.size || [...checked].some(v => !initial.has(v));
 
+        // Build "Total Compositions: orig → new" footer
+        const origTotal = PU.shared.computeLockedTotal(wildcardCounts, extTextCount, locked);
+        const totalLabel = origTotal !== impact
+            ? `Total Compositions: ${origTotal.toLocaleString()} \u2192 <strong>${impact.toLocaleString()}</strong>`
+            : `Total Compositions: <strong>${impact.toLocaleString()}</strong>`;
+
+        // Per-path computation disclosure
+        const computationHtml = PU.editorMode._buildComputationBreakdown(wcName, hypothetical, extTextCount);
+
         html += `<div class="pu-lock-popup-footer" data-testid="pu-lock-popup-footer">
-            <span class="pu-lock-popup-footer-label">Previewing ${checked.size} value${checked.size !== 1 ? 's' : ''} \u00b7 ${impact.toLocaleString()} compositions</span>
-            <button class="pu-lock-popup-commit-btn" data-testid="pu-lock-popup-commit"
-                onclick="PU.editorMode.commitLockPopup()"
-                ${changed ? '' : 'disabled'}>${changed ? 'Add to Compositions' : 'No Changes'}</button>
+            <div class="pu-lock-popup-footer-actions">
+                <button class="pu-lock-popup-commit-btn" data-testid="pu-lock-popup-commit"
+                    onclick="PU.editorMode.commitLockPopup()"
+                    ${changed ? '' : 'disabled'}>${changed ? 'Add to Compositions' : 'No Changes'}</button>
+                <button class="pu-lock-popup-copy-btn" data-testid="pu-lock-popup-copy"
+                    onclick="PU.editorMode.copyLockPopupPreview(this)"
+                    title="Copy resolved text">\u{1F4CB}</button>
+            </div>
+            <div class="pu-lock-popup-footer-info">
+                <div data-testid="pu-lock-popup-footer-total">${totalLabel}</div>
+                ${computationHtml ? `<details class="pu-lock-popup-computation" data-testid="pu-lock-popup-computation">
+                    <summary>see computation</summary>
+                    ${computationHtml}
+                </details>` : ''}
+            </div>
         </div>`;
 
+        // Capture open states of disclosure elements before replacing innerHTML
+        const prevDescOpen = popup.querySelector('[data-testid="pu-lock-popup-desc-disclosure"]')?.open;
+        const prevCompOpen = popup.querySelector('[data-testid="pu-lock-popup-computation"]')?.open;
+
         popup.innerHTML = html;
+
+        // Restore disclosure open states
+        if (prevDescOpen) {
+            const desc = popup.querySelector('[data-testid="pu-lock-popup-desc-disclosure"]');
+            if (desc) desc.open = true;
+        }
+        if (prevCompOpen) {
+            const comp = popup.querySelector('[data-testid="pu-lock-popup-computation"]');
+            if (comp) comp.open = true;
+        }
     },
 
     /** Toggle a value in the lock popup. */
@@ -964,6 +1110,9 @@ PU.editorMode = {
         const lookup = PU.preview.getFullWildcardLookup();
         const allVals = lookup[state.wcName] || [];
         PU.editorMode._renderLockPopupContent(state.wcName, allVals, state.currentVal);
+        // Update preview compositions in the compositions panel
+        PU.editorMode._computePreviewCompositions();
+        PU.compositions.render();
     },
 
     /** Apply current lock popup state to lockedValues and re-render preview. */
@@ -1011,9 +1160,13 @@ PU.editorMode = {
     closeLockPopup() {
         if (PU.editorMode._isLockPopupDirty()) {
             if (!confirm('You have unsaved wildcard selections. Discard changes?')) {
-                return; // User chose to stay — re-show overlay
+                // Re-show overlay after dismissPopovers() finishes hiding it
+                setTimeout(() => PU.overlay.showOverlay(), 0);
+                return;
             }
         }
+        PU.state.previewMode.previewCompositions = [];
+        PU.compositions.render();
         const popup = document.querySelector('[data-testid="pu-lock-popup"]');
         if (popup) popup.style.display = 'none';
         PU.editorMode._lockPopupState = null;
@@ -1022,6 +1175,7 @@ PU.editorMode = {
     /** Commit lock popup selection to compositions and close. */
     commitLockPopup() {
         if (!PU.editorMode._lockPopupState) return;
+        PU.state.previewMode.previewCompositions = [];
         PU.editorMode._applyLockPopupState();
         const popup = document.querySelector('[data-testid="pu-lock-popup"]');
         if (popup) popup.style.display = 'none';
@@ -1029,23 +1183,27 @@ PU.editorMode = {
         PU.overlay.dismissPopovers();
     },
 
-    /** Build shuffled inactive wildcard map for preview diversity (Fisher-Yates). */
+    /** Build rotated inactive wildcard map for preview diversity.
+     *  Uses shuffleIndex from state to rotate values deterministically. */
     _buildInactiveShuffled(wcName, blockPath, lookup) {
         const result = {};
         if (!blockPath) return result;
         const block = PU.editorMode._getBlockAtPath(
             PU.helpers.getActivePrompt()?.text || [], blockPath);
         if (!block || !block.content) return result;
+        const offset = PU.editorMode._lockPopupState?.shuffleIndex || 0;
         block.content.replace(/__([a-zA-Z0-9_-]+)__/g, (match, name) => {
             if (name !== wcName && !result[name]) {
                 const vals = lookup[name];
                 if (vals && vals.length > 0) {
-                    const shuffled = [...vals];
-                    for (let j = shuffled.length - 1; j > 0; j--) {
-                        const k = Math.floor(Math.random() * (j + 1));
-                        [shuffled[j], shuffled[k]] = [shuffled[k], shuffled[j]];
+                    // Rotate values by offset for deterministic stepping
+                    const rotated = [];
+                    const len = vals.length;
+                    const shift = ((offset % len) + len) % len; // handle negatives
+                    for (let j = 0; j < len; j++) {
+                        rotated.push(vals[(j + shift) % len]);
                     }
-                    result[name] = shuffled;
+                    result[name] = rotated;
                 }
             }
             return match;
@@ -1054,13 +1212,121 @@ PU.editorMode = {
     },
 
     /** Reshuffle inactive wildcard values and re-render preview. */
-    reshuffleLockPopupPreview() {
+    /** Step prev/next through different inactive wildcard combinations. */
+    stepLockPopupPreview(delta) {
         const state = PU.editorMode._lockPopupState;
         if (!state) return;
+        state.shuffleIndex = (state.shuffleIndex || 0) + delta;
         const lookup = PU.preview.getFullWildcardLookup();
         state.inactiveShuffled = PU.editorMode._buildInactiveShuffled(
             state.wcName, state.blockPath, lookup);
         PU.editorMode._lockPopupUpdate();
+    },
+
+    /** Copy resolved preview text to clipboard.
+     *  Mirrors the compositions panel waterfall: ancestor chain + own text per variation.
+     *  Uses the same resolution as resolvedVariations + buildBlockResolutions. */
+    copyLockPopupPreview(btn) {
+        const state = PU.editorMode._lockPopupState;
+        if (!state || !state.blockPath) return;
+        const prompt = PU.helpers.getActivePrompt();
+        if (!prompt || !prompt.text) return;
+        const textItems = prompt.text;
+        const block = PU.editorMode._getBlockAtPath(textItems, state.blockPath);
+        if (!block || !block.content) return;
+
+        const wcName = state.wcName;
+        const checkedArr = [...state.currentChecked];
+        if (checkedArr.length === 0) return;
+        const lookup = PU.preview.getFullWildcardLookup();
+        const shuffled = state.inactiveShuffled || {};
+
+        // Smart-join matching src/jobs.py and preview.js
+        const smartJoin = (a, b) => {
+            if (!a) return b;
+            if (!b) return a;
+            const seps = [',', ' ', '\n', '\t'];
+            if (seps.some(s => a.trimEnd().endsWith(s)) || seps.some(s => b.trimStart().startsWith(s)))
+                return a + b;
+            return a.trimEnd() + ' ' + b.trimStart();
+        };
+
+        // Resolve all wildcards in a text string, substituting the focused wildcard with `val`
+        const resolveText = (text, val, offset) => {
+            if (!text) return '';
+            return text.replace(/__([a-zA-Z0-9_-]+)__/g, (match, name) => {
+                if (name === wcName) return val;
+                const s = shuffled[name];
+                if (s && s.length > 0) return s[offset % s.length];
+                const vals = lookup[name] || [];
+                return vals.length > 0 ? vals[0] : match;
+            });
+        };
+
+        // Build ancestor chain text for the block's path (root → parent)
+        // Each ancestor's content is resolved with the focused wildcard value
+        const buildAncestorAccumulated = (blockPath, val, offset) => {
+            const parts = blockPath.split('.');
+            let accumulated = '';
+            for (let i = 0; i < parts.length - 1; i++) {
+                const aPath = parts.slice(0, i + 1).join('.');
+                const aBlock = PU.editorMode._getBlockAtPath(textItems, aPath);
+                if (!aBlock) continue;
+                // Skip ext_text ancestors
+                if ('ext_text' in aBlock) continue;
+                const resolved = resolveText(aBlock.content || '', val, offset + i);
+                accumulated = smartJoin(accumulated, resolved);
+            }
+            return accumulated;
+        };
+
+        // Collect all leaf paths from the current block downward
+        // A leaf = has no children, or is the clicked block itself if it's a leaf
+        const collectLeafPaths = (blk, prefix) => {
+            const hasChildren = blk.after && blk.after.length > 0;
+            if (!hasChildren) return [prefix];
+            const leaves = [];
+            blk.after.forEach((child, idx) => {
+                const childPath = `${prefix}.${idx}`;
+                leaves.push(...collectLeafPaths(child, childPath));
+            });
+            return leaves;
+        };
+
+        const leafPaths = collectLeafPaths(block, state.blockPath);
+
+        // For each checked value × each leaf path, build the full accumulated text
+        // This mirrors the compositions waterfall: root → ... → leaf
+        const entries = [];
+        const maxShow = Math.min(checkedArr.length, 5);
+        for (let i = 0; i < maxShow; i++) {
+            const val = checkedArr[i];
+            for (let lp = 0; lp < leafPaths.length; lp++) {
+                const leafPath = leafPaths[lp];
+                const leafBlock = PU.editorMode._getBlockAtPath(textItems, leafPath);
+                if (!leafBlock) continue;
+                // Skip ext_text leaves for now
+                if ('ext_text' in leafBlock) continue;
+
+                const offset = i + lp;
+                // Accumulate: ancestors above blockPath + blockPath ancestors + own block chain
+                // Walk from root to this leaf
+                const pathParts = leafPath.split('.');
+                let accumulated = '';
+                for (let seg = 0; seg < pathParts.length; seg++) {
+                    const segPath = pathParts.slice(0, seg + 1).join('.');
+                    const segBlock = PU.editorMode._getBlockAtPath(textItems, segPath);
+                    if (!segBlock || !segBlock.content || 'ext_text' in segBlock) continue;
+                    const resolved = resolveText(segBlock.content, val, offset + seg);
+                    accumulated = smartJoin(accumulated, resolved);
+                }
+                if (accumulated) entries.push(accumulated);
+            }
+        }
+
+        const clipboardText = entries.join('\n---\n');
+        try { navigator.clipboard.writeText(clipboardText); } catch (e) { /* */ }
+        PU.actions._showCopiedFeedback(btn);
     },
 
     // ── Lock Popup Preview ──────────────────────────────────────────────
@@ -1096,9 +1362,13 @@ PU.editorMode = {
         const shuffled = state.inactiveShuffled || {};
 
         let html = '<div class="pu-lock-popup-preview" data-testid="pu-lock-popup-preview">';
-        html += `<div class="pu-lock-popup-preview-label">Preview
-            <button class="pu-lock-popup-reshuffle" data-testid="pu-lock-popup-reshuffle"
-                onclick="PU.editorMode.reshuffleLockPopupPreview()" title="Reshuffle other wildcard values">\u{1F500}</button>
+        html += `<div class="pu-lock-popup-preview-label">Previewing ${checkedArr.length} value${checkedArr.length !== 1 ? 's' : ''}
+            <span class="pu-lock-popup-preview-nav">
+                <button class="pu-lock-popup-nav-btn" data-testid="pu-lock-popup-prev"
+                    onclick="PU.editorMode.stepLockPopupPreview(-1)" title="Previous combination">\u25C0</button>
+                <button class="pu-lock-popup-nav-btn" data-testid="pu-lock-popup-next"
+                    onclick="PU.editorMode.stepLockPopupPreview(1)" title="Next combination">\u25B6</button>
+            </span>
         </div>`;
         html += '<div class="pu-wc-inline-variations">';
 
@@ -1131,24 +1401,26 @@ PU.editorMode = {
         }
         html += '</div>';
 
-        // ── Descendants: count all matching, render up to 3 ──
+        // ── Descendants: show all non-ext_text descendant blocks, render up to 3 ──
         const descendantPaths = PU.editorMode._getAllDescendantPaths(block, blockPath);
         const firstVal = checkedArr[0];
-        const matchingDescPaths = descendantPaths.filter(dPath => {
+        const textDescPaths = descendantPaths.filter(dPath => {
             const dBlock = PU.editorMode._getBlockAtPath(textItems, dPath);
             if (!dBlock || !dBlock.content) return false;
             if ('ext_text' in dBlock) return false;
-            return dBlock.content.includes(`__${wcName}__`);
+            return true;
         });
 
-        if (matchingDescPaths.length > 0) {
+        if (textDescPaths.length > 0) {
             let descHtml = '';
-            const descMax = Math.min(matchingDescPaths.length, 3);
+            const descMax = Math.min(textDescPaths.length, 3);
             for (let d = 0; d < descMax; d++) {
-                const dPath = matchingDescPaths[d];
+                const dPath = textDescPaths[d];
                 const dBlock = PU.editorMode._getBlockAtPath(textItems, dPath);
+                // Resolve the focused wildcard with the first checked value
                 let resolved = dBlock.content.replace(wcRegex, `{{${wcName}:${firstVal}}}`);
                 const dOffset = maxShow + d;
+                // Resolve all other wildcards with shuffled values
                 resolved = resolved.replace(/__([a-zA-Z0-9_-]+)__/g, (match, name) => {
                     const s = shuffled[name];
                     if (s && s.length > 0) return `{{${name}:${s[dOffset % s.length]}}}`;
@@ -1158,24 +1430,109 @@ PU.editorMode = {
                 });
                 const escaped = PU.preview.escapeHtmlPreservingMarkers(resolved);
                 let pillHtml = PU.preview.renderWildcardPills(escaped);
+                // Highlight the focused wildcard if it appears in this descendant
                 pillHtml = pillHtml.replace(
                     new RegExp(`data-wc-name="${esc(wcName)}"`, 'g'),
                     `data-wc-name="${esc(wcName)}" data-wc-active`
                 );
                 const relPath = dPath.startsWith(blockPath + '.') ? dPath.slice(blockPath.length + 1) : dPath;
+                const isLast = d === descMax - 1 && textDescPaths.length <= descMax;
+                const connector = isLast ? '\u2514\u2500\u2500' : '\u251C\u2500\u2500';
                 descHtml += `<div class="pu-wc-inline-variation-item pu-lock-popup-desc-item">
-                    <span class="pu-wc-inline-variation-index" title="${esc(dPath)}">\u2193${relPath}</span>
+                    <span class="pu-wc-inline-variation-index" title="${esc(dPath)}">${connector}</span>
                     <span class="pu-wc-inline-variation-text">${pillHtml}</span>
                 </div>`;
             }
+            if (textDescPaths.length > descMax) {
+                descHtml += `<div class="pu-lock-popup-preview-more">+${textDescPaths.length - descMax} more</div>`;
+            }
 
-            const n = matchingDescPaths.length;
+            const n = textDescPaths.length;
             html += `<details class="pu-lock-popup-desc-section" data-testid="pu-lock-popup-desc-disclosure">
-                <summary class="pu-lock-popup-desc-summary">Also affects ${n} descendant block${n !== 1 ? 's' : ''}</summary>
+                <summary class="pu-lock-popup-desc-summary">${n} descendant block${n !== 1 ? 's' : ''}</summary>
                 ${descHtml}
             </details>`;
         }
 
+        html += '</div>';
+        return html;
+    },
+
+    /**
+     * Build per-path Cartesian breakdown HTML for the computation disclosure.
+     * Walks the block tree depth-first, collecting wildcards and ext_text per root-to-leaf path.
+     *
+     * @param {string} focusedWc - the wildcard currently being edited (highlighted in accent)
+     * @param {Object} hypothetical - { wcName: [values] } locked dimensions
+     * @param {number} extTextCount - number of ext_text sources
+     * @returns {string} HTML for the computation paths
+     */
+    _buildComputationBreakdown(focusedWc, hypothetical, extTextCount) {
+        const prompt = PU.helpers.getActivePrompt();
+        if (!prompt || !Array.isArray(prompt.text)) return '';
+        const esc = PU.blocks.escapeHtml;
+
+        const paths = [];
+
+        // Walk tree depth-first, collecting wildcards along each root-to-leaf path
+        const walk = (items, prefix, inheritedWcs) => {
+            if (!Array.isArray(items)) return;
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                const path = prefix != null ? `${prefix}.${i}` : String(i);
+                const content = item.content || '';
+                const isExt = 'ext_text' in item;
+
+                // Collect wildcards from this block's content
+                const blockWcs = [];
+                if (!isExt) {
+                    const matches = content.match(/__([a-zA-Z0-9_-]+)__/g) || [];
+                    for (const m of matches) {
+                        const name = m.replace(/__/g, '');
+                        if (!blockWcs.includes(name)) blockWcs.push(name);
+                    }
+                }
+
+                // Accumulated wildcards along this path
+                const pathWcs = [...inheritedWcs, ...blockWcs.filter(w => !inheritedWcs.includes(w))];
+
+                const hasChildren = item.after && item.after.length > 0;
+
+                if (!hasChildren) {
+                    // Leaf node — record this path
+                    paths.push({
+                        path,
+                        wildcards: pathWcs,
+                        extText: isExt ? item.ext_text : null,
+                        extCount: isExt ? extTextCount : 0
+                    });
+                } else {
+                    walk(item.after, path, pathWcs);
+                }
+            }
+        };
+        walk(prompt.text, null, []);
+
+        if (paths.length === 0) return '';
+
+        let html = '<div class="pu-lock-popup-computation-paths">';
+        for (const p of paths) {
+            const parts = [];
+            // ext_text block shows as ext_name(count)
+            if (p.extText && p.extCount > 1) {
+                parts.push(`<span>${esc(p.extText)}(${p.extCount})</span>`);
+            }
+            // Wildcard dimensions along this path
+            for (const wc of p.wildcards) {
+                const dim = (hypothetical[wc] && hypothetical[wc].length > 0) ? hypothetical[wc].length : 1;
+                const cls = wc === focusedWc ? ' class="pu-lock-popup-breakdown-active"' : '';
+                parts.push(`<span${cls}>${esc(wc)}(${dim})</span>`);
+            }
+            if (parts.length === 0) {
+                parts.push('<span>1</span>');
+            }
+            html += `<div class="pu-lock-popup-computation-path" title="${esc(p.path)}">${esc(p.path)}: ${parts.join(' \u00d7 ')}</div>`;
+        }
         html += '</div>';
         return html;
     },
