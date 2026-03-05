@@ -1453,11 +1453,19 @@ body {
     color: var(--pu-text-muted);
     align-self: center;
 }
-.pu-compositions-preview-more {
+.pu-compositions-preview-overflow-pill {
+    display: inline-block;
     font-size: var(--pu-font-size-2xs);
-    color: var(--pu-text-muted);
+    color: var(--pu-accent);
+    background: color-mix(in srgb, var(--pu-accent) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--pu-accent) 30%, transparent);
+    border-radius: 10px;
+    padding: 1px 8px;
+    margin: 2px 0 2px 20px;
     font-style: italic;
     white-space: nowrap;
+    pointer-events: none;
+    animation: pu-pulse-highlight 1.2s ease-in-out infinite;
 }
 /* ── C3: Action Bar ── */
 .pu-compositions-actions {

@@ -2379,7 +2379,7 @@ PU.rightPanel = {
     _TOGGLE_LABELS: {
         write: 'Wildcards',
         preview: 'Filters',
-        review: 'Inspector',
+        export: 'Inspector',
         custom: 'Inspector'
     },
 

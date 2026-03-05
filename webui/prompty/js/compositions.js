@@ -535,6 +535,38 @@ PU.compositions = {
         return html;
     },
 
+    /**
+     * Compute parent prefix for an entry by matching its comboKey against ancestor entries.
+     * Returns the full resolved ancestor text chain (e.g., "CEO Engineering ").
+     */
+    _getParentPrefix(entry, groups) {
+        const src = entry.sources[0];
+        const parts = src.blockPath.split('.');
+        if (parts.length <= 1) return '';
+
+        const ancestorPaths = [];
+        for (let i = 1; i < parts.length; i++) {
+            ancestorPaths.push(parts.slice(0, i).join('.'));
+        }
+
+        const entryPairs = src.comboKey ? new Set(src.comboKey.split('|')) : new Set();
+        const chain = [];
+        for (const aPath of ancestorPaths) {
+            const aEntries = groups[aPath];
+            if (!aEntries) continue;
+            if (aEntries.length === 1) {
+                chain.push(aEntries[0].text);
+            } else {
+                const match = aEntries.find(ae => {
+                    const aPairs = ae.sources[0].comboKey.split('|');
+                    return aPairs.every(p => entryPairs.has(p));
+                });
+                chain.push(match ? match.text : aEntries[0].text);
+            }
+        }
+        return chain.length > 0 ? chain.join(' ') + ' ' : '';
+    },
+
     // ── Export Mode Renderers ─────────────────────────────────────────
 
     /** Render the export status bar (replaces breadcrumb bar in export mode). */
@@ -556,12 +588,20 @@ PU.compositions = {
         return html;
     },
 
-    /** Render flat export view — numbered list, no tree grouping, no interactions. */
+    /** Render flat export view — numbered list with parent prefix, no tree grouping, no interactions. */
     _renderFlatExportView(items) {
         if (items.length === 0) return '<div class="pu-rp-note">No compositions to export</div>';
 
         const esc = PU.blocks.escapeHtml;
         const dimmed = PU.state.previewMode.dimmedEntries;
+
+        // Build groups for parent prefix lookup
+        const groups = {};
+        for (const entry of items) {
+            const p = entry.sources[0].blockPath;
+            if (!groups[p]) groups[p] = [];
+            groups[p].push(entry);
+        }
 
         // Filter out dimmed entries for export view
         const activeItems = items.filter(e => {
@@ -576,11 +616,13 @@ PU.compositions = {
             const entry = activeItems[i];
             const isPinned = PU.compositions._isPinned(entry.sources[0].blockPath, entry.sources[0].comboKey);
             const pinBadge = isPinned ? '<span class="pu-compositions-pin-icon" title="Pinned from another composition">\uD83D\uDCCC</span>' : '';
+            const parentPrefix = PU.compositions._getParentPrefix(entry, groups);
+            const fullText = parentPrefix + entry.text;
 
             html += `<div class="pu-compositions-export-item" data-testid="pu-compositions-export-item">`;
             html += `<span class="pu-compositions-export-num">${i + 1}.</span>`;
             html += pinBadge;
-            html += `<span class="pu-compositions-export-text">${esc(entry.text)}</span>`;
+            html += `<span class="pu-compositions-export-text">${esc(fullText)}</span>`;
             html += '</div>';
         }
         return html;
@@ -602,14 +644,25 @@ PU.compositions = {
         return html;
     },
 
-    /** Copy all active (non-dimmed) compositions to clipboard. */
+    /** Copy all active (non-dimmed) compositions to clipboard with parent prefix. */
     copyAllExport() {
         const dimmed = PU.state.previewMode.dimmedEntries;
-        const items = PU.state.previewMode.compositions.filter(e => {
+        const allItems = PU.state.previewMode.compositions;
+        const items = allItems.filter(e => {
             const key = `${e.sources[0].blockPath}|${e.sources[0].comboKey}`;
             return !dimmed.has(key);
         });
-        const text = items.map((e, i) => `${i + 1}. ${e.text}`).join('\n\n');
+        // Build groups for parent prefix lookup
+        const groups = {};
+        for (const entry of allItems) {
+            const p = entry.sources[0].blockPath;
+            if (!groups[p]) groups[p] = [];
+            groups[p].push(entry);
+        }
+        const text = items.map((e, i) => {
+            const prefix = PU.compositions._getParentPrefix(e, groups);
+            return `${i + 1}. ${prefix}${e.text}`;
+        }).join('\n\n');
         navigator.clipboard.writeText(text).then(() => {
             PU.actions.showToast(`Copied ${items.length} compositions`, 'success');
         });
@@ -837,12 +890,6 @@ PU.compositions = {
             const isSingleEntry = entries.length === 1;
             const safePath = esc(path).replace(/'/g, '&#39;');
 
-            // Ancestor paths for parent prefix (resolved per-entry below)
-            const ancestorPaths = [];
-            for (let i = 1; i < parts.length; i++) {
-                ancestorPaths.push(parts.slice(0, i).join('.'));
-            }
-
             // Group wrapper
             let groupCls = 'pu-compositions-group';
             if (isSingleEntry) groupCls += ' pu-compositions-single-entry';
@@ -895,38 +942,22 @@ PU.compositions = {
                 const orphanIcon = isOrphan ? '<span class="pu-compositions-orphan-icon" title="Not in current composition">\u26A0</span>' : '';
                 const previewIcon = isPreview ? '<span class="pu-compositions-preview-icon">\u2192</span>' : '';
 
-                // Build parent prefix matching this entry's comboKey to correct ancestors
-                const entryPairs = src.comboKey ? new Set(src.comboKey.split('|')) : new Set();
-                const ancestorChain = [];
-                for (const aPath of ancestorPaths) {
-                    const aEntries = ancestorEntries[aPath];
-                    if (!aEntries) continue;
-                    if (aEntries.length === 1) {
-                        ancestorChain.push(aEntries[0].text);
-                    } else {
-                        const match = aEntries.find(ae => {
-                            const aPairs = ae.sources[0].comboKey.split('|');
-                            return aPairs.every(p => entryPairs.has(p));
-                        });
-                        ancestorChain.push(match ? match.text : aEntries[0].text);
-                    }
-                }
-                const parentPrefix = ancestorChain.length > 0 ? ancestorChain.join(' ') + ' ' : '';
+                const parentPrefix = PU.compositions._getParentPrefix(entry, ancestorEntries);
 
                 // Build parent/leaf text split
                 let textHtml = `<span class="pu-compositions-parent-text">${esc(parentPrefix)}</span>`;
                 textHtml += `<span class="pu-compositions-leaf-text">${esc(entry.text)}</span>`;
-
-                // Preview overflow indicator
-                if (isPreview && entry._previewOverflow > 0 && isLast) {
-                    textHtml += ` <span class="pu-compositions-preview-more">+${entry._previewOverflow.toLocaleString()} more</span>`;
-                }
 
                 const clickHandler = isPreview ? '' : ` onclick="PU.compositions._handleItemClick('${safeBp}', '${safeKey}', event)"`;
                 html += `<div class="${cls}" data-testid="pu-compositions-item-${esc(path)}" data-block-path="${esc(src.blockPath)}" data-combo-key="${esc(src.comboKey)}" data-group-path="${esc(path)}"${clickHandler}>`;
                 html += pinIcon + orphanIcon + previewIcon;
                 html += `<span class="pu-compositions-item-text" data-testid="pu-compositions-resolved">${textHtml}</span>`;
                 html += '</div>';
+
+                // Preview overflow pill — standalone row after last preview entry in this group
+                if (isPreview && entry._previewOverflow > 0 && isLast) {
+                    html += `<div class="pu-compositions-preview-overflow-pill" data-testid="pu-compositions-preview-overflow-${esc(path)}">+${entry._previewOverflow.toLocaleString()} more</div>`;
+                }
             }
 
             // Show more row (standalone)

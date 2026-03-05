@@ -374,7 +374,8 @@ PU.editorMode = {
             const PER_BLOCK_CAP = 100;
             for (const b of blockMeta) {
                 if (pathBudgets[b.path]) {
-                    allocatedBudgets[b.path] = Math.min(pathBudgets[b.path], PER_BLOCK_CAP);
+                    // Explicit show-more budget: allow exceeding default cap
+                    allocatedBudgets[b.path] = pathBudgets[b.path];
                 } else {
                     allocatedBudgets[b.path] = Math.min(b.effectiveCombos, PER_BLOCK_CAP);
                 }
@@ -862,96 +863,130 @@ PU.editorMode = {
      * produce entries for each parent wildcard value.
      */
     _collectSubtreePreview(textItems, wcName, lookup, locked, wcIndices, maxEntries) {
-        const results = [];
-        let totalEntries = 0;
+        const viewMode = PU.state.previewMode.compositionsViewMode || 'full';
+        const leafOnly = viewMode === 'leaf';
 
-        // Walk tree collecting blocks affected by wcName (directly or via inheritance)
-        const walk = (items, prefix, ancestorWcs) => {
+        // Helper: extract wildcards and ext_text info for a block
+        const _blockInfo = (item, path) => {
+            const content = item.content || '';
+            const isExt = 'ext_text' in item;
+            const ownWcNames = [];
+            let extValues = null;
+            if (isExt) {
+                const extName = item.ext_text;
+                const prompt = PU.helpers.getActivePrompt();
+                const extPrefix = prompt?.ext || PU.helpers.getActiveJob()?.defaults?.ext || '';
+                const needsPrefix = extPrefix && !extName.startsWith(extPrefix + '/');
+                const cacheKey = needsPrefix ? `${extPrefix}/${extName}` : extName;
+                const extData = (PU.state.previewMode._extTextCache || {})[cacheKey];
+                if (extData && extData.text && extData.text.length > 0) {
+                    extValues = extData.text;
+                    const rawTemplate = extValues[0] || '';
+                    const seen = new Set();
+                    const matches = rawTemplate.match(/__([a-zA-Z0-9_-]+)__/g) || [];
+                    for (const m of matches) {
+                        const name = m.replace(/__/g, '');
+                        if (!seen.has(name) && lookup[name]) { seen.add(name); ownWcNames.push(name); }
+                    }
+                }
+            } else {
+                const seen = new Set();
+                const matches = content.match(/__([a-zA-Z0-9_-]+)__/g) || [];
+                for (const m of matches) {
+                    const name = m.replace(/__/g, '');
+                    if (!seen.has(name)) { seen.add(name); ownWcNames.push(name); }
+                }
+            }
+            return { content, isExt, ownWcNames, extValues };
+        };
+
+        // Pass 1: Discover affected paths and their total variation counts
+        const pathTotals = []; // [{path, total, isExt, extValues, allWcNames, content}]
+        const discover = (items, prefix, ancestorWcs) => {
             if (!Array.isArray(items)) return;
             for (let i = 0; i < items.length; i++) {
                 const item = items[i];
                 const path = prefix != null ? `${prefix}.${i}` : String(i);
-                const content = item.content || '';
-                const isExt = 'ext_text' in item;
-
-                // Collect own wildcards and ext_text values
-                const ownWcNames = [];
-                let extValues = null;
-                if (isExt) {
-                    // ext_text: get values from cache, wildcards from first value template
-                    const extName = item.ext_text;
-                    const prompt = PU.helpers.getActivePrompt();
-                    const extPrefix = prompt?.ext || PU.helpers.getActiveJob()?.defaults?.ext || '';
-                    const needsPrefix = extPrefix && !extName.startsWith(extPrefix + '/');
-                    const cacheKey = needsPrefix ? `${extPrefix}/${extName}` : extName;
-                    const extData = (PU.state.previewMode._extTextCache || {})[cacheKey];
-                    if (extData && extData.text && extData.text.length > 0) {
-                        extValues = extData.text;
-                        const rawTemplate = extValues[0] || '';
-                        const seen = new Set();
-                        const matches = rawTemplate.match(/__([a-zA-Z0-9_-]+)__/g) || [];
-                        for (const m of matches) {
-                            const name = m.replace(/__/g, '');
-                            if (!seen.has(name) && lookup[name]) { seen.add(name); ownWcNames.push(name); }
-                        }
-                    }
-                } else {
-                    const seen = new Set();
-                    const matches = content.match(/__([a-zA-Z0-9_-]+)__/g) || [];
-                    for (const m of matches) {
-                        const name = m.replace(/__/g, '');
-                        if (!seen.has(name)) { seen.add(name); ownWcNames.push(name); }
-                    }
-                }
-
-                const ownSet = new Set(ownWcNames);
-                const allWcNames = [...ownWcNames, ...ancestorWcs.filter(n => !ownSet.has(n))];
+                const info = _blockInfo(item, path);
+                const ownSet = new Set(info.ownWcNames);
+                const allWcNames = [...info.ownWcNames, ...ancestorWcs.filter(n => !ownSet.has(n))];
                 const affectedByWc = allWcNames.includes(wcName);
+                const hasChildren = item.after && item.after.length > 0;
 
-                if (affectedByWc && isExt && extValues) {
-                    const extVars = PU.editorMode._computeExtTextVariations(
-                        extValues, allWcNames, lookup, locked, wcIndices, path, 999
-                    );
-                    totalEntries += extVars.length;
-                    for (const v of extVars) {
-                        if (results.length < maxEntries) {
-                            results.push({
-                                text: v.text,
-                                sources: [{ blockPath: v.blockPath, comboKey: v.comboKey }],
-                                _preview: true
-                            });
+                // In leaf mode, skip parent blocks from budget — only leaves get preview entries
+                if (affectedByWc && !(leafOnly && hasChildren)) {
+                    let total = 0;
+                    if (info.isExt && info.extValues) {
+                        total = info.extValues.length;
+                        for (const name of allWcNames) {
+                            const lv = (locked[name] && locked[name].length > 0) ? locked[name] : null;
+                            if (lv) total *= lv.length;
+                        }
+                    } else if (!info.isExt && info.content) {
+                        total = 1;
+                        for (const name of allWcNames) {
+                            const lv = (locked[name] && locked[name].length > 0) ? locked[name] : null;
+                            if (lv) total *= lv.length;
                         }
                     }
-                } else if (affectedByWc && !isExt && content) {
-                    const allVars = PU.editorMode._computeBlockVariations(
-                        content, allWcNames, lookup, locked, wcIndices, 'summary', path, 999
-                    );
-                    totalEntries += allVars.length;
-                    for (const v of allVars) {
-                        if (results.length < maxEntries) {
-                            results.push({
-                                text: v.text,
-                                sources: [{ blockPath: v.blockPath, comboKey: v.comboKey }],
-                                _preview: true
-                            });
-                        }
+                    if (total > 0) {
+                        pathTotals.push({ path, total, isExt: info.isExt, extValues: info.extValues, allWcNames, content: info.content });
                     }
                 }
 
-                // Recurse children with accumulated wildcards (cap branches like main render)
                 if (item.after) {
                     const maxBranches = 3;
                     const children = item.after.length > maxBranches ? item.after.slice(0, maxBranches) : item.after;
-                    walk(children, path, allWcNames);
+                    discover(children, path, allWcNames);
                 }
             }
         };
-        walk(textItems, null, []);
+        discover(textItems, null, []);
 
-        // Attach overflow
-        const overflow = Math.max(0, totalEntries - results.length);
-        if (overflow > 0 && results.length > 0) {
-            results[results.length - 1]._previewOverflow = overflow;
+        if (pathTotals.length === 0) return [];
+
+        // Distribute budget across affected paths
+        const numPaths = pathTotals.length;
+        const perPath = Math.max(1, Math.floor(maxEntries / numPaths));
+        let remainder = maxEntries - perPath * numPaths;
+        const pathBudgets = {};
+        for (const pt of pathTotals) {
+            pathBudgets[pt.path] = perPath + (remainder > 0 ? 1 : 0);
+            if (remainder > 0) remainder--;
+        }
+
+        // Pass 2: Collect entries per path with per-path budgets
+        const results = [];
+        for (const pt of pathTotals) {
+            const budget = pathBudgets[pt.path];
+            let vars;
+            if (pt.isExt && pt.extValues) {
+                vars = PU.editorMode._computeExtTextVariations(
+                    pt.extValues, pt.allWcNames, lookup, locked, wcIndices, pt.path, budget
+                );
+            } else {
+                vars = PU.editorMode._computeBlockVariations(
+                    pt.content, pt.allWcNames, lookup, locked, wcIndices, 'summary', pt.path, budget
+                );
+            }
+
+            const pathEntries = [];
+            for (const v of vars) {
+                if (pathEntries.length >= budget) break;
+                pathEntries.push({
+                    text: v.text,
+                    sources: [{ blockPath: v.blockPath, comboKey: v.comboKey }],
+                    _preview: true
+                });
+            }
+
+            // Per-path overflow on last entry
+            const pathOverflow = pt.total - pathEntries.length;
+            if (pathOverflow > 0 && pathEntries.length > 0) {
+                pathEntries[pathEntries.length - 1]._previewOverflow = pathOverflow;
+            }
+
+            for (const e of pathEntries) results.push(e);
         }
 
         return results;
@@ -1793,7 +1828,7 @@ PU.editorMode = {
         PU.rightPanel.renderOpsSection();
     },
 
-    /** Show more variations for a specific block path (doubles shown count, caps at 50). */
+    /** Show more variations for a specific block path (doubles shown count, caps at 500). */
     showMoreVariations(blockPath) {
         const budgets = PU.state.previewMode.pathBudgets;
         // Use current compositions count for this path as the base (not the stored budget)
@@ -1801,7 +1836,7 @@ PU.editorMode = {
             i => i.sources[0].blockPath === blockPath
         ).length;
         const base = Math.max(currentCount, budgets[blockPath] || 2);
-        budgets[blockPath] = Math.min(base * 2, 50);
+        budgets[blockPath] = Math.min(base * 2, 500);
         PU.editorMode.renderPreview();
     },
 

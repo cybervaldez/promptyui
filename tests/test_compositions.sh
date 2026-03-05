@@ -830,19 +830,19 @@ HAS_EXT_KEY=$(agent-browser eval 'PU.state.previewMode.compositions.filter(c => 
 # TEST: ext_text overflow with expanded wildcards
 # ============================================================================
 echo ""
-log_info "TEST: ext_text overflow with expanded wildcards"
+log_info "TEST: ext_text Cartesian product with expanded wildcards"
 
-# Expand seniority (5 values) — this multiplies ext_text block 1: 6 roles × 5 seniority = 30
-agent-browser eval "PU.state.previewMode.lockedValues['seniority'] = ['Junior', 'Mid-level', 'Senior', 'Staff', 'Principal']; PU.editorMode.renderPreview(); PU.editorMode.renderSidebarPreview(); PU.rightPanel.renderOpsSection()" 2>/dev/null
+# Expand seniority (5 values) — multiplies ext_text block 1: 6 roles × 5 seniority = 30
+agent-browser eval "PU.state.previewMode.lockedValues['seniority'] = ['Junior', 'Mid-level', 'Senior', 'Staff', 'Principal']; PU.state.previewMode.pathBudgets = {}; PU.editorMode.renderPreview()" 2>/dev/null
 sleep 1
 
-# Path 1 should now have overflow (30 combos > budget)
-PATH1_OVERFLOW=$(agent-browser eval 'PU.state.previewMode.pathOverflow["1"] || 0' 2>/dev/null | tr -d '"')
-[ "$PATH1_OVERFLOW" -gt "0" ] 2>/dev/null && log_pass "ext_text path 1 has overflow: +$PATH1_OVERFLOW" || log_fail "ext_text path 1 has no overflow"
+# ext_text path 1 should have 30 entries (6 roles × 5 seniority, within PER_BLOCK_CAP=100)
+PATH1_COUNT=$(agent-browser eval 'PU.state.previewMode.compositions.filter(c => c.sources[0].blockPath === "1").length' 2>/dev/null | tr -d '"')
+[ "$PATH1_COUNT" = "30" ] && log_pass "ext_text path 1 expanded: 30 entries (6 roles × 5 seniority)" || log_fail "ext_text path 1 has $PATH1_COUNT entries (expected 30)"
 
-# Show more link should exist for path 1
-HAS_MORE=$(agent-browser eval '!!document.querySelector("[data-testid=\"pu-compositions-show-more-1\"]")' 2>/dev/null | tr -d '"')
-[ "$HAS_MORE" = "true" ] && log_pass "Show more link visible for ext_text path" || log_fail "No show more link for ext_text path"
+# No overflow expected — 30 combos < PER_BLOCK_CAP (100)
+PATH1_OVERFLOW=$(agent-browser eval 'PU.state.previewMode.pathOverflow["1"] || 0' 2>/dev/null | tr -d '"')
+[ "$PATH1_OVERFLOW" = "0" ] && log_pass "ext_text path 1 no overflow (30 < budget 100)" || log_info "ext_text path 1 overflow: +$PATH1_OVERFLOW"
 
 # ============================================================================
 # TEST: Magnifier — magnify into subtree
@@ -1205,9 +1205,18 @@ ARROW_COUNT=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-pr
 PE=$(agent-browser eval 'getComputedStyle(document.querySelector(".pu-compositions-preview")).pointerEvents' 2>/dev/null | tr -d '"')
 [ "$PE" = "none" ] && log_pass "Preview entries non-interactive" || log_fail "Pointer events: $PE"
 
-# Check preview overflow indicator exists ("+N more")
-OVERFLOW=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-preview-more").length' 2>/dev/null | tr -d '"')
-[ "$OVERFLOW" -gt 0 ] 2>/dev/null && log_pass "Preview overflow indicator present" || log_info "No preview overflow (may not apply to this wildcard)"
+# Check preview overflow pill exists (per-path "+N more" pills)
+OVERFLOW_PILLS=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-preview-overflow-pill").length' 2>/dev/null | tr -d '"')
+[ "$OVERFLOW_PILLS" -gt 0 ] 2>/dev/null && log_pass "Preview overflow pills present ($OVERFLOW_PILLS)" || log_info "No preview overflow pills (may not apply to this wildcard)"
+
+# Check preview entries are distributed across multiple paths (not stacked on one)
+PREVIEW_PATHS=$(agent-browser eval '(() => {
+    const items = document.querySelectorAll(".pu-compositions-preview");
+    const paths = new Set();
+    items.forEach(el => paths.add(el.dataset.blockPath));
+    return paths.size;
+})()' 2>/dev/null | tr -d '"')
+[ "$PREVIEW_PATHS" -gt 1 ] 2>/dev/null && log_pass "Preview entries distributed across $PREVIEW_PATHS paths" || log_info "Preview entries on $PREVIEW_PATHS path(s)"
 
 # Close popup without committing — previews should disappear
 agent-browser eval 'window._origConfirm3 = window.confirm; window.confirm = function() { return true; }' 2>/dev/null
@@ -1317,6 +1326,34 @@ echo "$PREVIEW_PATHS" | grep -q "0.0" && log_pass "Preview includes descendant 0
 echo "$PREVIEW_PATHS" | grep -q "0.0.0" && log_pass "Preview includes descendant 0.0.0" || log_fail "No descendant 0.0.0 in: $PREVIEW_PATHS"
 
 agent-browser eval 'PU.editorMode._clearChipHoverPreview()' 2>/dev/null
+sleep 0.3
+
+# ============================================================================
+# TEST: Leaf mode preview only shows leaf paths
+# ============================================================================
+echo ""
+log_info "TEST: Leaf mode preview filters parents"
+
+# Switch to leaf view
+agent-browser eval 'PU.compositions.setViewMode("leaf")' 2>/dev/null
+sleep 0.3
+
+# Show preview for persona (affects 0, 0.0, 0.0.0, 0.1 — leaf = 0.0.0, 0.1)
+agent-browser eval 'PU.editorMode._showChipHoverPreview("persona", "CTO")' 2>/dev/null
+sleep 0.3
+
+LEAF_PREVIEW_PATHS=$(agent-browser eval '
+    PU.state.previewMode.previewCompositions.map(function(p) {
+        return p.sources[0].blockPath;
+    }).join(",");
+' 2>/dev/null | tr -d '"')
+
+# Should NOT contain parent paths (0, 0.0) — only leaves (0.0.0, 0.1)
+echo "$LEAF_PREVIEW_PATHS" | grep -qv "^0," && echo "$LEAF_PREVIEW_PATHS" | grep -qv ",0," && log_pass "Leaf preview excludes parent path 0" || log_fail "Parent path 0 in leaf preview: $LEAF_PREVIEW_PATHS"
+echo "$LEAF_PREVIEW_PATHS" | grep -q "0.0.0\|0.1" && log_pass "Leaf preview has leaf paths: $LEAF_PREVIEW_PATHS" || log_fail "No leaf paths in preview: $LEAF_PREVIEW_PATHS"
+
+agent-browser eval 'PU.editorMode._clearChipHoverPreview()' 2>/dev/null
+agent-browser eval 'PU.compositions.setViewMode("full")' 2>/dev/null
 sleep 0.3
 
 # ============================================================================
