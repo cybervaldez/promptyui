@@ -106,8 +106,8 @@
                                     onclick="PU.editorMode.setPreset('write')">Write</button>
                             <button class="pu-mode-btn" data-mode="preview" data-testid="pu-mode-preview"
                                     onclick="PU.editorMode.setPreset('preview')">Preview</button>
-                            <button class="pu-mode-btn" data-mode="review" data-testid="pu-mode-review"
-                                    onclick="PU.editorMode.setPreset('review')">Review</button>
+                            <button class="pu-mode-btn" data-mode="export" data-testid="pu-mode-export"
+                                    onclick="PU.editorMode.setPreset('export')">Export</button>
                         </div>
                         <button class="pu-mode-gear" data-testid="pu-mode-gear"
                                 onclick="PU.editorMode.toggleGearPopover(event)"
@@ -128,9 +128,7 @@
 
                     <!-- Preview Container (visible only in Preview mode) -->
                     <div class="pu-preview-container" data-testid="pu-preview-container" style="display: none;">
-                        <div class="pu-preview-nav" data-testid="pu-preview-nav">
-                            <div class="pu-preview-depth-stepper" data-testid="pu-preview-depth-stepper"></div>
-                        </div>
+                        <div class="pu-preview-nav" data-testid="pu-preview-nav"></div>
                         <div class="pu-lock-strip" data-testid="pu-lock-strip" style="display: none;"></div>
                         <div class="pu-preview-body" data-testid="pu-preview-body">
                             <div class="pu-rp-note">Select a prompt to see resolved output</div>
@@ -150,6 +148,8 @@
                                     onclick="event.stopPropagation(); PU.compositions.clearAll()">Clear All</button>
                             <span class="pu-compositions-chevron">&#9660;</span>
                         </div>
+                        <div class="pu-compositions-breadcrumb" data-testid="pu-compositions-breadcrumb"></div>
+                        <div class="pu-compositions-lock-strip" data-testid="pu-compositions-lock-strip"></div>
                         <div class="pu-compositions-body" data-testid="pu-compositions-body"></div>
                         <div class="pu-compositions-action-bar" data-testid="pu-compositions-action-bar"></div>
                     </div>

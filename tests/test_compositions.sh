@@ -124,41 +124,38 @@ NO_COUNTS=$(agent-browser eval '
 [ "$NO_COUNTS" = "0" ] && log_pass "No .pu-compositions-group-count elements" || log_fail "Found $NO_COUNTS group counts"
 
 # ============================================================================
-# TEST 4: Segment spans present for child blocks
+# TEST 4: C3 group structure with parent/leaf text
 # ============================================================================
 echo ""
-log_info "TEST 4: Segment spans with data-segment-path"
+log_info "TEST 4: C3 grouped structure"
 
-SEGMENT_COUNT=$(agent-browser eval '
-    document.querySelectorAll(".pu-compositions-segment[data-segment-path]").length
+GROUP_COUNT=$(agent-browser eval '
+    document.querySelectorAll(".pu-compositions-group[data-depth]").length
 ' 2>/dev/null)
-[ "$SEGMENT_COUNT" -gt "0" ] 2>/dev/null && log_pass "Segment spans found ($SEGMENT_COUNT)" || log_fail "No segment spans: $SEGMENT_COUNT"
+[ "$GROUP_COUNT" -gt "0" ] 2>/dev/null && log_pass "Groups found ($GROUP_COUNT)" || log_fail "No groups: $GROUP_COUNT"
 
-# Own segments should exist
-OWN_SEGMENTS=$(agent-browser eval '
-    document.querySelectorAll(".pu-compositions-segment-own").length
+# Items should have parent-text and leaf-text spans for child blocks
+PARENT_TEXT_COUNT=$(agent-browser eval '
+    document.querySelectorAll(".pu-compositions-parent-text").length
 ' 2>/dev/null)
-[ "$OWN_SEGMENTS" -gt "0" ] 2>/dev/null && log_pass "Own segment spans found ($OWN_SEGMENTS)" || log_fail "No own segments: $OWN_SEGMENTS"
+[ "$PARENT_TEXT_COUNT" -gt "0" ] 2>/dev/null && log_pass "Parent text spans found ($PARENT_TEXT_COUNT)" || log_fail "No parent text spans: $PARENT_TEXT_COUNT"
 
 # ============================================================================
-# TEST 5: Separator present for child blocks
+# TEST 5: Group headers with path chain
 # ============================================================================
 echo ""
-log_info "TEST 5: Separator elements for child blocks"
+log_info "TEST 5: Group headers with path chain"
 
-SEP_COUNT=$(agent-browser eval '
-    document.querySelectorAll(".pu-compositions-separator").length
+HEADER_COUNT=$(agent-browser eval '
+    document.querySelectorAll(".pu-compositions-header-row[data-header-path]").length
 ' 2>/dev/null)
-# Separators only appear for items with ancestors (child blocks)
-# Check that at least some exist (stress-test-prompt has nested blocks)
-[ "$SEP_COUNT" -gt "0" ] 2>/dev/null && log_pass "Separator elements found ($SEP_COUNT)" || log_fail "No separators: $SEP_COUNT"
+[ "$HEADER_COUNT" -gt "0" ] 2>/dev/null && log_pass "Header rows found ($HEADER_COUNT)" || log_fail "No header rows: $HEADER_COUNT"
 
-# Check separator contains ──
-SEP_TEXT=$(agent-browser eval '
-    const sep = document.querySelector(".pu-compositions-separator");
-    sep ? sep.textContent.includes("──") : false
+# Check path chain segments exist
+PATH_SEG_COUNT=$(agent-browser eval '
+    document.querySelectorAll(".pu-compositions-path-seg").length
 ' 2>/dev/null)
-[ "$SEP_TEXT" = "true" ] && log_pass "Separator contains ── character" || log_fail "Separator text wrong: $SEP_TEXT"
+[ "$PATH_SEG_COUNT" -gt "0" ] 2>/dev/null && log_pass "Path segments found ($PATH_SEG_COUNT)" || log_fail "No path segments: $PATH_SEG_COUNT"
 
 # ============================================================================
 # TEST 6: Dim single item via compositions click
@@ -606,10 +603,10 @@ ALL_CHECKED=$(agent-browser eval '(() => { const lookup = PU.preview.getFullWild
 [ "$ALL_CHECKED" = "true" ] && log_pass "Select All locks all values for wildcard" || log_fail "All checked: $ALL_CHECKED"
 
 STRIP_AFTER=$(agent-browser eval '
-    const strip = document.querySelector("[data-testid=\"pu-lock-strip\"]");
-    strip ? getComputedStyle(strip).display : "none"
+    const strip = document.querySelector("[data-testid=\"pu-compositions-lock-strip\"]");
+    strip && strip.innerHTML.length > 0 ? "visible" : "empty"
 ' 2>/dev/null | tr -d '"')
-[ "$STRIP_AFTER" != "none" ] && log_pass "Lock strip visible after expanding a wildcard" || log_fail "Strip still hidden: $STRIP_AFTER"
+[ "$STRIP_AFTER" = "visible" ] && log_pass "Lock strip visible after expanding a wildcard" || log_fail "Strip still hidden: $STRIP_AFTER"
 
 # Reset locks back to defaults for clean state
 agent-browser eval 'PU.editorMode.clearAllLocks()' 2>/dev/null
@@ -711,7 +708,7 @@ TOTAL_ITEMS=$(agent-browser eval 'PU.state.previewMode.compositions.length' 2>/d
 [ "$TOTAL_ITEMS" -gt "10" ] 2>/dev/null && log_pass "At defaults: $TOTAL_ITEMS entries (ext_text blocks expanded)" || log_fail "Expected > 10 entries, got $TOTAL_ITEMS"
 
 # No show-more links should exist at defaults
-SHOW_MORE_COUNT=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-show-more-inline").length' 2>/dev/null | tr -d '"')
+SHOW_MORE_COUNT=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-show-more-row").length' 2>/dev/null | tr -d '"')
 [ "$SHOW_MORE_COUNT" = "0" ] && log_pass "No show-more links at defaults" || log_fail "Found $SHOW_MORE_COUNT show-more links at defaults"
 
 # No pathOverflow should exist at defaults
@@ -747,7 +744,7 @@ PATHS_AFTER=$(agent-browser eval '(() => {
 
 # Check for overflow / show-more links
 OVERFLOW_AFTER=$(agent-browser eval 'Object.keys(PU.state.previewMode.pathOverflow || {}).length' 2>/dev/null | tr -d '"')
-SHOW_MORE_AFTER=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-show-more-inline").length' 2>/dev/null | tr -d '"')
+SHOW_MORE_AFTER=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-show-more-row").length' 2>/dev/null | tr -d '"')
 
 [ "$OVERFLOW_AFTER" -gt "0" ] && log_pass "Overflow entries found: $OVERFLOW_AFTER paths" || log_fail "Expected overflow after expanding all wildcards"
 [ "$SHOW_MORE_AFTER" -gt "0" ] && log_pass "Show-more links rendered: $SHOW_MORE_AFTER" || log_fail "No show-more links despite overflow"
@@ -801,7 +798,7 @@ RESET_ITEMS=$(agent-browser eval 'PU.state.previewMode.compositions.length' 2>/d
 [ "$RESET_ITEMS" -ge "$RESET_PATHS" ] && log_pass "After clear: $RESET_ITEMS items >= $RESET_PATHS paths (ext_text expanded)" || log_fail "After clear: $RESET_ITEMS items vs $RESET_PATHS paths"
 
 # Show-more links may exist for ext_text blocks with overflow
-RESET_MORE=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-show-more-inline").length' 2>/dev/null | tr -d '"')
+RESET_MORE=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-show-more-row").length' 2>/dev/null | tr -d '"')
 log_info "Show-more links after clear: $RESET_MORE"
 
 # pathBudgets should be empty
@@ -881,9 +878,9 @@ log_info "TEST: Magnifier — clear magnification"
 agent-browser eval 'PU.compositions.clearMagnify()' 2>/dev/null
 sleep 0.5
 
-# Breadcrumb should disappear
-NO_CRUMB=$(agent-browser eval '!document.querySelector("[data-testid=\"pu-compositions-breadcrumb\"]")' 2>/dev/null | tr -d '"')
-[ "$NO_CRUMB" = "true" ] && log_pass "Breadcrumb removed after clear" || log_fail "Breadcrumb still visible after clear"
+# Breadcrumb close button should disappear (bar always exists but shows "All" when not magnified)
+NO_CLOSE=$(agent-browser eval '!document.querySelector("[data-testid=\"pu-compositions-crumb-close\"]")' 2>/dev/null | tr -d '"')
+[ "$NO_CLOSE" = "true" ] && log_pass "Magnify close button removed after clear" || log_fail "Close button still visible after clear"
 
 # All items should be back
 FULL_ITEMS=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-item").length' 2>/dev/null | tr -d '"')
@@ -901,8 +898,8 @@ sleep 0.3
 agent-browser eval 'document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))' 2>/dev/null
 sleep 0.5
 
-ESC_CRUMB=$(agent-browser eval '!document.querySelector("[data-testid=\"pu-compositions-breadcrumb\"]")' 2>/dev/null | tr -d '"')
-[ "$ESC_CRUMB" = "true" ] && log_pass "Escape cleared magnification" || log_fail "Magnification not cleared by Escape"
+ESC_MAGNIFIED=$(agent-browser eval '!PU.state.previewMode.magnifiedPath' 2>/dev/null | tr -d '"')
+[ "$ESC_MAGNIFIED" = "true" ] && log_pass "Escape cleared magnification" || log_fail "Magnification not cleared by Escape"
 
 # ============================================================================
 # TEST: Magnify state persists in URL

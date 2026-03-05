@@ -138,24 +138,12 @@ PU.compositions = {
     },
 
     /**
-     * Check if a blockPath falls within a separator range.
-     * Range includes: separatorPath, its descendants, after siblings, and their descendants.
-     * E.g., separator "0.1" matches "0.1", "0.1.0", "0.2", "0.2.3", but not "0.0" or "1.0".
+     * Check if a blockPath falls within a separator's subtree.
+     * Matches the exact path and its descendants — same as magnify() isolation.
+     * E.g., separator "0.1" matches "0.1", "0.1.0", "0.1.2.3", but not "0.2" or "0.0".
      */
     _isInSeparatorRange(blockPath, separatorPath) {
-        const sepParts = separatorPath.split('.');
-        const bpParts = blockPath.split('.');
-
-        // Must be at least as deep as the separator path
-        if (bpParts.length < sepParts.length) return false;
-
-        // All parent parts (before the last) must match exactly
-        for (let i = 0; i < sepParts.length - 1; i++) {
-            if (bpParts[i] !== sepParts[i]) return false;
-        }
-
-        // The part at separator depth must be >= separator's last index
-        return parseInt(bpParts[sepParts.length - 1], 10) >= parseInt(sepParts[sepParts.length - 1], 10);
+        return blockPath === separatorPath || blockPath.startsWith(separatorPath + '.');
     },
 
     // ── Pin State ────────────────────────────────────────────────────
@@ -243,11 +231,13 @@ PU.compositions = {
 
     // ── Segment Highlighting (Preview ↔ Compositions) ────────────────────
 
-    /** Highlight entire compositions items that contain a segment matching the given path. */
+    /** Highlight compositions items whose block path starts with the given path. */
     _highlightItemsBySegmentPath(blockPath) {
-        document.querySelectorAll(`.pu-compositions-segment[data-segment-path="${blockPath}"]`).forEach(seg => {
-            const item = seg.closest('.pu-compositions-item');
-            if (item) item.classList.add('pu-compositions-hover-from-preview');
+        document.querySelectorAll(`.pu-compositions-item[data-block-path]`).forEach(item => {
+            const bp = item.dataset.blockPath;
+            if (bp === blockPath || bp.startsWith(blockPath + '.')) {
+                item.classList.add('pu-compositions-hover-from-preview');
+            }
         });
     },
 
@@ -298,22 +288,22 @@ PU.compositions = {
             });
         });
 
-        // Separator hover: preview which compositions items are in the range + footer tip
-        const seps = body.querySelectorAll('.pu-compositions-separator[data-separator-path]');
-        seps.forEach(sep => {
-            sep.addEventListener('mouseenter', (e) => {
+        // Group header hover: highlight all items in the group + footer tip
+        const headers = body.querySelectorAll('.pu-compositions-header-row[data-header-path]');
+        headers.forEach(header => {
+            header.addEventListener('mouseenter', (e) => {
                 e.stopPropagation();
-                const sepPath = sep.dataset.separatorPath;
-                if (!sepPath) return;
-                // Highlight all compositions items in range
-                body.querySelectorAll('.pu-compositions-item[data-block-path]').forEach(item => {
-                    if (PU.compositions._isInSeparatorRange(item.dataset.blockPath, sepPath)) {
+                const headerPath = header.dataset.headerPath;
+                if (!headerPath) return;
+                const group = header.closest('.pu-compositions-group');
+                if (group) {
+                    group.querySelectorAll('.pu-compositions-item').forEach(item => {
                         item.classList.add('pu-compositions-hover-from-preview');
-                    }
-                });
+                    });
+                }
                 PU.rightPanel._showFooterTip('<kbd>click</kbd> magnify · <kbd>⇧click</kbd> dim');
             });
-            sep.addEventListener('mouseleave', () => {
+            header.addEventListener('mouseleave', () => {
                 PU.compositions._clearCompositionsHighlights();
                 PU.rightPanel._hideFooterTip();
             });
@@ -331,10 +321,10 @@ PU.compositions = {
     /** Check if compositions UI should be visible. */
     _isVisible() {
         const mode = PU.state.ui.editorMode;
-        return mode === 'preview' || mode === 'review';
+        return mode === 'preview' || mode === 'export';
     },
 
-    /** Render the compositions footer panel. */
+    /** Render the compositions footer panel (C3 design). */
     render() {
         const panel = document.querySelector('[data-testid="pu-compositions-panel"]');
         if (!panel) return;
@@ -364,28 +354,58 @@ PU.compositions = {
 
         const countEl = panel.querySelector('[data-testid="pu-compositions-count"]');
         if (countEl) {
-            // Show the analytical total (matching the sidebar) not the rendered entries count
             const { wildcardCounts, extTextCount } = PU.shared.getCompositionParams();
             const lockedValues = PU.state.previewMode.lockedValues || {};
             const lockedTotal = PU.shared.computeLockedTotal(wildcardCounts, extTextCount, lockedValues);
             countEl.textContent = lockedTotal.toLocaleString();
         }
 
+        const isExport = PU.state.ui.editorMode === 'export';
+
+        // Apply view mode classes to panel
+        const viewMode = PU.state.previewMode.compositionsViewMode || 'full';
+        const showPaths = PU.state.previewMode.compositionsShowPaths || false;
+        panel.classList.toggle('pu-compositions-view-leaf', viewMode === 'leaf');
+        panel.classList.toggle('pu-compositions-view-flat', viewMode === 'flat');
+        panel.classList.toggle('pu-compositions-show-paths', showPaths);
+        panel.classList.toggle('pu-compositions-export-mode', isExport);
+
+        // Render breadcrumb bar
+        const breadcrumbEl = panel.querySelector('[data-testid="pu-compositions-breadcrumb"]');
+        if (breadcrumbEl) {
+            if (isExport) {
+                breadcrumbEl.innerHTML = PU.compositions._renderExportStatusBar(items.length);
+            } else {
+                breadcrumbEl.innerHTML = PU.compositions._renderBreadcrumbBar(magnified, items.length);
+            }
+        }
+
+        // Render lock strip in compositions area (hidden in export mode)
+        const lockStripEl = panel.querySelector('[data-testid="pu-compositions-lock-strip"]');
+        if (lockStripEl) {
+            lockStripEl.innerHTML = isExport ? '' : PU.compositions._renderLockStrip();
+        }
+
         const body = panel.querySelector('[data-testid="pu-compositions-body"]');
         if (body) {
-            // Breadcrumb when magnified
-            let breadcrumbHtml = '';
-            if (magnified) {
-                breadcrumbHtml = PU.compositions._renderBreadcrumb(magnified);
+            if (isExport) {
+                body.innerHTML = PU.compositions._renderFlatExportView(items);
+            } else {
+                body.innerHTML = PU.compositions._renderTreeView(items);
+                PU.compositions._applyLastVisible(body);
+                PU.compositions._attachCompositionsHoverListeners(body);
+                PU.compositions._attachSmartSticky(body);
             }
-            body.innerHTML = breadcrumbHtml + PU.compositions._renderTreeView(items);
-            PU.compositions._attachCompositionsHoverListeners(body);
         }
 
         // Render action bar
         const actionBar = panel.querySelector('[data-testid="pu-compositions-action-bar"]');
         if (actionBar) {
-            actionBar.innerHTML = PU.compositions._renderActionBar();
+            if (isExport) {
+                actionBar.innerHTML = PU.compositions._renderExportActionBar(items.length);
+            } else {
+                actionBar.innerHTML = PU.compositions._renderActionBar();
+            }
         }
     },
 
@@ -394,6 +414,12 @@ PU.compositions = {
     /** Magnify into a subtree (filter compositions to this path and descendants). */
     magnify(path) {
         PU.state.previewMode.magnifiedPath = path;
+        // Track deepest path for togglable breadcrumb
+        const deepest = PU.state.previewMode.deepestMagnifiedPath;
+        if (!deepest || path.length > deepest.length || path.startsWith(deepest + '.') ||
+            (!deepest.startsWith(path) && !path.startsWith(deepest))) {
+            PU.state.previewMode.deepestMagnifiedPath = path;
+        }
         PU.compositions.render();
         PU.actions.updateUrl();
     },
@@ -401,43 +427,192 @@ PU.compositions = {
     /** Clear magnification — show all compositions. */
     clearMagnify() {
         PU.state.previewMode.magnifiedPath = null;
+        PU.state.previewMode.deepestMagnifiedPath = null;
         PU.compositions.render();
         PU.actions.updateUrl();
     },
 
-    /** Render breadcrumb for magnified path. */
-    _renderBreadcrumb(magnifiedPath) {
+    // ── C3 View Controls ──────────────────────────────────────────────
+
+    /** Set the view mode (full / leaf / flat). */
+    setViewMode(mode) {
+        PU.state.previewMode.compositionsViewMode = mode;
+        PU.compositions.render();
+    },
+
+    /** Toggle path numbers visibility. */
+    toggleShowPaths() {
+        PU.state.previewMode.compositionsShowPaths = !PU.state.previewMode.compositionsShowPaths;
+        PU.compositions.render();
+    },
+
+    /** Render the C3 breadcrumb bar (always visible, contains view controls). */
+    _renderBreadcrumbBar(magnifiedPath, itemCount) {
         const esc = PU.blocks.escapeHtml;
-        const parts = magnifiedPath.split('.');
-        let html = '<div class="pu-compositions-breadcrumb" data-testid="pu-compositions-breadcrumb">';
-        html += `<span class="pu-compositions-crumb pu-compositions-crumb-link" onclick="PU.compositions.clearMagnify()" data-testid="pu-compositions-crumb-all">All</span>`;
+        const viewMode = PU.state.previewMode.compositionsViewMode || 'full';
+        const showPaths = PU.state.previewMode.compositionsShowPaths || false;
+        let html = '';
 
-        for (let i = 0; i < parts.length; i++) {
-            const subPath = parts.slice(0, i + 1).join('.');
-            const isLast = i === parts.length - 1;
+        // Breadcrumb navigation
+        if (magnifiedPath) {
+            const parts = magnifiedPath.split('.');
+            html += `<span class="pu-compositions-crumb" onclick="PU.compositions.clearMagnify()" data-testid="pu-compositions-crumb-all">All</span>`;
 
-            // Try to get a label for this path segment from resolved variations
-            let label = subPath;
-            const entry = PU.state.previewMode.compositions.find(e => e.sources[0].blockPath === subPath);
-            if (entry) {
-                // Use first 30 chars of text as label
-                label = entry.text.substring(0, 30).trim();
-                if (entry.text.length > 30) label += '...';
-            }
-
-            html += '<span class="pu-compositions-crumb-sep"> &rsaquo; </span>';
-            if (isLast) {
-                html += `<span class="pu-compositions-crumb pu-compositions-crumb-current">${esc(label)}</span>`;
-            } else {
+            for (let i = 0; i < parts.length; i++) {
+                const subPath = parts.slice(0, i + 1).join('.');
+                const isLast = i === parts.length - 1;
                 const safePath = esc(subPath).replace(/'/g, '&#39;');
-                html += `<span class="pu-compositions-crumb pu-compositions-crumb-link" onclick="PU.compositions.magnify('${safePath}')">${esc(label)}</span>`;
+                html += '<span class="pu-compositions-crumb-sep">&rsaquo;</span>';
+                if (isLast) {
+                    html += `<span class="pu-compositions-crumb pu-compositions-crumb-current">${esc(subPath)}</span>`;
+                } else {
+                    html += `<span class="pu-compositions-crumb" onclick="PU.compositions.magnify('${safePath}')">${esc(subPath)}</span>`;
+                }
             }
+
+            // Show deeper crumbs from deepestMagnifiedPath (preserved for navigation back)
+            const deepest = PU.state.previewMode.deepestMagnifiedPath;
+            if (deepest && deepest !== magnifiedPath && deepest.startsWith(magnifiedPath + '.')) {
+                const deeperParts = deepest.split('.');
+                for (let i = parts.length; i < deeperParts.length; i++) {
+                    const subPath = deeperParts.slice(0, i + 1).join('.');
+                    const safePath = esc(subPath).replace(/'/g, '&#39;');
+                    html += '<span class="pu-compositions-crumb-sep pu-compositions-crumb-deeper">&rsaquo;</span>';
+                    html += `<span class="pu-compositions-crumb pu-compositions-crumb-deeper" onclick="PU.compositions.magnify('${safePath}')">${esc(subPath)}</span>`;
+                }
+            }
+        } else {
+            html += '<span class="pu-compositions-crumb pu-compositions-crumb-current">All</span>';
         }
 
         html += '<span style="flex:1"></span>';
-        html += `<button class="pu-compositions-crumb-close" onclick="PU.compositions.clearMagnify()" data-testid="pu-compositions-crumb-close" title="Clear focus">&times;</button>`;
+
+        // Segmented view control
+        html += '<div class="pu-compositions-view-seg" data-testid="pu-compositions-view-seg">';
+        for (const m of ['full', 'leaf', 'flat']) {
+            const label = m.charAt(0).toUpperCase() + m.slice(1);
+            const cls = m === viewMode ? ' class="active"' : '';
+            html += `<button${cls} onclick="PU.compositions.setViewMode('${m}')">${esc(label)}</button>`;
+        }
+        html += '</div>';
+
+        // Paths toggle
+        const pathsCls = showPaths ? ' active' : '';
+        html += `<button class="pu-compositions-paths-btn${pathsCls}" onclick="PU.compositions.toggleShowPaths()" title="Show path numbers" data-testid="pu-compositions-paths-btn">#</button>`;
+
+        // Close button when magnified
+        if (magnifiedPath) {
+            html += `<button class="pu-compositions-crumb-close" onclick="PU.compositions.clearMagnify()" data-testid="pu-compositions-crumb-close" title="Clear focus">&times;</button>`;
+        } else {
+            // Total count
+            html += `<span style="font-size:10px;color:var(--pu-text-muted);">${itemCount.toLocaleString()}</span>`;
+        }
+
+        return html;
+    },
+
+    /** Render lock strip chips for the compositions area (mirrors editor lock strip). */
+    _renderLockStrip() {
+        const locked = PU.state.previewMode.lockedValues;
+        if (!locked) return '';
+        const entries = Object.entries(locked).filter(([, vals]) => vals && vals.length > 1);
+        if (entries.length === 0) return '';
+
+        const esc = PU.blocks.escapeHtml;
+        let html = '<span style="font-size:10px;opacity:0.5;">\u{1F512}</span>';
+        for (const [name, vals] of entries) {
+            const eName = esc(name);
+            const eVals = vals.map(v => esc(v)).join(', ');
+            const safeName = eName.replace(/'/g, '&#39;');
+            html += `<span class="pu-compositions-lock-chip" data-testid="pu-comp-lock-chip-${eName}"
+                           onclick="PU.editorMode.openLockPopupByName('${safeName}')">
+                <span class="pu-compositions-lock-chip-name">${eName}:</span>
+                <span>${eVals}</span>
+                <span class="pu-compositions-lock-chip-close" onclick="event.stopPropagation(); PU.editorMode.clearLock('${safeName}')">&times;</span>
+            </span>`;
+        }
+        html += '<a class="pu-compositions-lock-clear" onclick="PU.editorMode.clearAllLocks()">Clear</a>';
+        return html;
+    },
+
+    // ── Export Mode Renderers ─────────────────────────────────────────
+
+    /** Render the export status bar (replaces breadcrumb bar in export mode). */
+    _renderExportStatusBar(itemCount) {
+        const dimCount = PU.state.previewMode.dimmedEntries.size;
+        const pinCount = PU.state.previewMode.pinnedEntries.size;
+        const activeCount = itemCount - PU.state.previewMode.compositions.filter(e => {
+            const key = `${e.sources[0].blockPath}|${e.sources[0].comboKey}`;
+            return PU.state.previewMode.dimmedEntries.has(key);
+        }).length;
+
+        let html = '<span class="pu-compositions-export-title" data-testid="pu-compositions-export-title">Export</span>';
+        html += '<span style="flex:1"></span>';
+
+        let summary = `${activeCount.toLocaleString()} composition${activeCount !== 1 ? 's' : ''}`;
+        if (dimCount > 0) summary += ` (${dimCount} excluded)`;
+        if (pinCount > 0) summary += ` (${pinCount} pinned)`;
+        html += `<span class="pu-compositions-export-summary" data-testid="pu-compositions-export-summary">${summary}</span>`;
+        return html;
+    },
+
+    /** Render flat export view — numbered list, no tree grouping, no interactions. */
+    _renderFlatExportView(items) {
+        if (items.length === 0) return '<div class="pu-rp-note">No compositions to export</div>';
+
+        const esc = PU.blocks.escapeHtml;
+        const dimmed = PU.state.previewMode.dimmedEntries;
+
+        // Filter out dimmed entries for export view
+        const activeItems = items.filter(e => {
+            const key = `${e.sources[0].blockPath}|${e.sources[0].comboKey}`;
+            return !dimmed.has(key);
+        });
+
+        if (activeItems.length === 0) return '<div class="pu-rp-note">All compositions excluded</div>';
+
+        let html = '';
+        for (let i = 0; i < activeItems.length; i++) {
+            const entry = activeItems[i];
+            const isPinned = PU.compositions._isPinned(entry.sources[0].blockPath, entry.sources[0].comboKey);
+            const pinBadge = isPinned ? '<span class="pu-compositions-pin-icon" title="Pinned from another composition">\uD83D\uDCCC</span>' : '';
+
+            html += `<div class="pu-compositions-export-item" data-testid="pu-compositions-export-item">`;
+            html += `<span class="pu-compositions-export-num">${i + 1}.</span>`;
+            html += pinBadge;
+            html += `<span class="pu-compositions-export-text">${esc(entry.text)}</span>`;
+            html += '</div>';
+        }
+        return html;
+    },
+
+    /** Render export action bar — Build + Copy All. */
+    _renderExportActionBar(itemCount) {
+        const dimmed = PU.state.previewMode.dimmedEntries;
+        const activeCount = PU.state.previewMode.compositions.filter(e => {
+            const key = `${e.sources[0].blockPath}|${e.sources[0].comboKey}`;
+            return !dimmed.has(key);
+        }).length;
+
+        let html = '<div class="pu-compositions-actions">';
+        html += `<button class="pu-btn pu-btn-small" onclick="PU.compositions.copyAllExport()" data-testid="pu-compositions-copy-all">Copy All</button>`;
+        html += '<span style="flex:1"></span>';
+        html += `<button class="pu-btn pu-btn-small pu-btn-primary" onclick="PU.compositions.commitSelection()" data-testid="pu-compositions-build">Commit Selection (${activeCount})</button>`;
         html += '</div>';
         return html;
+    },
+
+    /** Copy all active (non-dimmed) compositions to clipboard. */
+    copyAllExport() {
+        const dimmed = PU.state.previewMode.dimmedEntries;
+        const items = PU.state.previewMode.compositions.filter(e => {
+            const key = `${e.sources[0].blockPath}|${e.sources[0].comboKey}`;
+            return !dimmed.has(key);
+        });
+        const text = items.map((e, i) => `${i + 1}. ${e.text}`).join('\n\n');
+        navigator.clipboard.writeText(text).then(() => {
+            PU.actions.showToast(`Copied ${items.length} compositions`, 'success');
+        });
     },
 
     /** Clear all dim and pin states, re-populate, re-render. */
@@ -603,9 +778,8 @@ PU.compositions = {
     // ── Flat List Renderer ────────────────────────────────────────────
 
     /**
-     * Render flat list — entries grouped by blockPath, no tree chrome.
-     * Pinned entries sort first within each group.
-     * Each item shows segmented resolved text (ancestor ── own) for hover targeting.
+     * C3 Grouped Tree View — entries grouped by blockPath with sticky headers.
+     * Parent text (from ancestors) shown in capped-width span, leaf text gets remaining space.
      */
     _renderTreeView(items) {
         if (items.length === 0) return '<div class="pu-rp-note">No items in preview</div>';
@@ -644,32 +818,62 @@ PU.compositions = {
             });
         }
 
-        // 4. Precompute ancestor text cache (first entry per path)
-        const ancestorText = {};
+        // 4. Ancestor entries by path (for per-entry parent prefix matching)
+        const ancestorEntries = {};
         for (const path of paths) {
-            ancestorText[path] = groups[path][0].text;
+            ancestorEntries[path] = groups[path];
         }
 
-        // 5. Render flat list with segmented text
+        // 5. Build template text for group headers
+        const templateHtml = PU.compositions._buildGroupTemplates(paths);
+
+        // 6. Render grouped HTML
         const overflow = PU.state.previewMode.pathOverflow || {};
         let html = '';
         for (const path of paths) {
             const entries = groups[path];
             const parts = path.split('.');
-
-            // Build ancestor chain with paths
-            const ancestorChain = [];
-            for (let i = 1; i < parts.length; i++) {
-                const aPath = parts.slice(0, i).join('.');
-                if (ancestorText[aPath]) {
-                    ancestorChain.push({ path: aPath, text: ancestorText[aPath] });
-                }
-            }
-
+            const depth = parts.length - 1;
+            const isSingleEntry = entries.length === 1;
             const safePath = esc(path).replace(/'/g, '&#39;');
 
-            const hasOverflow = overflow[path] && overflow[path] > 0;
+            // Ancestor paths for parent prefix (resolved per-entry below)
+            const ancestorPaths = [];
+            for (let i = 1; i < parts.length; i++) {
+                ancestorPaths.push(parts.slice(0, i).join('.'));
+            }
 
+            // Group wrapper
+            let groupCls = 'pu-compositions-group';
+            if (isSingleEntry) groupCls += ' pu-compositions-single-entry';
+            html += `<div class="${groupCls}" data-depth="${depth}" data-testid="pu-compositions-group-${esc(path)}">`;
+
+            // Sticky header
+            html += '<div class="pu-compositions-group-sticky">';
+            html += `<div class="pu-compositions-header-row" data-header-path="${esc(path)}">`;
+
+            // Path chain
+            html += '<div class="pu-compositions-path-chain">';
+            for (let i = 0; i < parts.length; i++) {
+                const subPath = parts.slice(0, i + 1).join('.');
+                const safeSubPath = esc(subPath).replace(/'/g, '&#39;');
+                if (i > 0) html += '<span class="pu-compositions-path-sep">&gt;</span>';
+                html += `<span class="pu-compositions-path-seg" onclick="PU.compositions.magnify('${safeSubPath}')">${esc(subPath)}</span>`;
+            }
+            html += '</div>';
+
+            // Template text
+            html += `<span class="pu-compositions-template-text">${templateHtml[path] || esc(path)}</span>`;
+
+            // Entry count
+            const total = entries.length + (overflow[path] || 0);
+            html += `<span class="pu-compositions-entry-count">${total.toLocaleString()} ${total === 1 ? 'entry' : 'entries'}</span>`;
+
+            html += '</div>'; // header-row
+            html += '</div>'; // group-sticky
+
+            // Entries
+            const hasOverflow = overflow[path] && overflow[path] > 0;
             for (let ei = 0; ei < entries.length; ei++) {
                 const entry = entries[ei];
                 const src = entry.sources[0];
@@ -691,35 +895,118 @@ PU.compositions = {
                 const orphanIcon = isOrphan ? '<span class="pu-compositions-orphan-icon" title="Not in current composition">\u26A0</span>' : '';
                 const previewIcon = isPreview ? '<span class="pu-compositions-preview-icon">\u2192</span>' : '';
 
-                // Build segmented text with separator range-select targets
-                // Each separator's path = the NEXT segment's path (the range start)
-                let textHtml = '';
-                for (let j = 0; j < ancestorChain.length; j++) {
-                    const a = ancestorChain[j];
-                    const nextPath = j + 1 < ancestorChain.length ? ancestorChain[j + 1].path : path;
-                    const safeNext = esc(nextPath).replace(/'/g, '&#39;');
-                    textHtml += `<span class="pu-compositions-segment" data-segment-path="${esc(a.path)}">${esc(a.text)}</span>`;
-                    textHtml += `<span class="pu-compositions-separator" data-separator-path="${esc(nextPath)}" onclick="event.stopPropagation(); if(event.shiftKey){PU.compositions.toggleDimBlock('${safeNext}')}else{PU.compositions.magnify('${safeNext}')}"> \u2500\u2500 </span>`;
+                // Build parent prefix matching this entry's comboKey to correct ancestors
+                const entryPairs = src.comboKey ? new Set(src.comboKey.split('|')) : new Set();
+                const ancestorChain = [];
+                for (const aPath of ancestorPaths) {
+                    const aEntries = ancestorEntries[aPath];
+                    if (!aEntries) continue;
+                    if (aEntries.length === 1) {
+                        ancestorChain.push(aEntries[0].text);
+                    } else {
+                        const match = aEntries.find(ae => {
+                            const aPairs = ae.sources[0].comboKey.split('|');
+                            return aPairs.every(p => entryPairs.has(p));
+                        });
+                        ancestorChain.push(match ? match.text : aEntries[0].text);
+                    }
                 }
-                textHtml += `<span class="pu-compositions-segment pu-compositions-segment-own" data-segment-path="${esc(path)}">${esc(entry.text)}</span>`;
+                const parentPrefix = ancestorChain.length > 0 ? ancestorChain.join(' ') + ' ' : '';
 
-                // Append "+N more" inline at end of last item
-                if (isLast && hasOverflow && !isPreview) {
-                    textHtml += ` <a class="pu-compositions-show-more-inline" data-testid="pu-compositions-show-more-${esc(path)}" onclick="event.stopPropagation(); PU.editorMode.showMoreVariations('${safePath}')">+${overflow[path].toLocaleString()} more</a>`;
-                }
+                // Build parent/leaf text split
+                let textHtml = `<span class="pu-compositions-parent-text">${esc(parentPrefix)}</span>`;
+                textHtml += `<span class="pu-compositions-leaf-text">${esc(entry.text)}</span>`;
+
                 // Preview overflow indicator
                 if (isPreview && entry._previewOverflow > 0 && isLast) {
                     textHtml += ` <span class="pu-compositions-preview-more">+${entry._previewOverflow.toLocaleString()} more</span>`;
                 }
 
                 const clickHandler = isPreview ? '' : ` onclick="PU.compositions._handleItemClick('${safeBp}', '${safeKey}', event)"`;
-                html += `<div class="${cls}" data-testid="pu-compositions-item-${esc(path)}" data-block-path="${esc(src.blockPath)}" data-combo-key="${esc(src.comboKey)}"${clickHandler}>`;
+                html += `<div class="${cls}" data-testid="pu-compositions-item-${esc(path)}" data-block-path="${esc(src.blockPath)}" data-combo-key="${esc(src.comboKey)}" data-group-path="${esc(path)}"${clickHandler}>`;
                 html += pinIcon + orphanIcon + previewIcon;
                 html += `<span class="pu-compositions-item-text" data-testid="pu-compositions-resolved">${textHtml}</span>`;
                 html += '</div>';
             }
+
+            // Show more row (standalone)
+            if (hasOverflow) {
+                html += `<div class="pu-compositions-show-more-row" data-testid="pu-compositions-show-more-${esc(path)}" onclick="PU.editorMode.showMoreVariations('${safePath}')">+${overflow[path].toLocaleString()} more entries</div>`;
+            }
+
+            html += '</div>'; // group
         }
         return html;
+    },
+
+    /**
+     * Build template HTML for group headers.
+     * Uses the preview block's template view (wildcard pills + static text).
+     */
+    _buildGroupTemplates(paths) {
+        const result = {};
+        const esc = PU.blocks.escapeHtml;
+        // Try to get template from preview blocks
+        for (const path of paths) {
+            const parts = path.split('.');
+            const previewBlock = document.querySelector(`.pu-preview-block[data-path="${path}"]`);
+            if (previewBlock) {
+                // Extract the own segment text from the preview
+                const seg = previewBlock.querySelector('.pu-preview-segment-own');
+                if (seg) {
+                    // Build chain: ancestor templates + own template
+                    let chain = '';
+                    for (let i = 1; i < parts.length; i++) {
+                        const aPath = parts.slice(0, i).join('.');
+                        const aBlock = document.querySelector(`.pu-preview-block[data-path="${aPath}"] .pu-preview-segment-own`);
+                        if (aBlock && chain) chain += '<span class="pu-compositions-template-sep">\u2500\u2500</span>';
+                        if (aBlock) chain += aBlock.innerHTML;
+                    }
+                    if (chain) chain += '<span class="pu-compositions-template-sep">\u2500\u2500</span>';
+                    chain += seg.innerHTML;
+                    result[path] = chain;
+                    continue;
+                }
+            }
+            // Fallback: use path as label
+            result[path] = esc(path);
+        }
+        return result;
+    },
+
+    /** Apply .pu-compositions-last-visible class to last item before each show-more row. */
+    _applyLastVisible(body) {
+        body.querySelectorAll('.pu-compositions-last-visible').forEach(el =>
+            el.classList.remove('pu-compositions-last-visible')
+        );
+        body.querySelectorAll('.pu-compositions-group').forEach(group => {
+            const showMore = group.querySelector('.pu-compositions-show-more-row');
+            if (!showMore) return;
+            let prev = showMore.previousElementSibling;
+            while (prev && !prev.classList.contains('pu-compositions-item')) {
+                prev = prev.previousElementSibling;
+            }
+            if (prev) prev.classList.add('pu-compositions-last-visible');
+        });
+    },
+
+    /** Attach smart sticky scroll listener (only active group header sticks). */
+    _attachSmartSticky(body) {
+        const groups = body.querySelectorAll('.pu-compositions-group');
+        if (groups.length < 2) return;
+        body.addEventListener('scroll', function _stickyHandler() {
+            const scrollTop = body.scrollTop;
+            let activeGroup = null;
+            groups.forEach(g => {
+                const top = g.offsetTop;
+                const bottom = top + g.offsetHeight;
+                if (top <= scrollTop + 2 && bottom > scrollTop + 2) activeGroup = g;
+            });
+            groups.forEach(g => {
+                const header = g.querySelector('.pu-compositions-group-sticky');
+                if (header) header.classList.toggle('stuck', g === activeGroup);
+            });
+        });
     },
 
     // ── Display Helpers ──────────────────────────────────────────────

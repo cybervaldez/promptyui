@@ -88,7 +88,7 @@ PU.actions = {
 
         // Re-trigger preview rendering if deep-linked to preview mode
         // (blocks are now loaded after sidebar.init, so renderPreview has data)
-        if (PU.state.ui.editorMode === 'preview') {
+        if (PU.state.ui.editorMode === 'preview' || PU.state.ui.editorMode === 'export') {
             PU.editorMode.renderPreview();
             PU.editorMode.renderSidebarPreview();
             PU.rightPanel.renderOpsSection();
@@ -157,18 +157,9 @@ PU.actions = {
 
         // Set editor mode from URL if provided
         const editorMode = params.get('editorMode');
-        if (editorMode && ['write', 'preview', 'review'].includes(editorMode)) {
+        if (editorMode && ['write', 'preview', 'export'].includes(editorMode)) {
             PU.state.ui.editorMode = editorMode;
             PU.state.ui.editorLayers = { ...PU.editorMode.PRESETS[editorMode] };
-        }
-
-        // Set preview depth from URL if provided
-        const depth = params.get('depth');
-        if (depth) {
-            const depthVal = parseInt(depth, 10);
-            if (!isNaN(depthVal) && depthVal >= 1) {
-                PU.state.previewMode.previewDepth = depthVal;
-            }
         }
 
         // Set right panel tab from URL (Review mode only)
@@ -186,6 +177,15 @@ PU.actions = {
         const magnify = params.get('magnify');
         if (magnify && /^[0-9]+(\.[0-9]+)*$/.test(magnify)) {
             PU.state.previewMode.magnifiedPath = magnify;
+        }
+
+        // Restore compositions view mode and paths toggle
+        const viewMode = params.get('compView');
+        if (viewMode && ['full', 'leaf', 'flat'].includes(viewMode)) {
+            PU.state.previewMode.compositionsViewMode = viewMode;
+        }
+        if (params.get('compPaths') === '1') {
+            PU.state.previewMode.compositionsShowPaths = true;
         }
 
         if (modal === 'export') {
@@ -226,14 +226,17 @@ PU.actions = {
             if (PU.state.ui.editorMode !== 'write') {
                 params.set('editorMode', PU.state.ui.editorMode);
             }
-            if (PU.state.ui.editorMode === 'preview' && PU.state.previewMode.previewDepth !== null) {
-                params.set('depth', PU.state.previewMode.previewDepth);
-            }
-            if (PU.state.ui.editorMode === 'review' && PU.state.ui.rightPanelTab !== 'wildcards') {
+            if (PU.state.ui.editorMode === 'export' && PU.state.ui.rightPanelTab !== 'wildcards') {
                 params.set('rightTab', PU.state.ui.rightPanelTab);
             }
             if (PU.state.previewMode.magnifiedPath) {
                 params.set('magnify', PU.state.previewMode.magnifiedPath);
+            }
+            if (PU.state.previewMode.compositionsViewMode && PU.state.previewMode.compositionsViewMode !== 'full') {
+                params.set('compView', PU.state.previewMode.compositionsViewMode);
+            }
+            if (PU.state.previewMode.compositionsShowPaths) {
+                params.set('compPaths', '1');
             }
         }
 
@@ -865,6 +868,8 @@ document.addEventListener('keydown', (e) => {
             PU.inspector.closeExtPicker();
         } else if (PU.state.exportModal.visible) {
             PU.export.close();
+        } else if (PU.state.previewMode.magnifiedPath) {
+            PU.compositions.clearMagnify();
         }
     }
 });

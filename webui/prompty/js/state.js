@@ -113,7 +113,7 @@ PU.state = {
         rightPanelTab: 'wildcards', // Active right panel tab: 'wildcards' | 'annotations'
         rightPanelCollapsed: false,
         leftSidebarCollapsed: false,
-        editorMode: 'write',      // Active editor mode: 'write' | 'preview' | 'review' | 'custom'
+        editorMode: 'write',      // Active editor mode: 'write' | 'preview' | 'export' | 'custom'
         editorLayers: {            // Granular layer visibility (gear popover)
             annotations: false,
             compositions: false,
@@ -185,13 +185,15 @@ PU.state = {
         selectedWildcards: {},  // Per-block wildcard overrides: { blockPath: { wcName: value } }
         lockedValues: {},       // Locked wildcard values: { wcName: ["val1", "val2"] }
         focusedWildcards: [],   // Wildcard names for multi-focus mode (bulb toggle, OR union)
-        previewDepth: null,     // null = all depths, 1/2/3 = limit visible depth
         maxTreeDepth: 1,        // computed: deepest level in current prompt
         hiddenBlocks: new Set(), // Block paths hidden by user checkbox in sidebar tree
         variationMode: 'summary', // 'summary' = per-wildcard pills, 'expanded' = full Cartesian
         pathBudgets: {},          // Per-path overridden budgets from "show more" clicks: { blockPath: budget }
         pathOverflow: {},         // Per-path remaining count: { blockPath: remainingCount }
         magnifiedPath: null,      // null = full view, "0.1" = zoomed into subtree at that path
+        deepestMagnifiedPath: null, // Remembers deepest path for togglable breadcrumb navigation
+        compositionsViewMode: 'full', // 'full' | 'leaf' | 'flat' — C3 view mode
+        compositionsShowPaths: false, // Show path numbers in group headers
         compositions: [],         // Array of { text, sources: [{blockPath, comboKey}] }
         previewCompositions: [],  // Ephemeral entries from lock popup [{text, sources, _preview, _previewOverflow?}]
         dimmedEntries: new Set(), // Set of "blockPath|comboKey" keys excluded from compositions
@@ -299,7 +301,7 @@ PU.helpers = {
                 PU.state.ui.rightPanelCollapsed = state.rightPanelCollapsed || false;
                 PU.state.ui.leftSidebarCollapsed = state.leftSidebarCollapsed || false;
                 PU.state.ui.rightPanelTab = state.rightPanelTab || 'wildcards';
-                if (state.editorMode && ['write', 'preview', 'review', 'custom'].includes(state.editorMode)) {
+                if (state.editorMode && ['write', 'preview', 'export', 'custom'].includes(state.editorMode)) {
                     PU.state.ui.editorMode = state.editorMode;
                 }
                 if (state.editorLayers && typeof state.editorLayers === 'object') {

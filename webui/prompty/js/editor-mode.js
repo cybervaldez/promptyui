@@ -1,7 +1,7 @@
 /**
  * PromptyUI - Editor Mode Strip
  *
- * Progressive disclosure: Write / Preview / Review modes.
+ * Progressive disclosure: Write / Preview / Export modes.
  * Write & Review toggle CSS visibility on the block editor.
  * Preview swaps to a resolved document view.
  * Gear popover exposes granular layer checkboxes.
@@ -12,10 +12,10 @@ PU.editorMode = {
     PRESETS: {
         write:   { annotations: false, compositions: false, artifacts: false },
         preview: { annotations: false, compositions: true,  artifacts: false },
-        review:  { annotations: true,  compositions: true,  artifacts: true  }
+        export:  { annotations: true,  compositions: true,  artifacts: true  }
     },
 
-    /** Apply a named preset (write | preview | review). */
+    /** Apply a named preset (write | preview | export). */
     setPreset(mode) {
         const layers = PU.editorMode.PRESETS[mode];
         if (!layers) return;
@@ -64,7 +64,7 @@ PU.editorMode = {
         const previewContainer = document.querySelector('[data-testid="pu-preview-container"]');
         const addBlockArea = document.querySelector('.pu-add-block-area');
 
-        if (mode === 'preview') {
+        if (mode === 'preview' || mode === 'export') {
             if (blocksContainer) blocksContainer.style.display = 'none';
             if (addBlockArea) addBlockArea.style.display = 'none';
             if (previewContainer) previewContainer.style.display = '';
@@ -79,7 +79,7 @@ PU.editorMode = {
         const rpEditorContent = document.querySelector('[data-testid="pu-rp-editor-content"]');
         const rpPreviewContent = document.querySelector('[data-testid="pu-rp-preview-content"]');
 
-        if (mode === 'preview') {
+        if (mode === 'preview' || mode === 'export') {
             if (rpEditorContent) rpEditorContent.style.display = 'none';
             if (rpPreviewContent) rpPreviewContent.style.display = '';
             PU.editorMode.renderSidebarPreview();
@@ -120,7 +120,6 @@ PU.editorMode = {
         const prompt = PU.helpers.getActivePrompt();
         if (!prompt || !Array.isArray(prompt.text) || prompt.text.length === 0) {
             body.innerHTML = '<div class="pu-rp-note">No content blocks</div>';
-            PU.editorMode._renderDepthStepper(1);
             PU.editorMode._renderLockStrip();
             return;
         }
@@ -131,7 +130,6 @@ PU.editorMode = {
         // Compute max tree depth
         const maxDepth = PU.editorMode._computeMaxDepth(textItems);
         PU.state.previewMode.maxTreeDepth = maxDepth;
-        const effectiveDepth = PU.state.previewMode.previewDepth || maxDepth;
 
         // Get composition params for variations
         const { lookup } = PU.shared.getCompositionParams();
@@ -139,11 +137,8 @@ PU.editorMode = {
         const locked = PU.state.previewMode.lockedValues;
 
         // Render block-by-block (template view) + collect variation data
-        const { blocks, variationData } = PU.editorMode._renderBlockByBlock(textItems, resolutions, effectiveDepth, lookup, locked);
+        const { blocks, variationData } = PU.editorMode._renderBlockByBlock(textItems, resolutions, maxDepth, lookup, locked);
         PU.state.previewMode.resolvedVariations = variationData;
-
-        // Render depth stepper
-        PU.editorMode._renderDepthStepper(maxDepth);
 
         // Render lock summary strip
         PU.editorMode._renderLockStrip();
@@ -191,7 +186,7 @@ PU.editorMode = {
 
     /** Attach block-level hover on preview rows to highlight the block + matching compositions items. */
     _attachPreviewHoverListeners(container) {
-        if (PU.state.ui.editorMode === 'preview' || PU.state.ui.editorMode === 'review') {
+        if (PU.state.ui.editorMode === 'preview' || PU.state.ui.editorMode === 'export') {
             const allBlocks = container.querySelectorAll('.pu-preview-block[data-path]');
             allBlocks.forEach(block => {
                 block.addEventListener('mouseenter', () => {
@@ -232,7 +227,7 @@ PU.editorMode = {
         const [, wcIndices] = PU.preview.compositionToIndices(compId, extTextCount, wildcardCounts);
         const varMode = PU.state.previewMode.variationMode || 'summary';
 
-        const isPreviewMode = PU.state.ui.editorMode === 'preview' || PU.state.ui.editorMode === 'review';
+        const isPreviewMode = PU.state.ui.editorMode === 'preview' || PU.state.ui.editorMode === 'export';
         const esc = PU.blocks.escapeHtml;
 
         // Store each block's own template HTML for ancestor chain lookups
@@ -375,62 +370,14 @@ PU.editorMode = {
         const allocatedBudgets = {}; // { path: budget }
 
         if (isPreviewMode && blockMeta.length > 0) {
-            const magnified = PU.state.previewMode.magnifiedPath;
-            // When magnified, boost budget for blocks in the magnified subtree
-            const isMagnified = (path) => magnified && (path === magnified || path.startsWith(magnified + '.'));
-
-            // Only blocks with effectiveCombos > 1 need allocation
-            const varyingBlocks = blockMeta.filter(b => b.effectiveCombos > 1);
-            const numPaths = blockMeta.length;
-            const totalBudget = Math.max(numPaths * 2, 30); // At least 2 per path, min 30
-
-            if (varyingBlocks.length > 0) {
-                if (magnified) {
-                    // Magnified mode: give magnified subtree a proportionally larger budget
-                    const magBlocks = varyingBlocks.filter(b => isMagnified(b.path));
-                    const otherBlocks = varyingBlocks.filter(b => !isMagnified(b.path));
-                    const staticCount = blockMeta.filter(b => b.effectiveCombos <= 1).length;
-
-                    // Give 80% of budget to magnified subtree, 20% to rest
-                    const magBudget = Math.floor((totalBudget - staticCount) * 0.8);
-                    const otherBudget = totalBudget - staticCount - magBudget;
-
-                    // Allocate within magnified blocks
-                    if (magBlocks.length > 0) {
-                        const magSqrtSum = magBlocks.reduce((s, b) => s + Math.sqrt(b.effectiveCombos), 0);
-                        for (const b of magBlocks) {
-                            if (pathBudgets[b.path]) {
-                                allocatedBudgets[b.path] = Math.min(pathBudgets[b.path], 50);
-                            } else {
-                                const share = Math.max(2, Math.floor(Math.sqrt(b.effectiveCombos) / magSqrtSum * magBudget));
-                                allocatedBudgets[b.path] = Math.min(share, b.effectiveCombos);
-                            }
-                        }
-                    }
-                    // Minimal allocation to non-magnified blocks
-                    for (const b of otherBlocks) {
-                        allocatedBudgets[b.path] = pathBudgets[b.path] ? Math.min(pathBudgets[b.path], 50) : 1;
-                    }
-                } else {
-                    // Normal mode: sqrt-proportional across all blocks
-                    const sqrtSum = varyingBlocks.reduce((s, b) => s + Math.sqrt(b.effectiveCombos), 0);
-                    const staticCount = blockMeta.filter(b => b.effectiveCombos <= 1).length;
-                    const remainingBudget = totalBudget - staticCount;
-
-                    for (const b of varyingBlocks) {
-                        if (pathBudgets[b.path]) {
-                            allocatedBudgets[b.path] = Math.min(pathBudgets[b.path], 50);
-                        } else {
-                            const share = Math.max(2, Math.floor(Math.sqrt(b.effectiveCombos) / sqrtSum * remainingBudget));
-                            allocatedBudgets[b.path] = Math.min(share, b.effectiveCombos);
-                        }
-                    }
-                }
-            }
-
-            // Static blocks (effectiveCombos = 1) always get budget 1
+            // Each block gets its full Cartesian product, capped per-block
+            const PER_BLOCK_CAP = 100;
             for (const b of blockMeta) {
-                if (b.effectiveCombos <= 1) allocatedBudgets[b.path] = 1;
+                if (pathBudgets[b.path]) {
+                    allocatedBudgets[b.path] = Math.min(pathBudgets[b.path], PER_BLOCK_CAP);
+                } else {
+                    allocatedBudgets[b.path] = Math.min(b.effectiveCombos, PER_BLOCK_CAP);
+                }
             }
         }
 
@@ -505,16 +452,15 @@ PU.editorMode = {
                             // Merge ancestor wildcards for ext_text blocks too
                             const extOwnSet = new Set(extOwnWcNames);
                             const extAllWcNames = [...extOwnWcNames, ...(ancestorWcNames || []).filter(n => !extOwnSet.has(n))];
-                            // Only vary on own wildcards — inherited ones produce duplicate text.
-                            const extVarWcNames = extOwnWcNames.length > 0 ? extOwnWcNames : extAllWcNames;
+                            // Vary on all wildcards (own + inherited) for full Cartesian product.
                             const blockVars = PU.editorMode._computeExtTextVariations(
-                                extValues, extVarWcNames, lookup, locked, wcIndices, path, budget
+                                extValues, extAllWcNames, lookup, locked, wcIndices, path, budget
                             );
                             for (const v of blockVars) variationData.push(v);
 
-                            // Compute overflow using same dimensions as variation generation
+                            // Compute overflow using same dimensions
                             let effectiveCombos = extValues.length;
-                            for (const name of extVarWcNames) {
+                            for (const name of extAllWcNames) {
                                 const lv = (locked[name] && locked[name].length > 0) ? locked[name] : null;
                                 if (lv) effectiveCombos *= lv.length;
                             }
@@ -532,15 +478,14 @@ PU.editorMode = {
                     ownHtml = ownWcNames.length > 0 ? PU.editorMode._convertToTemplateView(rawContent) : esc(rawContent);
                     if (isPreviewMode) {
                         const budget = allocatedBudgets[path] || 20;
-                        // Only vary on own wildcards — inherited ones don't appear in content
-                        // so they'd produce duplicate text.
-                        const varWcNames = ownWcNames.length > 0 ? ownWcNames : allWcNames;
-                        const blockVars = PU.editorMode._computeBlockVariations(rawContent, varWcNames, lookup, locked, wcIndices, varMode, path, budget);
+                        // Vary on all wildcards (own + inherited) — inherited ones produce
+                        // same text but distinct comboKeys for each parent context.
+                        const blockVars = PU.editorMode._computeBlockVariations(rawContent, allWcNames, lookup, locked, wcIndices, varMode, path, budget);
                         for (const v of blockVars) variationData.push(v);
 
-                        // Compute overflow using same dimensions as variation generation
+                        // Compute overflow using same dimensions
                         let effectiveCombos = 1;
-                        for (const name of varWcNames) {
+                        for (const name of allWcNames) {
                             const lv = (locked[name] && locked[name].length > 0) ? locked[name] : null;
                             if (lv) effectiveCombos *= lv.length;
                         }
@@ -886,44 +831,206 @@ PU.editorMode = {
         const compId = PU.state.previewMode.compositionId;
         const [, wcIndices] = PU.preview.compositionToIndices(compId, extTextCount, wildcardCounts);
 
-        // Build hypothetical locked state
+        // Only preview NEW values (not already in initial set)
+        const newValues = [...checked].filter(v => !state.initialChecked.has(v));
+        if (newValues.length === 0) {
+            PU.state.previewMode.previewCompositions = [];
+            return;
+        }
+
+        // Build hypothetical locked state with only new values
         const locked = {};
         const realLocked = PU.state.previewMode.lockedValues;
         for (const k of Object.keys(realLocked)) {
             locked[k] = [...realLocked[k]];
         }
-        locked[state.wcName] = [...checked];
-
-        // Find blocks that use this wildcard
-        const affectedBlocks = PU.editorMode._findBlocksWithWildcard(prompt.text, state.wcName);
+        locked[state.wcName] = newValues;
 
         const MAX_PREVIEW = 5;
+        const results = PU.editorMode._collectSubtreePreview(
+            prompt.text, state.wcName, lookup, locked, wcIndices, MAX_PREVIEW
+        );
+        // Overflow is already computed by _collectSubtreePreview (correct unit: block entries)
+
+        PU.state.previewMode.previewCompositions = results;
+    },
+
+    /**
+     * Collect preview entries for a wildcard across the full subtree.
+     * Walks the block tree to find all blocks affected by wcName (own or inherited),
+     * generates variations using allWcNames (own + inherited) so descendant blocks
+     * produce entries for each parent wildcard value.
+     */
+    _collectSubtreePreview(textItems, wcName, lookup, locked, wcIndices, maxEntries) {
         const results = [];
+        let totalEntries = 0;
 
-        for (const { blockPath, content, ownWcNames } of affectedBlocks) {
-            if (results.length >= MAX_PREVIEW) break;
-            const remaining = MAX_PREVIEW - results.length;
-            const blockVars = PU.editorMode._computeBlockVariations(
-                content, ownWcNames, lookup, locked, wcIndices, 'summary', blockPath, remaining
-            );
-            for (const v of blockVars) {
-                if (results.length >= MAX_PREVIEW) break;
-                results.push({
-                    text: v.text,
-                    sources: [{ blockPath: v.blockPath, comboKey: v.comboKey }],
-                    _preview: true
-                });
+        // Walk tree collecting blocks affected by wcName (directly or via inheritance)
+        const walk = (items, prefix, ancestorWcs) => {
+            if (!Array.isArray(items)) return;
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                const path = prefix != null ? `${prefix}.${i}` : String(i);
+                const content = item.content || '';
+                const isExt = 'ext_text' in item;
+
+                // Collect own wildcards and ext_text values
+                const ownWcNames = [];
+                let extValues = null;
+                if (isExt) {
+                    // ext_text: get values from cache, wildcards from first value template
+                    const extName = item.ext_text;
+                    const prompt = PU.helpers.getActivePrompt();
+                    const extPrefix = prompt?.ext || PU.helpers.getActiveJob()?.defaults?.ext || '';
+                    const needsPrefix = extPrefix && !extName.startsWith(extPrefix + '/');
+                    const cacheKey = needsPrefix ? `${extPrefix}/${extName}` : extName;
+                    const extData = (PU.state.previewMode._extTextCache || {})[cacheKey];
+                    if (extData && extData.text && extData.text.length > 0) {
+                        extValues = extData.text;
+                        const rawTemplate = extValues[0] || '';
+                        const seen = new Set();
+                        const matches = rawTemplate.match(/__([a-zA-Z0-9_-]+)__/g) || [];
+                        for (const m of matches) {
+                            const name = m.replace(/__/g, '');
+                            if (!seen.has(name) && lookup[name]) { seen.add(name); ownWcNames.push(name); }
+                        }
+                    }
+                } else {
+                    const seen = new Set();
+                    const matches = content.match(/__([a-zA-Z0-9_-]+)__/g) || [];
+                    for (const m of matches) {
+                        const name = m.replace(/__/g, '');
+                        if (!seen.has(name)) { seen.add(name); ownWcNames.push(name); }
+                    }
+                }
+
+                const ownSet = new Set(ownWcNames);
+                const allWcNames = [...ownWcNames, ...ancestorWcs.filter(n => !ownSet.has(n))];
+                const affectedByWc = allWcNames.includes(wcName);
+
+                if (affectedByWc && isExt && extValues) {
+                    const extVars = PU.editorMode._computeExtTextVariations(
+                        extValues, allWcNames, lookup, locked, wcIndices, path, 999
+                    );
+                    totalEntries += extVars.length;
+                    for (const v of extVars) {
+                        if (results.length < maxEntries) {
+                            results.push({
+                                text: v.text,
+                                sources: [{ blockPath: v.blockPath, comboKey: v.comboKey }],
+                                _preview: true
+                            });
+                        }
+                    }
+                } else if (affectedByWc && !isExt && content) {
+                    const allVars = PU.editorMode._computeBlockVariations(
+                        content, allWcNames, lookup, locked, wcIndices, 'summary', path, 999
+                    );
+                    totalEntries += allVars.length;
+                    for (const v of allVars) {
+                        if (results.length < maxEntries) {
+                            results.push({
+                                text: v.text,
+                                sources: [{ blockPath: v.blockPath, comboKey: v.comboKey }],
+                                _preview: true
+                            });
+                        }
+                    }
+                }
+
+                // Recurse children with accumulated wildcards (cap branches like main render)
+                if (item.after) {
+                    const maxBranches = 3;
+                    const children = item.after.length > maxBranches ? item.after.slice(0, maxBranches) : item.after;
+                    walk(children, path, allWcNames);
+                }
             }
-        }
+        };
+        walk(textItems, null, []);
 
-        // Compute hypothetical total and attach overflow to last entry
-        const hypotheticalTotal = PU.shared.computeLockedTotal(wildcardCounts, extTextCount, locked);
-        const overflow = Math.max(0, hypotheticalTotal - results.length);
+        // Attach overflow
+        const overflow = Math.max(0, totalEntries - results.length);
         if (overflow > 0 && results.length > 0) {
             results[results.length - 1]._previewOverflow = overflow;
         }
 
-        PU.state.previewMode.previewCompositions = results;
+        return results;
+    },
+
+    // ── Chip Hover Preview ─────────────────────────────────────────────
+
+    _chipHoverActive: false,
+
+    /** Show preview entries for a new (unlocked) wildcard value on chip hover. */
+    _showChipHoverPreview(wcName, value) {
+        const prompt = PU.helpers.getActivePrompt();
+        if (!prompt || !prompt.text) return;
+
+        const lookup = PU.preview.getFullWildcardLookup();
+        const { wildcardCounts, extTextCount } = PU.shared.getCompositionParams();
+        const compId = PU.state.previewMode.compositionId;
+        const [, wcIndices] = PU.preview.compositionToIndices(compId, extTextCount, wildcardCounts);
+
+        // Build hypothetical locked state: just this one value
+        const locked = {};
+        const realLocked = PU.state.previewMode.lockedValues;
+        for (const k of Object.keys(realLocked)) {
+            locked[k] = [...realLocked[k]];
+        }
+        locked[wcName] = [value];
+
+        const MAX_PREVIEW = 3;
+        const results = PU.editorMode._collectSubtreePreview(
+            prompt.text, wcName, lookup, locked, wcIndices, MAX_PREVIEW
+        );
+
+        if (results.length > 0) {
+            PU.state.previewMode.previewCompositions = results;
+            PU.editorMode._chipHoverActive = true;
+            PU.compositions.render();
+        }
+    },
+
+    /** Clear ephemeral hover preview entries. */
+    _clearChipHoverPreview() {
+        if (!PU.editorMode._chipHoverActive) return;
+        PU.editorMode._chipHoverActive = false;
+        PU.state.previewMode.previewCompositions = [];
+        PU.compositions.render();
+    },
+
+    /** Highlight a specific value's text within a composition item. */
+    _highlightValueInItem(item, value) {
+        const leafEl = item.querySelector('.pu-compositions-leaf-text');
+        if (!leafEl) return;
+        const text = leafEl.textContent;
+        const idx = text.toLowerCase().indexOf(value.toLowerCase());
+        if (idx < 0) {
+            // Inherited wildcard — value not in text, use background highlight
+            item.classList.add('pu-compositions-wc-highlight');
+            return;
+        }
+        // Store original HTML for restore
+        if (!leafEl.dataset.originalHtml) {
+            leafEl.dataset.originalHtml = leafEl.innerHTML;
+        }
+        const esc = PU.blocks.escapeHtml;
+        const before = esc(text.substring(0, idx));
+        const match = esc(text.substring(idx, idx + value.length));
+        const after = esc(text.substring(idx + value.length));
+        leafEl.innerHTML = `${before}<mark class="pu-wc-value-mark">${match}</mark>${after}`;
+    },
+
+    /** Remove all inline value highlights, restoring original text. */
+    _clearValueHighlights() {
+        document.querySelectorAll('.pu-compositions-leaf-text[data-original-html]').forEach(el => {
+            el.innerHTML = el.dataset.originalHtml;
+            delete el.dataset.originalHtml;
+        });
+        // Clear background highlights from inherited wildcard matches
+        document.querySelectorAll('.pu-compositions-item.pu-compositions-wc-highlight').forEach(el => {
+            el.classList.remove('pu-compositions-wc-highlight');
+        });
     },
 
     // ── Lock Popup ──────────────────────────────────────────────────────
@@ -934,6 +1041,14 @@ PU.editorMode = {
     openLockPopup(wcName, anchorEl) {
         PU.overlay.dismissPopovers();
         PU.state.previewMode.previewCompositions = [];
+
+        // Re-find anchor if it was detached by dismissPopovers() → compositions.render()
+        if (!anchorEl.isConnected) {
+            const candidates = document.querySelectorAll(`.pu-wc-slot[data-wc="${wcName}"]`);
+            for (const c of candidates) {
+                if (c.getBoundingClientRect().width > 0) { anchorEl = c; break; }
+            }
+        }
 
         const lookup = PU.preview.getFullWildcardLookup();
         const allVals = lookup[wcName];
@@ -974,12 +1089,23 @@ PU.editorMode = {
         const popup = document.querySelector('[data-testid="pu-lock-popup"]');
         if (!popup) return;
 
-        // Position below the triggering element, accounting for container scroll
+        // Position below the triggering element
         const rect = anchorEl.getBoundingClientRect();
         const container = popup.parentElement;
-        const containerRect = container.getBoundingClientRect();
-        popup.style.left = Math.max(0, rect.left - containerRect.left + container.scrollLeft) + 'px';
-        popup.style.top = (rect.bottom - containerRect.top + container.scrollTop + 4) + 'px';
+        const anchorInContainer = container.contains(anchorEl);
+
+        if (anchorInContainer) {
+            // Anchor is inside popup's parent — use relative positioning
+            const containerRect = container.getBoundingClientRect();
+            popup.style.position = 'absolute';
+            popup.style.left = Math.max(0, rect.left - containerRect.left + container.scrollLeft) + 'px';
+            popup.style.top = (rect.bottom - containerRect.top + container.scrollTop + 4) + 'px';
+        } else {
+            // Anchor is outside popup's parent (e.g., compositions panel) — use fixed positioning
+            popup.style.position = 'fixed';
+            popup.style.left = Math.max(8, rect.left) + 'px';
+            popup.style.top = Math.min(rect.bottom + 4, window.innerHeight - 500) + 'px';
+        }
         popup.style.display = '';
 
         PU.overlay.showOverlay();
@@ -1679,36 +1805,6 @@ PU.editorMode = {
         PU.editorMode.renderPreview();
     },
 
-    /** Set preview depth and re-render. */
-    setPreviewDepth(depth) {
-        PU.state.previewMode.previewDepth = depth; // null = all
-        PU.editorMode.renderPreview();
-        PU.editorMode.renderSidebarPreview();
-        PU.actions.updateUrl();
-    },
-
-    /** Render depth stepper buttons in the nav bar. */
-    _renderDepthStepper(maxDepth) {
-        const container = document.querySelector('[data-testid="pu-preview-depth-stepper"]');
-        if (!container) return;
-
-        if (maxDepth <= 1) {
-            container.innerHTML = '';
-            return;
-        }
-
-        const currentDepth = PU.state.previewMode.previewDepth;
-        let html = '<span class="pu-depth-label">Depth</span>';
-        for (let d = 1; d <= maxDepth; d++) {
-            const active = currentDepth === d ? ' active' : '';
-            html += `<button class="pu-depth-btn${active}" data-testid="pu-depth-btn-${d}"
-                             onclick="PU.editorMode.setPreviewDepth(${d})">${d}</button>`;
-        }
-        const allActive = currentDepth === null ? ' active' : '';
-        html += `<button class="pu-depth-btn${allActive}" data-testid="pu-depth-btn-all"
-                         onclick="PU.editorMode.setPreviewDepth(null)">All</button>`;
-        container.innerHTML = html;
-    },
 
     /** Toggle a block's visibility in preview (sidebar tree checkbox). Cascades to descendants. */
     toggleBlockVisibility(path, hidden) {
@@ -1784,6 +1880,55 @@ PU.editorMode = {
         }
         walk(textItems, '');
         return map;
+    },
+
+    /**
+     * Get wildcard names actually referenced in block content or ext_text templates,
+     * in depth-first encounter order (order they first appear walking the block tree).
+     * @param {Array} textItems - Root text blocks from prompt
+     * @returns {{ set: Set<string>, ordered: string[] }} Used names as set + encounter-ordered array
+     */
+    _getUsedWildcardNames(textItems) {
+        const seen = new Set();
+        const ordered = [];
+        const wcPattern = /__([a-zA-Z0-9_-]+)__/g;
+
+        const prompt = PU.helpers.getActivePrompt();
+        const extPrefix = prompt?.ext || PU.helpers.getActiveJob()?.defaults?.ext || '';
+        const cache = PU.state.previewMode._extTextCache || {};
+
+        function addName(name) {
+            if (!seen.has(name)) { seen.add(name); ordered.push(name); }
+        }
+
+        function scanContent(text) {
+            wcPattern.lastIndex = 0;
+            let m;
+            while ((m = wcPattern.exec(text)) !== null) addName(m[1]);
+        }
+
+        // Depth-first walk: block content + ext_text entries + children
+        function walk(blocks) {
+            if (!Array.isArray(blocks)) return;
+            for (const block of blocks) {
+                if (block.content) scanContent(block.content);
+                if ('ext_text' in block && block.ext_text) {
+                    const extName = block.ext_text;
+                    const needsPrefix = extPrefix && !extName.startsWith(extPrefix + '/');
+                    const cacheKey = needsPrefix ? `${extPrefix}/${extName}` : extName;
+                    const extData = cache[cacheKey];
+                    if (extData && Array.isArray(extData.text)) {
+                        for (const entry of extData.text) {
+                            scanContent(typeof entry === 'string' ? entry : (entry?.content || ''));
+                        }
+                    }
+                }
+                if (block.after) walk(block.after);
+            }
+        }
+        walk(textItems);
+
+        return { set: seen, ordered };
     },
 
     /** Check if any descendant of a block is in the hidden set. */
@@ -1876,12 +2021,10 @@ PU.editorMode = {
         const hiddenBlocks = PU.state.previewMode.hiddenBlocks;
         const esc = PU.blocks.escapeHtml;
 
-        // Section 1: Block tree checklist
-        let html = '<div class="pu-rp-bt-title" data-testid="pu-rp-bt-title">BLOCK TREE</div>';
-        html += PU.editorMode._renderBlockTreeChecklist(textItems, '', hiddenBlocks);
-
-        // Section 2: Direct lock panel — show ALL defined wildcards (always visible)
-        const filteredNames = wcNames;
+        // Filter to wildcards used in block content/ext_text, in prompt encounter order
+        const { set: usedSet, ordered: usedOrdered } = PU.editorMode._getUsedWildcardNames(textItems);
+        // Use encounter order, but only include names that exist in the full lookup
+        const filteredNames = usedOrdered.filter(name => lookup[name]);
         const lockedValues = PU.state.previewMode.lockedValues || {};
 
         // Get current composition indices for active chip highlighting
@@ -1893,7 +2036,8 @@ PU.editorMode = {
         const wcBlockMap = totalBlocks >= 2 ? PU.editorMode._buildPreviewWcBlockMap(textItems) : {};
         const focusedWildcards = PU.state.previewMode.focusedWildcards;
 
-        html += `<div class="pu-rp-bt-title" data-testid="pu-rp-bt-wc-title" style="margin-top: var(--pu-space-md);">WILDCARDS</div>`;
+        let html = '';
+        html += `<div class="pu-rp-bt-title" data-testid="pu-rp-bt-wc-title">WILDCARDS</div>`;
         html += '<div class="pu-rp-preview-wc-panel" data-testid="pu-rp-preview-wc-panel">';
 
         for (const name of filteredNames) {
@@ -1945,8 +2089,68 @@ PU.editorMode = {
                 const wcName = chip.dataset.wcName;
                 const val = chip.dataset.value;
                 if (wcName && val !== undefined) {
+                    PU.editorMode._clearValueHighlights();
+                    PU.editorMode._clearChipHoverPreview();
                     PU.editorMode.toggleSidebarLock(wcName, val);
                 }
+            });
+        });
+
+        // Hover individual chip → inline-highlight value text or preview-add
+        container.querySelectorAll('.pu-rp-preview-wc-panel .pu-rp-wc-v').forEach(chip => {
+            chip.addEventListener('mouseenter', (e) => {
+                e.stopPropagation();
+                const wcName = chip.dataset.wcName;
+                const val = chip.dataset.value;
+                if (!wcName || val === undefined) return;
+                const needle = wcName + '=' + val;
+
+                // Clear any entry-level highlights first
+                document.querySelectorAll('.pu-compositions-wc-highlight').forEach(el => {
+                    el.classList.remove('pu-compositions-wc-highlight');
+                });
+                PU.editorMode._clearValueHighlights();
+
+                // Find existing composition items that contain this exact value
+                let matchCount = 0;
+                document.querySelectorAll('.pu-compositions-item[data-combo-key]').forEach(item => {
+                    if (item.dataset.comboKey.split('|').some(pair => pair === needle)) {
+                        // Highlight only the value text within the item
+                        PU.editorMode._highlightValueInItem(item, val);
+                        matchCount++;
+                    }
+                });
+
+                // If no matches — this value is new, show ephemeral preview entries
+                if (matchCount === 0) {
+                    PU.editorMode._showChipHoverPreview(wcName, val);
+                }
+            });
+            chip.addEventListener('mouseleave', () => {
+                PU.editorMode._clearValueHighlights();
+                PU.editorMode._clearChipHoverPreview();
+            });
+        });
+
+        // Hover wildcard entry header → highlight all matching composition items
+        container.querySelectorAll('.pu-rp-preview-wc-panel .pu-rp-wc-entry-header').forEach(header => {
+            header.addEventListener('mouseenter', () => {
+                const entry = header.closest('.pu-rp-wc-entry');
+                const wcName = entry ? entry.dataset.wcName : null;
+                if (!wcName) return;
+                document.querySelectorAll('.pu-compositions-item[data-combo-key]').forEach(item => {
+                    if (item.dataset.comboKey.includes(wcName + '=')) {
+                        item.classList.add('pu-compositions-wc-highlight');
+                    }
+                });
+            });
+        });
+        container.querySelectorAll('.pu-rp-preview-wc-panel .pu-rp-wc-entry').forEach(entry => {
+            entry.addEventListener('mouseleave', () => {
+                document.querySelectorAll('.pu-compositions-wc-highlight').forEach(el => {
+                    el.classList.remove('pu-compositions-wc-highlight');
+                });
+                PU.editorMode._clearChipHoverPreview();
             });
         });
 
@@ -2144,8 +2348,8 @@ PU.editorMode = {
                             onclick="PU.editorMode.setPreset('write')">Write</button>
                     <button class="pu-gear-preset-btn${mode === 'preview' ? ' active' : ''}"
                             onclick="PU.editorMode.setPreset('preview')">Preview</button>
-                    <button class="pu-gear-preset-btn${mode === 'review' ? ' active' : ''}"
-                            onclick="PU.editorMode.setPreset('review')">Review</button>
+                    <button class="pu-gear-preset-btn${mode === 'export' ? ' active' : ''}"
+                            onclick="PU.editorMode.setPreset('export')">Export</button>
                 </div>
             </div>
         `;
@@ -2208,7 +2412,7 @@ PU.debug.sidebar = function() {
     return {
         mode,
         activeContent: mode === 'preview' ? 'preview' : 'editor',
-        tabStrip: mode === 'review' ? 'visible' : 'hidden',
+        tabStrip: mode === 'export' ? 'visible' : 'hidden',
         activeTab: PU.state.ui.rightPanelTab,
         layers: { ...PU.state.ui.editorLayers },
         editorContentVisible: rpEditor ? rpEditor.style.display !== 'none' : null,
