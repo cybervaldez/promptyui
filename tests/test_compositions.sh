@@ -1244,6 +1244,133 @@ REAL_COUNT=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-ite
 agent-browser eval 'PU.editorMode.clearAllLocks()' 2>/dev/null
 sleep 0.3
 
+# ============================================================================
+# TEST: Inherited wildcard preview shows correct parent prefix
+# ============================================================================
+echo ""
+log_info "TEST: Inherited wildcard parent prefix matching"
+
+# Ensure clean state with single persona locked
+agent-browser eval 'PU.editorMode._ensureLockDefaults(true)' 2>/dev/null
+sleep 0.5
+agent-browser eval 'PU.editorMode.renderPreview()' 2>/dev/null
+sleep 3
+
+# Add CTO to persona and re-render
+agent-browser eval '
+    PU.state.previewMode.lockedValues.persona = ["CEO", "CTO"];
+    PU.editorMode.renderPreview();
+' 2>/dev/null
+sleep 3
+
+# Check block 0.0 has two entries with different parent prefixes
+PARENT_TEXTS=$(agent-browser eval '
+    var items = document.querySelectorAll(".pu-compositions-item[data-block-path=\"0.0\"]");
+    var texts = [];
+    items.forEach(function(el) {
+        var p = el.querySelector(".pu-compositions-parent-text");
+        if (p) texts.push(p.textContent.trim().slice(0, 10));
+    });
+    texts.join("|");
+' 2>/dev/null | tr -d '"')
+
+echo "$PARENT_TEXTS" | grep -q "CEO" && echo "$PARENT_TEXTS" | grep -q "CTO" \
+    && log_pass "Parent prefix matches per-entry (CEO + CTO)" \
+    || log_fail "Parent prefix not distinct: $PARENT_TEXTS"
+
+# Check depth 3 (0.0.0) also gets correct parent
+DEEP_PARENT=$(agent-browser eval '
+    var items = document.querySelectorAll(".pu-compositions-item[data-block-path=\"0.0.0\"]");
+    var texts = [];
+    items.forEach(function(el) {
+        var p = el.querySelector(".pu-compositions-parent-text");
+        if (p) texts.push(p.textContent.includes("CTO") ? "CTO" : "CEO");
+    });
+    texts.join(",");
+' 2>/dev/null | tr -d '"')
+
+[ "$DEEP_PARENT" = "CEO,CTO" ] && log_pass "Depth-3 parent prefix correct: $DEEP_PARENT" || log_fail "Depth-3 parent: $DEEP_PARENT"
+
+# Reset
+agent-browser eval 'PU.editorMode._ensureLockDefaults(true); PU.editorMode.renderPreview()' 2>/dev/null
+sleep 2
+
+# ============================================================================
+# TEST: Subtree preview includes descendant blocks
+# ============================================================================
+echo ""
+log_info "TEST: Subtree preview includes descendants"
+
+agent-browser eval '
+    PU.editorMode._showChipHoverPreview("persona", "CTO");
+' 2>/dev/null
+sleep 0.5
+
+PREVIEW_PATHS=$(agent-browser eval '
+    PU.state.previewMode.previewCompositions.map(function(p) {
+        return p.sources[0].blockPath;
+    }).join(",");
+' 2>/dev/null | tr -d '"')
+
+# persona is owned by block 0, inherited by 0.0, 0.0.0 — preview should include descendants
+echo "$PREVIEW_PATHS" | grep -q "0.0" && log_pass "Preview includes descendant 0.0" || log_fail "No descendant 0.0 in: $PREVIEW_PATHS"
+echo "$PREVIEW_PATHS" | grep -q "0.0.0" && log_pass "Preview includes descendant 0.0.0" || log_fail "No descendant 0.0.0 in: $PREVIEW_PATHS"
+
+agent-browser eval 'PU.editorMode._clearChipHoverPreview()' 2>/dev/null
+sleep 0.3
+
+# ============================================================================
+# TEST: Chip click clears hover preview
+# ============================================================================
+echo ""
+log_info "TEST: Chip click clears hover preview"
+
+# Simulate hover (shows preview)
+agent-browser eval 'PU.editorMode._showChipHoverPreview("persona", "CTO")' 2>/dev/null
+sleep 0.3
+
+BEFORE=$(agent-browser eval 'PU.state.previewMode.previewCompositions.length' 2>/dev/null | tr -d '"')
+[ "$BEFORE" -gt 0 ] 2>/dev/null && log_pass "Hover preview shown: $BEFORE entries" || log_fail "No hover preview"
+
+# Simulate click clearing (what happens on chip click)
+agent-browser eval '
+    PU.editorMode._clearValueHighlights();
+    PU.editorMode._clearChipHoverPreview();
+' 2>/dev/null
+sleep 0.3
+
+AFTER=$(agent-browser eval 'PU.state.previewMode.previewCompositions.length' 2>/dev/null | tr -d '"')
+[ "$AFTER" = "0" ] && log_pass "Click clears hover preview" || log_fail "Preview not cleared: $AFTER"
+
+# ============================================================================
+# TEST: No layout shift on state changes
+# ============================================================================
+echo ""
+log_info "TEST: No layout shift from border states"
+
+SHIFT=$(agent-browser eval '
+    var item = document.querySelector(".pu-compositions-item");
+    if (!item) "no-item";
+    else {
+        var before = item.querySelector(".pu-compositions-item-text").getBoundingClientRect().left;
+        item.classList.add("pu-compositions-wc-highlight");
+        var after = item.querySelector(".pu-compositions-item-text").getBoundingClientRect().left;
+        item.classList.remove("pu-compositions-wc-highlight");
+        String(after - before);
+    }
+' 2>/dev/null | tr -d '"')
+
+[ "$SHIFT" = "0" ] && log_pass "Zero layout shift on highlight" || log_fail "Layout shift: ${SHIFT}px"
+
+# Verify base item has transparent border reserved
+BASE_BORDER=$(agent-browser eval '
+    var item = document.querySelector(".pu-compositions-item");
+    var s = window.getComputedStyle(item);
+    s.borderLeftWidth + " " + s.borderLeftStyle;
+' 2>/dev/null | tr -d '"')
+
+echo "$BASE_BORDER" | grep -q "2px" && log_pass "Base item reserves 2px border" || log_fail "No border reserve: $BASE_BORDER"
+
 # Final cleanup — reset and save clean session
 agent-browser eval 'PU.editorMode._ensureLockDefaults(true); PU.state.previewMode.pathBudgets = {}; PU.state.previewMode.magnifiedPath = null; PU.state.previewMode.previewCompositions = []; PU.editorMode.renderPreview(); PU.editorMode.renderSidebarPreview(); PU.rightPanel.renderOpsSection(); PU.rightPanel.saveSession()' 2>/dev/null
 sleep 0.5
