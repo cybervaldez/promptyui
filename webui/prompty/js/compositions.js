@@ -49,6 +49,30 @@ PU.compositions = {
         return [key.substring(0, sepIdx), key.substring(sepIdx + 1)];
     },
 
+    /**
+     * Build a Set of leaf block paths (blocks without children) from the prompt tree.
+     * Cached per render cycle.
+     */
+    _getLeafPaths() {
+        const prompt = PU.helpers.getActivePrompt();
+        if (!prompt || !prompt.text) return new Set();
+        const leaves = new Set();
+        const walk = (items, prefix) => {
+            if (!Array.isArray(items)) return;
+            for (let i = 0; i < items.length; i++) {
+                const path = prefix != null ? `${prefix}.${i}` : String(i);
+                const hasChildren = items[i].after && items[i].after.length > 0;
+                if (!hasChildren) {
+                    leaves.add(path);
+                } else {
+                    walk(items[i].after, path);
+                }
+            }
+        };
+        walk(prompt.text, null);
+        return leaves;
+    },
+
     // ── Queries ───────────────────────────────────────────────────────
 
     /** Total composition entries. */
@@ -352,6 +376,13 @@ PU.compositions = {
             items = [...items, ...previewItems];
         }
 
+        // Leaf view: filter to leaf-only paths (blocks without children)
+        const viewMode = PU.state.previewMode.compositionsViewMode || 'full';
+        if (viewMode === 'leaf') {
+            const leafPaths = PU.compositions._getLeafPaths();
+            items = items.filter(e => leafPaths.has(e.sources[0].blockPath));
+        }
+
         const countEl = panel.querySelector('[data-testid="pu-compositions-count"]');
         if (countEl) {
             const { wildcardCounts, extTextCount } = PU.shared.getCompositionParams();
@@ -363,7 +394,6 @@ PU.compositions = {
         const isExport = PU.state.ui.editorMode === 'export';
 
         // Apply view mode classes to panel
-        const viewMode = PU.state.previewMode.compositionsViewMode || 'full';
         const showPaths = PU.state.previewMode.compositionsShowPaths || false;
         panel.classList.toggle('pu-compositions-view-leaf', viewMode === 'leaf');
         panel.classList.toggle('pu-compositions-view-flat', viewMode === 'flat');

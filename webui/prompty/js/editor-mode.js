@@ -910,8 +910,12 @@ PU.editorMode = {
                 const info = _blockInfo(item, path);
                 const ownSet = new Set(info.ownWcNames);
                 const allWcNames = [...info.ownWcNames, ...ancestorWcs.filter(n => !ownSet.has(n))];
-                const affectedByWc = allWcNames.includes(wcName);
                 const hasChildren = item.after && item.after.length > 0;
+                // Only preview blocks where wcName is in own wildcards (text changes visually)
+                // or ext_text blocks (each ext value is distinct text even with inherited wildcards).
+                // Blocks that only inherit wcName produce identical text — no meaningful preview.
+                const ownsWc = info.ownWcNames.includes(wcName);
+                const affectedByWc = ownsWc || (info.isExt && allWcNames.includes(wcName));
 
                 // In leaf mode, skip parent blocks from budget — only leaves get preview entries
                 if (affectedByWc && !(leafOnly && hasChildren)) {

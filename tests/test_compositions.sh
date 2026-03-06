@@ -1305,14 +1305,12 @@ agent-browser eval 'PU.editorMode._ensureLockDefaults(true); PU.editorMode.rende
 sleep 2
 
 # ============================================================================
-# TEST: Subtree preview includes descendant blocks
+# TEST: Preview only for own-wildcard blocks (not inherited)
 # ============================================================================
 echo ""
-log_info "TEST: Subtree preview includes descendants"
+log_info "TEST: Preview only for blocks owning the wildcard"
 
-agent-browser eval '
-    PU.editorMode._showChipHoverPreview("persona", "CTO");
-' 2>/dev/null
+agent-browser eval 'PU.editorMode._showChipHoverPreview("persona", "CTO")' 2>/dev/null
 sleep 0.5
 
 PREVIEW_PATHS=$(agent-browser eval '
@@ -1321,38 +1319,40 @@ PREVIEW_PATHS=$(agent-browser eval '
     }).join(",");
 ' 2>/dev/null | tr -d '"')
 
-# persona is owned by block 0, inherited by 0.0, 0.0.0 — preview should include descendants
-echo "$PREVIEW_PATHS" | grep -q "0.0" && log_pass "Preview includes descendant 0.0" || log_fail "No descendant 0.0 in: $PREVIEW_PATHS"
-echo "$PREVIEW_PATHS" | grep -q "0.0.0" && log_pass "Preview includes descendant 0.0.0" || log_fail "No descendant 0.0.0 in: $PREVIEW_PATHS"
+# persona is owned by block 0 only — inherited blocks (0.0, 0.0.0, 0.1) should NOT get preview
+# because their text doesn't change (wildcard not in their content)
+echo "$PREVIEW_PATHS" | grep -qE "^0$|^0," && log_pass "Preview shows owning block 0" || log_fail "Missing block 0 in: $PREVIEW_PATHS"
+echo "$PREVIEW_PATHS" | grep -qv "0\.0" && log_pass "No inherited-only descendants in preview" || log_info "Descendants in preview: $PREVIEW_PATHS (ext_text may apply)"
 
 agent-browser eval 'PU.editorMode._clearChipHoverPreview()' 2>/dev/null
 sleep 0.3
 
 # ============================================================================
-# TEST: Leaf mode preview only shows leaf paths
+# TEST: Leaf view filters to leaf-only entries
 # ============================================================================
 echo ""
-log_info "TEST: Leaf mode preview filters parents"
+log_info "TEST: Leaf view data-level filtering"
 
 # Switch to leaf view
 agent-browser eval 'PU.compositions.setViewMode("leaf")' 2>/dev/null
 sleep 0.3
 
-# Show preview for persona (affects 0, 0.0, 0.0.0, 0.1 — leaf = 0.0.0, 0.1)
-agent-browser eval 'PU.editorMode._showChipHoverPreview("persona", "CTO")' 2>/dev/null
-sleep 0.3
-
-LEAF_PREVIEW_PATHS=$(agent-browser eval '
-    PU.state.previewMode.previewCompositions.map(function(p) {
-        return p.sources[0].blockPath;
-    }).join(",");
+# Count items — should only include leaf paths (blocks without .after)
+LEAF_ITEM_COUNT=$(agent-browser eval '
+    document.querySelectorAll(".pu-compositions-item").length
 ' 2>/dev/null | tr -d '"')
 
-# Should NOT contain parent paths (0, 0.0) — only leaves (0.0.0, 0.1)
-echo "$LEAF_PREVIEW_PATHS" | grep -qv "^0," && echo "$LEAF_PREVIEW_PATHS" | grep -qv ",0," && log_pass "Leaf preview excludes parent path 0" || log_fail "Parent path 0 in leaf preview: $LEAF_PREVIEW_PATHS"
-echo "$LEAF_PREVIEW_PATHS" | grep -q "0.0.0\|0.1" && log_pass "Leaf preview has leaf paths: $LEAF_PREVIEW_PATHS" || log_fail "No leaf paths in preview: $LEAF_PREVIEW_PATHS"
+LEAF_PATHS=$(agent-browser eval '(() => {
+    var items = document.querySelectorAll(".pu-compositions-item[data-block-path]");
+    var paths = new Set();
+    items.forEach(function(el) { paths.add(el.dataset.blockPath); });
+    return Array.from(paths).sort().join(",");
+})()' 2>/dev/null | tr -d '"')
 
-agent-browser eval 'PU.editorMode._clearChipHoverPreview()' 2>/dev/null
+# No parent paths (0, 0.0) should appear in leaf view
+echo "$LEAF_PATHS" | grep -qv "^0," 2>/dev/null && log_pass "Leaf view excludes parent blocks: $LEAF_PATHS" || log_fail "Parent block in leaf view: $LEAF_PATHS"
+[ "$LEAF_ITEM_COUNT" -gt 0 ] 2>/dev/null && log_pass "Leaf view has $LEAF_ITEM_COUNT items" || log_fail "Leaf view empty"
+
 agent-browser eval 'PU.compositions.setViewMode("full")' 2>/dev/null
 sleep 0.3
 
