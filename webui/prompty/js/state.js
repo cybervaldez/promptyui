@@ -208,6 +208,11 @@ PU.state = {
  * State Helpers
  */
 PU.helpers = {
+    /** Platform-aware modifier key label (Cmd on Mac, Ctrl elsewhere). */
+    modKey() {
+        return /Mac|iPhone|iPad/.test(navigator.platform) ? '\u2318' : 'Ctrl';
+    },
+
     /**
      * Get the current job data (modified or original)
      */

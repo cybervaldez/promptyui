@@ -1076,12 +1076,111 @@ body {
     font-size: 10px;
     transition: transform 0.15s;
 }
+/* Main area: flex wrapper for body + staging column */
+.pu-compositions-main-area {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+}
 .pu-compositions-body {
+    flex: 1;
     overflow-y: auto;
     font-size: 12px;
+    min-width: 0;
+}
+/* ── Staging Column ── */
+.pu-compositions-staging {
+    display: none;
+    flex-direction: column;
+    flex: 0 0 280px;
+    max-width: 320px;
+    border-left: 2px dashed color-mix(in srgb, var(--pu-accent) 40%, transparent);
+    background: color-mix(in srgb, var(--pu-accent) 3%, var(--pu-bg-secondary));
+    overflow: hidden;
+    font-size: 12px;
+}
+.pu-compositions-staging.active {
+    display: flex;
+}
+.pu-staging-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--pu-border);
+    font-size: 10px;
+}
+.pu-staging-label {
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--pu-accent);
+    font-size: 9px;
+}
+.pu-staging-wc-name {
+    font-family: var(--pu-font-mono);
+    font-size: 10px;
+    color: var(--pu-text-primary);
+}
+.pu-staging-delta {
+    color: var(--pu-accent);
+    font-weight: 500;
+    margin-left: auto;
+}
+.pu-staging-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 2px 0;
+}
+.pu-staging-group .pu-compositions-header-row {
+    padding: 4px 10px;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+.pu-staging-group .pu-compositions-template-text {
+    font-size: 10px;
+    flex-basis: 100%;
+    padding-left: 2px;
+}
+.pu-staging-path-delta {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--pu-accent);
+    margin-left: auto;
+    flex-shrink: 0;
+}
+.pu-staging-existing {
+    font-size: 10px;
+    color: var(--pu-text-muted);
+    padding: 2px 10px 2px 20px;
+    font-style: italic;
+    border-bottom: 1px dashed color-mix(in srgb, var(--pu-border) 60%, transparent);
+}
+.pu-staging-footer {
+    border-top: 1px solid var(--pu-border);
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.pu-staging-total {
+    font-size: 11px;
+    color: var(--pu-text-muted);
+}
+.pu-staging-total strong {
+    color: var(--pu-accent);
+}
+.pu-staging-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
 }
 .pu-compositions-panel.collapsed .pu-compositions-body {
     display: none;
+}
+.pu-compositions-panel.collapsed .pu-compositions-staging {
+    display: none !important;
 }
 .pu-compositions-panel.collapsed .pu-compositions-chevron {
     transform: rotate(-90deg);
@@ -1758,42 +1857,8 @@ body[data-editor-mode="export"] .pu-rp-tab-strip { display: none; }
     flex-direction: column;
     gap: var(--pu-space-xs);
 }
-.pu-lock-popup-footer-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: var(--pu-space-xs);
-}
 .pu-lock-popup-footer-info { line-height: 1.4; }
 .pu-lock-popup-breakdown-active { color: var(--pu-accent); font-weight: 500; }
-.pu-lock-popup-commit-btn {
-    font-size: var(--pu-font-size-xs);
-    padding: var(--pu-space-xs) var(--pu-space-sm);
-    border: none;
-    border-radius: var(--pu-radius);
-    background: var(--pu-accent);
-    color: #fff;
-    font-weight: 500;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: all var(--pu-transition-fast);
-}
-.pu-lock-popup-commit-btn:hover:not(:disabled) { filter: brightness(1.1); }
-.pu-lock-popup-commit-btn:disabled {
-    opacity: 0.4;
-    cursor: default;
-}
-.pu-lock-popup-copy-btn {
-    font-size: var(--pu-font-size-xs);
-    padding: var(--pu-space-xs);
-    border: 1px solid var(--pu-border);
-    border-radius: var(--pu-radius);
-    background: none;
-    color: var(--pu-text-muted);
-    cursor: pointer;
-    line-height: 1;
-    transition: all var(--pu-transition-fast);
-}
-.pu-lock-popup-copy-btn:hover { color: var(--pu-text-primary); border-color: var(--pu-border-light); }
 
 /* Lock popup — live preview section */
 .pu-lock-popup-preview {
@@ -4159,6 +4224,22 @@ body[data-layer-annotations="0"] .pu-inline-comment { display: none !important; 
     font-size: 9px;
     margin-right: 2px;
     opacity: 0.8;
+}
+.pu-rp-wc-v.staged {
+    background: color-mix(in srgb, var(--pu-accent) 15%, transparent);
+    border-color: var(--pu-accent);
+    border-style: dashed;
+    color: var(--pu-accent);
+}
+.pu-rp-wc-v.staged .staged-icon {
+    font-size: 9px;
+    margin-right: 2px;
+    font-weight: 700;
+}
+.pu-rp-wc-v.unstaged {
+    opacity: 0.4;
+    text-decoration: line-through;
+    border-style: dashed;
 }
 
 /* Expand popover styles */

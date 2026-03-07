@@ -863,8 +863,8 @@ PU.editorMode = {
      * produce entries for each parent wildcard value.
      */
     _collectSubtreePreview(textItems, wcName, lookup, locked, wcIndices, maxEntries) {
-        const viewMode = PU.state.previewMode.compositionsViewMode || 'full';
-        const leafOnly = viewMode === 'leaf';
+        // Staging always uses full view — independent of main panel's view mode
+        const leafOnly = false;
 
         // Helper: extract wildcards and ext_text info for a block
         const _blockInfo = (item, path) => {
@@ -911,11 +911,10 @@ PU.editorMode = {
                 const ownSet = new Set(info.ownWcNames);
                 const allWcNames = [...info.ownWcNames, ...ancestorWcs.filter(n => !ownSet.has(n))];
                 const hasChildren = item.after && item.after.length > 0;
-                // Only preview blocks where wcName is in own wildcards (text changes visually)
-                // or ext_text blocks (each ext value is distinct text even with inherited wildcards).
-                // Blocks that only inherit wcName produce identical text — no meaningful preview.
-                const ownsWc = info.ownWcNames.includes(wcName);
-                const affectedByWc = ownsWc || (info.isExt && allWcNames.includes(wcName));
+                // Include blocks where wcName appears in own or inherited wildcards.
+                // Own wildcards: block text changes directly.
+                // Inherited wildcards: block's parent prefix changes, producing new compositions.
+                const affectedByWc = allWcNames.includes(wcName);
 
                 // In leaf mode, skip parent blocks from budget — only leaves get preview entries
                 if (affectedByWc && !(leafOnly && hasChildren)) {
@@ -1002,6 +1001,9 @@ PU.editorMode = {
 
     /** Show preview entries for a new (unlocked) wildcard value on chip hover. */
     _showChipHoverPreview(wcName, value) {
+        // Don't overwrite staging entries with hover preview
+        if (PU.editorMode._lockPopupState) return;
+
         const prompt = PU.helpers.getActivePrompt();
         if (!prompt || !prompt.text) return;
 
@@ -1030,10 +1032,12 @@ PU.editorMode = {
         }
     },
 
-    /** Clear ephemeral hover preview entries. */
+    /** Clear ephemeral hover preview entries (does not touch staging). */
     _clearChipHoverPreview() {
         if (!PU.editorMode._chipHoverActive) return;
         PU.editorMode._chipHoverActive = false;
+        // Don't clear if staging is active — staging owns previewCompositions
+        if (PU.editorMode._lockPopupState) return;
         PU.state.previewMode.previewCompositions = [];
         PU.compositions.render();
     },
@@ -1076,10 +1080,23 @@ PU.editorMode = {
 
     _lockPopupState: null, // { wcName, initialChecked: Set, anchor: Element }
 
+    /** Hide the lock popup UI element without clearing staging state. */
+    _hideLockPopup() {
+        const popup = document.querySelector('[data-testid="pu-lock-popup"]');
+        if (popup) popup.style.display = 'none';
+    },
+
     /** Open the lock popup for a wildcard. */
     openLockPopup(wcName, anchorEl) {
         PU.overlay.dismissPopovers();
-        PU.state.previewMode.previewCompositions = [];
+
+        // If staging active for a different wildcard, commit it first
+        if (PU.editorMode._lockPopupState && PU.editorMode._lockPopupState.wcName !== wcName) {
+            const prevState = PU.editorMode._lockPopupState;
+            PU.state.previewMode.previewCompositions = [];
+            PU.editorMode._lockPopupState = null;
+            PU.editorMode._applyLockPopupState(prevState);
+        }
 
         // Re-find anchor if it was detached by dismissPopovers() → compositions.render()
         if (!anchorEl.isConnected) {
@@ -1097,32 +1114,40 @@ PU.editorMode = {
         const previewBlock = anchorEl.closest('.pu-preview-block[data-path]');
         const blockPath = previewBlock ? previewBlock.dataset.path : null;
 
-        const locked = PU.state.previewMode.lockedValues;
-        const lockedVals = (locked[wcName] && locked[wcName].length > 0) ? locked[wcName] : null;
+        // If staging already active for this wildcard, reuse state (preserve staged values)
+        if (PU.editorMode._lockPopupState && PU.editorMode._lockPopupState.wcName === wcName) {
+            PU.editorMode._lockPopupState.anchor = anchorEl;
+            if (blockPath) PU.editorMode._lockPopupState.blockPath = blockPath;
+            PU.editorMode._lockPopupState.inactiveShuffled =
+                PU.editorMode._buildInactiveShuffled(wcName, blockPath, lookup);
+        } else {
+            // Create new staging state
+            PU.state.previewMode.previewCompositions = [];
 
-        // Determine current value for this wildcard
-        const { wildcardCounts, extTextCount } = PU.shared.getCompositionParams();
-        const compId = PU.state.previewMode.compositionId;
-        const [, wcIndices] = PU.preview.compositionToIndices(compId, extTextCount, wildcardCounts);
-        const currentIdx = wcIndices[wcName] || 0;
-        const currentVal = allVals[currentIdx];
+            const locked = PU.state.previewMode.lockedValues;
+            const lockedVals = (locked[wcName] && locked[wcName].length > 0) ? locked[wcName] : null;
 
-        // Initial checked set: locked values if any, otherwise just current value
-        const initialChecked = new Set(lockedVals ? lockedVals : [currentVal]);
+            const { wildcardCounts, extTextCount } = PU.shared.getCompositionParams();
+            const compId = PU.state.previewMode.compositionId;
+            const [, wcIndices] = PU.preview.compositionToIndices(compId, extTextCount, wildcardCounts);
+            const currentIdx = wcIndices[wcName] || 0;
+            const currentVal = allVals[currentIdx];
 
-        // Pre-shuffle inactive wildcard values for diverse preview
-        const inactiveShuffled = PU.editorMode._buildInactiveShuffled(wcName, blockPath, lookup);
+            const initialChecked = new Set(lockedVals ? lockedVals : [currentVal]);
+            const inactiveShuffled = PU.editorMode._buildInactiveShuffled(wcName, blockPath, lookup);
 
-        PU.editorMode._lockPopupState = {
-            wcName,
-            initialChecked: new Set(initialChecked),
-            currentChecked: new Set(initialChecked),
-            currentVal,
-            anchor: anchorEl,
-            blockPath,
-            inactiveShuffled
-        };
+            PU.editorMode._lockPopupState = {
+                wcName,
+                initialChecked: new Set(initialChecked),
+                currentChecked: new Set(initialChecked),
+                currentVal,
+                anchor: anchorEl,
+                blockPath,
+                inactiveShuffled
+            };
+        }
 
+        const currentVal = PU.editorMode._lockPopupState.currentVal;
         PU.editorMode._renderLockPopupContent(wcName, allVals, currentVal);
 
         const popup = document.querySelector('[data-testid="pu-lock-popup"]');
@@ -1134,13 +1159,11 @@ PU.editorMode = {
         const anchorInContainer = container.contains(anchorEl);
 
         if (anchorInContainer) {
-            // Anchor is inside popup's parent — use relative positioning
             const containerRect = container.getBoundingClientRect();
             popup.style.position = 'absolute';
             popup.style.left = Math.max(0, rect.left - containerRect.left + container.scrollLeft) + 'px';
             popup.style.top = (rect.bottom - containerRect.top + container.scrollTop + 4) + 'px';
         } else {
-            // Anchor is outside popup's parent (e.g., compositions panel) — use fixed positioning
             popup.style.position = 'fixed';
             popup.style.left = Math.max(8, rect.left) + 'px';
             popup.style.top = Math.min(rect.bottom + 4, window.innerHeight - 500) + 'px';
@@ -1205,14 +1228,6 @@ PU.editorMode = {
         const computationHtml = PU.editorMode._buildComputationBreakdown(wcName, hypothetical, extTextCount);
 
         html += `<div class="pu-lock-popup-footer" data-testid="pu-lock-popup-footer">
-            <div class="pu-lock-popup-footer-actions">
-                <button class="pu-lock-popup-commit-btn" data-testid="pu-lock-popup-commit"
-                    onclick="PU.editorMode.commitLockPopup()"
-                    ${changed ? '' : 'disabled'}>${changed ? 'Add to Compositions' : 'No Changes'}</button>
-                <button class="pu-lock-popup-copy-btn" data-testid="pu-lock-popup-copy"
-                    onclick="PU.editorMode.copyLockPopupPreview(this)"
-                    title="Copy resolved text">\u{1F4CB}</button>
-            </div>
             <div class="pu-lock-popup-footer-info">
                 <div data-testid="pu-lock-popup-footer-total">${totalLabel}</div>
                 ${computationHtml ? `<details class="pu-lock-popup-computation" data-testid="pu-lock-popup-computation">
@@ -1268,7 +1283,7 @@ PU.editorMode = {
         PU.editorMode._lockPopupUpdate();
     },
 
-    /** Re-render popup content (preview only, no auto-commit). */
+    /** Re-render popup content and staging (preview only, no auto-commit). */
     _lockPopupUpdate() {
         const state = PU.editorMode._lockPopupState;
         if (!state) return;
@@ -1278,11 +1293,12 @@ PU.editorMode = {
         // Update preview compositions in the compositions panel
         PU.editorMode._computePreviewCompositions();
         PU.compositions.render();
+        PU.rightPanel.render(); // Sync chip staged/unstaged visual state
     },
 
     /** Apply current lock popup state to lockedValues and re-render preview. */
-    _applyLockPopupState() {
-        const state = PU.editorMode._lockPopupState;
+    _applyLockPopupState(stateOverride) {
+        const state = stateOverride || PU.editorMode._lockPopupState;
         if (!state) return;
         const lookup = PU.preview.getFullWildcardLookup();
         const allVals = lookup[state.wcName] || [];
@@ -1321,31 +1337,92 @@ PU.editorMode = {
         return false;
     },
 
-    /** Close the lock popup. Confirms if dirty, then discards. */
+    /** Cancel staging: discard all staged changes and close popup + staging column. */
     closeLockPopup() {
-        if (PU.editorMode._isLockPopupDirty()) {
-            if (!confirm('You have unsaved wildcard selections. Discard changes?')) {
-                // Re-show overlay after dismissPopovers() finishes hiding it
-                setTimeout(() => PU.overlay.showOverlay(), 0);
-                return;
-            }
-        }
         PU.state.previewMode.previewCompositions = [];
-        PU.compositions.render();
-        const popup = document.querySelector('[data-testid="pu-lock-popup"]');
-        if (popup) popup.style.display = 'none';
         PU.editorMode._lockPopupState = null;
+        PU.editorMode._hideLockPopup();
+        PU.overlay.hideOverlay();
+        PU.compositions.render();
+        PU.rightPanel.render();
     },
 
-    /** Commit lock popup selection to compositions and close. */
+    /** Commit staged selection to lockedValues and close popup + staging column. */
     commitLockPopup() {
-        if (!PU.editorMode._lockPopupState) return;
+        const state = PU.editorMode._lockPopupState;
+        if (!state) return;
         PU.state.previewMode.previewCompositions = [];
-        PU.editorMode._applyLockPopupState();
+        PU.editorMode._lockPopupState = null; // Clear before render so staging hides
+        PU.editorMode._applyLockPopupState(state);
+        PU.editorMode._hideLockPopup();
+        PU.overlay.hideOverlay();
+        PU.rightPanel.render();
+    },
+
+    /**
+     * Stage a chip toggle from the right panel.
+     * Creates/updates _lockPopupState so staging column shows the delta.
+     * If staging is active for a different wildcard, commits it first.
+     */
+    stageChipToggle(wcName, value) {
+        const state = PU.editorMode._lockPopupState;
+
+        // If staging active for a different wildcard, commit it first
+        if (state && state.wcName !== wcName) {
+            PU.editorMode.commitLockPopup();
+        }
+
+        const lookup = PU.preview.getFullWildcardLookup();
+        const allVals = lookup[wcName];
+        if (!allVals || allVals.length === 0) return;
+
+        if (!PU.editorMode._lockPopupState || PU.editorMode._lockPopupState.wcName !== wcName) {
+            // Create new staging state for this wildcard
+            const locked = PU.state.previewMode.lockedValues;
+            const lockedVals = (locked[wcName] && locked[wcName].length > 0) ? locked[wcName] : null;
+
+            const { wildcardCounts, extTextCount } = PU.shared.getCompositionParams();
+            const compId = PU.state.previewMode.compositionId;
+            const [, wcIndices] = PU.preview.compositionToIndices(compId, extTextCount, wildcardCounts);
+            const currentIdx = wcIndices[wcName] || 0;
+            const currentVal = allVals[currentIdx];
+
+            const initialChecked = new Set(lockedVals ? lockedVals : [currentVal]);
+
+            PU.editorMode._lockPopupState = {
+                wcName,
+                initialChecked: new Set(initialChecked),
+                currentChecked: new Set(initialChecked),
+                currentVal,
+                anchor: null,
+                blockPath: null,
+                inactiveShuffled: {}
+            };
+        }
+
+        // Toggle the value in currentChecked
+        const current = PU.editorMode._lockPopupState.currentChecked;
+        if (current.has(value)) {
+            current.delete(value);
+        } else {
+            current.add(value);
+        }
+
+        // Recompute preview and render staging
+        PU.editorMode._computePreviewCompositions();
+        PU.compositions.render();
+        PU.rightPanel.render();
+
+        // Sync lock popup checkboxes if open for the same wildcard
         const popup = document.querySelector('[data-testid="pu-lock-popup"]');
-        if (popup) popup.style.display = 'none';
-        PU.editorMode._lockPopupState = null;
-        PU.overlay.dismissPopovers();
+        if (popup && popup.style.display !== 'none' &&
+            PU.editorMode._lockPopupState?.wcName === wcName) {
+            const lookup2 = PU.preview.getFullWildcardLookup();
+            PU.editorMode._renderLockPopupContent(
+                wcName, lookup2[wcName] || [],
+                PU.editorMode._lockPopupState.currentVal
+            );
+        }
     },
 
     /** Build rotated inactive wildcard map for preview diversity.
@@ -1391,109 +1468,6 @@ PU.editorMode = {
     /** Copy resolved preview text to clipboard.
      *  Mirrors the compositions panel waterfall: ancestor chain + own text per variation.
      *  Uses the same resolution as resolvedVariations + buildBlockResolutions. */
-    copyLockPopupPreview(btn) {
-        const state = PU.editorMode._lockPopupState;
-        if (!state || !state.blockPath) return;
-        const prompt = PU.helpers.getActivePrompt();
-        if (!prompt || !prompt.text) return;
-        const textItems = prompt.text;
-        const block = PU.editorMode._getBlockAtPath(textItems, state.blockPath);
-        if (!block || !block.content) return;
-
-        const wcName = state.wcName;
-        const checkedArr = [...state.currentChecked];
-        if (checkedArr.length === 0) return;
-        const lookup = PU.preview.getFullWildcardLookup();
-        const shuffled = state.inactiveShuffled || {};
-
-        // Smart-join matching src/jobs.py and preview.js
-        const smartJoin = (a, b) => {
-            if (!a) return b;
-            if (!b) return a;
-            const seps = [',', ' ', '\n', '\t'];
-            if (seps.some(s => a.trimEnd().endsWith(s)) || seps.some(s => b.trimStart().startsWith(s)))
-                return a + b;
-            return a.trimEnd() + ' ' + b.trimStart();
-        };
-
-        // Resolve all wildcards in a text string, substituting the focused wildcard with `val`
-        const resolveText = (text, val, offset) => {
-            if (!text) return '';
-            return text.replace(/__([a-zA-Z0-9_-]+)__/g, (match, name) => {
-                if (name === wcName) return val;
-                const s = shuffled[name];
-                if (s && s.length > 0) return s[offset % s.length];
-                const vals = lookup[name] || [];
-                return vals.length > 0 ? vals[0] : match;
-            });
-        };
-
-        // Build ancestor chain text for the block's path (root → parent)
-        // Each ancestor's content is resolved with the focused wildcard value
-        const buildAncestorAccumulated = (blockPath, val, offset) => {
-            const parts = blockPath.split('.');
-            let accumulated = '';
-            for (let i = 0; i < parts.length - 1; i++) {
-                const aPath = parts.slice(0, i + 1).join('.');
-                const aBlock = PU.editorMode._getBlockAtPath(textItems, aPath);
-                if (!aBlock) continue;
-                // Skip ext_text ancestors
-                if ('ext_text' in aBlock) continue;
-                const resolved = resolveText(aBlock.content || '', val, offset + i);
-                accumulated = smartJoin(accumulated, resolved);
-            }
-            return accumulated;
-        };
-
-        // Collect all leaf paths from the current block downward
-        // A leaf = has no children, or is the clicked block itself if it's a leaf
-        const collectLeafPaths = (blk, prefix) => {
-            const hasChildren = blk.after && blk.after.length > 0;
-            if (!hasChildren) return [prefix];
-            const leaves = [];
-            blk.after.forEach((child, idx) => {
-                const childPath = `${prefix}.${idx}`;
-                leaves.push(...collectLeafPaths(child, childPath));
-            });
-            return leaves;
-        };
-
-        const leafPaths = collectLeafPaths(block, state.blockPath);
-
-        // For each checked value × each leaf path, build the full accumulated text
-        // This mirrors the compositions waterfall: root → ... → leaf
-        const entries = [];
-        const maxShow = Math.min(checkedArr.length, 5);
-        for (let i = 0; i < maxShow; i++) {
-            const val = checkedArr[i];
-            for (let lp = 0; lp < leafPaths.length; lp++) {
-                const leafPath = leafPaths[lp];
-                const leafBlock = PU.editorMode._getBlockAtPath(textItems, leafPath);
-                if (!leafBlock) continue;
-                // Skip ext_text leaves for now
-                if ('ext_text' in leafBlock) continue;
-
-                const offset = i + lp;
-                // Accumulate: ancestors above blockPath + blockPath ancestors + own block chain
-                // Walk from root to this leaf
-                const pathParts = leafPath.split('.');
-                let accumulated = '';
-                for (let seg = 0; seg < pathParts.length; seg++) {
-                    const segPath = pathParts.slice(0, seg + 1).join('.');
-                    const segBlock = PU.editorMode._getBlockAtPath(textItems, segPath);
-                    if (!segBlock || !segBlock.content || 'ext_text' in segBlock) continue;
-                    const resolved = resolveText(segBlock.content, val, offset + seg);
-                    accumulated = smartJoin(accumulated, resolved);
-                }
-                if (accumulated) entries.push(accumulated);
-            }
-        }
-
-        const clipboardText = entries.join('\n---\n');
-        try { navigator.clipboard.writeText(clipboardText); } catch (e) { /* */ }
-        PU.actions._showCopiedFeedback(btn);
-    },
-
     // ── Lock Popup Preview ──────────────────────────────────────────────
 
     /**
@@ -1795,9 +1769,11 @@ PU.editorMode = {
             if ((!locked[name] || locked[name].length === 0) && values.length > 0) {
                 locked[name] = [values[0]];
             } else if (locked[name] && values.length > 0) {
-                // Filter out stale values no longer in the wildcard lookup
-                const valid = locked[name].filter(v => values.includes(v));
-                locked[name] = valid.length > 0 ? valid : [values[0]];
+                // Filter out stale values no longer in the wildcard lookup (mutate in-place)
+                for (let i = locked[name].length - 1; i >= 0; i--) {
+                    if (!values.includes(locked[name][i])) locked[name].splice(i, 1);
+                }
+                if (locked[name].length === 0) locked[name].push(values[0]);
             }
         }
         // Clean stale entries for wildcards that no longer exist
@@ -2438,8 +2414,9 @@ PU.editorMode = {
 // Register gear popover with overlay lifecycle
 PU.overlay.registerPopover('gearPopover', () => PU.editorMode.closeGearPopover());
 
-// Register lock popup with overlay lifecycle
-PU.overlay.registerPopover('lockPopup', () => PU.editorMode.closeLockPopup());
+// Register lock popup with overlay lifecycle — only hides the popup UI,
+// staging persists until explicit Cancel/Confirm in the staging column
+PU.overlay.registerPopover('lockPopup', () => PU.editorMode._hideLockPopup());
 
 // ── Debug API ──────────────────────────────────────────────────────────
 PU.debug = PU.debug || {};

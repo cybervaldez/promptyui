@@ -41,25 +41,30 @@ PU.rightPanel = {
             }
         });
 
-        // Escape key: close popovers first, then clear focus, then locks
+        // Escape key: cancel staging first, then close popovers, then clear focus, then locks
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && !(e.target && e.target.closest && e.target.closest('input, textarea, [contenteditable]'))) {
-                // Priority 0: close push popover if visible
+                // Priority 0: cancel active staging
+                if (PU.editorMode._lockPopupState) {
+                    PU.editorMode.closeLockPopup();
+                    return;
+                }
+                // Priority 1: close push popover if visible
                 if (PU.state.themes.pushToThemePopover.visible) {
                     PU.rightPanel.hidePushPopover();
                     return;
                 }
-                // Priority 1: clear wildcard focus
+                // Priority 2: clear wildcard focus
                 if (PU.state.previewMode.focusedWildcards.length > 0) {
                     PU.rightPanel.clearFocus();
                     return;
                 }
-                // Priority 2: clear magnifier
+                // Priority 3: clear magnifier
                 if (PU.state.previewMode.magnifiedPath) {
                     PU.compositions.clearMagnify();
                     return;
                 }
-                // Priority 3: reset expanded locks to first-value defaults
+                // Priority 4: reset expanded locks to first-value defaults
                 const locked = PU.state.previewMode.lockedValues;
                 const hasNonDefault = Object.values(locked).some(v => v && v.length > 1);
                 if (hasNonDefault) {
@@ -876,18 +881,18 @@ PU.rightPanel = {
         PU.rightPanel._updateTopBar(prompt, allNames.length);
 
         // Attach chip click handlers
-        // Click = select (update selectedWildcards['*'] + re-render)
-        // Ctrl+Click = toggle lock (add/remove from lockedValues)
+        // Click = stage (add to staging column for review)
+        // Ctrl+Click = auto-commit lock directly (power user shortcut)
+        const modLabel = PU.helpers.modKey();
         container.querySelectorAll('.pu-rp-wc-v').forEach(chip => {
             chip.addEventListener('click', (e) => {
                 const wcName = chip.dataset.wcName;
                 const val = chip.dataset.value;
-                const idx = parseInt(chip.dataset.idx, 10);
                 if (wcName && val !== undefined) {
                     if (e.ctrlKey || e.metaKey) {
-                        PU.rightPanel.toggleLock(wcName, val);
+                        PU.rightPanel.directCommitLock(wcName, val);
                     } else {
-                        PU.rightPanel.previewValue(wcName, val, idx);
+                        PU.rightPanel.toggleLock(wcName, val);
                     }
                 }
             });
@@ -899,12 +904,16 @@ PU.rightPanel = {
                 PU.rightPanel.showReplacePopover(chip, e);
             });
 
-            // Hover: show footer tip
+            // Hover: show footer tip + preview in staging
             chip.addEventListener('mouseenter', () => {
-                PU.rightPanel._showFooterTip('<kbd>Ctrl</kbd>+Click lock wildcard');
+                const wcName = chip.dataset.wcName;
+                const val = chip.dataset.value;
+                PU.rightPanel._showFooterTip(`Click stage \u00b7 <kbd>${modLabel}</kbd>+Click lock`);
+                if (wcName && val) PU.editorMode._showChipHoverPreview(wcName, val);
             });
             chip.addEventListener('mouseleave', () => {
                 PU.rightPanel._hideFooterTip();
+                PU.editorMode._clearChipHoverPreview();
             });
         });
 
@@ -1296,20 +1305,36 @@ PU.rightPanel = {
             const isLocked = lockedValues[name] && lockedValues[name].includes(originalValue);
             if (isLocked) cls += ' locked';
 
-            const asterisk = isReplaced ? '<span class="asterisk">*</span>' : '';
-            const lockIcon = isLocked ? '<span class="lock-icon">&#128274;</span>' : '';
+            // Staged (pending in staging column, not yet committed)
+            const stagingState = PU.editorMode._lockPopupState;
+            const isStaged = stagingState && stagingState.wcName === name
+                && stagingState.currentChecked.has(originalValue)
+                && !stagingState.initialChecked.has(originalValue);
+            const isUnstaged = stagingState && stagingState.wcName === name
+                && !stagingState.currentChecked.has(originalValue)
+                && stagingState.initialChecked.has(originalValue);
+            if (isStaged) cls += ' staged';
+            if (isUnstaged) cls += ' unstaged';
 
-            // Tooltip: locked > replacement > default
+            const asterisk = isReplaced ? '<span class="asterisk">*</span>' : '';
+            const lockIcon = isLocked && !isUnstaged ? '<span class="lock-icon">&#128274;</span>' : '';
+            const stagedIcon = isStaged ? '<span class="staged-icon">+</span>' : '';
+
+            // Tooltip: locked > staged > replacement > default
             let titleAttr;
             if (isReplaced) {
                 titleAttr = ` title="replaces &quot;${esc(originalValue)}&quot;"`;
+            } else if (isStaged) {
+                titleAttr = ` title="Staged — click to unstage"`;
+            } else if (isUnstaged) {
+                titleAttr = ` title="Will be removed — click to keep"`;
             } else if (isLocked) {
-                titleAttr = ` title="Locked — Ctrl+Click to unlock"`;
+                titleAttr = ` title="Locked — click to unstage"`;
             } else {
-                titleAttr = ` title="Click to select, Ctrl+Click to lock"`;
+                titleAttr = ` title="Click to stage \u00b7 ${PU.helpers.modKey()}+Click to lock"`;
             }
 
-            return `<span class="${cls}" data-testid="pu-rp-wc-chip-${safeName}-${i}" data-wc-name="${safeName}" data-value="${esc(originalValue)}" data-idx="${i}"${titleAttr}${extraAttrs}>${lockIcon}${esc(displayValue)}${asterisk}</span>`;
+            return `<span class="${cls}" data-testid="pu-rp-wc-chip-${safeName}-${i}" data-wc-name="${safeName}" data-value="${esc(originalValue)}" data-idx="${i}"${titleAttr}${extraAttrs}>${lockIcon}${stagedIcon}${esc(displayValue)}${asterisk}</span>`;
         };
 
         // All chips rendered flat — no bucket window framing
@@ -1643,48 +1668,54 @@ PU.rightPanel = {
     // ============================================
 
     /**
-     * Toggle a locked wildcard value.
-     * Locked values define the Cartesian product dimensions for export.
-     * Click = select (handled by previewValue), Ctrl+Click = lock (handled here).
+     * Toggle a locked wildcard value via staging (no auto-commit).
+     * Creates/updates _lockPopupState so the staging column shows the delta.
+     * Confirm/Cancel in the staging column handles commitment.
      */
-    async toggleLock(wcName, value) {
+    toggleLock(wcName, value) {
+        PU.editorMode.stageChipToggle(wcName, value);
+    },
+
+    /**
+     * Auto-commit a lock directly, bypassing staging (power user Ctrl+Click).
+     * If staging is active, commit it first, then apply this lock immediately.
+     */
+    directCommitLock(wcName, value) {
+        // Commit any pending staging first
+        if (PU.editorMode._lockPopupState) {
+            PU.editorMode.commitLockPopup();
+        }
+
         const locked = PU.state.previewMode.lockedValues;
         if (!locked[wcName]) locked[wcName] = [];
 
         const idx = locked[wcName].indexOf(value);
         if (idx >= 0) {
-            // Already locked — unlock
             locked[wcName].splice(idx, 1);
-            if (locked[wcName].length === 0) {
-                delete locked[wcName];
-            }
+            if (locked[wcName].length === 0) delete locked[wcName];
         } else {
-            // Lock this value
             locked[wcName].push(value);
         }
 
-        // Sync preview override: set selectedWildcards['*'][wcName] to last locked value
+        // Sync preview override
         const sw = PU.state.previewMode.selectedWildcards;
         if (!sw['*']) sw['*'] = {};
         if (locked[wcName] && locked[wcName].length > 0) {
             sw['*'][wcName] = value;
         } else {
             delete sw['*'][wcName];
-            if (Object.keys(sw['*']).length === 0) {
-                delete sw['*'];
-            }
+            if (Object.keys(sw['*']).length === 0) delete sw['*'];
         }
 
-        // Re-render blocks instantly (no transitions)
-        const container = document.querySelector('[data-testid="pu-blocks-container"]');
-        if (container) container.classList.add('pu-no-transition');
-        await PU.editor.renderBlocks(PU.state.activeJobId, PU.state.activePromptId);
-        if (container) {
-            requestAnimationFrame(() => requestAnimationFrame(() => {
-                container.classList.remove('pu-no-transition');
-            }));
-        }
+        PU.state.previewMode.pathBudgets = {};
         PU.rightPanel.render();
+        PU.compositions.render();
+        // Defer heavy renders to avoid overwriting lockedValues during async race
+        requestAnimationFrame(() => {
+            PU.editorMode.renderPreview();
+            PU.editorMode.renderSidebarPreview();
+            PU.rightPanel.renderOpsSection();
+        });
     },
 
     /**

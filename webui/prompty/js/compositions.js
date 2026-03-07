@@ -370,12 +370,6 @@ PU.compositions = {
             });
         }
 
-        // Append ephemeral preview entries from lock popup
-        const previewItems = PU.state.previewMode.previewCompositions || [];
-        if (previewItems.length > 0) {
-            items = [...items, ...previewItems];
-        }
-
         // Leaf view: filter to leaf-only paths (blocks without children)
         const viewMode = PU.state.previewMode.compositionsViewMode || 'full';
         if (viewMode === 'leaf') {
@@ -435,6 +429,20 @@ PU.compositions = {
                 actionBar.innerHTML = PU.compositions._renderExportActionBar(items.length);
             } else {
                 actionBar.innerHTML = PU.compositions._renderActionBar();
+            }
+        }
+
+        // Render staging column (preview entries from lock popup or chip staging)
+        const stagingEl = panel.querySelector('[data-testid="pu-compositions-staging"]');
+        if (stagingEl) {
+            const previewItems = PU.state.previewMode.previewCompositions || [];
+            const hasStaging = PU.editorMode._lockPopupState != null;
+            if ((previewItems.length > 0 || hasStaging) && !isExport) {
+                stagingEl.innerHTML = PU.compositions._renderStagingColumn(previewItems);
+                stagingEl.classList.add('active');
+            } else {
+                stagingEl.innerHTML = '';
+                stagingEl.classList.remove('active');
             }
         }
     },
@@ -889,12 +897,9 @@ PU.compositions = {
             return 0;
         });
 
-        // 3. Sort: pinned first, preview last within each group
+        // 3. Sort: pinned first within each group
         for (const p of paths) {
             groups[p].sort((a, b) => {
-                const aPreview = a._preview ? 1 : 0;
-                const bPreview = b._preview ? 1 : 0;
-                if (aPreview !== bPreview) return aPreview - bPreview;
                 const aPinned = PU.compositions._isPinned(a.sources[0].blockPath, a.sources[0].comboKey) ? 0 : 1;
                 const bPinned = PU.compositions._isPinned(b.sources[0].blockPath, b.sources[0].comboKey) ? 0 : 1;
                 return aPinned - bPinned;
@@ -956,21 +961,17 @@ PU.compositions = {
                 const src = entry.sources[0];
                 const isPinned = PU.compositions._isPinned(src.blockPath, src.comboKey);
                 const isOrphan = entry._orphan || false;
-                const isPreview = entry._preview || false;
-                const isLast = ei === entries.length - 1;
 
                 let cls = 'pu-compositions-item';
                 if (PU.compositions._isDimmed(src.blockPath, src.comboKey)) cls += ' pu-compositions-dimmed';
                 if (isPinned) cls += ' pu-compositions-pinned';
                 if (isOrphan) cls += ' pu-compositions-orphan';
-                if (isPreview) cls += ' pu-compositions-preview';
 
                 const safeKey = esc(src.comboKey).replace(/'/g, '&#39;');
                 const safeBp = esc(src.blockPath).replace(/'/g, '&#39;');
 
                 const pinIcon = isPinned ? '<span class="pu-compositions-pin-icon">\uD83D\uDCCC</span>' : '';
                 const orphanIcon = isOrphan ? '<span class="pu-compositions-orphan-icon" title="Not in current composition">\u26A0</span>' : '';
-                const previewIcon = isPreview ? '<span class="pu-compositions-preview-icon">\u2192</span>' : '';
 
                 const parentPrefix = PU.compositions._getParentPrefix(entry, ancestorEntries);
 
@@ -978,16 +979,10 @@ PU.compositions = {
                 let textHtml = `<span class="pu-compositions-parent-text">${esc(parentPrefix)}</span>`;
                 textHtml += `<span class="pu-compositions-leaf-text">${esc(entry.text)}</span>`;
 
-                const clickHandler = isPreview ? '' : ` onclick="PU.compositions._handleItemClick('${safeBp}', '${safeKey}', event)"`;
-                html += `<div class="${cls}" data-testid="pu-compositions-item-${esc(path)}" data-block-path="${esc(src.blockPath)}" data-combo-key="${esc(src.comboKey)}" data-group-path="${esc(path)}"${clickHandler}>`;
-                html += pinIcon + orphanIcon + previewIcon;
+                html += `<div class="${cls}" data-testid="pu-compositions-item-${esc(path)}" data-block-path="${esc(src.blockPath)}" data-combo-key="${esc(src.comboKey)}" data-group-path="${esc(path)}" onclick="PU.compositions._handleItemClick('${safeBp}', '${safeKey}', event)">`;
+                html += pinIcon + orphanIcon;
                 html += `<span class="pu-compositions-item-text" data-testid="pu-compositions-resolved">${textHtml}</span>`;
                 html += '</div>';
-
-                // Preview overflow pill — standalone row after last preview entry in this group
-                if (isPreview && entry._previewOverflow > 0 && isLast) {
-                    html += `<div class="pu-compositions-preview-overflow-pill" data-testid="pu-compositions-preview-overflow-${esc(path)}">+${entry._previewOverflow.toLocaleString()} more</div>`;
-                }
             }
 
             // Show more row (standalone)
@@ -996,6 +991,177 @@ PU.compositions = {
             }
 
             html += '</div>'; // group
+        }
+        return html;
+    },
+
+    /**
+     * Render the staging column for preview entries from lock popup.
+     * Reuses tree view structure but wraps with staging header/footer.
+     */
+    _renderStagingColumn(entries) {
+        const esc = PU.blocks.escapeHtml;
+        const state = PU.editorMode._lockPopupState;
+        const wcName = state ? state.wcName : '';
+
+        // Compute composition totals (before/after) for header delta and footer
+        const { wildcardCounts, extTextCount } = PU.shared.getCompositionParams();
+        const locked = PU.state.previewMode.lockedValues || {};
+        const origTotal = PU.shared.computeLockedTotal(wildcardCounts, extTextCount, locked);
+        let newTotal = origTotal;
+        if (state) {
+            const hypothetical = { ...locked };
+            hypothetical[wcName] = [...state.currentChecked];
+            newTotal = PU.shared.computeLockedTotal(wildcardCounts, extTextCount, hypothetical);
+        }
+        const compositionDelta = newTotal - origTotal;
+
+        // Header — delta uses composition total growth, not block-entry count
+        let html = `<div class="pu-staging-header" data-testid="pu-staging-header">`;
+        html += `<span class="pu-staging-label">STAGING</span>`;
+        html += `<span class="pu-staging-wc-name">__${esc(wcName)}__</span>`;
+        const deltaText = compositionDelta > 0 ? `+${compositionDelta.toLocaleString()} new`
+            : compositionDelta < 0 ? `${compositionDelta.toLocaleString()}` : 'no change';
+        html += `<span class="pu-staging-delta" data-testid="pu-staging-delta">${deltaText}</span>`;
+        html += `</div>`;
+
+        // Body — reuse tree view rendering for the preview entries
+        html += `<div class="pu-staging-body" data-testid="pu-staging-body">`;
+        html += PU.compositions._renderStagingTree(entries);
+        html += `</div>`;
+
+        // Footer: only show Confirm/Cancel when lock popup is open (not chip hover)
+        html += `<div class="pu-staging-footer" data-testid="pu-staging-footer">`;
+        if (state) {
+            html += `<div class="pu-staging-total" data-testid="pu-staging-total">`;
+            html += `Total: ${origTotal.toLocaleString()} \u2192 <strong>${newTotal.toLocaleString()}</strong>`;
+            html += `</div>`;
+            html += `<div class="pu-staging-actions">`;
+            html += `<button class="pu-btn pu-btn-sm" data-testid="pu-staging-cancel" onclick="PU.editorMode.closeLockPopup()">Cancel</button>`;
+            html += `<button class="pu-btn pu-btn-sm pu-btn-accent" data-testid="pu-staging-confirm" onclick="PU.editorMode.commitLockPopup()">Confirm</button>`;
+            html += `</div>`;
+        }
+        html += `</div>`;
+
+        return html;
+    },
+
+    /**
+     * Render tree view for staging entries showing affected descendant blocks.
+     * Each group shows: path breadcrumb, template, existing count, then new pulsing entries.
+     */
+    _renderStagingTree(entries) {
+        const esc = PU.blocks.escapeHtml;
+        const committed = PU.state.previewMode.compositions || [];
+
+        // Group preview entries by blockPath
+        const previewGroups = {};
+        for (const entry of entries) {
+            const bp = entry.sources[0].blockPath;
+            if (!previewGroups[bp]) previewGroups[bp] = [];
+            previewGroups[bp].push(entry);
+        }
+
+        // Count committed entries per blockPath
+        const committedCounts = {};
+        for (const e of committed) {
+            const bp = e.sources[0].blockPath;
+            committedCounts[bp] = (committedCounts[bp] || 0) + 1;
+        }
+
+        // Collect all affected paths (preview + committed ancestors needed for prefix)
+        const allPaths = new Set(Object.keys(previewGroups));
+
+        // Sort paths hierarchically
+        const paths = [...allPaths].sort((a, b) => {
+            const ap = a.split('.').map(Number);
+            const bp = b.split('.').map(Number);
+            for (let i = 0; i < Math.max(ap.length, bp.length); i++) {
+                if (i >= ap.length) return -1;
+                if (i >= bp.length) return 1;
+                if (ap[i] !== bp[i]) return ap[i] - bp[i];
+            }
+            return 0;
+        });
+
+        if (paths.length === 0) return '';
+
+        // Build ancestor entries for parent prefix resolution (copy arrays to avoid mutating previewGroups)
+        const ancestorEntries = {};
+        for (const path of paths) ancestorEntries[path] = [...(previewGroups[path] || [])];
+        for (const e of committed) {
+            const bp = e.sources[0].blockPath;
+            if (!ancestorEntries[bp]) ancestorEntries[bp] = [];
+            ancestorEntries[bp].push(e);
+        }
+
+        // Build template text for headers (reuse main panel logic)
+        const templateHtml = PU.compositions._buildGroupTemplates(paths);
+
+        let html = '';
+        for (const path of paths) {
+            const pathEntries = previewGroups[path] || [];
+            const parts = path.split('.');
+            const depth = parts.length - 1;
+            const existingCount = committedCounts[path] || 0;
+
+            // Count overflow for this path
+            let pathOverflow = 0;
+            for (const e of pathEntries) {
+                if (e._previewOverflow) pathOverflow += e._previewOverflow;
+            }
+            const newCount = pathEntries.length + pathOverflow;
+
+            html += `<div class="pu-compositions-group pu-staging-group" data-depth="${depth}" data-testid="pu-staging-group-${esc(path)}">`;
+
+            // Header: path breadcrumb chain + template + counts
+            html += `<div class="pu-compositions-group-sticky">`;
+            html += `<div class="pu-compositions-header-row">`;
+
+            // Path chain (like main panel)
+            html += '<div class="pu-compositions-path-chain">';
+            for (let i = 0; i < parts.length; i++) {
+                const subPath = parts.slice(0, i + 1).join('.');
+                if (i > 0) html += '<span class="pu-compositions-path-sep">&gt;</span>';
+                html += `<span class="pu-compositions-path-seg">${esc(subPath)}</span>`;
+            }
+            html += '</div>';
+
+            // Template text
+            html += `<span class="pu-compositions-template-text">${templateHtml[path] || esc(path)}</span>`;
+
+            // Delta count
+            html += `<span class="pu-staging-path-delta" data-testid="pu-staging-path-delta-${esc(path)}">+${newCount}</span>`;
+
+            html += '</div></div>'; // header-row, group-sticky
+
+            // Existing items count
+            if (existingCount > 0) {
+                html += `<div class="pu-staging-existing" data-testid="pu-staging-existing-${esc(path)}">`;
+                html += `\u2026${existingCount.toLocaleString()} existing ${existingCount === 1 ? 'item' : 'items'}`;
+                html += `</div>`;
+            }
+
+            // New preview entries (pulsing)
+            for (let ei = 0; ei < pathEntries.length; ei++) {
+                const entry = pathEntries[ei];
+                const isLast = ei === pathEntries.length - 1;
+                const parentPrefix = PU.compositions._getParentPrefix(entry, ancestorEntries);
+
+                html += `<div class="pu-compositions-item pu-compositions-preview" data-testid="pu-staging-item-${esc(path)}" data-block-path="${esc(entry.sources[0].blockPath)}">`;
+                html += `<span class="pu-compositions-preview-icon">\u2192</span>`;
+                html += `<span class="pu-compositions-item-text">`;
+                html += `<span class="pu-compositions-parent-text">${esc(parentPrefix)}</span>`;
+                html += `<span class="pu-compositions-leaf-text">${esc(entry.text)}</span>`;
+                html += `</span></div>`;
+
+                // Overflow pill after last entry in this path
+                if (isLast && entry._previewOverflow > 0) {
+                    html += `<div class="pu-compositions-preview-overflow-pill" data-testid="pu-staging-overflow-${esc(path)}">+${entry._previewOverflow.toLocaleString()} more</div>`;
+                }
+            }
+
+            html += `</div>`;
         }
         return html;
     },

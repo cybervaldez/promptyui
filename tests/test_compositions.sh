@@ -976,10 +976,6 @@ echo "$FOOTER" | grep -q "Total Compositions" && log_pass "Footer shows 'Total C
 HAS_COMPUTATION=$(agent-browser eval '!!document.querySelector("[data-testid=pu-lock-popup-computation]")' 2>/dev/null | tr -d '"')
 [ "$HAS_COMPUTATION" = "true" ] && log_pass "Computation disclosure exists" || log_fail "Computation disclosure missing"
 
-# Check copy button exists
-HAS_COPY=$(agent-browser eval '!!document.querySelector("[data-testid=pu-lock-popup-copy]")' 2>/dev/null | tr -d '"')
-[ "$HAS_COPY" = "true" ] && log_pass "Copy button exists" || log_fail "Copy button missing"
-
 PREVIEW_LABEL=$(agent-browser eval 'document.querySelector(".pu-lock-popup-preview-label")?.textContent?.trim()' 2>/dev/null | tr -d '"')
 echo "$PREVIEW_LABEL" | grep -q "Previewing" && log_pass "Preview label contains 'Previewing'" || log_fail "Preview label missing 'Previewing': $PREVIEW_LABEL"
 
@@ -1079,9 +1075,9 @@ DESC_ITEMS=$(agent-browser eval 'document.querySelectorAll("[data-testid=pu-lock
 # TEST: Commit button still works after nav step
 # ============================================================================
 echo ""
-log_info "TEST: Commit button works after nav step"
+log_info "TEST: Staging confirm works after nav step"
 
-agent-browser eval 'document.querySelector("[data-testid=pu-lock-popup-commit]").click()' 2>/dev/null
+agent-browser eval 'document.querySelector("[data-testid=pu-staging-confirm]").click()' 2>/dev/null
 sleep 0.5
 
 COMMITTED=$(agent-browser eval 'PU.state.previewMode.lockedValues.persona ? PU.state.previewMode.lockedValues.persona.length : 0' 2>/dev/null | tr -d '"')
@@ -1092,10 +1088,10 @@ agent-browser eval 'PU.editorMode.clearAllLocks()' 2>/dev/null
 sleep 0.3
 
 # ============================================================================
-# TEST: Dirty dismiss confirmation blocks discard
+# TEST: Cancel discards changes without confirmation dialog
 # ============================================================================
 echo ""
-log_info "TEST: Dirty dismiss confirmation"
+log_info "TEST: Cancel discards without confirmation"
 
 # Reset and open popup
 agent-browser eval 'PU.editorMode._ensureLockDefaults(true); PU.editorMode.renderPreview()' 2>/dev/null
@@ -1110,80 +1106,40 @@ sleep 0.3
 DIRTY=$(agent-browser eval 'PU.editorMode._isLockPopupDirty()' 2>/dev/null | tr -d '"')
 [ "$DIRTY" = "true" ] && log_pass "Popup detects dirty state" || log_fail "Dirty detection failed: $DIRTY"
 
-# Override confirm to return false (cancel dismiss) then try dismiss
-agent-browser eval 'window._origConfirm = window.confirm; window.confirm = function() { return false; }' 2>/dev/null
+# Close popup — should close immediately without confirm dialog
+agent-browser eval 'window._confirmCalled = false; window._origConfirm = window.confirm; window.confirm = function() { window._confirmCalled = true; return true; }' 2>/dev/null
 agent-browser eval 'PU.editorMode.closeLockPopup()' 2>/dev/null
 sleep 0.3
 
-STILL_OPEN=$(agent-browser eval 'document.querySelector(".pu-lock-popup")?.style?.display !== "none"' 2>/dev/null | tr -d '"')
-[ "$STILL_OPEN" = "true" ] && log_pass "Confirm(false) prevents dismiss" || log_fail "Popup closed despite confirm=false"
-
-# Override confirm to return true (allow dismiss)
-agent-browser eval 'window.confirm = function() { return true; }' 2>/dev/null
-agent-browser eval 'PU.editorMode.closeLockPopup()' 2>/dev/null
-sleep 0.3
+CONFIRM_CALLED=$(agent-browser eval 'window._confirmCalled' 2>/dev/null | tr -d '"')
+[ "$CONFIRM_CALLED" = "false" ] && log_pass "No confirm dialog shown (staging handles commit)" || log_fail "Confirm dialog was shown"
 
 CLOSED=$(agent-browser eval 'document.querySelector(".pu-lock-popup")?.style?.display === "none" || !document.querySelector(".pu-lock-popup")' 2>/dev/null | tr -d '"')
-[ "$CLOSED" = "true" ] && log_pass "Confirm(true) allows dismiss" || log_fail "Popup still open after confirm=true"
-
-# Restore original confirm
-agent-browser eval 'window.confirm = window._origConfirm || window.confirm' 2>/dev/null
+[ "$CLOSED" = "true" ] && log_pass "Popup closed immediately" || log_fail "Popup still open"
 
 # Verify changes were discarded (not committed)
 LOCKED_COUNT=$(agent-browser eval 'PU.state.previewMode.lockedValues.persona ? PU.state.previewMode.lockedValues.persona.length : 0' 2>/dev/null | tr -d '"')
 [ "$LOCKED_COUNT" = "1" ] && log_pass "Dismissed without committing (locked=1)" || log_fail "Expected 1 locked after discard, got $LOCKED_COUNT"
 
-# ============================================================================
-# TEST: Clean popup closes without confirmation
-# ============================================================================
-echo ""
-log_info "TEST: Clean popup closes without confirmation"
-
-# Open popup and immediately close (no changes = no confirm)
-agent-browser eval 'document.querySelector(".pu-wc-slot").click()' 2>/dev/null
-sleep 0.5
-agent-browser eval 'window._confirmCalled = false; window._origConfirm2 = window.confirm; window.confirm = function() { window._confirmCalled = true; return true; }' 2>/dev/null
-agent-browser eval 'PU.editorMode.closeLockPopup()' 2>/dev/null
-sleep 0.3
-
-CONFIRM_CALLED=$(agent-browser eval 'window._confirmCalled' 2>/dev/null | tr -d '"')
-[ "$CONFIRM_CALLED" = "false" ] && log_pass "No confirm dialog for clean popup" || log_fail "Confirm shown for clean popup"
-
-agent-browser eval 'window.confirm = window._origConfirm2 || window.confirm' 2>/dev/null
+agent-browser eval 'window.confirm = window._origConfirm || window.confirm' 2>/dev/null
 
 # ============================================================================
-# TEST: Commit button color is white on accent
+# TEST: Staging column appears when toggling wildcard in lock popup
 # ============================================================================
 echo ""
-log_info "TEST: Commit button foreground color"
-
-agent-browser eval 'document.querySelector(".pu-wc-slot").click()' 2>/dev/null
-sleep 0.5
-agent-browser eval 'document.querySelector("[data-testid=pu-lock-popup-all]").click()' 2>/dev/null
-sleep 0.3
-
-BTN_COLOR=$(agent-browser eval 'getComputedStyle(document.querySelector("[data-testid=pu-lock-popup-commit]")).color' 2>/dev/null | tr -d '"')
-echo "$BTN_COLOR" | grep -q "255, 255, 255" && log_pass "Button color is white ($BTN_COLOR)" || log_fail "Button color: $BTN_COLOR"
-
-# Commit and clean up
-agent-browser eval 'document.querySelector("[data-testid=pu-lock-popup-commit]").click()' 2>/dev/null
-sleep 0.3
-agent-browser eval 'PU.editorMode.clearAllLocks()' 2>/dev/null
-sleep 0.3
-
-# ============================================================================
-# TEST: Preview compositions appear when toggling wildcard in lock popup
-# ============================================================================
-echo ""
-log_info "TEST: Preview compositions in lock popup"
+log_info "TEST: Staging column in lock popup"
 
 # Reset state first
 agent-browser eval 'PU.editorMode._ensureLockDefaults(true); PU.state.previewMode.pathBudgets = {}; PU.state.previewMode.magnifiedPath = null; PU.state.previewMode.previewCompositions = []; PU.editorMode.renderPreview(); PU.editorMode.renderSidebarPreview(); PU.rightPanel.renderOpsSection()' 2>/dev/null
 sleep 0.5
 
-# Check no preview entries initially
-PREVIEW_COUNT=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-preview").length' 2>/dev/null | tr -d '"')
-[ "$PREVIEW_COUNT" = "0" ] && log_pass "No preview entries initially" || log_fail "Preview entries found before popup: $PREVIEW_COUNT"
+# Check staging column hidden initially
+STAGING_ACTIVE=$(agent-browser eval 'document.querySelector("[data-testid=\"pu-compositions-staging\"]").classList.contains("active")' 2>/dev/null)
+[ "$STAGING_ACTIVE" = "false" ] && log_pass "Staging column hidden initially" || log_fail "Staging column visible before popup: $STAGING_ACTIVE"
+
+# Check no preview entries in main body
+MAIN_PREVIEW=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-body .pu-compositions-preview").length' 2>/dev/null | tr -d '"')
+[ "$MAIN_PREVIEW" = "0" ] && log_pass "No preview entries in main body" || log_fail "Preview entries in main: $MAIN_PREVIEW"
 
 # Open lock popup
 agent-browser eval 'document.querySelector(".pu-wc-slot").click()' 2>/dev/null
@@ -1193,61 +1149,104 @@ sleep 0.5
 agent-browser eval 'document.querySelector("[data-testid=pu-lock-popup-all]").click()' 2>/dev/null
 sleep 0.5
 
-# Check preview entries appear
-PREVIEW_COUNT=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-preview").length' 2>/dev/null | tr -d '"')
-[ "$PREVIEW_COUNT" -gt 0 ] 2>/dev/null && log_pass "Preview entries appear on toggle ($PREVIEW_COUNT)" || log_fail "No preview entries after toggle: $PREVIEW_COUNT"
+# Check staging column appears
+STAGING_ACTIVE=$(agent-browser eval 'document.querySelector("[data-testid=\"pu-compositions-staging\"]").classList.contains("active")' 2>/dev/null)
+[ "$STAGING_ACTIVE" = "true" ] && log_pass "Staging column appears on toggle" || log_fail "Staging column not active"
 
-# Check preview entries have arrow icon
-ARROW_COUNT=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-preview-icon").length' 2>/dev/null | tr -d '"')
-[ "$ARROW_COUNT" -gt 0 ] 2>/dev/null && log_pass "Preview entries have arrow icon ($ARROW_COUNT)" || log_fail "No arrow icons: $ARROW_COUNT"
+# Check staging has preview entries with arrow icons
+STAGING_ITEMS=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-staging .pu-compositions-preview").length' 2>/dev/null | tr -d '"')
+[ "$STAGING_ITEMS" -gt 0 ] 2>/dev/null && log_pass "Staging has preview entries ($STAGING_ITEMS)" || log_fail "No staging entries: $STAGING_ITEMS"
 
-# Check preview entries are non-interactive (pointer-events: none)
-PE=$(agent-browser eval 'getComputedStyle(document.querySelector(".pu-compositions-preview")).pointerEvents' 2>/dev/null | tr -d '"')
-[ "$PE" = "none" ] && log_pass "Preview entries non-interactive" || log_fail "Pointer events: $PE"
+ARROW_COUNT=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-staging .pu-compositions-preview-icon").length' 2>/dev/null | tr -d '"')
+[ "$ARROW_COUNT" -gt 0 ] 2>/dev/null && log_pass "Staging entries have arrow icon ($ARROW_COUNT)" || log_fail "No arrows: $ARROW_COUNT"
 
-# Check preview overflow pill exists (per-path "+N more" pills)
-OVERFLOW_PILLS=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-preview-overflow-pill").length' 2>/dev/null | tr -d '"')
-[ "$OVERFLOW_PILLS" -gt 0 ] 2>/dev/null && log_pass "Preview overflow pills present ($OVERFLOW_PILLS)" || log_info "No preview overflow pills (may not apply to this wildcard)"
+# Check staging entries are non-interactive
+PE=$(agent-browser eval 'getComputedStyle(document.querySelector(".pu-compositions-staging .pu-compositions-preview")).pointerEvents' 2>/dev/null | tr -d '"')
+[ "$PE" = "none" ] && log_pass "Staging entries non-interactive" || log_fail "Pointer events: $PE"
 
-# Check preview entries are distributed across multiple paths (not stacked on one)
-PREVIEW_PATHS=$(agent-browser eval '(() => {
-    const items = document.querySelectorAll(".pu-compositions-preview");
+# Check staging header shows wildcard name
+STAGING_WC=$(agent-browser eval 'document.querySelector(".pu-staging-wc-name")?.textContent' 2>/dev/null | tr -d '"')
+echo "$STAGING_WC" | grep -q "__" && log_pass "Staging header shows wildcard: $STAGING_WC" || log_fail "Missing wildcard in header: $STAGING_WC"
+
+# Check staging has Confirm/Cancel buttons
+CONFIRM_BTN=$(agent-browser eval '!!document.querySelector("[data-testid=\"pu-staging-confirm\"]")' 2>/dev/null)
+CANCEL_BTN=$(agent-browser eval '!!document.querySelector("[data-testid=\"pu-staging-cancel\"]")' 2>/dev/null)
+[ "$CONFIRM_BTN" = "true" ] && log_pass "Staging has Confirm button" || log_fail "No Confirm button"
+[ "$CANCEL_BTN" = "true" ] && log_pass "Staging has Cancel button" || log_fail "No Cancel button"
+
+# Check staging footer shows total
+TOTAL_TEXT=$(agent-browser eval 'document.querySelector("[data-testid=\"pu-staging-total\"]")?.textContent' 2>/dev/null | tr -d '"')
+echo "$TOTAL_TEXT" | grep -q "Total" && log_pass "Staging shows total: $TOTAL_TEXT" || log_fail "Missing total: $TOTAL_TEXT"
+
+# Verify header delta matches footer delta (composition total growth)
+HEADER_DELTA=$(agent-browser eval 'document.querySelector("[data-testid=\"pu-staging-delta\"]")?.textContent.replace(/[^0-9]/g, "")' 2>/dev/null | tr -d '"')
+FOOTER_DELTA=$(agent-browser eval '(() => {
+    const t = document.querySelector("[data-testid=\"pu-staging-total\"]")?.textContent || "";
+    const m = t.match(/([0-9,]+).*?([0-9,]+)/);
+    if (!m) return "0";
+    return String(parseInt(m[2].replace(/,/g,"")) - parseInt(m[1].replace(/,/g,"")));
+})()' 2>/dev/null | tr -d '"')
+[ "$HEADER_DELTA" = "$FOOTER_DELTA" ] && log_pass "Header delta matches footer delta: +$HEADER_DELTA" || log_fail "Header delta ($HEADER_DELTA) != footer delta ($FOOTER_DELTA)"
+
+# Check staging entries distributed across paths
+STAGING_PATHS=$(agent-browser eval '(() => {
+    const items = document.querySelectorAll(".pu-compositions-staging .pu-compositions-preview");
     const paths = new Set();
     items.forEach(el => paths.add(el.dataset.blockPath));
     return paths.size;
 })()' 2>/dev/null | tr -d '"')
-[ "$PREVIEW_PATHS" -gt 1 ] 2>/dev/null && log_pass "Preview entries distributed across $PREVIEW_PATHS paths" || log_info "Preview entries on $PREVIEW_PATHS path(s)"
+[ "$STAGING_PATHS" -gt 1 ] 2>/dev/null && log_pass "Staging entries across $STAGING_PATHS paths" || log_info "Staging entries on $STAGING_PATHS path(s)"
 
-# Close popup without committing — previews should disappear
+# Check staging groups have path breadcrumb chains
+BREADCRUMB_COUNT=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-staging .pu-compositions-path-chain").length' 2>/dev/null | tr -d '"')
+[ "$BREADCRUMB_COUNT" -gt 0 ] 2>/dev/null && log_pass "Staging groups have path breadcrumbs ($BREADCRUMB_COUNT)" || log_fail "No breadcrumbs: $BREADCRUMB_COUNT"
+
+# Check staging groups have template text
+TEMPLATE_COUNT=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-staging .pu-compositions-template-text").length' 2>/dev/null | tr -d '"')
+[ "$TEMPLATE_COUNT" -gt 0 ] 2>/dev/null && log_pass "Staging groups have template text ($TEMPLATE_COUNT)" || log_fail "No template text: $TEMPLATE_COUNT"
+
+# Check descendant paths show "existing items" count
+EXISTING_COUNT=$(agent-browser eval 'document.querySelectorAll(".pu-staging-existing").length' 2>/dev/null | tr -d '"')
+[ "$EXISTING_COUNT" -gt 0 ] 2>/dev/null && log_pass "Descendant paths show existing count ($EXISTING_COUNT groups)" || log_fail "No existing count shown"
+
+# Verify existing count text format
+EXISTING_TEXT=$(agent-browser eval 'document.querySelector(".pu-staging-existing")?.textContent' 2>/dev/null | tr -d '"')
+echo "$EXISTING_TEXT" | grep -q "existing" && log_pass "Existing count format correct: $EXISTING_TEXT" || log_fail "Bad format: $EXISTING_TEXT"
+
+# Check NO preview entries leaked into main body
+MAIN_LEAKED=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-body .pu-compositions-preview").length' 2>/dev/null | tr -d '"')
+[ "$MAIN_LEAKED" = "0" ] && log_pass "No preview entries leaked into main body" || log_fail "Leaked into main: $MAIN_LEAKED"
+
+# Close popup without committing — staging should disappear (zero trace)
 agent-browser eval 'window._origConfirm3 = window.confirm; window.confirm = function() { return true; }' 2>/dev/null
 agent-browser eval 'PU.editorMode.closeLockPopup()' 2>/dev/null
 sleep 0.3
 agent-browser eval 'window.confirm = window._origConfirm3 || window.confirm' 2>/dev/null
 
-PREVIEW_AFTER=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-preview").length' 2>/dev/null | tr -d '"')
-[ "$PREVIEW_AFTER" = "0" ] && log_pass "Preview entries removed on cancel" || log_fail "Preview entries remain after cancel: $PREVIEW_AFTER"
+STAGING_AFTER=$(agent-browser eval 'document.querySelector("[data-testid=\"pu-compositions-staging\"]").classList.contains("active")' 2>/dev/null)
+[ "$STAGING_AFTER" = "false" ] && log_pass "Staging removed on cancel (zero trace)" || log_fail "Staging still active: $STAGING_AFTER"
 
-# Now test commit flow: open popup, select all, commit
+# Now test commit flow: open popup, select all, confirm via staging button
 agent-browser eval 'document.querySelector(".pu-wc-slot").click()' 2>/dev/null
 sleep 0.5
 agent-browser eval 'document.querySelector("[data-testid=pu-lock-popup-all]").click()' 2>/dev/null
 sleep 0.5
 
-# Verify previews exist before commit
-PRE_COMMIT=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-preview").length' 2>/dev/null | tr -d '"')
-[ "$PRE_COMMIT" -gt 0 ] 2>/dev/null && log_pass "Previews present before commit ($PRE_COMMIT)" || log_fail "No previews before commit"
+# Verify staging visible before commit
+PRE_STAGING=$(agent-browser eval 'document.querySelector("[data-testid=\"pu-compositions-staging\"]").classList.contains("active")' 2>/dev/null)
+[ "$PRE_STAGING" = "true" ] && log_pass "Staging present before commit" || log_fail "No staging before commit"
 
-# Commit
-agent-browser eval 'document.querySelector("[data-testid=pu-lock-popup-commit]").click()' 2>/dev/null
+# Commit via staging Confirm button
+agent-browser eval 'document.querySelector("[data-testid=pu-staging-confirm]").click()' 2>/dev/null
 sleep 0.5
 
-# Verify no preview entries after commit (they become real entries)
-POST_COMMIT=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-preview").length' 2>/dev/null | tr -d '"')
-[ "$POST_COMMIT" = "0" ] && log_pass "No preview entries after commit" || log_fail "Preview entries remain after commit: $POST_COMMIT"
+# Verify staging hidden after commit
+POST_STAGING=$(agent-browser eval 'document.querySelector("[data-testid=\"pu-compositions-staging\"]").classList.contains("active")' 2>/dev/null)
+[ "$POST_STAGING" = "false" ] && log_pass "Staging hidden after commit" || log_fail "Staging still active: $POST_STAGING"
 
-# Verify real entries exist after commit
-REAL_COUNT=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-item").length' 2>/dev/null | tr -d '"')
-[ "$REAL_COUNT" -gt 0 ] 2>/dev/null && log_pass "Real entries present after commit ($REAL_COUNT)" || log_fail "No real entries after commit"
+# Verify real entries exist in main body after commit
+REAL_COUNT=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-body .pu-compositions-item").length' 2>/dev/null | tr -d '"')
+[ "$REAL_COUNT" -gt 0 ] 2>/dev/null && log_pass "Real entries in main after commit ($REAL_COUNT)" || log_fail "No entries after commit"
 
 # Clean up
 agent-browser eval 'PU.editorMode.clearAllLocks()' 2>/dev/null
@@ -1408,8 +1407,298 @@ BASE_BORDER=$(agent-browser eval '
 
 echo "$BASE_BORDER" | grep -q "2px" && log_pass "Base item reserves 2px border" || log_fail "No border reserve: $BASE_BORDER"
 
+# ============================================================================
+# TEST: Chip Click stages instead of auto-committing
+# ============================================================================
+echo ""
+log_info "TEST: Chip click stages (not auto-commit)"
+
+# Reset state
+agent-browser eval 'PU.editorMode._ensureLockDefaults(true); PU.state.previewMode.pathBudgets = {}; PU.state.previewMode.magnifiedPath = null; PU.state.previewMode.previewCompositions = []; PU.editorMode._lockPopupState = null; PU.editorMode.renderPreview(); PU.editorMode.renderSidebarPreview(); PU.rightPanel.render()' 2>/dev/null
+sleep 0.5
+
+# Verify no staging initially
+STAGING_ACTIVE=$(agent-browser eval '!!document.querySelector(".pu-compositions-staging.active")' 2>/dev/null | tr -d '"')
+[ "$STAGING_ACTIVE" = "false" ] && log_pass "No staging initially" || log_fail "Staging active before chip click"
+
+# Click stages "CTO" for persona (click=stage, not ctrl+click)
+agent-browser eval 'PU.rightPanel.toggleLock("persona", "CTO")' 2>/dev/null
+sleep 0.5
+
+# Staging column should appear
+STAGING_ACTIVE=$(agent-browser eval '!!document.querySelector(".pu-compositions-staging.active")' 2>/dev/null | tr -d '"')
+[ "$STAGING_ACTIVE" = "true" ] && log_pass "Staging appears on chip click" || log_fail "Staging not shown"
+
+# _lockPopupState should exist
+HAS_STATE=$(agent-browser eval '!!PU.editorMode._lockPopupState' 2>/dev/null | tr -d '"')
+[ "$HAS_STATE" = "true" ] && log_pass "Lock popup state created" || log_fail "No lock popup state"
+
+# Value should NOT be committed yet
+LOCKED=$(agent-browser eval 'PU.state.previewMode.lockedValues.persona ? PU.state.previewMode.lockedValues.persona.includes("CTO") : false' 2>/dev/null | tr -d '"')
+[ "$LOCKED" = "false" ] && log_pass "CTO not auto-committed (staged only)" || log_fail "CTO was auto-committed"
+
+# Chip should have staged class
+HAS_STAGED=$(agent-browser eval '!!document.querySelector(".pu-rp-wc-v.staged")' 2>/dev/null | tr -d '"')
+[ "$HAS_STAGED" = "true" ] && log_pass "Chip has staged visual" || log_fail "No staged class on chip"
+
+# Staging confirm commits
+agent-browser eval 'document.querySelector("[data-testid=pu-staging-confirm]").click()' 2>/dev/null
+sleep 0.5
+
+LOCKED_AFTER=$(agent-browser eval 'PU.state.previewMode.lockedValues.persona ? PU.state.previewMode.lockedValues.persona.includes("CTO") : false' 2>/dev/null | tr -d '"')
+[ "$LOCKED_AFTER" = "true" ] && log_pass "CTO committed after staging confirm" || log_fail "CTO not committed"
+
+# Staged class should be gone
+HAS_STAGED_AFTER=$(agent-browser eval '!!document.querySelector(".pu-rp-wc-v.staged")' 2>/dev/null | tr -d '"')
+[ "$HAS_STAGED_AFTER" = "false" ] && log_pass "Staged class cleared after commit" || log_fail "Staged class still present"
+
+# Wait for async renderPreview from commit to complete
+sleep 2
+
+# ============================================================================
+# TEST: Chip staging cancel discards
+# ============================================================================
+echo ""
+log_info "TEST: Chip staging cancel"
+
+agent-browser eval 'PU.rightPanel.toggleLock("persona", "CFO")' 2>/dev/null
+sleep 0.5
+
+STAGING_BEFORE=$(agent-browser eval '!!document.querySelector(".pu-compositions-staging.active")' 2>/dev/null | tr -d '"')
+[ "$STAGING_BEFORE" = "true" ] && log_pass "Staging shown for CFO" || log_fail "No staging for CFO"
+
+agent-browser eval 'document.querySelector("[data-testid=pu-staging-cancel]").click()' 2>/dev/null
+sleep 0.3
+
+LOCKED_CFO=$(agent-browser eval 'PU.state.previewMode.lockedValues.persona ? PU.state.previewMode.lockedValues.persona.includes("CFO") : false' 2>/dev/null | tr -d '"')
+[ "$LOCKED_CFO" = "false" ] && log_pass "CFO not committed after cancel" || log_fail "CFO was committed despite cancel"
+
+STAGING_GONE=$(agent-browser eval '!!document.querySelector(".pu-compositions-staging.active")' 2>/dev/null | tr -d '"')
+[ "$STAGING_GONE" = "false" ] && log_pass "Staging hidden after cancel" || log_fail "Staging still visible"
+
+# ============================================================================
+# TEST: Ctrl+Click auto-commits directly (power user shortcut)
+# ============================================================================
+echo ""
+log_info "TEST: Ctrl+Click direct commit"
+
+# Direct-commit CFO — inline to debug
+BEFORE_DIRECT=$(agent-browser eval 'JSON.stringify(PU.state.previewMode.lockedValues.persona)' 2>/dev/null | tr -d '"')
+log_info "Before directCommit: persona=$BEFORE_DIRECT"
+
+# Direct-commit CFO and check state inline
+INLINE_CHECK=$(agent-browser eval '
+    PU.rightPanel.directCommitLock("persona", "CFO");
+    var p = PU.state.previewMode.lockedValues.persona;
+    p && p.indexOf("CFO") >= 0 ? "true" : "false";
+' 2>/dev/null | tr -d '"')
+[ "$INLINE_CHECK" = "true" ] && log_pass "CFO auto-committed via directCommitLock" || log_fail "CFO not committed (inline: $INLINE_CHECK)"
+sleep 0.5
+
+# No staging should be active
+NO_STAGING=$(agent-browser eval '!PU.editorMode._lockPopupState' 2>/dev/null | tr -d '"')
+[ "$NO_STAGING" = "true" ] && log_pass "No staging after direct commit" || log_fail "Staging still active"
+
+# Unlock for clean state
+agent-browser eval 'PU.rightPanel.directCommitLock("persona", "CFO")' 2>/dev/null
+sleep 0.5
+
+# ============================================================================
+# TEST: Staging persists while items are staged
+# ============================================================================
+echo ""
+log_info "TEST: Staging column persists with items"
+
+# Stage a value
+agent-browser eval 'PU.rightPanel.toggleLock("persona", "CTO")' 2>/dev/null
+sleep 0.5
+
+# Toggle it back to initial (no net change)
+agent-browser eval 'PU.rightPanel.toggleLock("persona", "CTO")' 2>/dev/null
+sleep 0.3
+
+# Staging should still be visible (state exists even with no delta)
+STAGING_PERSISTS=$(agent-browser eval '!!document.querySelector(".pu-compositions-staging.active")' 2>/dev/null | tr -d '"')
+[ "$STAGING_PERSISTS" = "true" ] && log_pass "Staging persists with active state" || log_fail "Staging collapsed despite active state"
+
+# Cancel to clear
+agent-browser eval 'document.querySelector("[data-testid=pu-staging-cancel]").click()' 2>/dev/null
+sleep 0.3
+
+# ============================================================================
+# TEST: Footer helper text on chip hover
+# ============================================================================
+echo ""
+log_info "TEST: Footer helper text"
+
+# Trigger hover on a chip
+agent-browser eval '
+    var chip = document.querySelector(".pu-rp-wc-v");
+    if (chip) chip.dispatchEvent(new MouseEvent("mouseenter", {bubbles: true}));
+' 2>/dev/null
+sleep 0.3
+
+TIP_VISIBLE=$(agent-browser eval '
+    var tip = document.querySelector("[data-testid=pu-footer-tip]");
+    tip && tip.classList.contains("visible") ? tip.innerHTML : "";
+' 2>/dev/null | tr -d '"')
+echo "$TIP_VISIBLE" | grep -qi "stage" && log_pass "Footer tip mentions staging: $TIP_VISIBLE" || log_fail "Footer tip missing staging: $TIP_VISIBLE"
+echo "$TIP_VISIBLE" | grep -qi "lock" && log_pass "Footer tip mentions lock" || log_fail "Footer tip missing lock: $TIP_VISIBLE"
+
+# Clear hover
+agent-browser eval '
+    var chip = document.querySelector(".pu-rp-wc-v");
+    if (chip) chip.dispatchEvent(new MouseEvent("mouseleave", {bubbles: true}));
+' 2>/dev/null
+sleep 0.3
+
+# ============================================================================
+# TEST: Chip tooltip text
+# ============================================================================
+echo ""
+log_info "TEST: Chip tooltip text"
+
+TOOLTIP=$(agent-browser eval 'document.querySelector(".pu-rp-wc-v:not(.locked):not(.staged)")?.title' 2>/dev/null | tr -d '"')
+echo "$TOOLTIP" | grep -qi "stage" && log_pass "Tooltip mentions staging: $TOOLTIP" || log_fail "Tooltip missing 'stage': $TOOLTIP"
+echo "$TOOLTIP" | grep -qiE "Ctrl|⌘" && log_pass "Tooltip shows modifier for lock" || log_fail "Tooltip missing modifier: $TOOLTIP"
+
+# ============================================================================
+# TEST: Staging survives popup close (overlay dismiss)
+# ============================================================================
+echo ""
+log_info "TEST: Staging isolation — popup close does not kill staging"
+
+# Reset state
+agent-browser eval 'PU.editorMode._ensureLockDefaults(true); PU.state.previewMode.pathBudgets = {}; PU.state.previewMode.previewCompositions = []; PU.editorMode._lockPopupState = null; PU.rightPanel.render(); PU.compositions.render()' 2>/dev/null
+sleep 0.5
+
+# Open lock popup and stage values
+agent-browser eval '
+    var slot = document.querySelector(".pu-wc-slot[data-wc]");
+    if (slot) PU.editorMode.openLockPopup(slot.dataset.wc, slot);
+' 2>/dev/null
+sleep 0.5
+
+agent-browser eval 'document.querySelector("[data-testid=pu-lock-popup-all]").click()' 2>/dev/null
+sleep 0.5
+
+# Verify staging is active
+STAGING_BEFORE=$(agent-browser eval '!!document.querySelector(".pu-compositions-staging.active")' 2>/dev/null | tr -d '"')
+[ "$STAGING_BEFORE" = "true" ] && log_pass "Staging active before popup close" || log_fail "No staging before close"
+
+# Dismiss popup via overlay (simulates clicking outside)
+agent-browser eval 'PU.overlay.dismissPopovers()' 2>/dev/null
+sleep 0.3
+
+# Popup should be hidden
+POPUP_HIDDEN=$(agent-browser eval '
+    var p = document.querySelector("[data-testid=pu-lock-popup]");
+    !p || p.style.display === "none";
+' 2>/dev/null | tr -d '"')
+[ "$POPUP_HIDDEN" = "true" ] && log_pass "Popup hidden after overlay dismiss" || log_fail "Popup still visible"
+
+# Staging should STILL be active
+STAGING_AFTER=$(agent-browser eval '!!document.querySelector(".pu-compositions-staging.active")' 2>/dev/null | tr -d '"')
+[ "$STAGING_AFTER" = "true" ] && log_pass "Staging survives popup close" || log_fail "Staging killed by popup close"
+
+STATE_INTACT=$(agent-browser eval '!!PU.editorMode._lockPopupState' 2>/dev/null | tr -d '"')
+[ "$STATE_INTACT" = "true" ] && log_pass "Lock popup state preserved" || log_fail "Lock popup state cleared"
+
+# Cancel to clean up
+agent-browser eval 'PU.editorMode.closeLockPopup()' 2>/dev/null
+sleep 0.3
+
+# ============================================================================
+# TEST: Escape key cancels staging
+# ============================================================================
+echo ""
+log_info "TEST: Escape cancels staging"
+
+agent-browser eval 'PU.rightPanel.toggleLock("persona", "CTO")' 2>/dev/null
+sleep 0.5
+
+STAGING_ESC=$(agent-browser eval '!!PU.editorMode._lockPopupState' 2>/dev/null | tr -d '"')
+[ "$STAGING_ESC" = "true" ] && log_pass "Staging active before Escape" || log_fail "No staging before Escape"
+
+# Simulate Escape key
+agent-browser eval 'document.dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))' 2>/dev/null
+sleep 0.3
+
+STATE_CLEARED=$(agent-browser eval '!PU.editorMode._lockPopupState' 2>/dev/null | tr -d '"')
+[ "$STATE_CLEARED" = "true" ] && log_pass "Escape clears staging state" || log_fail "Staging state persists after Escape"
+
+STAGING_HIDDEN=$(agent-browser eval '!document.querySelector(".pu-compositions-staging.active")' 2>/dev/null | tr -d '"')
+[ "$STAGING_HIDDEN" = "true" ] && log_pass "Staging column hidden after Escape" || log_fail "Staging visible after Escape"
+
+# ============================================================================
+# TEST: Reopening popup reuses chip staging
+# ============================================================================
+echo ""
+log_info "TEST: Popup reuses existing chip staging"
+
+# Stage CTO via chip click
+agent-browser eval 'PU.rightPanel.toggleLock("persona", "CTO")' 2>/dev/null
+sleep 0.5
+
+# Verify CTO is staged
+STAGED_CTO=$(agent-browser eval 'PU.editorMode._lockPopupState.currentChecked.has("CTO")' 2>/dev/null | tr -d '"')
+[ "$STAGED_CTO" = "true" ] && log_pass "CTO staged via chip" || log_fail "CTO not staged"
+
+# Open lock popup for same wildcard — should reuse state
+agent-browser eval '
+    var slot = document.querySelector(".pu-wc-slot[data-wc=\"persona\"]");
+    if (slot) PU.editorMode.openLockPopup("persona", slot);
+' 2>/dev/null
+sleep 0.5
+
+# CTO checkbox in popup should be checked (reused from staging)
+CTO_CHECKED=$(agent-browser eval '
+    var items = document.querySelectorAll("[data-testid=pu-lock-popup] input[type=checkbox]");
+    var found = false;
+    items.forEach(function(cb) { if (cb.dataset.val === "CTO" && cb.checked) found = true; });
+    found;
+' 2>/dev/null | tr -d '"')
+[ "$CTO_CHECKED" = "true" ] && log_pass "Popup shows CTO checked from staging" || log_fail "Popup did not reuse staging"
+
+# Cancel to clean up
+agent-browser eval 'PU.editorMode.closeLockPopup()' 2>/dev/null
+sleep 0.3
+
+# ============================================================================
+# TEST: Popup checkboxes sync to chip visual state
+# ============================================================================
+echo ""
+log_info "TEST: Popup and chip sync bidirectional"
+
+# Open lock popup
+agent-browser eval '
+    var slot = document.querySelector(".pu-wc-slot[data-wc=\"persona\"]");
+    if (slot) PU.editorMode.openLockPopup("persona", slot);
+' 2>/dev/null
+sleep 0.5
+
+# Toggle CTO checkbox in popup
+agent-browser eval '
+    var items = document.querySelectorAll("[data-testid=pu-lock-popup] input[type=checkbox]");
+    items.forEach(function(cb) { if (cb.dataset.val === "CTO" && !cb.checked) cb.click(); });
+' 2>/dev/null
+sleep 0.5
+
+# CTO chip should have staged class
+CHIP_STAGED=$(agent-browser eval '
+    var chips = document.querySelectorAll(".pu-rp-wc-v[data-value=\"CTO\"]");
+    var staged = false;
+    chips.forEach(function(c) { if (c.classList.contains("staged")) staged = true; });
+    staged;
+' 2>/dev/null | tr -d '"')
+[ "$CHIP_STAGED" = "true" ] && log_pass "Popup toggle syncs chip staged state" || log_fail "Chip not synced after popup toggle"
+
+# Cancel to clean up
+agent-browser eval 'PU.editorMode.closeLockPopup()' 2>/dev/null
+sleep 0.3
+
 # Final cleanup — reset and save clean session
-agent-browser eval 'PU.editorMode._ensureLockDefaults(true); PU.state.previewMode.pathBudgets = {}; PU.state.previewMode.magnifiedPath = null; PU.state.previewMode.previewCompositions = []; PU.editorMode.renderPreview(); PU.editorMode.renderSidebarPreview(); PU.rightPanel.renderOpsSection(); PU.rightPanel.saveSession()' 2>/dev/null
+agent-browser eval 'PU.editorMode._ensureLockDefaults(true); PU.state.previewMode.pathBudgets = {}; PU.state.previewMode.magnifiedPath = null; PU.state.previewMode.previewCompositions = []; PU.editorMode._lockPopupState = null; PU.editorMode.renderPreview(); PU.editorMode.renderSidebarPreview(); PU.rightPanel.render(); PU.rightPanel.saveSession()' 2>/dev/null
 sleep 0.5
 
 # ============================================================================
