@@ -1164,9 +1164,9 @@ ARROW_COUNT=$(agent-browser eval 'document.querySelectorAll(".pu-compositions-st
 PE=$(agent-browser eval 'getComputedStyle(document.querySelector(".pu-compositions-staging .pu-compositions-preview")).pointerEvents' 2>/dev/null | tr -d '"')
 [ "$PE" = "none" ] && log_pass "Staging entries non-interactive" || log_fail "Pointer events: $PE"
 
-# Check staging header shows wildcard name
-STAGING_WC=$(agent-browser eval 'document.querySelector(".pu-staging-wc-name")?.textContent' 2>/dev/null | tr -d '"')
-echo "$STAGING_WC" | grep -q "__" && log_pass "Staging header shows wildcard: $STAGING_WC" || log_fail "Missing wildcard in header: $STAGING_WC"
+# Check staging header shows wildcard pill(s)
+STAGING_WC=$(agent-browser eval 'document.querySelector(".pu-staging-wc-pill")?.textContent' 2>/dev/null | tr -d '"')
+echo "$STAGING_WC" | grep -q "__" && log_pass "Staging header shows wildcard pill: $STAGING_WC" || log_fail "Missing wildcard pill in header: $STAGING_WC"
 
 # Check staging has Confirm/Cancel buttons
 CONFIRM_BTN=$(agent-browser eval '!!document.querySelector("[data-testid=\"pu-staging-confirm\"]")' 2>/dev/null)
@@ -1641,7 +1641,7 @@ agent-browser eval 'PU.rightPanel.toggleLock("persona", "CTO")' 2>/dev/null
 sleep 0.5
 
 # Verify CTO is staged
-STAGED_CTO=$(agent-browser eval 'PU.editorMode._lockPopupState.currentChecked.has("CTO")' 2>/dev/null | tr -d '"')
+STAGED_CTO=$(agent-browser eval 'PU.editorMode._lockPopupState.staged.persona.currentChecked.has("CTO")' 2>/dev/null | tr -d '"')
 [ "$STAGED_CTO" = "true" ] && log_pass "CTO staged via chip" || log_fail "CTO not staged"
 
 # Open lock popup for same wildcard — should reuse state

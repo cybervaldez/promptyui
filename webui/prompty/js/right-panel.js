@@ -1307,12 +1307,13 @@ PU.rightPanel = {
 
             // Staged (pending in staging column, not yet committed)
             const stagingState = PU.editorMode._lockPopupState;
-            const isStaged = stagingState && stagingState.wcName === name
-                && stagingState.currentChecked.has(originalValue)
-                && !stagingState.initialChecked.has(originalValue);
-            const isUnstaged = stagingState && stagingState.wcName === name
-                && !stagingState.currentChecked.has(originalValue)
-                && stagingState.initialChecked.has(originalValue);
+            const wcStaged = stagingState && stagingState.staged && stagingState.staged[name];
+            const isStaged = wcStaged
+                && wcStaged.currentChecked.has(originalValue)
+                && !wcStaged.initialChecked.has(originalValue);
+            const isUnstaged = wcStaged
+                && !wcStaged.currentChecked.has(originalValue)
+                && wcStaged.initialChecked.has(originalValue);
             if (isStaged) cls += ' staged';
             if (isUnstaged) cls += ' unstaged';
 

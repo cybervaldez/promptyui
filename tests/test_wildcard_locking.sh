@@ -359,12 +359,12 @@ if [ "$HAS_WC" = "true" ]; then
     agent-browser eval "PU.editorMode._lockPopupSelectOnly()" 2>/dev/null
     sleep 0.3
 
-    ONLY_COUNT=$(agent-browser eval "PU.editorMode._lockPopupState?.currentChecked?.size" 2>/dev/null)
+    ONLY_COUNT=$(agent-browser eval "(() => { const s = PU.editorMode._lockPopupState; if (!s || !s.popupWc) return 0; return s.staged[s.popupWc]?.currentChecked?.size || 0; })()" 2>/dev/null)
     [ "$ONLY_COUNT" = "1" ] && log_pass "Only 1 value checked after 'Only'" || log_fail "Checked count after 'Only': $ONLY_COUNT"
 
     # Verify it's the current value
-    ONLY_VAL=$(agent-browser eval "[...PU.editorMode._lockPopupState.currentChecked][0]" 2>/dev/null | tr -d '"')
-    CURRENT_VAL=$(agent-browser eval "PU.editorMode._lockPopupState?.currentVal" 2>/dev/null | tr -d '"')
+    ONLY_VAL=$(agent-browser eval "(() => { const s = PU.editorMode._lockPopupState; return [...s.staged[s.popupWc].currentChecked][0]; })()" 2>/dev/null | tr -d '"')
+    CURRENT_VAL=$(agent-browser eval "(() => { const s = PU.editorMode._lockPopupState; return s.staged[s.popupWc]?.currentVal; })()" 2>/dev/null | tr -d '"')
     [ "$ONLY_VAL" = "$CURRENT_VAL" ] && log_pass "Only selected current value: $CURRENT_VAL" || log_fail "Expected $CURRENT_VAL, got $ONLY_VAL"
 
     agent-browser eval "PU.overlay.dismissPopovers()" 2>/dev/null

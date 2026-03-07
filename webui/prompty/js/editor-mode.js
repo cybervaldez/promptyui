@@ -807,16 +807,11 @@ PU.editorMode = {
 
     /**
      * Compute preview compositions from lock popup state.
-     * Builds hypothetical locked state and generates capped variations.
+     * Iterates ALL staged wildcards and builds hypothetical locked state.
      */
     _computePreviewCompositions() {
         const state = PU.editorMode._lockPopupState;
-        if (!state) {
-            PU.state.previewMode.previewCompositions = [];
-            return;
-        }
-        const checked = state.currentChecked;
-        if (checked.size === 0) {
+        if (!state || !state.staged) {
             PU.state.previewMode.previewCompositions = [];
             return;
         }
@@ -832,37 +827,49 @@ PU.editorMode = {
         const compId = PU.state.previewMode.compositionId;
         const [, wcIndices] = PU.preview.compositionToIndices(compId, extTextCount, wildcardCounts);
 
-        // Only preview NEW values (not already in initial set)
-        const newValues = [...checked].filter(v => !state.initialChecked.has(v));
-        if (newValues.length === 0) {
+        // Collect new values across ALL staged wildcards
+        const dirtyWildcards = []; // [{wcName, newValues}]
+        for (const [wcName, wcStaged] of Object.entries(state.staged)) {
+            const newValues = [...wcStaged.currentChecked].filter(v => !wcStaged.initialChecked.has(v));
+            if (newValues.length > 0) {
+                dirtyWildcards.push({ wcName, newValues });
+            }
+        }
+
+        if (dirtyWildcards.length === 0) {
             PU.state.previewMode.previewCompositions = [];
             return;
         }
 
-        // Build hypothetical locked state with only new values
+        // Build hypothetical locked state with new values from all dirty wildcards
         const locked = {};
         const realLocked = PU.state.previewMode.lockedValues;
         for (const k of Object.keys(realLocked)) {
             locked[k] = [...realLocked[k]];
         }
-        locked[state.wcName] = newValues;
+        for (const { wcName, newValues } of dirtyWildcards) {
+            locked[wcName] = newValues;
+        }
 
+        // Collect preview entries across all dirty wildcards
         const MAX_PREVIEW = 5;
+        const wcNames = dirtyWildcards.map(d => d.wcName);
         const results = PU.editorMode._collectSubtreePreview(
-            prompt.text, state.wcName, lookup, locked, wcIndices, MAX_PREVIEW
+            prompt.text, wcNames, lookup, locked, wcIndices, MAX_PREVIEW
         );
-        // Overflow is already computed by _collectSubtreePreview (correct unit: block entries)
 
         PU.state.previewMode.previewCompositions = results;
     },
 
     /**
-     * Collect preview entries for a wildcard across the full subtree.
-     * Walks the block tree to find all blocks affected by wcName (own or inherited),
+     * Collect preview entries for wildcard(s) across the full subtree.
+     * @param {string|string[]} wcNameOrNames - single wcName or array of wcNames
+     * Walks the block tree to find all blocks affected by any of the wcNames,
      * generates variations using allWcNames (own + inherited) so descendant blocks
      * produce entries for each parent wildcard value.
      */
-    _collectSubtreePreview(textItems, wcName, lookup, locked, wcIndices, maxEntries) {
+    _collectSubtreePreview(textItems, wcNameOrNames, lookup, locked, wcIndices, maxEntries) {
+        const wcNameSet = new Set(Array.isArray(wcNameOrNames) ? wcNameOrNames : [wcNameOrNames]);
         // Staging always uses full view — independent of main panel's view mode
         const leafOnly = false;
 
@@ -911,10 +918,8 @@ PU.editorMode = {
                 const ownSet = new Set(info.ownWcNames);
                 const allWcNames = [...info.ownWcNames, ...ancestorWcs.filter(n => !ownSet.has(n))];
                 const hasChildren = item.after && item.after.length > 0;
-                // Include blocks where wcName appears in own or inherited wildcards.
-                // Own wildcards: block text changes directly.
-                // Inherited wildcards: block's parent prefix changes, producing new compositions.
-                const affectedByWc = allWcNames.includes(wcName);
+                // Include blocks where any staged wcName appears in own or inherited wildcards.
+                const affectedByWc = allWcNames.some(n => wcNameSet.has(n));
 
                 // In leaf mode, skip parent blocks from budget — only leaves get preview entries
                 if (affectedByWc && !(leafOnly && hasChildren)) {
@@ -1078,7 +1083,11 @@ PU.editorMode = {
 
     // ── Lock Popup ──────────────────────────────────────────────────────
 
-    _lockPopupState: null, // { wcName, initialChecked: Set, anchor: Element }
+    // Multi-wildcard staging state.
+    // { staged: { wcName: { initialChecked: Set, currentChecked: Set, currentVal: string } },
+    //   popupWc: string|null, anchor: Element|null, blockPath: string|null,
+    //   inactiveShuffled: {}, shuffleIndex: number }
+    _lockPopupState: null,
 
     /** Hide the lock popup UI element without clearing staging state. */
     _hideLockPopup() {
@@ -1089,14 +1098,6 @@ PU.editorMode = {
     /** Open the lock popup for a wildcard. */
     openLockPopup(wcName, anchorEl) {
         PU.overlay.dismissPopovers();
-
-        // If staging active for a different wildcard, commit it first
-        if (PU.editorMode._lockPopupState && PU.editorMode._lockPopupState.wcName !== wcName) {
-            const prevState = PU.editorMode._lockPopupState;
-            PU.state.previewMode.previewCompositions = [];
-            PU.editorMode._lockPopupState = null;
-            PU.editorMode._applyLockPopupState(prevState);
-        }
 
         // Re-find anchor if it was detached by dismissPopovers() → compositions.render()
         if (!anchorEl.isConnected) {
@@ -1114,16 +1115,27 @@ PU.editorMode = {
         const previewBlock = anchorEl.closest('.pu-preview-block[data-path]');
         const blockPath = previewBlock ? previewBlock.dataset.path : null;
 
-        // If staging already active for this wildcard, reuse state (preserve staged values)
-        if (PU.editorMode._lockPopupState && PU.editorMode._lockPopupState.wcName === wcName) {
-            PU.editorMode._lockPopupState.anchor = anchorEl;
-            if (blockPath) PU.editorMode._lockPopupState.blockPath = blockPath;
-            PU.editorMode._lockPopupState.inactiveShuffled =
-                PU.editorMode._buildInactiveShuffled(wcName, blockPath, lookup);
-        } else {
-            // Create new staging state
+        // Ensure staging state exists
+        if (!PU.editorMode._lockPopupState) {
             PU.state.previewMode.previewCompositions = [];
+            PU.editorMode._lockPopupState = {
+                staged: {},
+                popupWc: null,
+                anchor: null,
+                blockPath: null,
+                inactiveShuffled: {},
+                shuffleIndex: 0
+            };
+        }
 
+        const state = PU.editorMode._lockPopupState;
+        state.popupWc = wcName;
+        state.anchor = anchorEl;
+        if (blockPath) state.blockPath = blockPath;
+        state.inactiveShuffled = PU.editorMode._buildInactiveShuffled(wcName, blockPath, lookup);
+
+        // Ensure per-wildcard staging entry exists
+        if (!state.staged[wcName]) {
             const locked = PU.state.previewMode.lockedValues;
             const lockedVals = (locked[wcName] && locked[wcName].length > 0) ? locked[wcName] : null;
 
@@ -1134,20 +1146,14 @@ PU.editorMode = {
             const currentVal = allVals[currentIdx];
 
             const initialChecked = new Set(lockedVals ? lockedVals : [currentVal]);
-            const inactiveShuffled = PU.editorMode._buildInactiveShuffled(wcName, blockPath, lookup);
-
-            PU.editorMode._lockPopupState = {
-                wcName,
+            state.staged[wcName] = {
                 initialChecked: new Set(initialChecked),
                 currentChecked: new Set(initialChecked),
-                currentVal,
-                anchor: anchorEl,
-                blockPath,
-                inactiveShuffled
+                currentVal
             };
         }
 
-        const currentVal = PU.editorMode._lockPopupState.currentVal;
+        const currentVal = state.staged[wcName].currentVal;
         PU.editorMode._renderLockPopupContent(wcName, allVals, currentVal);
 
         const popup = document.querySelector('[data-testid="pu-lock-popup"]');
@@ -1179,13 +1185,25 @@ PU.editorMode = {
         if (!popup || !PU.editorMode._lockPopupState) return;
 
         const state = PU.editorMode._lockPopupState;
-        const checked = state.currentChecked;
+        const wcStaged = state.staged[wcName];
+        if (!wcStaged) return;
+        const checked = wcStaged.currentChecked;
 
-        // Compute impact
+        // Compute impact from ALL staged wildcards
         const { wildcardCounts, extTextCount } = PU.shared.getCompositionParams();
         const locked = PU.state.previewMode.lockedValues;
         const hypothetical = { ...locked };
-        hypothetical[wcName] = checked.size === 0 ? [allVals[0]] : [...checked];
+        for (const [wn, ws] of Object.entries(state.staged)) {
+            hypothetical[wn] = ws.currentChecked.size === 0 ? [allVals[0]] : [...ws.currentChecked];
+        }
+        // Ensure current wildcard is correct (allVals may differ per wildcard)
+        const lookup = PU.preview.getFullWildcardLookup();
+        for (const [wn, ws] of Object.entries(state.staged)) {
+            if (wn !== wcName && ws.currentChecked.size === 0) {
+                const wVals = lookup[wn] || [];
+                hypothetical[wn] = [wVals[0] || ''];
+            }
+        }
         const impact = PU.shared.computeLockedTotal(wildcardCounts, extTextCount, hypothetical);
 
         let html = `<div class="pu-lock-popup-header">
@@ -1215,7 +1233,7 @@ PU.editorMode = {
         if (previewHtml) html += previewHtml;
 
         // Check if selection differs from initial (committed) state
-        const initial = state.initialChecked;
+        const initial = wcStaged.initialChecked;
         const changed = checked.size !== initial.size || [...checked].some(v => !initial.has(v));
 
         // Build "Total Compositions: orig → new" footer
@@ -1257,11 +1275,13 @@ PU.editorMode = {
     /** Toggle a value in the lock popup. */
     _lockPopupToggle(val, isChecked) {
         const state = PU.editorMode._lockPopupState;
-        if (!state) return;
+        if (!state || !state.popupWc) return;
+        const wcStaged = state.staged[state.popupWc];
+        if (!wcStaged) return;
         if (isChecked) {
-            state.currentChecked.add(val);
+            wcStaged.currentChecked.add(val);
         } else {
-            state.currentChecked.delete(val);
+            wcStaged.currentChecked.delete(val);
         }
         PU.editorMode._lockPopupUpdate();
     },
@@ -1269,17 +1289,21 @@ PU.editorMode = {
     /** Select all values in lock popup. */
     _lockPopupSelectAll() {
         const state = PU.editorMode._lockPopupState;
-        if (!state) return;
+        if (!state || !state.popupWc) return;
+        const wcStaged = state.staged[state.popupWc];
+        if (!wcStaged) return;
         const lookup = PU.preview.getFullWildcardLookup();
-        state.currentChecked = new Set(lookup[state.wcName] || []);
+        wcStaged.currentChecked = new Set(lookup[state.popupWc] || []);
         PU.editorMode._lockPopupUpdate();
     },
 
     /** Select only the current value in lock popup. */
     _lockPopupSelectOnly() {
         const state = PU.editorMode._lockPopupState;
-        if (!state) return;
-        state.currentChecked = new Set([state.currentVal]);
+        if (!state || !state.popupWc) return;
+        const wcStaged = state.staged[state.popupWc];
+        if (!wcStaged) return;
+        wcStaged.currentChecked = new Set([wcStaged.currentVal]);
         PU.editorMode._lockPopupUpdate();
     },
 
@@ -1287,9 +1311,15 @@ PU.editorMode = {
     _lockPopupUpdate() {
         const state = PU.editorMode._lockPopupState;
         if (!state) return;
-        const lookup = PU.preview.getFullWildcardLookup();
-        const allVals = lookup[state.wcName] || [];
-        PU.editorMode._renderLockPopupContent(state.wcName, allVals, state.currentVal);
+        // Re-render popup if it's visible
+        if (state.popupWc) {
+            const lookup = PU.preview.getFullWildcardLookup();
+            const allVals = lookup[state.popupWc] || [];
+            const wcStaged = state.staged[state.popupWc];
+            if (wcStaged) {
+                PU.editorMode._renderLockPopupContent(state.popupWc, allVals, wcStaged.currentVal);
+            }
+        }
         // Update preview compositions in the compositions panel
         PU.editorMode._computePreviewCompositions();
         PU.compositions.render();
@@ -1299,40 +1329,45 @@ PU.editorMode = {
     /** Apply current lock popup state to lockedValues and re-render preview. */
     _applyLockPopupState(stateOverride) {
         const state = stateOverride || PU.editorMode._lockPopupState;
-        if (!state) return;
+        if (!state || !state.staged) return;
         const lookup = PU.preview.getFullWildcardLookup();
-        const allVals = lookup[state.wcName] || [];
-        const current = state.currentChecked;
         const locked = PU.state.previewMode.lockedValues;
+        const sw = PU.state.previewMode.selectedWildcards;
+        if (!sw['*']) sw['*'] = {};
 
-        if (current.size === 0) {
-            locked[state.wcName] = [allVals[0]]; // Default to first value
-        } else {
-            locked[state.wcName] = [...current];
+        // Apply ALL staged wildcards
+        for (const [wcName, wcStaged] of Object.entries(state.staged)) {
+            const allVals = lookup[wcName] || [];
+            const current = wcStaged.currentChecked;
+
+            if (current.size === 0) {
+                locked[wcName] = [allVals[0]]; // Default to first value
+            } else {
+                locked[wcName] = [...current];
+            }
+
+            sw['*'][wcName] = locked[wcName][locked[wcName].length - 1];
         }
 
         // Reset show-more budgets — lock change invalidates allocation
         PU.state.previewMode.pathBudgets = {};
-
-        // Sync to selectedWildcards for preview
-        const sw = PU.state.previewMode.selectedWildcards;
-        if (!sw['*']) sw['*'] = {};
-        sw['*'][state.wcName] = locked[state.wcName][locked[state.wcName].length - 1];
 
         PU.editorMode.renderPreview();
         PU.editorMode.renderSidebarPreview();
         PU.rightPanel.renderOpsSection();
     },
 
-    /** Check if lock popup has unsaved changes. */
+    /** Check if any staged wildcard has unsaved changes. */
     _isLockPopupDirty() {
         const state = PU.editorMode._lockPopupState;
-        if (!state) return false;
-        const initial = state.initialChecked;
-        const current = state.currentChecked;
-        if (current.size !== initial.size) return true;
-        for (const v of current) {
-            if (!initial.has(v)) return true;
+        if (!state || !state.staged) return false;
+        for (const wcStaged of Object.values(state.staged)) {
+            const initial = wcStaged.initialChecked;
+            const current = wcStaged.currentChecked;
+            if (current.size !== initial.size) return true;
+            for (const v of current) {
+                if (!initial.has(v)) return true;
+            }
         }
         return false;
     },
@@ -1361,23 +1396,30 @@ PU.editorMode = {
 
     /**
      * Stage a chip toggle from the right panel.
-     * Creates/updates _lockPopupState so staging column shows the delta.
-     * If staging is active for a different wildcard, commits it first.
+     * Accumulates across wildcards into _lockPopupState.staged.
      */
     stageChipToggle(wcName, value) {
-        const state = PU.editorMode._lockPopupState;
-
-        // If staging active for a different wildcard, commit it first
-        if (state && state.wcName !== wcName) {
-            PU.editorMode.commitLockPopup();
-        }
-
         const lookup = PU.preview.getFullWildcardLookup();
         const allVals = lookup[wcName];
         if (!allVals || allVals.length === 0) return;
 
-        if (!PU.editorMode._lockPopupState || PU.editorMode._lockPopupState.wcName !== wcName) {
-            // Create new staging state for this wildcard
+        // Ensure staging state exists
+        if (!PU.editorMode._lockPopupState) {
+            PU.state.previewMode.previewCompositions = [];
+            PU.editorMode._lockPopupState = {
+                staged: {},
+                popupWc: null,
+                anchor: null,
+                blockPath: null,
+                inactiveShuffled: {},
+                shuffleIndex: 0
+            };
+        }
+
+        const state = PU.editorMode._lockPopupState;
+
+        // Ensure per-wildcard staging entry exists
+        if (!state.staged[wcName]) {
             const locked = PU.state.previewMode.lockedValues;
             const lockedVals = (locked[wcName] && locked[wcName].length > 0) ? locked[wcName] : null;
 
@@ -1388,20 +1430,15 @@ PU.editorMode = {
             const currentVal = allVals[currentIdx];
 
             const initialChecked = new Set(lockedVals ? lockedVals : [currentVal]);
-
-            PU.editorMode._lockPopupState = {
-                wcName,
+            state.staged[wcName] = {
                 initialChecked: new Set(initialChecked),
                 currentChecked: new Set(initialChecked),
-                currentVal,
-                anchor: null,
-                blockPath: null,
-                inactiveShuffled: {}
+                currentVal
             };
         }
 
         // Toggle the value in currentChecked
-        const current = PU.editorMode._lockPopupState.currentChecked;
+        const current = state.staged[wcName].currentChecked;
         if (current.has(value)) {
             current.delete(value);
         } else {
@@ -1415,12 +1452,9 @@ PU.editorMode = {
 
         // Sync lock popup checkboxes if open for the same wildcard
         const popup = document.querySelector('[data-testid="pu-lock-popup"]');
-        if (popup && popup.style.display !== 'none' &&
-            PU.editorMode._lockPopupState?.wcName === wcName) {
-            const lookup2 = PU.preview.getFullWildcardLookup();
+        if (popup && popup.style.display !== 'none' && state.popupWc === wcName) {
             PU.editorMode._renderLockPopupContent(
-                wcName, lookup2[wcName] || [],
-                PU.editorMode._lockPopupState.currentVal
+                wcName, allVals, state.staged[wcName].currentVal
             );
         }
     },
@@ -1433,7 +1467,7 @@ PU.editorMode = {
         const block = PU.editorMode._getBlockAtPath(
             PU.helpers.getActivePrompt()?.text || [], blockPath);
         if (!block || !block.content) return result;
-        const offset = PU.editorMode._lockPopupState?.shuffleIndex || 0;
+        const offset = PU.editorMode._lockPopupState?.shuffleIndex ?? 0;
         block.content.replace(/__([a-zA-Z0-9_-]+)__/g, (match, name) => {
             if (name !== wcName && !result[name]) {
                 const vals = lookup[name];
@@ -1453,15 +1487,14 @@ PU.editorMode = {
         return result;
     },
 
-    /** Reshuffle inactive wildcard values and re-render preview. */
     /** Step prev/next through different inactive wildcard combinations. */
     stepLockPopupPreview(delta) {
         const state = PU.editorMode._lockPopupState;
-        if (!state) return;
+        if (!state || !state.popupWc) return;
         state.shuffleIndex = (state.shuffleIndex || 0) + delta;
         const lookup = PU.preview.getFullWildcardLookup();
         state.inactiveShuffled = PU.editorMode._buildInactiveShuffled(
-            state.wcName, state.blockPath, lookup);
+            state.popupWc, state.blockPath, lookup);
         PU.editorMode._lockPopupUpdate();
     },
 

@@ -1153,9 +1153,24 @@ body {
 .pu-staging-existing {
     font-size: 10px;
     color: var(--pu-text-muted);
+    opacity: 0.5;
     padding: 2px 10px 2px 20px;
     font-style: italic;
     border-bottom: 1px dashed color-mix(in srgb, var(--pu-border) 60%, transparent);
+}
+.pu-staging-wc-pills {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+.pu-staging-wc-pill {
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--pu-accent) 15%, transparent);
+    color: var(--pu-accent);
+    font-family: var(--pu-font-mono);
+    white-space: nowrap;
 }
 .pu-staging-footer {
     border-top: 1px solid var(--pu-border);

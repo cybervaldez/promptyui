@@ -1002,24 +1002,44 @@ PU.compositions = {
     _renderStagingColumn(entries) {
         const esc = PU.blocks.escapeHtml;
         const state = PU.editorMode._lockPopupState;
-        const wcName = state ? state.wcName : '';
 
         // Compute composition totals (before/after) for header delta and footer
         const { wildcardCounts, extTextCount } = PU.shared.getCompositionParams();
         const locked = PU.state.previewMode.lockedValues || {};
         const origTotal = PU.shared.computeLockedTotal(wildcardCounts, extTextCount, locked);
         let newTotal = origTotal;
-        if (state) {
+        if (state && state.staged) {
             const hypothetical = { ...locked };
-            hypothetical[wcName] = [...state.currentChecked];
+            const lookup = PU.preview.getFullWildcardLookup();
+            for (const [wn, ws] of Object.entries(state.staged)) {
+                const wVals = lookup[wn] || [];
+                hypothetical[wn] = ws.currentChecked.size === 0 ? [wVals[0] || ''] : [...ws.currentChecked];
+            }
             newTotal = PU.shared.computeLockedTotal(wildcardCounts, extTextCount, hypothetical);
         }
         const compositionDelta = newTotal - origTotal;
 
-        // Header — delta uses composition total growth, not block-entry count
+        // Collect dirty wildcard names for header pills
+        const dirtyWcNames = [];
+        if (state && state.staged) {
+            for (const [wn, ws] of Object.entries(state.staged)) {
+                const initial = ws.initialChecked;
+                const current = ws.currentChecked;
+                const isDirty = current.size !== initial.size || [...current].some(v => !initial.has(v));
+                if (isDirty) dirtyWcNames.push(wn);
+            }
+        }
+
+        // Header — show pills for each dirty wildcard
         let html = `<div class="pu-staging-header" data-testid="pu-staging-header">`;
         html += `<span class="pu-staging-label">STAGING</span>`;
-        html += `<span class="pu-staging-wc-name">__${esc(wcName)}__</span>`;
+        if (dirtyWcNames.length > 0) {
+            html += `<span class="pu-staging-wc-pills">`;
+            for (const wn of dirtyWcNames) {
+                html += `<span class="pu-staging-wc-pill" data-testid="pu-staging-wc-pill-${esc(wn)}">__${esc(wn)}__</span>`;
+            }
+            html += `</span>`;
+        }
         const deltaText = compositionDelta > 0 ? `+${compositionDelta.toLocaleString()} new`
             : compositionDelta < 0 ? `${compositionDelta.toLocaleString()}` : 'no change';
         html += `<span class="pu-staging-delta" data-testid="pu-staging-delta">${deltaText}</span>`;
@@ -1135,10 +1155,10 @@ PU.compositions = {
 
             html += '</div></div>'; // header-row, group-sticky
 
-            // Existing items count
+            // Existing items count (subtle faded text)
             if (existingCount > 0) {
                 html += `<div class="pu-staging-existing" data-testid="pu-staging-existing-${esc(path)}">`;
-                html += `\u2026${existingCount.toLocaleString()} existing ${existingCount === 1 ? 'item' : 'items'}`;
+                html += `\u2026 ${existingCount.toLocaleString()} existing ${existingCount === 1 ? 'item' : 'items'} \u2026`;
                 html += `</div>`;
             }
 
